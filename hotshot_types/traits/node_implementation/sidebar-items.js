@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["NodeImplementation","NodeType","TestableNodeImplementation"],"type":["CommitteeMembership","CommitteeNetwork","CommitteeProposal","CommitteeVote","NetworkType","QuorumMembership","QuorumNetwork","QuorumProposal","QuorumVoteType"]};
+window.SIDEBAR_ITEMS = {"trait":["NodeImplementation","NodeType","TestableNodeImplementation"],"type":["CommitteeMembership","CommitteeNetwork","CommitteeProposal","CommitteeVote","NetworkType","QuorumMembership","QuorumNetwork","QuorumProposalType","QuorumVoteType"]};

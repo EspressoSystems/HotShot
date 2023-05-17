@@ -266,7 +266,7 @@
     traits::{
         network::NetworkMsg,
         node_implementation::{
-            CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
+            CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposalType,
             QuorumVoteType,
         },
         signature_key::EncodedSignature,
@@ -380,7 +380,7 @@
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>ProcessedConsensusMessage&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Leader&#39;s proposal for full Quorom voting
-    </span>Proposal(Proposal&lt;QuorumProposal&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
+    </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Proposal for data availability committee
     </span>DAProposal(Proposal&lt;CommitteeProposal&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Replica&#39;s vote on a proposal.
@@ -433,7 +433,7 @@
 </span><span class="doccomment">/// Messages related to the consensus protocol
 </span><span class="kw">pub enum </span>ConsensusMessage&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Leader&#39;s proposal for full quorum voting
-    </span>Proposal(Proposal&lt;QuorumProposal&lt;TYPES, I&gt;&gt;),
+    </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;),
 
     <span class="doccomment">/// Proposal for data availability committee
     </span>DAProposal(Proposal&lt;CommitteeProposal&lt;TYPES, I&gt;&gt;),

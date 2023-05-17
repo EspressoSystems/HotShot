@@ -514,11 +514,11 @@
 <span class="kw">use </span>hotshot_types::traits::state::State;
 
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, DAProposal, SequencingLeaf},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -572,7 +572,7 @@
     </span>I::QuorumExchange: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
-        Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+        Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
         Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
     &gt;,
     I::CommitteeExchange: ConsensusExchange&lt;
@@ -817,7 +817,7 @@
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,
-            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
             <span class="comment">// Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
         </span>&gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
     I::CommitteeExchange: ConsensusExchange&lt;
@@ -848,7 +848,7 @@
             </span>.quorum_exchange
             .sign_validating_or_commitment_proposal::&lt;I&gt;(<span class="kw-2">&amp;</span>leaf.commit());
         <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don&#39;t have to wait for it.
-        </span><span class="kw">let </span>proposal = CommitmentProposal {
+        </span><span class="kw">let </span>proposal = QuorumProposal {
             block_commitment,
             view_number: leaf.view_number,
             height: leaf.height,
@@ -863,7 +863,7 @@
         });
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
             </span>.api
-            .send_broadcast_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
+            .send_broadcast_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
                 message.clone(),
             )
             .<span class="kw">await
@@ -909,7 +909,7 @@
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,
-            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
             Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
             Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
             Commitment = SequencingLeaf&lt;TYPES&gt;,

@@ -615,7 +615,7 @@
 }
 
 <span class="doccomment">/// A proposal to append a new leaf to the log which is output by consensus.
-</span><span class="kw">pub type </span>QuorumProposal&lt;TYPES, I&gt; =
+</span><span class="kw">pub type </span>QuorumProposalType&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,

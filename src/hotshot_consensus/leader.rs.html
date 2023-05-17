@@ -221,7 +221,7 @@
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
@@ -403,7 +403,7 @@
 
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                 </span>.api
-                .send_broadcast_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
+                .send_broadcast_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
                     message.clone(),
                 )
                 .<span class="kw">await

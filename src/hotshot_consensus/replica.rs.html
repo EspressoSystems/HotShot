@@ -545,7 +545,7 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposalType};
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -784,7 +784,7 @@
                                 <span class="macro">info!</span>(<span class="string">&quot;Sending vote to next leader {:?}&quot;</span>, message);
                                 <span class="kw">if </span><span class="self">self
                                     </span>.api
-                                    .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader, message)
+                                    .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader, message)
                                     .<span class="kw">await
                                     </span>.is_err()
                                 {
@@ -833,7 +833,7 @@
                                         <span class="comment">// send timedout message to the next leader
                                         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                                             </span>.api
-                                            .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader.clone(), timeout_msg)
+                                            .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader.clone(), timeout_msg)
                                             .<span class="kw">await
                                         </span>{
                                             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);

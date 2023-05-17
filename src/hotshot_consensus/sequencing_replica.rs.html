@@ -617,13 +617,13 @@
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumProposal;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumProposalType;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumVoteType;
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::vote::DAVote;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, LeafType, SequencingLeaf},
+    data::{LeafType, QuorumProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -678,7 +678,7 @@
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,
-            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
             Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
             Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
             Commitment = SequencingLeaf&lt;TYPES&gt;,
@@ -905,7 +905,7 @@
                                     <span class="self">self</span>.quorum_exchange.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>);
                                 <span class="kw">if </span><span class="self">self
                                     </span>.api
-                                    .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(next_leader, message)
+                                    .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(next_leader, message)
                                     .<span class="kw">await
                                     </span>.is_err()
                                 {
@@ -957,7 +957,7 @@
                                         <span class="comment">// send timedout message to the next leader
                                         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                                             </span>.api
-                                            .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(next_leader.clone(), timed_out_msg)
                                             .<span class="kw">await
                                         </span>{
                                             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);

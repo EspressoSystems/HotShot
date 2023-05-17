@@ -1403,7 +1403,7 @@
 };
 <span class="kw">use </span>hotshot_types::certificate::DACertificate;
 
-<span class="kw">use </span>hotshot_types::data::CommitmentProposal;
+<span class="kw">use </span>hotshot_types::data::QuorumProposal;
 <span class="kw">use </span>hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf};
 <span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
@@ -2300,7 +2300,7 @@
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,
-            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
             Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
             Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
             Commitment = SequencingLeaf&lt;TYPES&gt;,
