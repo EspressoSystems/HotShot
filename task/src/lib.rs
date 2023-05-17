@@ -1,3 +1,4 @@
+#[allow(clippy::non_camel_case_types)]
 // Async tasks will be the building blocks for the run view refactor.
 // An async task should be spannable by some trigger. That could be some other task completing or some event coming from the network.
 //
@@ -9,14 +10,113 @@
 
 // The spawner of the task should be able to fire and forget the task if it makes sense.
 
+use async_stream::stream;
 use std::{
     marker::PhantomData,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
-    task::Waker,
+    task::{Waker, Context, Poll}, pin::Pin, ops::Deref,
 };
+// NOTE use pin_project here because we're already bring in procedural macros elsewhere
+// so there is no reason to use pin_project_lite
+use pin_project::pin_project;
+
+
+// NOTE: yoinked /from async-std
+// except this is executor agnostic (doesn't rely on async-std streamext/fuse)
+// TODO move this to async-compatibility-layer
+#[pin_project]
+/// Stream returned by the [`merge`](super::StreamExt::merge) method.
+pub struct Merge<T, U> {
+    #[pin]
+    a: Fuse<T>,
+    #[pin]
+    b: Fuse<U>,
+    // When `true`, poll `a` first, otherwise, `poll` b`.
+    a_first: bool,
+}
+
+impl<T, U> Merge<T, U> {
+    pub fn new(a: T, b: U) -> Merge<T, U>
+    where
+        T: Stream,
+        U: Stream,
+    {
+        Merge {
+            a: a.fuse(),
+            b: b.fuse(),
+            a_first: true,
+        }
+    }
+}
+
+impl<T, U> Stream for Merge<T, U>
+where
+    T: Stream,
+    U: Stream<Item = T::Item>,
+{
+    type Item = T::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T::Item>> {
+        let me = self.project();
+        let a_first = *me.a_first;
+
+        // Toggle the flag
+        *me.a_first = !a_first;
+
+        if a_first {
+            poll_next(me.a, me.b, cx)
+        } else {
+            poll_next(me.b, me.a, cx)
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (a_lower, a_upper) = self.a.size_hint();
+        let (b_lower, b_upper) = self.b.size_hint();
+
+        let upper = match (a_upper, b_upper) {
+            (Some(a_upper), Some(b_upper)) => Some(a_upper + b_upper),
+            _ => None,
+        };
+
+        (a_lower + b_lower, upper)
+    }
+}
+
+fn poll_next<T, U>(
+    first: Pin<&mut T>,
+    second: Pin<&mut U>,
+    cx: &mut Context<'_>,
+) -> Poll<Option<T::Item>>
+where
+    T: Stream,
+    U: Stream<Item = T::Item>,
+{
+    use Poll::*;
+
+    let mut done = true;
+
+    match first.poll_next(cx) {
+        Ready(Some(val)) => return Ready(Some(val)),
+        Ready(None) => {}
+        Pending => done = false,
+    }
+
+    match second.poll_next(cx) {
+        Ready(Some(val)) => return Ready(Some(val)),
+        Ready(None) => {}
+        Pending => done = false,
+    }
+
+    if done {
+        Ready(None)
+    } else {
+        Pending
+    }
+}
 
 use async_compatibility_layer::channel::{
     Sender, UnboundedReceiver, UnboundedSender, UnboundedStream,
@@ -25,17 +125,17 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use atomic_enum::atomic_enum;
 use either::Either;
-use futures::Stream;
+use futures::{Stream, Future, stream::Fuse, StreamExt};
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 
-pub trait Event: Clone + std::fmt::Debug + Sync + Send {}
+pub trait PassType: Clone + std::fmt::Debug + Sync + Send {}
 
 // async event stream
 #[async_trait]
-trait EventStream {
+pub trait EventStream : Clone {
     /// the type of event to process
-    type EventType: Event;
+    type EventType: PassType;
     /// the type of stream to use
     type StreamType: Stream<Item = Self::EventType>;
 
@@ -44,24 +144,22 @@ trait EventStream {
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
-    async fn subscribe(&self, filter: u64) -> Self::StreamType;
+    fn subscribe(&self, filter: FilterEvent<Self::EventType>) -> Self::StreamType;
 }
 
 /// the event stream. We want it to be cloneable
 #[derive(Clone)]
-pub struct ChannelEventStream<EVENT: Event> {
+pub struct ChannelEventStream<EVENT: PassType> {
     inner: Arc<ChannelEventStreamInner<EVENT>>,
 }
 
-pub struct FilterType<EVENT: Event>(Box<dyn Fn(&EVENT) -> bool>);
-
-pub struct ChannelEventStreamInner<EVENT: Event> {
+pub struct ChannelEventStreamInner<EVENT: PassType> {
     _pd: PhantomData<EVENT>, // TODO
                              // subscribers: Vec<(FilterType<EVENT>, UnboundedSender<EVENT>, UnboundedReceiver<EVENT>)>,
 }
 
 #[async_trait]
-impl<EVENT: Event> EventStream for ChannelEventStream<EVENT> {
+impl<EVENT: PassType> EventStream for ChannelEventStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
 
@@ -72,7 +170,7 @@ impl<EVENT: Event> EventStream for ChannelEventStream<EVENT> {
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
-    async fn subscribe(&self, filter: u64) -> Self::StreamType {
+    fn subscribe(&self, filter: FilterEvent<Self::EventType>) -> Self::StreamType {
         nll_todo()
     }
 }
@@ -81,20 +179,34 @@ impl<EVENT: Event> EventStream for ChannelEventStream<EVENT> {
 #[atomic_enum]
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HotShotTaskStatus {
+    /// the task hasn't started running
     NotStarted = 0,
+    /// the task is running
     Running = 1,
     /// NOTE: not useful generally, but VERY useful for byzantine nodes
     /// and testing malfunctions
     /// we'll have a granular way to, from the registry, stop a task momentarily
     Paused = 2,
+    /// the task completed
     Completed = 3,
 }
 
+pub trait TaskState: std::fmt::Debug {
+
+}
+
+// TODO refactor these types into a trait
+// use that trai everywhere
 // //Example EventStream impl
+#[pin_project]
 struct HotShotTask<
-    EVENT: Event,
-    STATE,
-    STREAM: EventStream<EventType = EVENT>, /* , MESSAGE: Clone + Sync + Send */
+    // optional generic. Not always used
+    EVENT: PassType,
+    STATE: TaskState,
+    EVENT_STREAM: EventStream<EventType = EVENT>,
+    // optional generic. Not always used
+    MSG: PassType,
+    MSG_STREAM : Stream<Item = MSG>
 > {
     /// name of task
     name: String,
@@ -103,41 +215,82 @@ struct HotShotTask<
     /// function to shut down the task
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
-    // TODO remove
-    _pd: PhantomData<(EVENT, STREAM, STATE)>,
     /// internal event stream
-    shared_stream: Option<STREAM>,
+    shared_stream: Option<EVENT_STREAM>,
+    /// shared stream
+    #[pin]
+    event_stream: Option<Fuse<EVENT_STREAM::StreamType>>,
+    /// stream of messages
+    #[pin]
+    message_stream: Option<Fuse<MSG_STREAM>>,
     /// state
     state: STATE,
     /// handler for events
     handle_event: Option<HandleEvent<EVENT, STATE>>,
     /// handler for messages
-    handle_message: Option<HandleMessage<STATE>>,
+    handle_message: Option<HandleMessage<STATE, MSG>>,
     /// handler for filtering events (to use with stream)
     filter_event: Option<FilterEvent<EVENT>>,
 }
 
-pub enum HotShotTaskHandler<EVENT, STATE> {
+/// convenience launcher for tasks
+pub struct TaskLauncher<
+    const N: usize,
+    EVENT: PassType,
+    STATE: TaskState,
+    STREAM: EventStream<EventType = EVENT>,
+    // optional generic. Not always used
+    MSG: PassType,
+    MSG_STREAM: Stream<Item = MSG>,
+> {
+    tasks: [HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>; N],
+}
+
+pub enum HotShotTaskHandler<EVENT: PassType, STATE, MSG: PassType> {
     HandleEvent(HandleEvent<EVENT, STATE>),
-    HandleMessage(HandleMessage<STATE>),
+    HandleMessage(HandleMessage<STATE, MSG>),
     FilterEvent(FilterEvent<EVENT>),
 }
 
 /// event handler
 pub struct HandleEvent<EVENT, STATE>(Box<dyn Fn(EVENT, &mut STATE) -> bool>);
+impl<EVENT, STATE> Deref for HandleEvent<EVENT, STATE> {
+    type Target = dyn Fn(EVENT, &mut STATE) -> bool;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
 
 /// TODO hardcode? or generic?
 pub struct Message;
 
-pub struct HandleMessage<STATE>(Box<dyn Fn(&mut STATE, Message) -> bool>);
+pub struct HandleMessage<STATE, MSG: PassType>(Box<dyn Fn(&mut STATE, MSG) -> bool>);
+impl<STATE, MSG: PassType> Deref for HandleMessage<STATE, MSG> {
+    type Target = dyn Fn(&mut STATE, MSG) -> bool;
 
-pub struct FilterEvent<EVENT>(Box<dyn Fn(EVENT) -> bool>);
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
 
-impl<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>>
-    HotShotTask<EVENT, STATE, STREAM>
+/// arc for `Clone`
+#[derive(Clone)]
+pub struct FilterEvent<EVENT: PassType>(Arc<dyn Fn(EVENT) -> bool>);
+
+impl<EVENT: PassType> Default for FilterEvent<EVENT> {
+    fn default() -> Self {
+        Self(Arc::new(
+            |_| true
+        ))
+    }
+}
+
+impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>>
+    HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>
 {
     /// register a handler with the task
-    pub fn register_handler(mut self, handler: HotShotTaskHandler<EVENT, STATE>) -> Self {
+    pub fn register_handler(mut self, handler: HotShotTaskHandler<EVENT, STATE, MSG>) -> Self {
         match handler {
             HotShotTaskHandler::HandleEvent(handler) => Self {
                 handle_event: Some(handler),
@@ -165,22 +318,98 @@ impl<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>>
     pub fn new(state: STATE, name: String) -> Self {
         Self {
             status: HotShotTaskStatus::NotStarted.into(),
-            _pd: PhantomData,
             shared_stream: None,
+            event_stream: None,
             state,
             handle_event: None,
             handle_message: None,
             filter_event: None,
             shutdown_fn: None,
+            message_stream: None,
             name,
         }
     }
+}
 
-    /// fire and forget the task.
-    pub fn register_and_run(mut self) {
-        /// register with the registry
-        let running: bool = true;
-        loop {}
+pub enum HotShotTaskCompleted {
+    ShutDown,
+    // TODO this needs to contain error variants but this creates a circular dependency on crates.
+    // Maybe this should be a generic?
+    Error,
+    StreamsDied
+}
+
+impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> Future for HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM> {
+    type Output = HotShotTaskCompleted;
+
+    fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        // TODO move to constructor
+        // let filter = self.filter_event.clone().unwrap_or_default();
+
+        // useful if we ever need to use self later.
+        // this doesn't consume the reference
+        let mut projected = self.as_mut().project();
+
+        match projected.status.load(Ordering::Relaxed) {
+            /// never make any progress on not started
+            HotShotTaskStatus::NotStarted => {
+                return Poll::Pending;
+            },
+            HotShotTaskStatus::Running => {},
+            HotShotTaskStatus::Paused => {
+                return Poll::Pending;
+            },
+            HotShotTaskStatus::Completed => {
+                return Poll::Ready(HotShotTaskCompleted::ShutDown);
+            }
+            _ => ()
+
+        }
+
+
+        let event_stream = projected.event_stream.as_pin_mut();
+
+        let message_stream = projected.message_stream.as_pin_mut();
+
+        let mut event_stream_finished = false;
+        let mut message_stream_finished = false;
+
+        if let Some(shared_stream) = event_stream {
+            match shared_stream.poll_next(cx) {
+                Poll::Ready(maybe_event) => {
+                    match maybe_event {
+                        Some(event) => {
+                            if let Some(handle_event) = projected.handle_event {
+                                handle_event(event, &mut projected.state);
+                            }
+                        },
+                        None => {event_stream_finished = true;}
+                    }
+                },
+                Poll::Pending => ()
+            }
+        }
+
+        if let Some(message_stream) = message_stream {
+            match message_stream.poll_next(cx) {
+                Poll::Ready(maybe_msg) => {
+                    match maybe_msg {
+                        Some(msg) => {
+                            if let Some(handle_msg) = projected.handle_message {
+                                handle_msg(projected.state, msg);
+                            }
+                        },
+                        None => {message_stream_finished = true;}
+                    }
+                },
+                Poll::Pending => {}
+            }
+        }
+        if message_stream_finished && event_stream_finished {
+            return Poll::Ready(HotShotTaskCompleted::StreamsDied)
+        }
+
+        Poll::Pending
     }
 }
 
