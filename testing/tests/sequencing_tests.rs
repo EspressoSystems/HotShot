@@ -70,7 +70,7 @@ type StaticDAComm = MemoryCommChannel<
 type StaticQuroumComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -131,7 +131,7 @@ type StaticDACommP2p = Libp2pCommChannel<
 type StaticQuroumCommP2p = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibP2PImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -192,7 +192,7 @@ type StaticDACommCentral = CentralizedCommChannel<
 type StaticQuroumCommCentral = CentralizedCommChannel<
     SequencingTestTypes,
     SequencingCentralImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;

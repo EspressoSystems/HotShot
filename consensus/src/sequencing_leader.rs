@@ -372,7 +372,7 @@ where
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-        let proposal = CommitmentProposal {
+        let proposal = QuorumProposal {
             block_commitment,
             view_number: leaf.view_number,
             height: leaf.height,

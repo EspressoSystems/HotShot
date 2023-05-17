@@ -142,7 +142,7 @@ pub struct DAProposal<TYPES: NodeType> {
 /// A proposal to append a new block commitment to the log.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The commitment to append.
     pub block_commitment: Commitment<TYPES::BlockType>,
 
@@ -179,7 +179,7 @@ impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
-    for CommitmentProposal<TYPES, LEAF>
+    for QuorumProposal<TYPES, LEAF>
 {
     type NodeType = TYPES;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {

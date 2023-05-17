@@ -482,7 +482,6 @@ where
     }
 }
 
-#[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
