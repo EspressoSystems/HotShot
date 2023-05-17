@@ -248,7 +248,7 @@ where
 }
 
 /// A proposal to append a new leaf to the log which is output by consensus.
-pub type QuorumProposal<TYPES, I> =
+pub type QuorumProposalType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
