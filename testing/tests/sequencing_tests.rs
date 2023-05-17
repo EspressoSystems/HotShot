@@ -13,7 +13,7 @@ use hotshot::{
     },
 };
 use hotshot_testing::test_builder::TestBuilder;
-use hotshot_types::data::CommitmentProposal;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
@@ -84,7 +84,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumComm,
             Message<SequencingTestTypes, Self>,
@@ -145,7 +145,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumCommP2p,
             Message<SequencingTestTypes, Self>,
@@ -206,7 +206,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumCommCentral,
             Message<SequencingTestTypes, Self>,

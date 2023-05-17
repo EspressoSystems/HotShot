@@ -20,7 +20,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, LeafType, SequencingLeaf},
+    data::{LeafType, QuorumProposal, SequencingLeaf},
     message::{
         ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
@@ -88,7 +88,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,

@@ -22,7 +22,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, DAProposal, SequencingLeaf},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -349,7 +349,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
     >,
 {
     /// Run one view of the DA leader task
@@ -450,7 +450,7 @@ where
         Commitment = SequencingLeaf<TYPES>,
     >,
 {
-    /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
+    /// Run one view of the next leader, collect votes and build a QC for the last views `QuorumProposal`
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std

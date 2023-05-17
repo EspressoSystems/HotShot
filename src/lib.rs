@@ -56,7 +56,7 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks,
     SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::CommitmentProposal;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
@@ -836,7 +836,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -1362,7 +1362,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
