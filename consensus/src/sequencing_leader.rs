@@ -23,7 +23,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, DAProposal, SequencingLeaf},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,

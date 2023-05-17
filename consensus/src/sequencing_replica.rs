@@ -21,7 +21,7 @@ use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, LeafType, SequencingLeaf},
+    data::{LeafType, QuorumProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
