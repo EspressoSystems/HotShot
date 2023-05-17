@@ -23,7 +23,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, DAProposal, SequencingLeaf},
+    data::{QuorumProposal, DAProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -77,7 +77,7 @@ where
     I::QuorumExchange: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = CommitmentProposal<TYPES, I::Leaf>,
+        Proposal = QuorumProposal<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
     I::CommitteeExchange: ConsensusExchange<
@@ -322,7 +322,7 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            Proposal = QuorumProposal<TYPES, I::Leaf>,
             // Vote = QuorumVote<TYPES, I::Leaf>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::CommitteeExchange: ConsensusExchange<
@@ -353,7 +353,7 @@ where
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-        let proposal = CommitmentProposal {
+        let proposal = QuorumProposal {
             block_commitment,
             view_number: leaf.view_number,
             height: leaf.height,
@@ -414,7 +414,7 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            Proposal = QuorumProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
             Commitment = SequencingLeaf<TYPES>,
