@@ -342,7 +342,7 @@ impl<
 
 /// hot shot task
 #[pin_project]
-struct HotShotTask<HST: HotShotTaskTypes> {
+pub struct HotShotTask<HST: HotShotTaskTypes> {
     /// name of task
     name: String,
     /// state of the task
@@ -350,8 +350,6 @@ struct HotShotTask<HST: HotShotTaskTypes> {
     /// function to shut down the task
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
-    /// internal event stream
-    shared_stream: Option<HST::EventStream>,
     /// shared stream
     #[pin]
     event_stream: Option<Fuse<<HST::EventStream as EventStream>::StreamType>>,
@@ -382,6 +380,7 @@ pub enum HotShotTaskHandler<HST: HotShotTaskTypes> {
     HandleEvent(HandleEvent<HST>),
     HandleMessage(HandleMessage<HST>),
     FilterEvent(FilterEvent<HST::Event>),
+    Shutdown(ShutdownFn),
 }
 
 /// event handler
@@ -440,21 +439,44 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
                 filter_event: Some(handler),
                 ..self
             },
+            HotShotTaskHandler::Shutdown(handler) => Self {
+                shutdown_fn: Some(handler),
+                ..self
+            }
         }
     }
 
-    pub fn with_event_stream(self, stream: HST::EventStream) -> Self {
+    pub async fn with_event_stream(self, stream: HST::EventStream, filter: FilterEvent<HST::Event>) -> Self {
+        // TODO perhaps GC the event stream
         Self {
-            shared_stream: Some(stream),
+            event_stream: Some(stream.subscribe(filter).await.0.fuse()),
             ..self
         }
+    }
+
+    pub async fn with_message_stream(self, stream: HST::MessageStream) -> Self {
+        Self {
+            message_stream: Some(stream.fuse()),
+            ..self
+        }
+    }
+
+    pub async fn with_state(self, state: HST::State) -> Self {
+        Self { state, ..self }
+    }
+
+    pub async fn register_with_registry(self, registry: &mut GlobalRegistry) -> (Self, HotShotTaskId) {
+        let (shutdown_fn, id) = Some(registry.register(&self.name).await);
+        (Self {
+            shutdown_fn,
+            ..self
+        }, id)
     }
 
     /// create a new task
     pub fn new(state: HST::State, name: String) -> Self {
         Self {
             status: HotShotTaskStatus::NotStarted.into(),
-            shared_stream: None,
             event_stream: None,
             state,
             handle_event: None,
@@ -465,18 +487,23 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
             name,
         }
     }
+
+    pub async fn launch(self) -> HotShotTaskCompleted<HST> {
+        self.await
+    }
 }
 
-pub enum HotShotTaskCompleted {
+pub enum HotShotTaskCompleted<HST: HotShotTaskTypes> {
     ShutDown,
     // TODO this needs to contain error variants but this creates a circular dependency on crates.
     // Maybe this should be a generic?
     Error,
     StreamsDied,
+    Paused(HotShotTask<HST>),
 }
 
 impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
-    type Output = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted<HST>;
 
     fn poll(
         mut self: std::pin::Pin<&mut Self>,
@@ -496,11 +523,20 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
             }
             HotShotTaskStatus::Running => {}
             HotShotTaskStatus::Paused => {
-                // FIXME this is currently broken
-                // TODO add issue about this. Not worth fixing right now
-                // we need to pass the waker to the global registry
-                // such that the global registry can wake us up when it unpauses itself
-                return Poll::Pending;
+                return Poll::Ready(HotShotTaskCompleted::Paused(
+                        HotShotTask {
+                            name: projected.name.clone(),
+                            status: self.status,
+                            shutdown_fn: ,
+                            event_stream: todo!(),
+                            message_stream: todo!(),
+                            state: todo!(),
+                            handle_event: todo!(),
+                            handle_message: todo!(),
+                            filter_event: todo!(),
+
+                        }
+                    ));
             }
             HotShotTaskStatus::Completed => {
                 return Poll::Ready(HotShotTaskCompleted::ShutDown);
@@ -554,6 +590,14 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
 }
 
 pub struct ShutdownFn(Box<dyn Fn()>);
+
+impl Deref for ShutdownFn {
+    type Target = dyn Fn();
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
 /// id of task. Usize instead of u64 because
 /// used for primarily for indexing
 pub type HotShotTaskId = usize;
@@ -586,14 +630,14 @@ impl GlobalRegistry {
         }
     }
 
-    /// register with the garbage collector
+    /// register with the global registry
     /// return a function to the caller (task) that can be used to deregister
     /// returns a function to call to shut down the task
     /// and the unique identifier of the task
-    pub async fn register(&mut self, name: String) -> (ShutdownFn, HotShotTaskId) {
+    pub async fn register(&mut self, name: &str) -> (ShutdownFn, HotShotTaskId) {
         let mut list = self.status_list.write().await;
         let next_id = list.len();
-        let new_entry = (HotShotTaskState::new(), name);
+        let new_entry = (HotShotTaskState::new(), name.to_string());
         let new_entry_dup = new_entry.0.clone();
         list.push(new_entry);
 
