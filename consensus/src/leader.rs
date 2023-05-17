@@ -10,7 +10,7 @@ use commit::Committable;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -192,7 +192,7 @@ where
 
             if let Err(e) = self
                 .api
-                .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                     message.clone(),
                 )
                 .await
