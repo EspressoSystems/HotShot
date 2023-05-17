@@ -346,7 +346,8 @@ pub struct HotShotTask<HST: HotShotTaskTypes> {
     /// name of task
     name: String,
     /// state of the task
-    status: AtomicHotShotTaskStatus,
+    #[pin]
+    status: HotShotTaskState,
     /// function to shut down the task
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
@@ -448,6 +449,7 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
 
     pub async fn with_event_stream(self, stream: HST::EventStream, filter: FilterEvent<HST::Event>) -> Self {
         // TODO perhaps GC the event stream
+        // (unsunscribe)
         Self {
             event_stream: Some(stream.subscribe(filter).await.0.fuse()),
             ..self
@@ -466,9 +468,9 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     pub async fn register_with_registry(self, registry: &mut GlobalRegistry) -> (Self, HotShotTaskId) {
-        let (shutdown_fn, id) = Some(registry.register(&self.name).await);
+        let (shutdown_fn, id) = registry.register(&self.name, self.status.clone()).await;
         (Self {
-            shutdown_fn,
+            shutdown_fn: Some(shutdown_fn),
             ..self
         }, id)
     }
@@ -476,7 +478,7 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     /// create a new task
     pub fn new(state: HST::State, name: String) -> Self {
         Self {
-            status: HotShotTaskStatus::NotStarted.into(),
+            status: HotShotTaskState::new(),
             event_stream: None,
             state,
             handle_event: None,
@@ -502,6 +504,8 @@ pub enum HotShotTaskCompleted<HST: HotShotTaskTypes> {
     Paused(HotShotTask<HST>),
 }
 
+// TODO make this a stream instead of a poll
+// This way, we can error out the task, but gracefully restart it
 impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
     type Output = HotShotTaskCompleted<HST>;
 
@@ -509,38 +513,24 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        // TODO move to constructor
-        // let filter = self.filter_event.clone().unwrap_or_default();
-
         // useful if we ever need to use self later.
         // this doesn't consume the reference
         let mut projected = self.as_mut().project();
 
-        match projected.status.load(Ordering::Relaxed) {
-            // never make any progress on not started
-            HotShotTaskStatus::NotStarted => {
-                return Poll::Pending;
-            }
-            HotShotTaskStatus::Running => {}
-            HotShotTaskStatus::Paused => {
-                return Poll::Ready(HotShotTaskCompleted::Paused(
-                        HotShotTask {
-                            name: projected.name.clone(),
-                            status: self.status,
-                            shutdown_fn: ,
-                            event_stream: todo!(),
-                            message_stream: todo!(),
-                            state: todo!(),
-                            handle_event: todo!(),
-                            handle_message: todo!(),
-                            filter_event: todo!(),
-
-                        }
-                    ));
-            }
-            HotShotTaskStatus::Completed => {
-                return Poll::Ready(HotShotTaskCompleted::ShutDown);
-            }
+        match projected.status.poll_next(cx) {
+            Poll::Ready(Some(state_change)) => {
+                match state_change{
+                    HotShotTaskStatus::NotStarted | HotShotTaskStatus::Paused => {
+                        return Poll::Pending;
+                    }
+                    HotShotTaskStatus::Running => {}
+                    HotShotTaskStatus::Completed => {
+                        return Poll::Ready(HotShotTaskCompleted::ShutDown);
+                    }
+                }
+            },
+            Poll::Ready(None) => unreachable!(),
+            Poll::Pending => todo!(),
         }
 
         let event_stream = projected.event_stream.as_pin_mut();
@@ -634,10 +624,10 @@ impl GlobalRegistry {
     /// return a function to the caller (task) that can be used to deregister
     /// returns a function to call to shut down the task
     /// and the unique identifier of the task
-    pub async fn register(&mut self, name: &str) -> (ShutdownFn, HotShotTaskId) {
+    pub async fn register(&mut self, name: &str, status: HotShotTaskState) -> (ShutdownFn, HotShotTaskId) {
         let mut list = self.status_list.write().await;
         let next_id = list.len();
-        let new_entry = (HotShotTaskState::new(), name.to_string());
+        let new_entry = (status.clone(), name.to_string());
         let new_entry_dup = new_entry.0.clone();
         list.push(new_entry);
 
@@ -711,6 +701,8 @@ impl GlobalRegistry {
 
     /// if the `uid` is registered with the global registry
     /// return its task status
+    /// this is a way to subscribe to state changes from the taskstatus
+    /// since HotShotTaskStatus implements stream
     pub async fn get_task_state(&mut self, uid: HotShotTaskId) -> Option<HotShotTaskStatus> {
         let modifier = Modifier(Box::new(|state| Either::Left(state.get_status())));
         match self.operate_on_task(uid, modifier).await {
@@ -745,6 +737,8 @@ pub struct HotShotTaskState {
     next: Arc<AtomicHotShotTaskStatus>,
     /// using `std::sync::mutex` here because it's faster than async's version
     wakers: Arc<Mutex<Vec<Waker>>>,
+    // task waker
+    // task_waker: Option<Waker>
 }
 
 impl std::fmt::Debug for HotShotTaskState {
@@ -762,11 +756,22 @@ impl HotShotTaskState {
             prev: Arc::new(HotShotTaskStatus::NotStarted.into()),
             next: Arc::new(HotShotTaskStatus::NotStarted.into()),
             wakers: Arc::default(),
+            // task_waker: None
         }
     }
+
+    pub fn from_status(state: Arc<AtomicHotShotTaskStatus>) -> Self {
+        let prev_state = AtomicHotShotTaskStatus::new(state.load(Ordering::SeqCst));
+        Self {
+            prev: Arc::new(prev_state),
+            next: state,
+            wakers: Arc::default(),
+        }
+    }
+
     /// sets the state
     pub fn set_state(&self, state: HotShotTaskStatus) {
-        self.next.swap(state, Ordering::Relaxed);
+        self.next.swap(state, Ordering::SeqCst);
         // no panics, so can never be poisoned.
         let mut wakers = self.wakers.lock().unwrap();
 
@@ -777,7 +782,7 @@ impl HotShotTaskState {
     }
     /// gets a possibly stale version of the state
     pub fn get_status(&self) -> HotShotTaskStatus {
-        self.next.load(Ordering::Relaxed)
+        self.next.load(Ordering::SeqCst)
     }
 }
 
@@ -788,8 +793,8 @@ impl Stream for HotShotTaskState {
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        let next = self.next.load(Ordering::Relaxed);
-        let prev = self.prev.swap(next, Ordering::Relaxed);
+        let next = self.next.load(Ordering::SeqCst);
+        let prev = self.prev.swap(next, Ordering::SeqCst);
         // a new value has been set
         if prev != next {
             std::task::Poll::Ready(Some(next))
