@@ -130,6 +130,33 @@ use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 
 pub trait PassType: Clone + std::fmt::Debug + Sync + Send {}
+impl PassType for () {}
+
+#[derive(Clone)]
+pub struct DummyStream;
+
+impl Stream for DummyStream {
+    type Item = ();
+
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Poll::Ready(None)
+    }
+}
+
+#[async_trait]
+impl EventStream for DummyStream {
+    type EventType = ();
+
+    type StreamType = DummyStream;
+
+    async fn publish(&self, _event: Self::EventType) {
+
+    }
+
+    fn subscribe(&self, _filter:FilterEvent<Self::EventType>) -> Self::StreamType {
+        DummyStream
+    }
+}
 
 // async event stream
 #[async_trait]
@@ -191,22 +218,68 @@ pub enum HotShotTaskStatus {
     Completed = 3,
 }
 
-pub trait TaskState: std::fmt::Debug {
+pub trait TaskState: std::fmt::Debug { }
 
+pub trait HotShotTaskTypes {
+    type Event: PassType;
+    type State: TaskState;
+    type EventStream: EventStream<EventType = Self::Event>;
+    type Message: PassType;
+    type MessageStream : Stream<Item = Self::Message>;
 }
 
-// TODO refactor these types into a trait
-// use that trai everywhere
-// //Example EventStream impl
+pub struct HST<STATE: TaskState> {
+    _pd: PhantomData<STATE>
+}
+
+impl<STATE: TaskState> HotShotTaskTypes for HST<STATE> {
+    type Event = ();
+    type State = STATE;
+    type EventStream = DummyStream;
+    type Message = ();
+    type MessageStream = DummyStream;
+}
+
+pub struct HSTWithEvent<STATE: TaskState, EVENT: PassType, EVENT_STREAM: EventStream<EventType = EVENT>> {
+    _pd: PhantomData<(STATE, EVENT, EVENT_STREAM)>
+}
+
+impl<STATE: TaskState, EVENT: PassType, EVENT_STREAM: EventStream<EventType = EVENT>> HotShotTaskTypes for HSTWithEvent<STATE, EVENT, EVENT_STREAM> {
+    type Event = EVENT;
+    type State = STATE;
+    type EventStream = EVENT_STREAM;
+    type Message = ();
+    type MessageStream = DummyStream;
+}
+
+pub struct HSTWithMessage<STATE: TaskState, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> {
+    _pd: PhantomData<(STATE, MSG, MSG_STREAM)>
+}
+
+impl<STATE: TaskState, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> HotShotTaskTypes for HSTWithMessage<STATE, MSG, MSG_STREAM> {
+    type Event = ();
+    type State = STATE;
+    type EventStream = DummyStream;
+    type Message = MSG;
+    type MessageStream = MSG_STREAM;
+}
+
+pub struct HSTWithEventAndMessage<STATE: TaskState, EVENT: PassType, EVENT_STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> {
+    _pd: PhantomData<(STATE, EVENT, EVENT_STREAM, MSG, MSG_STREAM)>
+}
+
+impl<STATE: TaskState, EVENT: PassType, EVENT_STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> HotShotTaskTypes for HSTWithEventAndMessage<STATE, EVENT, EVENT_STREAM, MSG, MSG_STREAM> {
+    type Event = ();
+    type State = STATE;
+    type EventStream = DummyStream;
+    type Message = MSG;
+    type MessageStream = MSG_STREAM;
+}
+
+/// hot shot task
 #[pin_project]
 struct HotShotTask<
-    // optional generic. Not always used
-    EVENT: PassType,
-    STATE: TaskState,
-    EVENT_STREAM: EventStream<EventType = EVENT>,
-    // optional generic. Not always used
-    MSG: PassType,
-    MSG_STREAM : Stream<Item = MSG>
+    HST: HotShotTaskTypes
 > {
     /// name of task
     name: String,
@@ -216,46 +289,41 @@ struct HotShotTask<
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
     /// internal event stream
-    shared_stream: Option<EVENT_STREAM>,
+    shared_stream: Option<HST::EventStream>,
     /// shared stream
     #[pin]
-    event_stream: Option<Fuse<EVENT_STREAM::StreamType>>,
+    event_stream: Option<Fuse<<HST::EventStream as EventStream>::StreamType>>,
     /// stream of messages
     #[pin]
-    message_stream: Option<Fuse<MSG_STREAM>>,
+    message_stream: Option<Fuse<HST::MessageStream>>,
     /// state
-    state: STATE,
+    state: HST::State,
     /// handler for events
-    handle_event: Option<HandleEvent<EVENT, STATE>>,
+    handle_event: Option<HandleEvent<HST>>,
     /// handler for messages
-    handle_message: Option<HandleMessage<STATE, MSG>>,
+    handle_message: Option<HandleMessage<HST>>,
     /// handler for filtering events (to use with stream)
-    filter_event: Option<FilterEvent<EVENT>>,
+    filter_event: Option<FilterEvent<HST::Event>>,
 }
 
 /// convenience launcher for tasks
-pub struct TaskLauncher<
-    const N: usize,
-    EVENT: PassType,
-    STATE: TaskState,
-    STREAM: EventStream<EventType = EVENT>,
-    // optional generic. Not always used
-    MSG: PassType,
-    MSG_STREAM: Stream<Item = MSG>,
-> {
-    tasks: [HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>; N],
-}
+// pub struct TaskLauncher<
+//     const N: usize,
+//     HST: HotS
+// > {
+//     tasks: [HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>; N],
+// }
 
-pub enum HotShotTaskHandler<EVENT: PassType, STATE, MSG: PassType> {
-    HandleEvent(HandleEvent<EVENT, STATE>),
-    HandleMessage(HandleMessage<STATE, MSG>),
-    FilterEvent(FilterEvent<EVENT>),
+pub enum HotShotTaskHandler<HST: HotShotTaskTypes> {
+    HandleEvent(HandleEvent<HST>),
+    HandleMessage(HandleMessage<HST>),
+    FilterEvent(FilterEvent<HST::Event>),
 }
 
 /// event handler
-pub struct HandleEvent<EVENT, STATE>(Box<dyn Fn(EVENT, &mut STATE) -> bool>);
-impl<EVENT, STATE> Deref for HandleEvent<EVENT, STATE> {
-    type Target = dyn Fn(EVENT, &mut STATE) -> bool;
+pub struct HandleEvent<HST: HotShotTaskTypes>(Box<dyn Fn(HST::Event, &mut HST::State) -> bool>);
+impl<HST: HotShotTaskTypes> Deref for HandleEvent<HST> {
+    type Target = dyn Fn(HST::Event, &mut HST::State) -> bool;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -265,9 +333,9 @@ impl<EVENT, STATE> Deref for HandleEvent<EVENT, STATE> {
 /// TODO hardcode? or generic?
 pub struct Message;
 
-pub struct HandleMessage<STATE, MSG: PassType>(Box<dyn Fn(&mut STATE, MSG) -> bool>);
-impl<STATE, MSG: PassType> Deref for HandleMessage<STATE, MSG> {
-    type Target = dyn Fn(&mut STATE, MSG) -> bool;
+pub struct HandleMessage<HST: HotShotTaskTypes>(Box<dyn Fn(&mut HST::State, HST::Message) -> bool>);
+impl<HST: HotShotTaskTypes> Deref for HandleMessage<HST> {
+    type Target = dyn Fn(&mut HST::State, HST::Message) -> bool;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -286,11 +354,11 @@ impl<EVENT: PassType> Default for FilterEvent<EVENT> {
     }
 }
 
-impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>>
-    HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>
+impl<HST: HotShotTaskTypes>
+    HotShotTask<HST>
 {
     /// register a handler with the task
-    pub fn register_handler(mut self, handler: HotShotTaskHandler<EVENT, STATE, MSG>) -> Self {
+    pub fn register_handler(mut self, handler: HotShotTaskHandler<HST>) -> Self {
         match handler {
             HotShotTaskHandler::HandleEvent(handler) => Self {
                 handle_event: Some(handler),
@@ -307,7 +375,7 @@ impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, 
         }
     }
 
-    pub fn with_stream(self, stream: STREAM) -> Self {
+    pub fn with_event_stream(self, stream: HST::EventStream) -> Self {
         Self {
             shared_stream: Some(stream),
             ..self
@@ -315,7 +383,7 @@ impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, 
     }
 
     /// create a new task
-    pub fn new(state: STATE, name: String) -> Self {
+    pub fn new(state: HST::State, name: String) -> Self {
         Self {
             status: HotShotTaskStatus::NotStarted.into(),
             shared_stream: None,
@@ -339,7 +407,7 @@ pub enum HotShotTaskCompleted {
     StreamsDied
 }
 
-impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> Future for HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM> {
+impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
     type Output = HotShotTaskCompleted;
 
     fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
@@ -351,21 +419,22 @@ impl<EVENT: PassType, STATE: TaskState, STREAM: EventStream<EventType = EVENT>, 
         let mut projected = self.as_mut().project();
 
         match projected.status.load(Ordering::Relaxed) {
-            /// never make any progress on not started
+            // never make any progress on not started
             HotShotTaskStatus::NotStarted => {
                 return Poll::Pending;
             },
             HotShotTaskStatus::Running => {},
             HotShotTaskStatus::Paused => {
+                // FIXME this is currently broken
+                // TODO add issue about this. Not worth fixing right now
+                // we need to pass the waker to the global registry
+                // such that the global registry can wake us up when it unpauses itself
                 return Poll::Pending;
             },
             HotShotTaskStatus::Completed => {
                 return Poll::Ready(HotShotTaskCompleted::ShutDown);
             }
-            _ => ()
-
         }
-
 
         let event_stream = projected.event_stream.as_pin_mut();
 
