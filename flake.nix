@@ -102,7 +102,7 @@
 
           src = cargo-careful;
 
-          cargoSha256 = "sha256-ts1tMsYUcPY+vvFkNZ/v7EAD+Wu25YZU/T6ZLy2+dfo=";
+          cargoSha256 = "sha256-mRfJwNzx0kcW1By6Yt0EijYujtq5KawaWiaPy1cubVs=";
 
           meta = {
             description = "A cargo undefined behaviour checker";
