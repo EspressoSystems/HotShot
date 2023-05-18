@@ -138,11 +138,18 @@ where
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
+        let mut da_keys = BTreeSet::new();
 
         for i in 0u64..(expected_node_count as u64) {
             let privkey = TYPES::SignatureKey::generate_test_key(i);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             all_keys.insert(pubkey);
+        }
+
+        for i in 0u64..(da_committee_size as u64) {
+            let privkey = TYPES::SignatureKey::generate_test_key(i);
+            let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            da_keys.insert(pubkey);
         }
 
         // NOTE uncomment this for easier debugging
@@ -213,7 +220,7 @@ where
                 });
                 /// TODO configure the network.
                 let da_topic = "DA".to_string();
-                network.add_topic(&da_topic, all_keys.clone());
+                network.add_topic(&da_topic, da_keys.clone());
                 network
             }
         })

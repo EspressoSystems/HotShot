@@ -54,6 +54,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
+        let da_committee_nodes = (0..da_committee_size)
+            .map(|id| {
+                let priv_key = I::generate_test_key(id as u64);
+                TYPES::SignatureKey::from_private(&priv_key)
+            })
+            .collect();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -61,6 +67,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
+            da_committee_nodes,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,

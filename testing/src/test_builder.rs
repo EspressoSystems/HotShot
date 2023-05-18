@@ -58,7 +58,7 @@ impl Default for TestMetadata {
             min_transactions: 0,
             timing_data: TimingData::default(),
             num_txns_per_round: 20,
-            da_committee_size: 0
+            da_committee_size: 0,
         }
     }
 }
@@ -110,6 +110,24 @@ impl TestBuilder {
                     round_start_delay: 25,
                     ..TimingData::default()
                 },
+                ..TestMetadata::default()
+            },
+            ..TestBuilder::default()
+        }
+    }
+
+    pub fn default_multiple_rounds_da() -> Self {
+        TestBuilder {
+            metadata: TestMetadata {
+                total_nodes: 10,
+                start_nodes: 10,
+                num_succeeds: 20,
+                timing_data: TimingData {
+                    start_delay: 120000,
+                    round_start_delay: 25,
+                    ..TimingData::default()
+                },
+                da_committee_size: 5,
                 ..TestMetadata::default()
             },
             ..TestBuilder::default()
