@@ -13,7 +13,7 @@ use hotshot::{
     },
 };
 use hotshot_testing::test_builder::TestBuilder;
-use hotshot_types::data::CommitmentProposal;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 
 use hotshot_types::vote::QuorumVote;
@@ -70,7 +70,7 @@ type StaticDAComm = MemoryCommChannel<
 type StaticQuroumComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -81,7 +81,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumComm,
         Message<SequencingTestTypes, Self>,
@@ -127,7 +127,7 @@ type StaticDACommP2p = Libp2pCommChannel<
 type StaticQuroumCommP2p = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibP2PImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -138,7 +138,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumCommP2p,
         Message<SequencingTestTypes, Self>,
@@ -184,7 +184,7 @@ type StaticDACommCentral = CentralizedCommChannel<
 type StaticQuroumCommCentral = CentralizedCommChannel<
     SequencingTestTypes,
     SequencingCentralImpl,
-    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -195,7 +195,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumCommCentral,
         Message<SequencingTestTypes, Self>,

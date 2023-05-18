@@ -54,7 +54,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::certificate::DACertificate;
 
-use hotshot_types::data::CommitmentProposal;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf};
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::QuorumExchangeType;
@@ -951,7 +951,7 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            Proposal = QuorumProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
             Commitment = SequencingLeaf<TYPES>,

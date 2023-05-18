@@ -10,7 +10,7 @@ use crate::{
     traits::{
         network::NetworkMsg,
         node_implementation::{
-            CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
+            CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposalType,
             QuorumVoteType,
         },
         signature_key::EncodedSignature,
@@ -124,7 +124,7 @@ pub enum InternalTrigger<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal for full Quorom voting
-    Proposal(Proposal<QuorumProposal<TYPES, I>>, TYPES::SignatureKey),
+    Proposal(Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey),
     /// Proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
@@ -177,7 +177,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal for full quorum voting
-    Proposal(Proposal<QuorumProposal<TYPES, I>>),
+    Proposal(Proposal<QuorumProposalType<TYPES, I>>),
 
     /// Proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>),

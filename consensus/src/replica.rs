@@ -9,7 +9,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
+use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposalType};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -248,7 +248,7 @@ where
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, message)
+                                    .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, message)
                                     .await
                                     .is_err()
                                 {
@@ -297,7 +297,7 @@ where
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader.clone(), timeout_msg)
+                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader.clone(), timeout_msg)
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);
