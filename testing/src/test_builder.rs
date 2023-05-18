@@ -40,6 +40,8 @@ pub struct TestMetadata {
     pub min_transactions: usize,
     /// timing data
     pub timing_data: TimingData,
+    /// Size of the DA committee for the test.  0 == no DA.
+    pub da_committee_size: usize,
 }
 
 impl Default for TestMetadata {
@@ -56,6 +58,7 @@ impl Default for TestMetadata {
             min_transactions: 0,
             timing_data: TimingData::default(),
             num_txns_per_round: 20,
+            da_committee_size: 0
         }
     }
 }

@@ -45,6 +45,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
+            da_committee_size,
             ..
         } = metadata;
         let known_nodes = (0..total_nodes)
@@ -94,7 +95,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        let network = I::network_generator(total_nodes, num_bootstrap_nodes);
+        let network = I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
         Self {
             generator: ResourceGenerators {
                 network,
