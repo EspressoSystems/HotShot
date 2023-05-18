@@ -1084,7 +1084,40 @@
 <a href="#1084" id="1084">1084</a>
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
+
+</span><span class="comment">// Needed to avoid the non-biding `let` warning.
+</span><span class="attr">#![allow(clippy::let_underscore_untyped)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::{NodeImplementation, NodeType};
 <span class="kw">use </span><span class="kw">super</span>::signature_key::{EncodedPublicKey, EncodedSignature};
@@ -1093,18 +1126,27 @@
 <span class="kw">use </span><span class="kw">crate</span>::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 <span class="kw">use </span><span class="kw">crate</span>::data::DAProposal;
 <span class="kw">use </span><span class="kw">crate</span>::data::ProposalType;
-<span class="kw">use </span><span class="kw">crate</span>::message::ConsensusMessage;
-<span class="kw">use </span><span class="kw">crate</span>::message::Message;
+<span class="kw">use </span><span class="kw">crate</span>::message::{
+    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
+};
 <span class="kw">use </span><span class="kw">crate</span>::traits::network::CommunicationChannel;
 <span class="kw">use </span><span class="kw">crate</span>::traits::network::NetworkMsg;
-<span class="kw">use </span><span class="kw">crate</span>::traits::state::ConsensusTime;
+<span class="kw">use </span><span class="kw">crate</span>::traits::{
+    consensus_type::sequencing_consensus::SequencingConsensus,
+    node_implementation::{ExchangesType, SequencingExchangesType},
+    state::ConsensusTime,
+};
 <span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncData;
 <span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncVote;
 <span class="kw">use </span><span class="kw">crate</span>::vote::VoteAccumulator;
 <span class="kw">use </span><span class="kw">crate</span>::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-<span class="kw">use crate</span>::{data::LeafType, traits::signature_key::SignatureKey};
+<span class="kw">use crate</span>::{
+    data::{LeafType, SequencingLeaf},
+    traits::signature_key::SignatureKey,
+};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>jf_primitives::aead::KeyPair;
@@ -1515,7 +1557,7 @@
 }
 
 <span class="doccomment">/// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
-</span><span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
+</span><span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;, M: NetworkMsg&gt;:
     ConsensusExchange&lt;TYPES, M&gt;
 {
     <span class="doccomment">/// Sign a DA proposal.
@@ -1532,24 +1574,32 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature);
 
     <span class="doccomment">/// Create a message with a vote on DA proposal.
-    </span><span class="kw">fn </span>create_da_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
+    </span><span class="kw">fn </span>create_da_message&lt;
+        I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt;,
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; CommitteeConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::CommitteeExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = DAVote&lt;TYPES, I::Leaf&gt;&gt;;
+        </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;;
 }
 
 <span class="doccomment">/// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
+</span><span class="attr">#[derive(Derivative)]
+#[derivative(Clone, Debug)]
 </span><span class="kw">pub struct </span>CommitteeExchange&lt;
-    TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
-    NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+    NETWORK: CommunicationChannel&lt;
+        TYPES,
+        M,
+        DAProposal&lt;TYPES&gt;,
+        DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+        MEMBERSHIP,
+    &gt;,
     M: NetworkMsg,
 &gt; {
     <span class="doccomment">/// The network being used by this exchange.
@@ -1559,21 +1609,26 @@
     <span class="doccomment">/// This participant&#39;s public key.
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This participant&#39;s private key.
+    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// This participant&#39;s encryption key.
     </span>_encryption_key: jf_primitives::aead::KeyPair,
     <span class="attr">#[doc(hidden)]
-    </span>_pd: PhantomData&lt;(TYPES, LEAF, MEMBERSHIP, M)&gt;,
+    </span>_pd: PhantomData&lt;(TYPES, MEMBERSHIP, M)&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;
+            TYPES,
+            M,
+            DAProposal&lt;TYPES&gt;,
+            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+            MEMBERSHIP,
+        &gt;,
         M: NetworkMsg,
-    &gt; CommitteeExchangeType&lt;TYPES, LEAF, M&gt;
-    <span class="kw">for </span>CommitteeExchange&lt;TYPES, LEAF, MEMBERSHIP, NETWORK, M&gt;
+    &gt; CommitteeExchangeType&lt;TYPES, M&gt; <span class="kw">for </span>CommitteeExchange&lt;TYPES, MEMBERSHIP, NETWORK, M&gt;
 {
     <span class="doccomment">/// Sign a DA proposal.
     </span><span class="kw">fn </span>sign_da_proposal(
@@ -1598,19 +1653,20 @@
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
     <span class="doccomment">/// Create a message with a vote on DA proposal.
-    </span><span class="kw">fn </span>create_da_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
+    </span><span class="kw">fn </span>create_da_message&lt;
+        I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt;,
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; CommitteeConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::CommitteeExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = DAVote&lt;TYPES, I::Leaf&gt;&gt;,
+        </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_da_vote(block_commitment);
-        ConsensusMessage::&lt;TYPES, I&gt;::DAVote(DAVote {
+        CommitteeConsensusMessage::&lt;TYPES, I&gt;::DAVote(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,
@@ -1622,15 +1678,20 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;
+            TYPES,
+            M,
+            DAProposal&lt;TYPES&gt;,
+            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+            MEMBERSHIP,
+        &gt;,
         M: NetworkMsg,
-    &gt; ConsensusExchange&lt;TYPES, M&gt; <span class="kw">for </span>CommitteeExchange&lt;TYPES, LEAF, MEMBERSHIP, NETWORK, M&gt;
+    &gt; ConsensusExchange&lt;TYPES, M&gt; <span class="kw">for </span>CommitteeExchange&lt;TYPES, MEMBERSHIP, NETWORK, M&gt;
 {
     <span class="kw">type </span>Proposal = DAProposal&lt;TYPES&gt;;
-    <span class="kw">type </span>Vote = DAVote&lt;TYPES, LEAF&gt;;
+    <span class="kw">type </span>Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;;
     <span class="kw">type </span>Certificate = DACertificate&lt;TYPES&gt;;
     <span class="kw">type </span>Membership = MEMBERSHIP;
     <span class="kw">type </span>Networking = NETWORK;
@@ -1714,11 +1775,11 @@
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
         </span>&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate: commit::Committable,
-        I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;;
+        I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;;
+
     <span class="doccomment">/// Sign a validating or commitment proposal.
     </span><span class="kw">fn </span>sign_validating_or_commitment_proposal&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1754,31 +1815,32 @@
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
     </span><span class="kw">fn </span>sign_timeout_vote(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; (EncodedPublicKey, EncodedSignature);
+
     <span class="doccomment">/// Create a message with a negative vote on validating or commitment proposal.
-    </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
+    </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;;
+        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
 
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
-    </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
+    </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;;
+        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
 }
 
 <span class="doccomment">/// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
+</span><span class="attr">#[derive(Derivative)]
+#[derivative(Clone, Debug)]
 </span><span class="kw">pub struct </span>QuorumExchange&lt;
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
@@ -1794,6 +1856,7 @@
     <span class="doccomment">/// This participant&#39;s public key.
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This participant&#39;s private key.
+    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// This participant&#39;s encryption key
     </span>_encryption_key: KeyPair,
@@ -1818,13 +1881,12 @@
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_yes_vote(leaf_commitment);
-        ConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Yes(YesOrNoVote {
+        GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -1890,19 +1952,18 @@
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
     <span class="doccomment">/// Create a message with a negative vote on validating or commitment proposal.
-    </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
+    </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_no_vote(leaf_commitment);
-        ConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::No(YesOrNoVote {
+        GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::No(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -1913,18 +1974,17 @@
     }
 
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
-    </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
+    </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange:
-            ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_timeout_vote(current_view);
-        ConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Timeout(TimeoutVote {
+        GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Timeout(TimeoutVote {
             justify_qc,
             signature,
             current_view,
@@ -2017,19 +2077,19 @@
     ConsensusExchange&lt;TYPES, M&gt;
 {
     <span class="doccomment">/// Creates a precommit vote
-    </span><span class="kw">fn </span>create_precommit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt;;
+    </span><span class="kw">fn </span>create_precommit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage;
 
     <span class="doccomment">/// Signs a precommit vote
     </span><span class="kw">fn </span>sign_precommit_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (EncodedPublicKey, EncodedSignature);
 
     <span class="doccomment">/// Creates a commit vote
-    </span><span class="kw">fn </span>create_commit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt;;
+    </span><span class="kw">fn </span>create_commit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage;
 
     <span class="doccomment">/// Signs a commit vote
     </span><span class="kw">fn </span>sign_commit_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (EncodedPublicKey, EncodedSignature);
 
     <span class="doccomment">/// Creates a finalize vote
-    </span><span class="kw">fn </span>create_finalize_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt;;
+    </span><span class="kw">fn </span>create_finalize_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage;
 
     <span class="doccomment">/// Sings a finalize vote
     </span><span class="kw">fn </span>sign_finalize_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (EncodedPublicKey, EncodedSignature);
@@ -2065,7 +2125,7 @@
         M: NetworkMsg,
     &gt; ViewSyncExchangeType&lt;TYPES, M&gt; <span class="kw">for </span>ViewSyncExchange&lt;TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
 {
-    <span class="kw">fn </span>create_precommit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt; {
+    <span class="kw">fn </span>create_precommit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage {
         <span class="macro">todo!</span>()
     }
 
@@ -2073,7 +2133,7 @@
         <span class="macro">todo!</span>()
     }
 
-    <span class="kw">fn </span>create_commit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt; {
+    <span class="kw">fn </span>create_commit_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage {
         <span class="macro">todo!</span>()
     }
 
@@ -2081,7 +2141,7 @@
         <span class="macro">todo!</span>()
     }
 
-    <span class="kw">fn </span>create_finalize_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusMessage&lt;TYPES, I&gt; {
+    <span class="kw">fn </span>create_finalize_message&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::ConsensusMessage {
         <span class="macro">todo!</span>()
     }
 

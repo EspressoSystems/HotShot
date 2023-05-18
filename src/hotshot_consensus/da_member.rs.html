@@ -183,24 +183,65 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
-</span><span class="kw">use crate</span>::{Consensus, ConsensusApi, View, ViewInner};
+</span><span class="kw">use crate</span>::{
+    utils::{View, ViewInner},
+    Consensus, SequencingConsensusApi,
+};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>commit::Committable;
-<span class="kw">use </span>hotshot_types::message::Message;
+<span class="kw">use </span>either::{Left, Right};
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, ProcessedConsensusMessage},
+    data::SequencingLeaf,
+    message::{
+        ConsensusMessageType, Message, ProcessedCommitteeConsensusMessage,
+        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
+    },
     traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchangeType, ConsensusExchange},
-        node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
+        node_implementation::{
+            CommitteeEx, CommitteeProposalType, CommitteeVote, NodeImplementation, NodeType,
+            SequencingExchangesType,
+        },
         signature_key::SignatureKey,
     },
-    vote::DAVote,
 };
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::sync::Arc;
@@ -209,10 +250,16 @@
 <span class="doccomment">/// This view&#39;s DA committee member.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DAMember&lt;
-    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = SequencingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// ID of node.
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. DA committee member will require a write lock on this.
@@ -220,7 +267,7 @@
     <span class="doccomment">/// Channel for accepting leader proposals and timeouts messages.
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub </span>proposal_collection_chan:
-        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedSequencingMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// The High QC.
@@ -229,24 +276,23 @@
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// the committee exchange
-    </span><span class="kw">pub </span>exchange: Arc&lt;I::CommitteeExchange&gt;,
+    </span><span class="kw">pub </span>exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// needed for type checking
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = SequencingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; DAMember&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::CommitteeExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            Proposal = DAProposal&lt;TYPES&gt;,
-            Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.
@@ -262,76 +308,94 @@
             <span class="macro">info!</span>(<span class="string">&quot;recv-ed message {:?}&quot;</span>, msg.clone());
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = msg {
                 <span class="comment">// If the message is for a different view number, skip it.
-                </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view
+                </span><span class="kw">if </span>Into::&lt;SequencingMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view
                 {
                     <span class="kw">continue</span>;
                 }
                 <span class="kw">match </span>msg {
-                    ProcessedConsensusMessage::DAProposal(p, sender) =&gt; {
-                        <span class="kw">if </span>view_leader_key != sender {
-                            <span class="kw">continue</span>;
-                        }
-
-                        <span class="kw">let </span>block_commitment = p.data.deltas.commit();
-                        <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>p.signature, block_commitment.as_ref()) {
-                            <span class="macro">warn!</span>(<span class="question-mark">?</span>p.signature, <span class="string">&quot;Could not verify proposal.&quot;</span>);
-                            <span class="kw">continue</span>;
-                        }
-
-                        <span class="kw">let </span>vote_token = <span class="self">self</span>.exchange.make_vote_token(<span class="self">self</span>.cur_view);
-                        <span class="kw">match </span>vote_token {
-                            <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">error!</span>(
-                                    <span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>,
-                                    <span class="self">self</span>.cur_view, e
-                                );
+                    Left(general_message) =&gt; {
+                        <span class="kw">match </span>general_message {
+                            ProcessedGeneralConsensusMessage::InternalTrigger(_trigger) =&gt; {
+                                <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
                             }
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                                <span class="macro">info!</span>(<span class="string">&quot;We were not chosen for DA committee on {:?}&quot;</span>, <span class="self">self</span>.cur_view);
+                            ProcessedGeneralConsensusMessage::Vote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                                <span class="comment">// Should only be for DA leader, never member.
+                                </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
                             }
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
-                                <span class="macro">info!</span>(<span class="string">&quot;We were chosen for DA committee on {:?}&quot;</span>, <span class="self">self</span>.cur_view);
-
-                                <span class="comment">// Generate and send vote
-                                </span><span class="kw">let </span>message = <span class="self">self</span>.exchange.create_da_message(
-                                    <span class="self">self</span>.high_qc.commit(),
-                                    block_commitment,
-                                    <span class="self">self</span>.cur_view,
-                                    vote_token,
-                                );
-
-                                <span class="macro">info!</span>(<span class="string">&quot;Sending vote to the leader {:?}&quot;</span>, message);
-
-                                <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                                <span class="kw">if </span><span class="self">self</span>.api.send_direct_da_message::&lt;CommitteeProposal&lt;TYPES, I&gt;, CommitteeVote&lt;TYPES, I&gt;&gt;(sender, message).<span class="kw">await</span>.is_err() {
-                                    consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
-                                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to send vote to the leader&quot;</span>);
-                                } <span class="kw">else </span>{
-                                    consensus.metrics.outgoing_direct_messages.add(<span class="number">1</span>);
+                            ProcessedGeneralConsensusMessage::Proposal(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                                <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
+                            }
+                            ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; {
+                                <span class="macro">todo!</span>()
+                            }
+                        }
+                    }
+                    Right(committee_message) =&gt; {
+                        <span class="kw">match </span>committee_message {
+                            ProcessedCommitteeConsensusMessage::DAProposal(p, sender) =&gt; {
+                                <span class="kw">if </span>view_leader_key != sender {
+                                    <span class="kw">continue</span>;
                                 }
+
+                                <span class="kw">let </span>block_commitment = p.data.deltas.commit();
+                                <span class="kw">if </span>!view_leader_key
+                                    .validate(<span class="kw-2">&amp;</span>p.signature, block_commitment.as_ref())
+                                {
+                                    <span class="macro">warn!</span>(<span class="question-mark">?</span>p.signature, <span class="string">&quot;Could not verify proposal.&quot;</span>);
+                                    <span class="kw">continue</span>;
+                                }
+
+                                <span class="kw">let </span>vote_token = <span class="self">self</span>.exchange.make_vote_token(<span class="self">self</span>.cur_view);
+                                <span class="kw">match </span>vote_token {
+                                    <span class="prelude-val">Err</span>(e) =&gt; {
+                                        <span class="macro">error!</span>(
+                                            <span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>,
+                                            <span class="self">self</span>.cur_view, e
+                                        );
+                                    }
+                                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                                        <span class="macro">info!</span>(
+                                            <span class="string">&quot;We were not chosen for DA committee on {:?}&quot;</span>,
+                                            <span class="self">self</span>.cur_view
+                                        );
+                                    }
+                                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
+                                        <span class="macro">info!</span>(
+                                            <span class="string">&quot;We were chosen for DA committee on {:?}&quot;</span>,
+                                            <span class="self">self</span>.cur_view
+                                        );
+
+                                        <span class="comment">// Generate and send vote
+                                        </span><span class="kw">let </span>message = <span class="self">self</span>.exchange.create_da_message(
+                                            <span class="self">self</span>.high_qc.commit(),
+                                            block_commitment,
+                                            <span class="self">self</span>.cur_view,
+                                            vote_token,
+                                        );
+
+                                        <span class="macro">info!</span>(<span class="string">&quot;Sending vote to the leader {:?}&quot;</span>, message);
+
+                                        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+                                        <span class="kw">if </span><span class="self">self</span>.api.send_direct_da_message::&lt;CommitteeProposalType&lt;TYPES, I&gt;, CommitteeVote&lt;TYPES, I&gt;&gt;(sender, SequencingMessage(Right(message))).<span class="kw">await</span>.is_err() {
+                                            consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
+                                            <span class="macro">warn!</span>(<span class="string">&quot;Failed to send vote to the leader&quot;</span>);
+                                        } <span class="kw">else </span>{
+                                            consensus.metrics.outgoing_direct_messages.add(<span class="number">1</span>);
+                                        }
+                                    }
+                                }
+                                <span class="kw">break </span>p.data.deltas;
+                            }
+                            ProcessedCommitteeConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                                <span class="comment">// Should only be for DA leader, never member.
+                                </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
                             }
                         }
-                        <span class="kw">break </span>p.data.deltas;
                     }
-                    ProcessedConsensusMessage::InternalTrigger(_trigger) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::Vote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                        <span class="comment">// Should only be for DA leader, never member.
-                        </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                        <span class="comment">// Should only be for DA leader, never member.
-                        </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::Proposal(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
                 }
             }
             <span class="comment">// fall through logic if we did not receive successfully from channel

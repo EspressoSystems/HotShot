@@ -22,9 +22,6 @@
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>clap::Parser;
@@ -32,11 +29,8 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>types::ThisMembership;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use crate</span>::{
-    infra::run_orchestrator,
-    types::{NodeImpl, ThisNetwork},
-};
+<span class="kw">use </span><span class="kw">crate</span>::infra::{run_orchestrator, OrchestratorArgs};
+<span class="kw">use </span><span class="kw">crate</span>::types::{NodeImpl, ThisNetwork};
 
 <span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;

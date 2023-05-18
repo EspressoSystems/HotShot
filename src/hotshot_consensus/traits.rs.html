@@ -153,32 +153,80 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
-</pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ConsensusApi`] trait.
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+</pre><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 </span><span class="kw">use </span>async_trait::async_trait;
 
 <span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
-
-<span class="kw">use </span>hotshot_types::message::ConsensusMessage;
-
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+<span class="kw">use </span>hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
+};
 <span class="kw">use </span>hotshot_types::traits::storage::StorageError;
 <span class="kw">use </span>hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{network::NetworkError, signature_key::SignatureKey},
+    traits::{
+        consensus_type::{
+            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+        },
+        network::NetworkError,
+        signature_key::SignatureKey,
+    },
     vote::VoteType,
 };
 
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-<span class="comment">// FIXME these should be nonzero u64s
-</span><span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
-///
-/// [`HotStuff`]: struct.HotStuff.html
+<span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system, implemented for both validating and
+/// sequencing consensus.
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>ConsensusApi&lt;
+</span><span class="kw">pub trait </span>ConsensusSharedApi&lt;
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     I: NodeImplementation&lt;TYPES&gt;,
@@ -190,7 +238,7 @@
     <span class="doccomment">/// The minimum amount of time a leader has to wait before sending a propose
     </span><span class="kw">fn </span>propose_min_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration;
 
-    <span class="doccomment">/// The maximum amount of time a leader can wait before sending a propose.ConsensusApi
+    <span class="doccomment">/// The maximum amount of time a leader can wait before sending a propose.
     /// If this time is reached, the leader has to send a propose without transactions.
     </span><span class="kw">fn </span>propose_max_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration;
 
@@ -211,32 +259,6 @@
     ///
     /// In production code this should probably always return `true`.
     </span><span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; bool;
-
-    <span class="doccomment">/// Send a direct message to the given recipient
-    </span><span class="kw">async fn </span>send_direct_message&lt;PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        recipient: TYPES::SignatureKey,
-        message: ConsensusMessage&lt;TYPES, I&gt;,
-    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
-
-    <span class="doccomment">/// send a direct message using the DA communication channel
-    </span><span class="kw">async fn </span>send_direct_da_message&lt;
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        recipient: TYPES::SignatureKey,
-        message: ConsensusMessage&lt;TYPES, I&gt;,
-    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
-
-    <span class="doccomment">/// Send a broadcast message to the entire network.
-    </span><span class="kw">async fn </span>send_broadcast_message&lt;
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: ConsensusMessage&lt;TYPES, I&gt;,
-    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Notify the system of an event within `hotshot-consensus`.
     </span><span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES, LEAF&gt;);
@@ -301,11 +323,77 @@
         })
         .<span class="kw">await</span>;
     }
+}
+
+<span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system for validating consensus.
+</span><span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>ValidatingConsensusApi&lt;
+    TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
+    LEAF: LeafType&lt;NodeType = TYPES&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = ValidatingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt;: ConsensusSharedApi&lt;TYPES, LEAF, I&gt; <span class="kw">where
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
+    <span class="doccomment">/// Send a direct message to the given recipient
+    </span><span class="kw">async fn </span>send_direct_message&lt;PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        recipient: TYPES::SignatureKey,
+        message: ValidatingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// Send a broadcast message to the entire network.
+    </span><span class="kw">async fn </span>send_broadcast_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: ValidatingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+}
+
+<span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
+</span><span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>SequencingConsensusApi&lt;
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    LEAF: LeafType&lt;NodeType = TYPES&gt;,
+    I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
+&gt;: ConsensusSharedApi&lt;TYPES, LEAF, I&gt; <span class="kw">where
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
+    <span class="doccomment">/// Send a direct message to the given recipient
+    </span><span class="kw">async fn </span>send_direct_message&lt;PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        recipient: TYPES::SignatureKey,
+        message: SequencingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// send a direct message using the DA communication channel
+    </span><span class="kw">async fn </span>send_direct_da_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        recipient: TYPES::SignatureKey,
+        message: SequencingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// Send a broadcast message to the entire network.
+    </span><span class="kw">async fn </span>send_broadcast_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: SequencingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Send a broadcast to the DA comitee, stub for now
     </span><span class="kw">async fn </span>send_da_broadcast(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: ConsensusMessage&lt;TYPES, I&gt;,
+        message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 }
 </code></pre></div>

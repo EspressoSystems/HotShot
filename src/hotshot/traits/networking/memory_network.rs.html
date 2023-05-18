@@ -897,6 +897,50 @@
 <a href="#897" id="897">897</a>
 <a href="#898" id="898">898</a>
 <a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -914,7 +958,7 @@
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -1344,7 +1388,7 @@
 }
 
 <span class="doccomment">/// memory identity communication channel
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>MemoryCommChannel&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
@@ -1371,6 +1415,39 @@
     }
 }
 
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+{
+    <span class="kw">fn </span>generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+        <span class="kw">let </span>generator = &lt;MemoryNetwork&lt;
+            Message&lt;TYPES, I&gt;,
+            TYPES::SignatureKey,
+        &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
+        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
+    }
+
+    <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="number">0</span>.inner.in_flight_message_count.load(Ordering::Relaxed))
+    }
+}
+
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
@@ -1380,6 +1457,8 @@
         MEMBERSHIP: Membership&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
     <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="kw">type </span>NETWORK = MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;;
 
@@ -1400,8 +1479,10 @@
         message: Message&lt;TYPES, I&gt;,
         election: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>recipients =
-            &lt;MEMBERSHIP <span class="kw">as </span>Membership&lt;TYPES&gt;&gt;::get_committee(election, message.get_view_number());
+        <span class="kw">let </span>recipients = &lt;MEMBERSHIP <span class="kw">as </span>Membership&lt;TYPES&gt;&gt;::get_committee(
+            election,
+            message.kind.get_view_number(),
+        );
         <span class="self">self</span>.<span class="number">0</span>.broadcast_message(message, recipients).<span class="kw">await
     </span>}
 
@@ -1470,9 +1551,10 @@
     <span class="kw">use </span><span class="kw">crate</span>::traits::implementations::MemoryStorage;
     <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
     <span class="kw">use </span>hotshot_types::traits::election::QuorumExchange;
+    <span class="kw">use </span>hotshot_types::traits::node_implementation::ValidatingExchanges;
     <span class="kw">use </span>hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind},
+        message::{DataMessage, MessageKind, ValidatingMessage},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
@@ -1481,8 +1563,9 @@
     };
     <span class="kw">use </span>hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::state::ValidatingConsensus,
+        traits::consensus_type::validating_consensus::ValidatingConsensus,
     };
+    <span class="kw">use </span>serde::{Deserialize, Serialize};
 
     <span class="attr">#[derive(
         Copy,
@@ -1498,7 +1581,7 @@
         serde::Deserialize,
     )]
     </span><span class="kw">struct </span>Test {}
-    <span class="attr">#[derive(Clone, Debug)]
+    <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
     </span><span class="kw">struct </span>TestImpl {}
 
     <span class="comment">// impl NetworkMsg for Test {}
@@ -1519,15 +1602,19 @@
     <span class="kw">type </span>TestNetwork = MemoryCommChannel&lt;Test, TestImpl, TestProposal, TestVote, TestMembership&gt;;
 
     <span class="kw">impl </span>NodeImplementation&lt;Test&gt; <span class="kw">for </span>TestImpl {
-        <span class="kw">type </span>QuorumExchange = QuorumExchange&lt;
+        <span class="kw">type </span>ConsensusMessage = ValidatingMessage&lt;Test, <span class="self">Self</span>&gt;;
+        <span class="kw">type </span>Exchanges = ValidatingExchanges&lt;
             Test,
-            TestLeaf,
-            TestProposal,
-            TestMembership,
-            TestNetwork,
             Message&lt;Test, <span class="self">Self</span>&gt;,
+            QuorumExchange&lt;
+                Test,
+                TestLeaf,
+                TestProposal,
+                TestMembership,
+                TestNetwork,
+                Message&lt;Test, <span class="self">Self</span>&gt;,
+            &gt;,
         &gt;;
-        <span class="kw">type </span>CommitteeExchange = <span class="self">Self</span>::QuorumExchange;
         <span class="kw">type </span>Leaf = TestLeaf;
         <span class="kw">type </span>Storage = MemoryStorage&lt;Test, TestLeaf&gt;;
     }
@@ -1579,6 +1666,7 @@
                     },
                     &lt;ViewNumber <span class="kw">as </span>ConsensusTime&gt;::new(<span class="number">0</span>),
                 )),
+                _phantom: PhantomData,
             };
             messages.push(message);
         }
@@ -1751,22 +1839,22 @@
     #[allow(deprecated)]
     </span><span class="kw">async fn </span>test_in_flight_message_count() {
         <span class="comment">// setup_logging();
-        //
-        // let group: Arc&lt;
-        //     MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;,
-        // &gt; = MasterMap::new();
+
+        // let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
+        //     MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
-        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        // let network1 =
+        //     MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         // let pub_key_2 = get_pubkey();
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-        //
+
         // // Create some dummy messages
         // let messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 100, pub_key_1);
-        //
+
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));
-        //
+
         // for (_count, message) in messages.iter().enumerate() {
         //     network1
         //         .direct_message(message.clone(), pub_key_2)
@@ -1774,24 +1862,24 @@
         //         .unwrap();
         //     // network 2 has received `count` broadcast messages and `count + 1` direct messages
         //     // assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
-        //
+
         //     // network2.broadcast_message(message.clone()).await.unwrap();
         //     // network 1 has received `count` broadcast messages
         //     // assert_eq!(network1.in_flight_message_count(), Some(count + 1));
-        //
+
         //     // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
         //     // assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
         // }
-        //
+
         // for _count in (0..messages.len()).rev() {
         //     network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
         //     // assert_eq!(network1.in_flight_message_count(), Some(count));
-        //
+
         //     network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
         //     network2.recv_msgs(TransmitType::Direct).await.unwrap();
         //     // assert_eq!(network2.in_flight_message_count(), Some(count * 2));
         // }
-        //
+
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));
     </span>}

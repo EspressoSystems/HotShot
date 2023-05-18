@@ -154,6 +154,16 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::test_runner::TestRunner;
 <span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
@@ -169,17 +179,18 @@
         NodeImplementation,
     },
 };
-<span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::ValidatingMessage,
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::QuorumExchange,
         node_implementation::NodeType,
-        state::ValidatingConsensus,
     },
     vote::QuorumVote,
 };
+<span class="kw">use </span>hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
 <span class="kw">use </span>jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -187,6 +198,7 @@
     },
     vrf::blsvrf::BLSVRFScheme,
 };
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="attr">#[derive(
     Copy,
@@ -242,7 +254,7 @@
 }
 
 <span class="doccomment">/// type alias for a &quot;usable&quot; node impl type
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>StandardNodeImplType {}
 
 <span class="doccomment">/// type alias for membership using vrf types
@@ -265,7 +277,7 @@
 &gt;;
 
 <span class="doccomment">/// type alias for static committee node
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>StaticNodeImplType {}
 
 <span class="kw">type </span>StaticMembership =
@@ -282,30 +294,38 @@
 <span class="kw">impl </span>NodeImplementation&lt;VrfTestTypes&gt; <span class="kw">for </span>StandardNodeImplType {
     <span class="kw">type </span>Storage = MemoryStorage&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;;
     <span class="kw">type </span>Leaf = ValidatingLeaf&lt;VrfTestTypes&gt;;
-    <span class="kw">type </span>QuorumExchange = QuorumExchange&lt;
+    <span class="kw">type </span>Exchanges = ValidatingExchanges&lt;
         VrfTestTypes,
-        ValidatingLeaf&lt;VrfTestTypes&gt;,
-        ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
-        VrfMembership,
-        VrfCommunication,
         Message&lt;VrfTestTypes, <span class="self">Self</span>&gt;,
+        QuorumExchange&lt;
+            VrfTestTypes,
+            ValidatingLeaf&lt;VrfTestTypes&gt;,
+            ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
+            VrfMembership,
+            VrfCommunication,
+            Message&lt;VrfTestTypes, <span class="self">Self</span>&gt;,
+        &gt;,
     &gt;;
-    <span class="kw">type </span>CommitteeExchange = <span class="self">Self</span>::QuorumExchange;
+    <span class="kw">type </span>ConsensusMessage = ValidatingMessage&lt;VrfTestTypes, <span class="self">Self</span>&gt;;
 }
 
 <span class="kw">impl </span>NodeImplementation&lt;StaticCommitteeTestTypes&gt; <span class="kw">for </span>StaticNodeImplType {
     <span class="kw">type </span>Storage =
         MemoryStorage&lt;StaticCommitteeTestTypes, ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;&gt;;
     <span class="kw">type </span>Leaf = ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;;
-    <span class="kw">type </span>QuorumExchange = QuorumExchange&lt;
+    <span class="kw">type </span>Exchanges = ValidatingExchanges&lt;
         StaticCommitteeTestTypes,
-        ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;,
-        ValidatingProposal&lt;StaticCommitteeTestTypes, ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;&gt;,
-        StaticMembership,
-        StaticCommunication,
         Message&lt;StaticCommitteeTestTypes, <span class="self">Self</span>&gt;,
+        QuorumExchange&lt;
+            StaticCommitteeTestTypes,
+            ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;,
+            ValidatingProposal&lt;StaticCommitteeTestTypes, ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;&gt;,
+            StaticMembership,
+            StaticCommunication,
+            Message&lt;StaticCommitteeTestTypes, <span class="self">Self</span>&gt;,
+        &gt;,
     &gt;;
-    <span class="kw">type </span>CommitteeExchange = <span class="self">Self</span>::QuorumExchange;
+    <span class="kw">type </span>ConsensusMessage = ValidatingMessage&lt;StaticCommitteeTestTypes, <span class="self">Self</span>&gt;;
 }
 
 <span class="doccomment">/// type alias for the test runner type

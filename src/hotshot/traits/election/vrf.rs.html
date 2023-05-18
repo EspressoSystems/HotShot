@@ -1259,9 +1259,8 @@
 <a href="#1259" id="1259">1259</a>
 <a href="#1260" id="1260">1260</a>
 <a href="#1261" id="1261">1261</a>
-</pre><pre class="rust"><code><span class="attr">#![allow(clippy::let_underscore_untyped)]
-</span><span class="comment">// TODO why is the let binding lint triggered on a struct??
-// if it&#39;s in a macro then this is the best we can do
+</pre><pre class="rust"><code><span class="comment">// Needed to avoid the non-biding `let` warning.
+</span><span class="attr">#![allow(clippy::let_underscore_untyped)]
 
 </span><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
@@ -2352,7 +2351,8 @@
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             state::{dummy::DummyState, ValidatingConsensus},
+//             consensus_type::validating_consensus::ValidatingConsensus,
+//             state::dummy::DummyState,
 //         },
 //     };
 //     use jf_primitives::{

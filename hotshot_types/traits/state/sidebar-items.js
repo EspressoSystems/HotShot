@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dummy"],"struct":["SequencingConsensus","ValidatingConsensus"],"trait":["ConsensusTime","ConsensusType","SequencingConsensusType","State","TestableBlock","TestableState","ValidatingConsensusType"]};
+window.SIDEBAR_ITEMS = {"mod":["dummy"],"trait":["ConsensusTime","State","TestableBlock","TestableState"]};

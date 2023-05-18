@@ -1032,6 +1032,41 @@
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
 <a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -1059,7 +1094,7 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
@@ -1867,7 +1902,7 @@
 }
 
 <span class="doccomment">/// libp2p identity communication channel
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>CentralizedCommChannel&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
@@ -1915,6 +1950,8 @@
         MEMBERSHIP: Membership&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
     <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="kw">type </span>NETWORK = CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;;
 
@@ -1947,7 +1984,7 @@
         message: Message&lt;TYPES, I&gt;,
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>view_number = message.get_view_number();
+        <span class="kw">let </span>view_number = message.kind.get_view_number();
         <span class="kw">let </span>recipients = &lt;MEMBERSHIP <span class="kw">as </span>Membership&lt;TYPES&gt;&gt;::get_committee(membership, view_number);
         <span class="self">self</span>.<span class="number">0</span>.broadcast_message(message, recipients).<span class="kw">await
     </span>}
@@ -2048,6 +2085,39 @@
             network.server_shutdown_signal = <span class="prelude-val">Some</span>(sender);
             network
         })
+    }
+
+    <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="prelude-val">None
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+{
+    <span class="kw">fn </span>generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+        <span class="kw">let </span>generator = &lt;CentralizedServerNetwork&lt;
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType
+        &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id
+        );
+        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }
 
     <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {

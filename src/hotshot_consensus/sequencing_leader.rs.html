@@ -493,10 +493,49 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
-</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ConsensusApi};
+</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, SequencingConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_timeout,
@@ -506,25 +545,31 @@
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>either::Either::Right;
+<span class="kw">use </span>either::{Left, Right};
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::state::State;
-
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
 };
+<span class="kw">use </span>hotshot_types::traits::state::State;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
-    traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::SequencingConsensus, Block,
+    message::{
+        CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
+        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
-    vote::{DAVote, QuorumVote, VoteAccumulator},
+    traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::SignedCertificate,
+        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        signature_key::SignatureKey,
+        Block,
+    },
+    vote::{QuorumVote, VoteAccumulator},
 };
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -534,12 +579,16 @@
 <span class="doccomment">/// This view&#39;s DA committee leader
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DALeader&lt;
-    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    <span class="comment">// DA: ConsensusExchange&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, Message&lt;TYPES, I&gt;&gt;,
-    // QUORUM: ConsensusExchange&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, Message&lt;TYPES, I&gt;&gt;,
-    </span>TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = SequencingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -554,35 +603,32 @@
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// the committee exchange
-    </span><span class="kw">pub </span>committee_exchange: Arc&lt;I::CommitteeExchange&gt;,
+    </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// the quorum exchange
-    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;SequencingQuorumEx&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// channel through which the leader collects votes
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedSequencingMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// needed to typecheck
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
+        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = SequencingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; DALeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
-        Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
-        Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+        Certificate = DACertificate&lt;TYPES&gt;,
+        Commitment = TYPES::BlockType,
     &gt;,
-    I::CommitteeExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            Proposal = DAProposal&lt;TYPES&gt;,
-            Vote = DAVote&lt;TYPES, I::Leaf&gt;,
-            Certificate = DACertificate&lt;TYPES&gt;,
-            Commitment = TYPES::BlockType,
-        &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     </span><span class="kw">async fn </span>wait_for_votes(
@@ -602,52 +648,57 @@
         };
 
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
-            <span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != cur_view {
+            <span class="kw">if </span>Into::&lt;SequencingMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != cur_view {
                 <span class="kw">continue</span>;
             }
             <span class="kw">match </span>msg {
-                ProcessedConsensusMessage::Vote(_vote, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The leader received an unexpext Quorum Vote!&quot;</span>);
-                    <span class="kw">continue</span>;
-                }
-                ProcessedConsensusMessage::DAVote(vote, sender) =&gt; {
-                    <span class="kw">if </span>vote.signature.<span class="number">0 </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
-                    {
+                Left(general_message) =&gt; <span class="kw">match </span>general_message {
+                    ProcessedGeneralConsensusMessage::Vote(_vote, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The leader received an unexpext Quorum Vote!&quot;</span>);
                         <span class="kw">continue</span>;
                     }
-                    <span class="kw">if </span>vote.block_commitment != block_commitment {
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="kw">match </span><span class="self">self</span>.committee_exchange.accumulate_vote(
-                        <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                        <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                        vote.block_commitment,
-                        vote.vote_data,
-                        vote.vote_token.clone(),
-                        <span class="self">self</span>.cur_view,
-                        accumulator,
-                    ) {
-                        Either::Left(acc) =&gt; {
-                            accumulator = acc;
+                    ProcessedGeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
+                        InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
+                            <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
+                            <span class="kw">break</span>;
                         }
-                        Either::Right(qc) =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Some</span>(qc);
+                    },
+                    ProcessedGeneralConsensusMessage::Proposal(_p, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                    }
+                    ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                },
+                Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
+                    ProcessedCommitteeConsensusMessage::DAVote(vote, sender) =&gt; {
+                        <span class="kw">if </span>vote.signature.<span class="number">0
+                            </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
+                        {
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="kw">if </span>vote.block_commitment != block_commitment {
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="kw">match </span><span class="self">self</span>.committee_exchange.accumulate_vote(
+                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
+                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
+                            vote.block_commitment,
+                            vote.vote_data,
+                            vote.vote_token.clone(),
+                            <span class="self">self</span>.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) =&gt; {
+                                accumulator = acc;
+                            }
+                            Either::Right(qc) =&gt; {
+                                <span class="kw">return </span><span class="prelude-val">Some</span>(qc);
+                            }
                         }
                     }
-                }
-                ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
-                    InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
-                        <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
-                        <span class="kw">break</span>;
+                    ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
                     }
                 },
-                ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::DAProposal(_p, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
             }
         }
         <span class="prelude-val">None
@@ -751,7 +802,11 @@
             deltas: block.clone(),
             view_number: <span class="self">self</span>.cur_view,
         };
-        <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::DAProposal(Proposal { data, signature });
+        <span class="kw">let </span>message =
+            SequencingMessage::&lt;TYPES, I&gt;(Right(CommitteeConsensusMessage::DAProposal(Proposal {
+                data,
+                signature,
+            })));
         <span class="comment">// Brodcast DA proposal
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.send_da_broadcast(message.clone()).<span class="kw">await </span>{
             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
@@ -781,10 +836,16 @@
 <span class="doccomment">/// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it&#39;s proposal and collects enough votes.
 </span><span class="kw">pub struct </span>ConsensusLeader&lt;
-    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = SequencingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -803,30 +864,27 @@
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// the quorum exchange
-    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;SequencingQuorumEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// needed to tyep check
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = SequencingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; ConsensusLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
-            <span class="comment">// Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
-        </span>&gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
-    I::CommitteeExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            <span class="comment">// Proposal = DAProposal&lt;TYPES&gt;,
-            // Vote = DAVote&lt;TYPES, I::Leaf&gt;,
-            // Certificate = DACertificate&lt;TYPES&gt;,
-        </span>&gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+    &gt;,
 {
     <span class="doccomment">/// Run one view of the DA leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Sequencing DALeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -857,10 +915,11 @@
             proposer_id: leaf.proposer_id,
         };
 
-        <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::Proposal(Proposal {
-            data: proposal,
-            signature,
-        });
+        <span class="kw">let </span>message =
+            SequencingMessage::&lt;TYPES, I&gt;(Left(GeneralConsensusMessage::Proposal(Proposal {
+                data: proposal,
+                signature,
+            })));
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
             </span>.api
             .send_broadcast_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
@@ -876,10 +935,16 @@
 
 <span class="doccomment">/// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 </span><span class="kw">pub struct </span>ConsensusNextLeader&lt;
-    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = SequencingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -892,30 +957,34 @@
     </span><span class="kw">pub </span>generic_qc: QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// channel through which the leader collects votes
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedSequencingMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// the quorum exchnage
-    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;SequencingQuorumEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// needed to type check
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
+
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = SequencingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; ConsensusNextLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            Proposal = QuorumProposal&lt;TYPES, I::Leaf&gt;,
-            Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
-            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
-            Commitment = SequencingLeaf&lt;TYPES&gt;,
-        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+        Commitment = SequencingLeaf&lt;TYPES&gt;,
+    &gt;,
 {
-    <span class="doccomment">/// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
+    <span class="doccomment">/// Run one view of the next leader, collect votes and build a QC for the last views `QuorumProposal`
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
@@ -934,55 +1003,64 @@
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
             <span class="comment">// If the message is for a different view number, skip it.
-            </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
+            </span><span class="kw">if </span>Into::&lt;SequencingMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
                 <span class="kw">continue</span>;
             }
             <span class="kw">match </span>msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) =&gt; <span class="kw">match </span>vote_message {
-                    QuorumVote::Yes(vote) | QuorumVote::No(vote) =&gt; {
-                        <span class="kw">if </span>vote.signature.<span class="number">0
-                            </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
-                        {
-                            <span class="kw">continue</span>;
-                        }
+                Left(general_message) =&gt; <span class="kw">match </span>general_message {
+                    ProcessedGeneralConsensusMessage::Vote(vote_message, sender) =&gt; {
+                        <span class="kw">match </span>vote_message {
+                            QuorumVote::Yes(vote) =&gt; {
+                                <span class="kw">if </span>vote.signature.<span class="number">0
+                                    </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
+                                {
+                                    <span class="kw">continue</span>;
+                                }
 
-                        <span class="kw">match </span><span class="self">self</span>.quorum_exchange.accumulate_vote(
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                            vote.leaf_commitment,
-                            vote.vote_data,
-                            vote.vote_token.clone(),
-                            <span class="self">self</span>.cur_view,
-                            accumulator,
-                        ) {
-                            Either::Left(acc) =&gt; {
-                                accumulator = acc;
+                                <span class="kw">match </span><span class="self">self</span>.quorum_exchange.accumulate_vote(
+                                    <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
+                                    <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
+                                    vote.leaf_commitment,
+                                    vote.vote_data,
+                                    vote.vote_token.clone(),
+                                    <span class="self">self</span>.cur_view,
+                                    accumulator,
+                                ) {
+                                    Either::Left(acc) =&gt; {
+                                        accumulator = acc;
+                                    }
+                                    Either::Right(qc) =&gt; {
+                                        <span class="kw">return </span>qc;
+                                    }
+                                }
                             }
-                            Either::Right(qc) =&gt; {
-                                <span class="kw">return </span>qc;
+                            QuorumVote::Timeout(vote) =&gt; {
+                                qcs.insert(vote.justify_qc);
+                            }
+                            QuorumVote::No(<span class="kw">_</span>) =&gt; {
+                                <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected vote!&quot;</span>);
                             }
                         }
                     }
-                    QuorumVote::Timeout(vote) =&gt; {
-                        qcs.insert(vote.justify_qc);
+                    ProcessedGeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
+                        InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
+                            <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
+                            <span class="kw">break</span>;
+                        }
+                    },
+                    ProcessedGeneralConsensusMessage::Proposal(_p, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                    }
+                    ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                },
+                Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
+                    ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                    }
+                    ProcessedCommitteeConsensusMessage::DAVote(<span class="kw">_</span>, _sender) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected DA vote!&quot;</span>);
                     }
                 },
-                ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
-                    InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
-                        <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
-                        <span class="kw">break</span>;
-                    }
-                },
-                ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::DAProposal(_p, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected DA vote!&quot;</span>);
-                }
-                ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
             }
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()

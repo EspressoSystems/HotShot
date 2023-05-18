@@ -955,6 +955,7 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -964,10 +965,11 @@
     certificate::{DACertificate, QuorumCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
+        consensus_type::validating_consensus::ValidatingConsensusType,
         election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
+        state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         Block, State,
     },

@@ -209,28 +209,56 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ConsensusApi};
+</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ValidatingConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>commit::Committable;
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
-};
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::GeneralConsensusMessage,
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus,
+        election::SignedCertificate,
+        node_implementation::{
+            NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType, ValidatingQuorumEx,
+        },
+        signature_key::SignatureKey,
+        Block, State,
     },
+};
+<span class="kw">use </span>hotshot_types::{message::Message, traits::node_implementation::ValidatingExchangesType};
+<span class="kw">use </span>hotshot_types::{
+    message::{Proposal, ValidatingMessage},
+    traits::election::{ConsensusExchange, QuorumExchangeType},
 };
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::{sync::Arc, time::Instant};
@@ -238,10 +266,16 @@
 <span class="doccomment">/// This view&#39;s validating leader
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ValidatingLeader&lt;
-    A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = ValidatingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Validating leader will require a read lock on this.
@@ -256,20 +290,28 @@
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// the quorum exchange
-    </span><span class="kw">pub </span>exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>exchange: Arc&lt;ValidatingQuorumEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// needed for type checking
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+        A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = ValidatingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; ValidatingLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;&gt;
-        + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    ValidatingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        Proposal = ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+    &gt;,
 {
     <span class="doccomment">/// Run one view of the leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Validating ValidatingLeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -394,7 +436,11 @@
                 </span>.exchange
                 .sign_validating_or_commitment_proposal::&lt;I&gt;(<span class="kw-2">&amp;</span>leaf.commit());
             <span class="kw">let </span>data: ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt; = leaf.into();
-            <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::Proposal(Proposal { data, signature });
+            <span class="kw">let </span>message =
+                ValidatingMessage::&lt;TYPES, I&gt;(GeneralConsensusMessage::Proposal(Proposal {
+                    data,
+                    signature,
+                }));
             consensus
                 .metrics
                 .proposal_build_duration

@@ -805,6 +805,42 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -821,16 +857,13 @@
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
-<span class="kw">use </span>hotshot_types::message::MessagePurpose;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-
-<span class="kw">use </span>hotshot_web_server::{<span class="self">self</span>, config};
-
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>hotshot_types::message::{Message, MessagePurpose};
+<span class="kw">use </span>hotshot_types::traits::consensus_type::ConsensusType;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::Message,
     traits::{
         election::{ElectionConfig, Membership},
         network::{
@@ -843,6 +876,7 @@
     },
     vote::VoteType,
 };
+<span class="kw">use </span>hotshot_web_server::{<span class="self">self</span>, config};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
@@ -858,9 +892,10 @@
 <span class="kw">use </span>surf_disco::error::ClientError;
 <span class="kw">use </span>tracing::{error, info};
 <span class="doccomment">/// Represents the communication channel abstraction for the web server
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WebCommChannel&lt;
-    TYPES: NodeType,
+    CONSENSUS: ConsensusType,
+    TYPES: NodeType&lt;ConsensusType = CONSENSUS&gt;,
     I: NodeImplementation&lt;TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
@@ -878,13 +913,14 @@
     &gt;,
     PhantomData&lt;(MEMBERSHIP, I)&gt;,
 );
+
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; WebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; WebCommChannel&lt;TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// Create new communication channel
     </span><span class="attr">#[must_use]
@@ -1310,7 +1346,7 @@
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>WebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>WebCommChannel&lt;TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="kw">type </span>NETWORK = WebServerNetwork&lt;
         Message&lt;TYPES, I&gt;,
@@ -1575,6 +1611,42 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>WebCommChannel&lt;TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>TYPES::SignatureKey: TestableSignatureKey,
+{
+    <span class="kw">fn </span>generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+        <span class="kw">let </span>generator = &lt;WebServerNetwork&lt;
+            Message&lt;TYPES, I&gt;,
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            PROPOSAL,
+            VOTE,
+        &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
+        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
+    }
+
+    <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="prelude-val">None
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
     &gt;
     TestableChannelImplementation&lt;
         TYPES,
@@ -1590,7 +1662,7 @@
             PROPOSAL,
             VOTE,
         &gt;,
-    &gt; <span class="kw">for </span>WebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; <span class="kw">for </span>WebCommChannel&lt;TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {

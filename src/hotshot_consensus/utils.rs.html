@@ -134,6 +134,9 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -141,7 +144,7 @@
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>hotshot_types::{
     data::{LeafBlock, LeafType},
-    message::ProcessedConsensusMessage,
+    message::ConsensusMessageType,
     traits::node_implementation::{NodeImplementation, NodeType},
 };
 <span class="kw">use </span>std::{
@@ -201,14 +204,17 @@
     }
 }
 
-<span class="doccomment">/// struct containing messages for a view to send to replica
+<span class="doccomment">/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
+</span><span class="kw">type </span>ProcessedConsensusMessageType&lt;TYPES, I&gt; = &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::ConsensusMessage <span class="kw">as </span>ConsensusMessageType&lt;TYPES, I&gt;&gt;::ProcessedConsensusMessage;
+
+<span class="doccomment">/// struct containing messages for a view to send to a replica or DA committee member.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ViewQueue&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// to send networking events to Replica
-    </span><span class="kw">pub </span>sender_chan: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// to send networking events to a replica or DA committee member.
+    </span><span class="kw">pub </span>sender_chan: UnboundedSender&lt;ProcessedConsensusMessageType&lt;TYPES, I&gt;&gt;,
 
-    <span class="doccomment">/// to recv networking events for Replica
-    </span><span class="kw">pub </span>receiver_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// to recv networking events for a replica or DA committee member.
+    </span><span class="kw">pub </span>receiver_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessageType&lt;TYPES, I&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// `true` if this queue has already received a proposal
     </span><span class="kw">pub </span>has_received_proposal: Arc&lt;AtomicBool&gt;,

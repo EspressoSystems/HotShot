@@ -534,29 +534,46 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{
     utils::{Terminator, View, ViewInner},
-    Consensus, ConsensusApi,
+    Consensus, ValidatingConsensusApi,
 };
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposalType};
+<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposalType, ValidatingExchangesType, ValidatingQuorumEx,
+};
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
+    message::{
+        ConsensusMessageType, InternalTrigger, Message, ProcessedGeneralConsensusMessage,
+        ValidatingMessage,
+    },
     traits::{
-        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
-        Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus, node_implementation::NodeType,
+        signature_key::SignatureKey, Block, State,
     },
     vote::QuorumVote,
 };
-<span class="kw">use </span>hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::ops::Bound::{Excluded, Included};
@@ -566,10 +583,16 @@
 <span class="doccomment">/// This view&#39;s replica
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Replica&lt;
-    A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+    A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
     TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = ValidatingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Replica will require a write lock on this.
@@ -577,7 +600,7 @@
     <span class="doccomment">/// channel for accepting leader proposals and timeouts messages
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub </span>proposal_collection_chan:
-        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedGeneralConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// view number this view is executing in
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// genericQC from the pseudocode
@@ -586,26 +609,30 @@
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// quorum exchange
-    </span><span class="kw">pub </span>exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>exchange: Arc&lt;ValidatingQuorumEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// neeeded to typecheck
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+        A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = ValidatingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; Replica&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;,
-            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
-            Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
-            Commitment = ValidatingLeaf&lt;TYPES&gt;,
-        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    ValidatingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        Proposal = ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+        Commitment = ValidatingLeaf&lt;TYPES&gt;,
+    &gt;,
 {
     <span class="doccomment">/// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -626,12 +653,12 @@
             <span class="macro">info!</span>(<span class="string">&quot;recv-ed message {:?}&quot;</span>, msg.clone());
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = msg {
                 <span class="comment">// stale/newer view messages should never reach this specific task&#39;s receive channel
-                </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view
+                </span><span class="kw">if </span>Into::&lt;ValidatingMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view
                 {
                     <span class="kw">continue</span>;
                 }
                 <span class="kw">match </span>msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) =&gt; {
+                    ProcessedGeneralConsensusMessage::Proposal(p, sender) =&gt; {
                         <span class="kw">if </span>view_leader_key != sender {
                             <span class="kw">continue</span>;
                         }
@@ -784,7 +811,7 @@
                                 <span class="macro">info!</span>(<span class="string">&quot;Sending vote to next leader {:?}&quot;</span>, message);
                                 <span class="kw">if </span><span class="self">self
                                     </span>.api
-                                    .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader, message)
+                                    .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader, ValidatingMessage(message))
                                     .<span class="kw">await
                                     </span>.is_err()
                                 {
@@ -797,7 +824,7 @@
                         }
                         <span class="kw">break </span>leaf;
                     }
-                    ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; {
+                    ProcessedGeneralConsensusMessage::InternalTrigger(trigger) =&gt; {
                         <span class="kw">match </span>trigger {
                             InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
                                 <span class="kw">let </span>next_leader = <span class="self">self</span>.exchange.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>);
@@ -833,7 +860,13 @@
                                         <span class="comment">// send timedout message to the next leader
                                         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                                             </span>.api
-                                            .send_direct_message::&lt;QuorumProposalType&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader.clone(), timeout_msg)
+                                            .send_direct_message::&lt;QuorumProposalType&lt;
+                                                TYPES,
+                                                I,
+                                            &gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(
+                                                next_leader.clone(),
+                                                ValidatingMessage(timeout_msg),
+                                            )
                                             .<span class="kw">await
                                         </span>{
                                             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
@@ -854,21 +887,12 @@
                             }
                         }
                     }
-                    ProcessedConsensusMessage::DAProposal(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">&quot;Replica receieved a DA Proposal message. This is not what the replica expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::Vote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                    ProcessedGeneralConsensusMessage::Vote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// should only be for leader, never replica
                         </span><span class="macro">warn!</span>(<span class="string">&quot;Replica receieved a vote message. This is not what the replica expects. Skipping.&quot;</span>);
                         <span class="kw">continue</span>;
                     }
-                    ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                        <span class="comment">// should only be for leader, never replica
-                        </span><span class="macro">warn!</span>(<span class="string">&quot;Replica receieved a vote message. This is not what the replica expects. Skipping.&quot;</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                    ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
                 }
             }
             <span class="comment">// fall through logic if we did not receive successfully from channel

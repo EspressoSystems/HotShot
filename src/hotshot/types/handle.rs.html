@@ -366,22 +366,6 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Message;
@@ -394,17 +378,18 @@
 <span class="kw">use </span>async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::CommitteeNetwork;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumNetwork;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
+    message::{GeneralConsensusMessage, MessageKind},
     traits::{
-        election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
-        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
+        election::ConsensusExchange,
+        election::SignedCertificate,
+        node_implementation::{ExchangesType, NodeType, QuorumEx},
+        state::ConsensusTime,
+        storage::Storage,
     },
-    vote::QuorumVote,
 };
 <span class="kw">use </span>std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -413,11 +398,9 @@
 <span class="kw">use </span>tracing::{debug, error};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::HotShotConsensusApi;
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
 </span><span class="kw">use </span>commit::Commitment;
 <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-</span><span class="kw">use </span>hotshot_types::{message::ConsensusMessage, traits::signature_key::EncodedSignature};
+</span><span class="kw">use </span>hotshot_types::traits::signature_key::EncodedSignature;
 
 <span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -615,33 +598,16 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.storage
     }
 
-    <span class="doccomment">/// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
-    /// allowing access to networking stats.
-    </span><span class="kw">pub fn </span>quorum_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>QuorumNetwork&lt;TYPES, I&gt; {
-        <span class="self">self</span>.hotshot.inner.quorum_exchange.network()
-    }
-
-    <span class="doccomment">/// Provides a reference to the underlying committee networking interface for this [`HotShot`],
-    /// allowing access to networking stats.
-    </span><span class="kw">pub fn </span>committee_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CommitteeNetwork&lt;TYPES, I&gt; {
-        <span class="self">self</span>.hotshot.inner.committee_exchange.network()
+    <span class="doccomment">/// Block the underlying quorum (and committee) networking interfaces until node is
+    /// successfully initialized into the networks.
+    </span><span class="kw">pub async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hotshot.inner.exchanges.wait_for_networks_ready().<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
     </span><span class="kw">pub async fn </span>shut_down(<span class="self">self</span>) {
         <span class="self">self</span>.shut_down.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-        <span class="self">self</span>.hotshot
-            .inner
-            .committee_exchange
-            .network()
-            .shut_down()
-            .<span class="kw">await</span>;
-        <span class="self">self</span>.hotshot
-            .inner
-            .quorum_exchange
-            .network()
-            .shut_down()
-            .<span class="kw">await</span>;
+        <span class="self">self</span>.hotshot.inner.exchanges.shut_down_networks().<span class="kw">await</span>;
         <span class="self">self</span>.hotshot
             .inner
             .background_task_handle
@@ -660,7 +626,11 @@
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
-        <span class="self">self</span>.hotshot.inner.quorum_exchange.get_leader(view_number)
+        <span class="self">self</span>.hotshot
+            .inner
+            .exchanges
+            .quorum_exchange()
+            .get_leader(view_number)
     }
 
     <span class="doccomment">/// Wrapper to get this node&#39;s public key
@@ -680,15 +650,11 @@
     </span><span class="kw">pub fn </span>sign_validating_or_commitment_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;I::Leaf&gt;,
-    ) -&gt; EncodedSignature
-    <span class="kw">where
-        </span>I::QuorumExchange: QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
-    {
-        <span class="kw">let </span>api = HotShotConsensusApi {
-            inner: <span class="self">self</span>.hotshot.inner.clone(),
-        };
-        api.inner
-            .quorum_exchange
+    ) -&gt; EncodedSignature {
+        <span class="kw">let </span>inner = <span class="self">self</span>.hotshot.inner.clone();
+        inner
+            .exchanges
+            .quorum_exchange()
             .sign_validating_or_commitment_proposal::&lt;I&gt;(leaf_commitment)
     }
 
@@ -700,20 +666,16 @@
         leaf_commitment: Commitment&lt;I::Leaf&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I&gt;
+    ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::QuorumExchange: QuorumExchangeType&lt;
+        </span>QuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
             TYPES,
-            I::Leaf,
             Message&lt;TYPES, I&gt;,
             Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
-            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
         &gt;,
     {
-        <span class="kw">let </span>api = HotShotConsensusApi {
-            inner: <span class="self">self</span>.hotshot.inner.clone(),
-        };
-        api.inner.quorum_exchange.create_yes_message(
+        <span class="kw">let </span>inner = <span class="self">self</span>.hotshot.inner.clone();
+        inner.exchanges.quorum_exchange().create_yes_message(
             justify_qc_commitment,
             leaf_commitment,
             current_view,
@@ -723,18 +685,24 @@
 
     <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ConsensusMessage&lt;TYPES, I&gt;) {
-        <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_broadcast_message(msg).<span class="kw">await</span>;
+    </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: I::ConsensusMessage) {
+        <span class="kw">let </span>_result = <span class="self">self
+            </span>.hotshot
+            .send_broadcast_message(MessageKind::from_consensus_message(msg))
+            .<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_direct_consensus_message` function
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>send_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I&gt;,
+        msg: I::ConsensusMessage,
         recipient: TYPES::SignatureKey,
     ) {
-        <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_direct_message(msg, recipient).<span class="kw">await</span>;
+        <span class="kw">let </span>_result = <span class="self">self
+            </span>.hotshot
+            .send_direct_message(MessageKind::from_consensus_message(msg), recipient)
+            .<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Get length of the replica&#39;s receiver channel

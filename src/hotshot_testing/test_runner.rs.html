@@ -419,14 +419,67 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre><pre class="rust"><code><span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
+<span class="kw">use crate</span>::{
+    round::{Round, RoundCtx, RoundResult},
+    test_errors::ConsensusTestError,
+    test_launcher::TestLauncher,
+};
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, Message},
-    HotShot, HotShotError, HotShotInitializer, ViewRunner,
+    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
@@ -435,31 +488,43 @@
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
+        node_implementation::{
+            ExchangesType, NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork,
+        },
         signature_key::SignatureKey,
     },
     HotShotConfig,
 };
 <span class="kw">use </span>tracing::{debug, info, warn};
 
-<span class="kw">use crate</span>::{
-    round::{Round, RoundCtx, RoundResult},
-    test_errors::ConsensusTestError,
-    test_launcher::TestLauncher,
-};
-
 <span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 </span><span class="kw">pub type </span>Generator&lt;T&gt; = Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
 
+<span class="doccomment">/// Wrapper Type for quorum function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+</span><span class="kw">pub type </span>QuorumNetworkGenerator&lt;TYPES, I, T&gt; =
+    Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
+<span class="doccomment">/// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+</span><span class="kw">pub type </span>CommitteeNetworkGenerator&lt;N, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;N&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
 <span class="doccomment">/// The runner of a test network
 /// spin up and down nodes, execute rounds
-</span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
+<span class="kw">where
+    </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
+    &gt;,
+{
     launcher: TestLauncher&lt;TYPES, I&gt;,
     nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     next_node_id: u64,
 }
 
-<span class="kw">struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+<span class="kw">struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; {
     <span class="kw">pub </span>node_id: u64,
     <span class="kw">pub </span>handle: HotShotHandle&lt;TYPES, I&gt;,
 }
@@ -468,7 +533,10 @@
 /// unfortunately, debug is only available for option
 /// and display is not
 </span><span class="attr">#[allow(clippy::type_complexity)]
-</span><span class="kw">pub fn </span>concise_leaf_and_node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub fn </span>concise_leaf_and_node&lt;
+    TYPES: NodeType,
+    I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
+&gt;(
     result: <span class="kw-2">&amp;</span><span class="prelude-ty">Result</span>&lt;
         (
             Vec&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
@@ -493,7 +561,18 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
+    TestRunner&lt;TYPES, I&gt;
+<span class="kw">where
+    </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
+    &gt;,
+{
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(launcher: TestLauncher&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             nodes: Vec::new(),
@@ -511,6 +590,13 @@
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusTestError&gt;
     <span class="kw">where
         </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        I::Exchanges: ExchangesType&lt;
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Networks = (QuorumCommChannel&lt;TYPES, I&gt;, I::CommitteeCommChannel),
+        &gt;,
     {
         setup_logging();
         setup_backtrace();
@@ -519,8 +605,7 @@
         </span><span class="self">self</span>.add_nodes(<span class="self">self</span>.launcher.metadata.start_nodes).<span class="kw">await</span>;
 
         <span class="kw">for </span>(idx, node) <span class="kw">in </span><span class="self">self</span>.nodes().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().iter().enumerate().rev() {
-            node.quorum_network().wait_for_ready().<span class="kw">await</span>;
-            node.committee_network().wait_for_ready().<span class="kw">await</span>;
+            node.wait_for_networks_ready().<span class="kw">await</span>;
             <span class="macro">info!</span>(<span class="string">&quot;EXECUTOR: NODE {:?} IS READY&quot;</span>, idx);
         }
 
@@ -538,13 +623,26 @@
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: usize) -&gt; Vec&lt;u64&gt;
     <span class="kw">where
         </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        I::Exchanges: ExchangesType&lt;
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Networks = (QuorumCommChannel&lt;TYPES, I&gt;, I::CommitteeCommChannel),
+        &gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..count {
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
-            <span class="kw">let </span>network = Arc::new((<span class="self">self</span>.launcher.generator.network)(node_id));
-            <span class="kw">let </span>quorum_network = (<span class="self">self</span>.launcher.generator.quorum_network)(network.clone());
-            <span class="kw">let </span>committee_network = (<span class="self">self</span>.launcher.generator.committee_network)(network);
+            <span class="kw">let </span>quorum_network_generator =
+                Arc::new((<span class="self">self</span>.launcher.generator.quorum_network_generator)(node_id));
+            <span class="kw">let </span>committee_network_generator =
+                Arc::new((<span class="self">self</span>.launcher.generator.committee_network_generator)(
+                    node_id,
+                ));
+            <span class="kw">let </span>quorum_network = (<span class="self">self</span>.launcher.generator.quorum_network)(quorum_network_generator);
+            <span class="kw">let </span>committee_network =
+                (<span class="self">self</span>.launcher.generator.committee_network)(committee_network_generator);
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.generator.config.clone();
             <span class="kw">let </span>initializer =
@@ -580,14 +678,21 @@
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     </span><span class="kw">pub async fn </span>add_node_with_config(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        quorum_network: QuorumNetwork&lt;TYPES, I&gt;,
-        committee_network: CommitteeNetwork&lt;TYPES, I&gt;,
+        quorum_network: QuorumCommChannel&lt;TYPES, I&gt;,
+        committee_network: I::CommitteeCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     ) -&gt; u64
     <span class="kw">where
         </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        I::Exchanges: ExchangesType&lt;
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Networks = (QuorumCommChannel&lt;TYPES, I&gt;, I::CommitteeCommChannel),
+        &gt;,
     {
         <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
         <span class="self">self</span>.next_node_id += <span class="number">1</span>;
@@ -599,23 +704,15 @@
             [<span class="number">0u8</span>; <span class="number">32</span>],
         ));
         <span class="kw">let </span>election_config = config.election_config.clone().unwrap_or_else(|| {
-            &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
+            &lt;QuorumEx&lt;TYPES,I&gt; <span class="kw">as </span>ConsensusExchange&lt;
                 TYPES,
                 Message&lt;TYPES, I&gt;,
             &gt;&gt;::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
         });
-        <span class="kw">let </span>quorum_exchange = I::QuorumExchange::create(
+        <span class="kw">let </span>exchanges = I::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-            quorum_network,
-            public_key.clone(),
-            private_key.clone(),
-            ek.clone(),
-        );
-        <span class="kw">let </span>committee_exchange = I::CommitteeExchange::create(
-            known_nodes,
-            election_config,
-            committee_network,
+            (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),
             ek.clone(),
@@ -626,8 +723,7 @@
             node_id,
             config,
             storage,
-            quorum_exchange,
-            committee_exchange,
+            exchanges,
             initializer,
             NoMetrics::boxed(),
         )

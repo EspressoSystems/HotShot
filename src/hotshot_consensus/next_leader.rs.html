@@ -154,25 +154,33 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::ConsensusApi;
-<span class="kw">use </span><span class="kw">crate</span>::ConsensusMetrics;
+</span><span class="kw">use </span><span class="kw">crate</span>::ConsensusMetrics;
+<span class="kw">use </span><span class="kw">crate</span>::ValidatingConsensusApi;
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_lock::Mutex;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::data::ValidatingLeaf;
 <span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::message::ProcessedConsensusMessage;
+<span class="kw">use </span>hotshot_types::message::ProcessedGeneralConsensusMessage;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
+};
 <span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>hotshot_types::vote::VoteAccumulator;
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger},
+    message::{ConsensusMessageType, InternalTrigger, ValidatingMessage},
+    traits::consensus_type::validating_consensus::ValidatingConsensus,
     vote::QuorumVote,
 };
 <span class="kw">use </span>std::marker::PhantomData;
@@ -186,24 +194,31 @@
 <span class="doccomment">/// The next view&#39;s validating leader
 </span><span class="attr">#[derive(custom_debug::Debug, Clone)]
 </span><span class="kw">pub struct </span>NextValidatingLeader&lt;
-    A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-&gt; {
+    A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+    TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        Leaf = ValidatingLeaf&lt;TYPES&gt;,
+        ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+    &gt;,
+&gt; <span class="kw">where
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+{
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// generic_qc before starting this
     </span><span class="kw">pub </span>generic_qc: QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// channel through which the leader collects votes
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>vote_collection_chan:
+        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedGeneralConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// The view number we&#39;re running on
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// Limited access to the consensus protocol
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// quorum exchange
-    </span><span class="kw">pub </span>exchange: Arc&lt;I::QuorumExchange&gt;,
+    </span><span class="kw">pub </span>exchange: Arc&lt;ValidatingQuorumEx&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// Metrics for reporting stats
     </span><span class="attr">#[debug(skip)]
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetrics&gt;,
@@ -213,16 +228,19 @@
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
+        A: ValidatingConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
+        TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
+        I: NodeImplementation&lt;
+            TYPES,
+            Leaf = ValidatingLeaf&lt;TYPES&gt;,
+            ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
+        &gt;,
     &gt; NextValidatingLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: QuorumExchangeType&lt;
+    </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    ValidatingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         Message&lt;TYPES, I&gt;,
-        Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
         Certificate = QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         Commitment = ValidatingLeaf&lt;TYPES&gt;,
     &gt;,
@@ -251,57 +269,53 @@
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
             <span class="comment">// If the message is for a different view number, skip it.
-            </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
+            </span><span class="kw">if </span>Into::&lt;ValidatingMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
                 <span class="kw">continue</span>;
             }
             <span class="kw">match </span>msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) =&gt; <span class="kw">match </span>vote_message {
-                    QuorumVote::Yes(vote) | QuorumVote::No(vote) =&gt; {
-                        <span class="kw">if </span>vote.signature.<span class="number">0
-                            </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
-                        {
-                            <span class="kw">continue</span>;
+                ProcessedGeneralConsensusMessage::Vote(vote_message, sender) =&gt; {
+                    <span class="kw">match </span>vote_message {
+                        QuorumVote::Yes(vote) | QuorumVote::No(vote) =&gt; {
+                            <span class="kw">if </span>vote.signature.<span class="number">0
+                                </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
+                            {
+                                <span class="kw">continue</span>;
+                            }
+                            <span class="kw">match </span><span class="self">self</span>.exchange.accumulate_vote(
+                                <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
+                                <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
+                                vote.leaf_commitment,
+                                vote.vote_data,
+                                vote.vote_token.clone(),
+                                <span class="self">self</span>.cur_view,
+                                accumlator,
+                            ) {
+                                Either::Left(acc) =&gt; {
+                                    accumlator = acc;
+                                }
+                                Either::Right(qc) =&gt; {
+                                    <span class="self">self</span>.metrics
+                                        .vote_validate_duration
+                                        .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                    <span class="kw">return </span>qc;
+                                }
+                            }
                         }
-                        <span class="kw">match </span><span class="self">self</span>.exchange.accumulate_vote(
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                            vote.leaf_commitment,
-                            vote.vote_data,
-                            vote.vote_token.clone(),
-                            <span class="self">self</span>.cur_view,
-                            accumlator,
-                        ) {
-                            Either::Left(acc) =&gt; {
-                                accumlator = acc;
-                            }
-                            Either::Right(qc) =&gt; {
-                                <span class="self">self</span>.metrics
-                                    .vote_validate_duration
-                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
-                                <span class="kw">return </span>qc;
-                            }
+                        QuorumVote::Timeout(vote) =&gt; {
+                            qcs.insert(vote.justify_qc);
                         }
                     }
-                    QuorumVote::Timeout(vote) =&gt; {
-                        qcs.insert(vote.justify_qc);
-                    }
-                },
-                ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
+                }
+                ProcessedGeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                     InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
                         <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
                         <span class="kw">break</span>;
                     }
                 },
-                ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
+                ProcessedGeneralConsensusMessage::Proposal(_p, _sender) =&gt; {
                     <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
                 }
-                ProcessedConsensusMessage::DAProposal(_p, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected DA proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, _sender) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected vote for a DA proposal!&quot;</span>);
-                }
-                ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
             }
         }
 
