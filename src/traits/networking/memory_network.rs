@@ -15,7 +15,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -445,7 +445,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
 }
 
 /// memory identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -472,6 +472,39 @@ impl<
     }
 }
 
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <MemoryNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        Some(self.0.inner.in_flight_message_count.load(Ordering::Relaxed))
+    }
+}
+
 #[async_trait]
 impl<
         TYPES: NodeType,
@@ -481,6 +514,8 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     type NETWORK = MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 
@@ -501,8 +536,10 @@ impl<
         message: Message<TYPES, I>,
         election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let recipients =
-            <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
+        let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(
+            election,
+            message.kind.get_view_number(),
+        );
         self.0.broadcast_message(message, recipients).await
     }
 
@@ -571,9 +608,10 @@ mod tests {
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::traits::election::QuorumExchange;
+    use hotshot_types::traits::node_implementation::ValidatingExchanges;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind},
+        message::{DataMessage, MessageKind, ValidatingMessage},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
@@ -582,8 +620,9 @@ mod tests {
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::state::ValidatingConsensus,
+        traits::consensus_type::validating_consensus::ValidatingConsensus,
     };
+    use serde::{Deserialize, Serialize};
 
     #[derive(
         Copy,
@@ -599,7 +638,7 @@ mod tests {
         serde::Deserialize,
     )]
     struct Test {}
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Deserialize, Serialize)]
     struct TestImpl {}
 
     // impl NetworkMsg for Test {}
@@ -620,15 +659,19 @@ mod tests {
     type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
 
     impl NodeImplementation<Test> for TestImpl {
-        type QuorumExchange = QuorumExchange<
+        type ConsensusMessage = ValidatingMessage<Test, Self>;
+        type Exchanges = ValidatingExchanges<
             Test,
-            TestLeaf,
-            TestProposal,
-            TestMembership,
-            TestNetwork,
             Message<Test, Self>,
+            QuorumExchange<
+                Test,
+                TestLeaf,
+                TestProposal,
+                TestMembership,
+                TestNetwork,
+                Message<Test, Self>,
+            >,
         >;
-        type CommitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
     }
@@ -680,6 +723,7 @@ mod tests {
                     },
                     <ViewNumber as ConsensusTime>::new(0),
                 )),
+                _phantom: PhantomData,
             };
             messages.push(message);
         }
@@ -852,22 +896,22 @@ mod tests {
     #[allow(deprecated)]
     async fn test_in_flight_message_count() {
         // setup_logging();
-        //
-        // let group: Arc<
-        //     MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>,
-        // > = MasterMap::new();
+
+        // let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+        //     MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
-        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        // let network1 =
+        //     MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         // let pub_key_2 = get_pubkey();
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-        //
+
         // // Create some dummy messages
         // let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
-        //
+
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));
-        //
+
         // for (_count, message) in messages.iter().enumerate() {
         //     network1
         //         .direct_message(message.clone(), pub_key_2)
@@ -875,24 +919,24 @@ mod tests {
         //         .unwrap();
         //     // network 2 has received `count` broadcast messages and `count + 1` direct messages
         //     // assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
-        //
+
         //     // network2.broadcast_message(message.clone()).await.unwrap();
         //     // network 1 has received `count` broadcast messages
         //     // assert_eq!(network1.in_flight_message_count(), Some(count + 1));
-        //
+
         //     // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
         //     // assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
         // }
-        //
+
         // for _count in (0..messages.len()).rev() {
         //     network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
         //     // assert_eq!(network1.in_flight_message_count(), Some(count));
-        //
+
         //     network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
         //     network2.recv_msgs(TransmitType::Direct).await.unwrap();
         //     // assert_eq!(network2.in_flight_message_count(), Some(count * 2));
         // }
-        //
+
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));
     }

@@ -3,12 +3,17 @@ use std::{collections::HashMap, ops::Deref, sync::Arc};
 use futures::future::LocalBoxFuture;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    HotShotError,
+    HotShot, HotShotError, HotShotType,
 };
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::{
     data::LeafType,
-    traits::node_implementation::{NetworkType, NodeType},
+    message::Message,
+    traits::{
+        election::ConsensusExchange,
+        network::CommunicationChannel,
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+    },
 };
 use tracing::error;
 
@@ -20,9 +25,6 @@ use crate::{
 
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
-
-/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 
 /// Result of running a round of consensus
 #[derive(Debug)]
@@ -68,7 +70,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<
 /// that we poll when things are event driven
 /// this context will be passed around
 #[derive(Debug)]
-pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     /// results from previous rounds
     pub prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
     /// views since we had a successful commit
@@ -80,7 +82,9 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub total_successful_views: usize,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    RoundCtx<TYPES, I>
+{
     /// prints a summary
     /// TODO this should probably include a formatter as an arg
     pub fn print_summary(&self) {
@@ -94,7 +98,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
+    for RoundCtx<TYPES, I>
+{
     fn default() -> Self {
         Self {
             prior_round_results: Default::default(),
@@ -105,7 +111,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Round<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Round<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     /// an empty `Round`
     pub fn empty() -> Self {
         Self {
@@ -116,7 +131,25 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Round<TYPES, I> {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
+    for Round<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    I::Exchanges: ExchangesType<
+        TYPES::ConsensusType,
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+        Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+    >,
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     fn default() -> Self {
         Self {
             safety_check: RoundSafetyCheckBuilder::default().build(),
@@ -125,7 +158,17 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
         }
     }
 }
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Clone for Round<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Clone
+    for Round<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     fn clone(&self) -> Self {
         Self {
             setup_round: self.setup_round.clone(),
@@ -136,20 +179,47 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Clone for Round<TYPE
 }
 
 /// an empty `RoundSetup`
-pub fn empty_setup_round<'a, TYPES: NodeType, TRANS, I: TestableNodeImplementation<TYPES>>(
+pub fn empty_setup_round<
+    'a,
+    TYPES: NodeType,
+    TRANS,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     _asdf: &'a mut TestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
-) -> LocalBoxFuture<'a, Vec<TRANS>> {
+) -> LocalBoxFuture<'a, Vec<TRANS>>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     use futures::FutureExt;
     async move { vec![] }.boxed()
 }
 
 /// an empty `RoundSafetyCheck`
-pub fn empty_safety_check<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn empty_safety_check<
+    'a,
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     _asdf: &'a TestRunner<TYPES, I>,
     _ctx: &'a mut RoundCtx<TYPES, I>,
     _result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>> {
+) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     use futures::FutureExt;
     async move { Ok(()) }.boxed()
 }
@@ -157,7 +227,10 @@ pub fn empty_safety_check<'a, TYPES: NodeType, I: TestableNodeImplementation<TYP
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
-pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub struct RoundSafetyCheck<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     pub  Arc<
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
@@ -165,21 +238,47 @@ pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES
             RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
         ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>,
     >,
-);
+)
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >;
 
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
-pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
     pub  Arc<
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
             &'a RoundCtx<TYPES, I>,
         ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>,
     >,
-);
+)
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >;
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundHook<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
+    for RoundHook<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
         &'a RoundCtx<TYPES, I>,
@@ -190,7 +289,17 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundHook<
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSafetyCheck<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
+    for RoundSafetyCheck<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
         &'a mut RoundCtx<TYPES, I>,
@@ -205,16 +314,34 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSafet
 /// Type of function used for configuring a round of consensus
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
-pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
     pub  Arc<
         dyn for<'a> Fn(
             &'a mut TestRunner<TYPES, I>,
             &'a RoundCtx<TYPES, I>,
         ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
     >,
-);
+)
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >;
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSetup<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
+    for RoundSetup<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     type Target = dyn for<'a> Fn(
         &'a mut TestRunner<TYPES, I>,
         &'a RoundCtx<TYPES, I>,
@@ -227,7 +354,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSetup
 
 /// functions to run a round of consensus
 /// the control flow is: (0) setup round, (1) hooks, (2) execute round, (3) safety check
-pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub hooks: Vec<RoundHook<TYPES, I>>,

@@ -1,21 +1,3 @@
-use futures::Future;
-use futures::FutureExt;
-use hotshot_types::data::LeafType;
-use std::net::Ipv4Addr;
-use std::{
-    cmp,
-    collections::{BTreeSet, VecDeque},
-    fs, mem,
-    net::IpAddr,
-    num::NonZeroUsize,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use surf_disco::Client;
-
-use surf_disco::error::ClientError;
-
 use async_compatibility_layer::{
     art::async_sleep,
     logging::{setup_backtrace, setup_logging},
@@ -23,6 +5,8 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
+use futures::Future;
+use futures::FutureExt;
 use hotshot::{
     traits::{
         implementations::{
@@ -39,12 +23,14 @@ use hotshot_orchestrator::{
 };
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
-    data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    message::ValidatingMessage,
     traits::{
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::NodeType,
+        node_implementation::{ExchangesType, NodeType, ValidatingExchanges},
         state::{TestableBlock, TestableState},
     },
     vote::QuorumVote,
@@ -62,6 +48,20 @@ use libp2p::{
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use rand::SeedableRng;
+use std::fmt::Debug;
+use std::net::Ipv4Addr;
+use std::{
+    cmp,
+    collections::{BTreeSet, VecDeque},
+    fs, mem,
+    net::IpAddr,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use surf_disco::error::ClientError;
+use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
 
@@ -111,27 +111,32 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
 /// Runs the orchestrator
 pub async fn run_orchestrator<
-    TYPES: NodeType,
-    MEMBERSHIP: Membership<TYPES>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    MEMBERSHIP: Membership<TYPES> + Debug,
     NETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        QuorumExchange = QuorumExchange<
+        Exchanges = ValidatingExchanges<
             TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-            NETWORK,
             Message<TYPES, NODE>,
+            QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                NETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        ConsensusMessage = ValidatingMessage<TYPES, NODE>,
     >,
 >(
     OrchestratorArgs {
@@ -170,35 +175,32 @@ pub struct ValidatorArgs {
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait Run<
-    TYPES: NodeType,
-    MEMBERSHIP: Membership<TYPES>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    MEMBERSHIP: Membership<TYPES> + Debug,
     NETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        QuorumExchange = QuorumExchange<
+        Exchanges = ValidatingExchanges<
             TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-            NETWORK,
             Message<TYPES, NODE>,
-        >,
-        CommitteeExchange = QuorumExchange<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-            NETWORK,
-            Message<TYPES, NODE>,
+            QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                NETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        ConsensusMessage = ValidatingMessage<TYPES, NODE>,
     >,
 > where
     <TYPES as NodeType>::StateType: TestableState,
@@ -247,18 +249,11 @@ pub trait Run<
                 config.config.total_nodes.get() as u64
             )
         });
-        let quorum_exchange = NODE::QuorumExchange::create(
+
+        let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-            network.clone(),
-            pk.clone(),
-            sk.clone(),
-            ek.clone(),
-        );
-        let committee_exchange = NODE::CommitteeExchange::create(
-            known_nodes,
-            election_config,
-            network,
+            (network.clone(), ()),
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -269,8 +264,7 @@ pub trait Run<
             config.node_index,
             config.config,
             MemoryStorage::empty(),
-            quorum_exchange,
-            committee_exchange,
+            exchanges,
             initializer,
             NoMetrics::boxed(),
         )
@@ -386,7 +380,11 @@ type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
 // LIBP2P
 
 /// Represents a libp2p-based run
-pub struct Libp2pRun<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>> {
+pub struct Libp2pRun<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
     _bound_addr: Multiaddr,
@@ -436,40 +434,31 @@ pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType,
-        MEMBERSHIP: Membership<TYPES>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            QuorumExchange = QuorumExchange<
+            Exchanges = ValidatingExchanges<
                 TYPES,
-                ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-                Libp2pCommChannel<
-                    TYPES,
-                    NODE,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                    MEMBERSHIP,
-                >,
                 Message<TYPES, NODE>,
-            >,
-            CommitteeExchange = QuorumExchange<
-                TYPES,
-                ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-                Libp2pCommChannel<
+                QuorumExchange<
                     TYPES,
-                    NODE,
+                    ValidatingLeaf<TYPES>,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
+                    Libp2pCommChannel<
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                        MEMBERSHIP,
+                    >,
+                    Message<TYPES, NODE>,
                 >,
-                Message<TYPES, NODE>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+            ConsensusMessage = ValidatingMessage<TYPES, NODE>,
         >,
     >
     Run<
@@ -653,64 +642,61 @@ where
 
 // WEB SERVER
 
+/// Alias for the [`WebCommChannel`] for validating consensus.
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
+    <TYPES as NodeType>::ConsensusType,
+    TYPES,
+    I,
+    Proposal<TYPES>,
+    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    MEMBERSHIP,
+>;
+
 /// Represents a web server-based run
 pub struct WebServerRun<
-    TYPES: NodeType,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    network: WebCommChannel<
-        TYPES,
-        I,
-        Proposal<TYPES>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+    network: ValidatingWebCommChannel<TYPES, I, MEMBERSHIP>,
 }
 
 #[async_trait]
 impl<
-        TYPES: NodeType,
-        MEMBERSHIP: Membership<TYPES>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            QuorumExchange = QuorumExchange<
+            Exchanges = ValidatingExchanges<
                 TYPES,
-                ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-                WebCommChannel<
-                    TYPES,
-                    NODE,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                    MEMBERSHIP,
-                >,
                 Message<TYPES, NODE>,
-            >,
-            CommitteeExchange = QuorumExchange<
-                TYPES,
-                ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-                WebCommChannel<
+                QuorumExchange<
                     TYPES,
-                    NODE,
+                    ValidatingLeaf<TYPES>,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
+                    WebCommChannel<
+                        ValidatingConsensus,
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                        MEMBERSHIP,
+                    >,
+                    Message<TYPES, NODE>,
                 >,
-                Message<TYPES, NODE>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+            ConsensusMessage = ValidatingMessage<TYPES, NODE>,
         >,
     >
     Run<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
+            ValidatingConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -745,6 +731,7 @@ where
 
         // Create the network
         let network: WebCommChannel<
+            ValidatingConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,
@@ -759,6 +746,7 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
+        ValidatingConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,
@@ -874,35 +862,32 @@ impl OrchestratorClient {
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType,
-    MEMBERSHIP: Membership<TYPES>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    MEMBERSHIP: Membership<TYPES> + Debug,
     NETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        QuorumExchange = QuorumExchange<
+        Exchanges = ValidatingExchanges<
             TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-            NETWORK,
             Message<TYPES, NODE>,
-        >,
-        CommitteeExchange = QuorumExchange<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-            NETWORK,
-            Message<TYPES, NODE>,
+            QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                NETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        ConsensusMessage = ValidatingMessage<TYPES, NODE>,
     >,
     RUN: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
 >(

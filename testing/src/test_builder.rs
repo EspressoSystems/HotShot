@@ -2,9 +2,15 @@ use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
 
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, HotShotError};
-
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot::{traits::NetworkReliability, HotShot, HotShotError, HotShotType};
+use hotshot_types::{
+    message::Message,
+    traits::{
+        election::ConsensusExchange,
+        network::CommunicationChannel,
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+    },
+};
 
 use snafu::Snafu;
 
@@ -62,9 +68,29 @@ impl Default for TestMetadata {
 
 impl TestMetadata {
     /// generate a reasonable round description
-    pub fn gen_sane_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn gen_sane_round<
+        TYPES: NodeType,
+        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+    >(
         metadata: &TestMetadata,
-    ) -> Round<TYPES, I> {
+    ) -> Round<TYPES, I>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+        >,
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         Round {
             setup_round: RoundSetupBuilder {
                 num_txns_per_round: metadata.num_txns_per_round,
@@ -170,9 +196,26 @@ pub struct TestBuilder {
 
 impl TestBuilder {
     /// build a test description from a detailed testing spec
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> TestLauncher<TYPES, I> {
+    ) -> TestLauncher<TYPES, I>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+        >,
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         let sane_round = TestMetadata::gen_sane_round(&self.metadata);
 
         let setup_round = self

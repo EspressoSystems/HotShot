@@ -13,17 +13,18 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_types::message::Message;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::ValidatingMessage,
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::QuorumExchange,
         node_implementation::NodeType,
-        state::ValidatingConsensus,
     },
     vote::QuorumVote,
 };
+use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -31,6 +32,7 @@ use jf_primitives::{
     },
     vrf::blsvrf::BLSVRFScheme,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(
     Copy,
@@ -86,7 +88,7 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 /// type alias for a "usable" node impl type
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StandardNodeImplType {}
 
 /// type alias for membership using vrf types
@@ -109,7 +111,7 @@ pub type VrfCommunication = MemoryCommChannel<
 >;
 
 /// type alias for static committee node
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StaticNodeImplType {}
 
 type StaticMembership =
@@ -126,30 +128,38 @@ type StaticCommunication = MemoryCommChannel<
 impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
     type Leaf = ValidatingLeaf<VrfTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-        VrfMembership,
-        VrfCommunication,
         Message<VrfTestTypes, Self>,
+        QuorumExchange<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+            VrfMembership,
+            VrfCommunication,
+            Message<VrfTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
 }
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
 }
 
 /// type alias for the test runner type

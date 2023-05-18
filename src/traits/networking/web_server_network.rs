@@ -14,16 +14,13 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
-use hotshot_types::message::MessagePurpose;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-
-use hotshot_web_server::{self, config};
-
 use async_lock::RwLock;
 use async_trait::async_trait;
+use hotshot_types::message::{Message, MessagePurpose};
+use hotshot_types::traits::consensus_type::ConsensusType;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
     traits::{
         election::{ElectionConfig, Membership},
         network::{
@@ -36,6 +33,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_web_server::{self, config};
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;
@@ -51,9 +49,10 @@ use std::{
 use surf_disco::error::ClientError;
 use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WebCommChannel<
-    TYPES: NodeType,
+    CONSENSUS: ConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
     I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
@@ -71,13 +70,14 @@ pub struct WebCommChannel<
     >,
     PhantomData<(MEMBERSHIP, I)>,
 );
+
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     #[must_use]
@@ -503,7 +503,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     type NETWORK = WebServerNetwork<
         Message<TYPES, I>,
@@ -768,6 +768,42 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <WebServerNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            PROPOSAL,
+            VOTE,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
     >
     TestableChannelImplementation<
         TYPES,
@@ -783,7 +819,7 @@ impl<
             PROPOSAL,
             VOTE,
         >,
-    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

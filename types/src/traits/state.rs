@@ -63,35 +63,6 @@ pub trait State:
 
 // TODO Seuqnecing here means involving DA in consensus
 
-/// Marker trait for consensus which provides availability and ordering but not execution.
-pub trait SequencingConsensusType
-where
-    Self: ConsensusType,
-{
-}
-
-/// Marker trait for consensus which provides ordering and execution.
-pub trait ValidatingConsensusType
-where
-    Self: ConsensusType,
-{
-}
-
-/// Marker trait for different flavors of consensus.
-pub trait ConsensusType: Clone + Send + Sync {}
-
-/// Consensus which provides availability and ordering but not execution.
-#[derive(Clone)]
-pub struct SequencingConsensus;
-impl SequencingConsensusType for SequencingConsensus {}
-impl ConsensusType for SequencingConsensus {}
-
-/// Consensus which provides ordering and execution.
-#[derive(Clone)]
-pub struct ValidatingConsensus;
-impl ConsensusType for ValidatingConsensus {}
-impl ValidatingConsensusType for ValidatingConsensus {}
-
 /// Trait for time compatibility needed for reward collection
 pub trait ConsensusTime:
     PartialOrd

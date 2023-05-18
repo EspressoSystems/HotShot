@@ -6,16 +6,16 @@ use hotshot::{
     types::Message,
 };
 use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
-use hotshot_types::traits::election::QuorumExchange;
-
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::{NodeImplementation, ValidatingExchanges};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
 };
+use hotshot_types::{message::ValidatingMessage, traits::election::QuorumExchange};
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct FallbackImpl {}
 
 type StaticMembership =
@@ -33,15 +33,19 @@ impl NodeImplementation<StaticCommitteeTestTypes> for FallbackImpl {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
-        Message<StaticCommitteeTestTypes, FallbackImpl>,
+        Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, FallbackImpl>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
 }
 
 /// web server with libp2p network test

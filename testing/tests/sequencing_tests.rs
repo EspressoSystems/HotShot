@@ -14,19 +14,19 @@ use hotshot::{
 };
 use hotshot_testing::test_builder::TestBuilder;
 use hotshot_types::data::QuorumProposal;
-use hotshot_types::message::Message;
-
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
-        node_implementation::NodeType,
-        state::SequencingConsensus,
+        node_implementation::{NodeType, SequencingExchanges},
     },
     vote::DAVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 #[derive(
@@ -54,7 +54,7 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct SequencingMemoryImpl {}
 
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
@@ -78,21 +78,25 @@ type StaticQuroumComm = MemoryCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        Self::Leaf,
-        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumComm,
         Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDAComm,
-        Message<SequencingTestTypes, Self>,
-    >;
+    type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 }
 
 // Test the memory network with sequencing consensus.
@@ -113,7 +117,7 @@ async fn sequencing_memory_network_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct SequencingLibP2PImpl {}
 
 type StaticDACommP2p = Libp2pCommChannel<
@@ -135,21 +139,25 @@ type StaticQuroumCommP2p = Libp2pCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        Self::Leaf,
-        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumCommP2p,
         Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumCommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticDACommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDACommP2p,
-        Message<SequencingTestTypes, Self>,
-    >;
+    type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 }
 
 // Test the libp2p network with sequencing consensus.
@@ -170,7 +178,7 @@ async fn sequencing_libp2p_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct SequencingCentralImpl {}
 
 type StaticDACommCentral = CentralizedCommChannel<
@@ -192,21 +200,25 @@ type StaticQuroumCommCentral = CentralizedCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        Self::Leaf,
-        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumCommCentral,
         Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumCommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticDACommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDACommCentral,
-        Message<SequencingTestTypes, Self>,
-    >;
+    type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 }
 
 // Test the centralized server network with sequencing consensus.

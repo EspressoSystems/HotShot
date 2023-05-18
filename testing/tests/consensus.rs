@@ -14,22 +14,22 @@ use hotshot_testing::{
 use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    certificate::QuorumCertificate,
-    demos::vdemo::random_validating_leaf,
-    traits::{NodeImplementation, TestableNodeImplementation},
+    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
+    traits::TestableNodeImplementation, HotShot, HotShotType,
 };
 
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::Proposal,
     traits::{
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::{ConsensusExchange, SignedCertificate, TestableElection},
-        node_implementation::NodeType,
-        state::{ConsensusTime, ValidatingConsensus},
+        node_implementation::{
+            NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
+        },
+        state::ConsensusTime,
     },
-    vote::QuorumVote,
 };
 
 use std::sync::Arc;
@@ -51,21 +51,14 @@ enum QueuedMessageTense {
 /// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
 where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
 {
     let handle = runner.get_handle(node_id).unwrap();
     let leader = handle.get_leader(view_number).await;
@@ -75,58 +68,61 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
-    let genesis = <I as TestableNodeImplementation<TYPES>>::block_genesis();
+    let genesis = <I as TestableNodeImplementation<TYPES::ConsensusType, TYPES>>::block_genesis();
     // Build proposal
     let mut leaf = random_validating_leaf::<TYPES>(genesis, &mut rng);
     leaf.view_number = view_number;
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
     let signature = handle.sign_validating_or_commitment_proposal(&leaf.commit());
-    let msg = ConsensusMessage::Proposal(Proposal {
+    let msg = GeneralConsensusMessage::Proposal(Proposal {
         data: leaf.into(),
         signature,
     });
 
     // Send proposal
-    handle.send_broadcast_consensus_message(msg.clone()).await;
+    handle
+        .send_broadcast_consensus_message(ValidatingMessage(msg.clone()))
+        .await;
 }
 
 /// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
     recipient_node_id: u64,
 ) where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
         TestableElection<TYPES>,
 {
     let mut rng = rand::thread_rng();
@@ -139,7 +135,10 @@ async fn submit_validating_vote<
         leaf.justify_qc.commit(),
         leaf.commit(),
         leaf.view_number,
-<<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
+        <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+        >>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
     );
 
     let recipient = runner
@@ -149,7 +148,7 @@ async fn submit_validating_vote<
 
     // Send vote
     handle
-        .send_direct_consensus_message(msg.clone(), recipient)
+        .send_direct_consensus_message(ValidatingMessage(msg.clone()), recipient)
         .await;
 }
 
@@ -166,21 +165,16 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 fn test_validating_vote_queueing_post_safety_check<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -221,21 +215,21 @@ where
 fn test_validating_vote_queueing_round_setup<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
+    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
         TestableElection<TYPES>,
 {
     async move {
@@ -256,20 +250,21 @@ where
 fn test_validating_proposal_queueing_post_safety_check<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _cx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
     async move {
@@ -313,19 +308,20 @@ where
 fn test_validating_proposal_queueing_round_setup<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
     async move {
@@ -346,19 +342,20 @@ where
 fn test_bad_validating_proposal_round_setup<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    I::QuorumExchange: QuorumExchangeType<
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
     async move {
@@ -381,21 +378,16 @@ where
 fn test_bad_validating_proposal_post_safety_check<
     'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<ValidatingConsensus, TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
+    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;

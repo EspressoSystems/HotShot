@@ -5,11 +5,8 @@ use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
 use types::ThisMembership;
 
-use crate::infra::OrchestratorArgs;
-use crate::{
-    infra::run_orchestrator,
-    types::{NodeImpl, ThisNetwork},
-};
+use crate::infra::{run_orchestrator, OrchestratorArgs};
+use crate::types::{NodeImpl, ThisNetwork};
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
