@@ -218,9 +218,10 @@ where
                     .await
                     .unwrap()
                 });
-                /// TODO configure the network.
                 let da_topic = "DA".to_string();
-                network.add_topic(&da_topic, da_keys.clone());
+                async_block_on(async {
+                    network.add_topic(&da_topic, da_keys.clone()).await.unwrap();
+                });
                 network
             }
         })
@@ -476,13 +477,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         });
     }
 
-    async fn add_topic(&self, name: &String, committee_pks: BTreeSet<K>) {
-        self.inner.handle.subscribe(name.clone());
+    /// Add and supscribe to a libp2p topic
+    async fn add_topic(
+        &self,
+        name: &str,
+        committee_pks: BTreeSet<K>,
+    ) -> Result<(), NetworkNodeHandleError> {
+        self.inner.handle.subscribe(name.to_owned()).await?;
         self.inner
             .topic_map
             .write()
             .await
-            .insert(committee_pks, name.clone());
+            .insert(committee_pks, name.to_owned());
+        Ok(())
     }
 }
 

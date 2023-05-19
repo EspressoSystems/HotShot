@@ -116,6 +116,7 @@ impl TestBuilder {
         }
     }
 
+    /// Default Constructor for multiple rounds and a DA committee
     pub fn default_multiple_rounds_da() -> Self {
         TestBuilder {
             metadata: TestMetadata {
