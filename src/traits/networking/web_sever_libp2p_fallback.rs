@@ -27,7 +27,7 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WebServerWithFallbackCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -78,6 +78,7 @@ impl<
 /// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
+#[derive(Debug)]
 pub struct CombinedNetworks<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -136,6 +137,48 @@ where
                 generators.1(node_id),
                 PhantomData::default(),
             )
+        })
+    }
+
+    /// Get the number of messages in-flight.
+    ///
+    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <CombinedNetworks<
+            TYPES,
+            I,
+            PROPOSAL,
+            VOTE,
+            MEMBERSHIP,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size
+        );
+        Box::new(move |node_id| Self {
+            networks: generator(node_id).into(),
         })
     }
 

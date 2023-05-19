@@ -25,7 +25,7 @@ use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
@@ -833,7 +833,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
 }
 
 /// libp2p identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CentralizedCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -881,6 +881,8 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     type NETWORK = CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 
@@ -913,7 +915,7 @@ impl<
         message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let view_number = message.get_view_number();
+        let view_number = message.kind.get_view_number();
         let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, view_number);
         self.0.broadcast_message(message, recipients).await
     }
@@ -1015,6 +1017,41 @@ where
             network.server_shutdown_signal = Some(sender);
             network
         })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <CentralizedServerNetwork<
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType
+        > as TestableNetworkingImplementation<TYPES, Message<TYPES, I>>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {

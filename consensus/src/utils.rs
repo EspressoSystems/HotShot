@@ -5,7 +5,7 @@ use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::{LeafBlock, LeafType},
-    message::ProcessedConsensusMessage,
+    message::ConsensusMessageType,
     traits::node_implementation::{NodeImplementation, NodeType},
 };
 use std::{
@@ -65,14 +65,17 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Deref for View<TYPES, LE
     }
 }
 
-/// struct containing messages for a view to send to replica
+/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
+type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;
+
+/// struct containing messages for a view to send to a replica or DA committee member.
 #[derive(Clone)]
 pub struct ViewQueue<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// to send networking events to Replica
-    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, I>>,
+    /// to send networking events to a replica or DA committee member.
+    pub sender_chan: UnboundedSender<ProcessedConsensusMessageType<TYPES, I>>,
 
-    /// to recv networking events for Replica
-    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+    /// to recv networking events for a replica or DA committee member.
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessageType<TYPES, I>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,

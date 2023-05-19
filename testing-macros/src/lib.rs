@@ -188,11 +188,12 @@ impl TestData {
             quote! {}
         };
 
-        let (consensus_type, leaf, vote, proposal, committee_exchange) =
+        let (consensus_type, leaf, vote, proposal, consensus_message, exchanges) =
             match supported_consensus_type {
                 SupportedConsensusTypes::SequencingConsensus => {
-                    let consensus_type =
-                        quote! { hotshot_types::traits::state::SequencingConsensus };
+                    let consensus_type = quote! {
+                        hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus
+                    };
                     let leaf = quote! {
                         hotshot_types::data::SequencingLeaf<TestTypes>
                     };
@@ -202,10 +203,12 @@ impl TestData {
                     let proposal = quote! {
                         hotshot_types::data::DAProposal<TestTypes>
                     };
+                    let consensus_message = quote! {
+                        hotshot_types::message::SequencingMessage<TestTypes, TestNodeImpl>
+                    };
                     let committee_exchange = quote! {
                         hotshot_types::traits::election::CommitteeExchange<
                             TestTypes,
-                            #leaf,
                             CommitteeMembership,
                             #comm_channel<
                                 TestTypes,
@@ -217,12 +220,27 @@ impl TestData {
                             hotshot_types::message::Message<TestTypes, TestNodeImpl>,
                         >
                     };
+                    let exchanges = quote! {
+                        hotshot_types::traits::node_implementation::SequencingExchanges<
+                            TestTypes,
+                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                            TestQuorumExchange,
+                            #committee_exchange
+                        >
+                    };
 
-                    (consensus_type, leaf, vote, proposal, committee_exchange)
+                    (
+                        consensus_type,
+                        leaf,
+                        vote,
+                        proposal,
+                        consensus_message,
+                        exchanges,
+                    )
                 }
                 SupportedConsensusTypes::ValidatingConsensus => {
                     let consensus_type = quote! {
-                        hotshot_types::traits::state::ValidatingConsensus
+                        hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus
                     };
                     let leaf = quote! {
                         hotshot_types::data::ValidatingLeaf<TestTypes>
@@ -233,10 +251,24 @@ impl TestData {
                     let proposal = quote! {
                         hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
                     };
-                    let committee_exchange = quote! {
-                        TestQuorumExchange
+                    let consensus_message = quote! {
+                        hotshot_types::message::ValidatingMessage<TestTypes, TestNodeImpl>
                     };
-                    (consensus_type, leaf, vote, proposal, committee_exchange)
+                    let exchanges = quote! {
+                        hotshot_types::traits::node_implementation::ValidatingExchanges<
+                            TestTypes,
+                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                            TestQuorumExchange
+                        >
+                    };
+                    (
+                        consensus_type,
+                        leaf,
+                        vote,
+                        proposal,
+                        consensus_message,
+                        exchanges,
+                    )
                 }
             };
 
@@ -302,13 +334,11 @@ impl TestData {
                         hotshot_types::message::Message<TestTypes, TestNodeImpl>,
                     >;
 
-                type TestCommitteeExchange = #committee_exchange;
-
                 impl hotshot_types::traits::node_implementation::NodeImplementation<TestTypes> for TestNodeImpl {
                     type Leaf = #leaf;
                     type Storage = #storage<TestTypes, #leaf>;
-                    type QuorumExchange = TestQuorumExchange;
-                    type CommitteeExchange = TestCommitteeExchange;
+                    type ConsensusMessage = #consensus_message;
+                    type Exchanges = #exchanges;
                 }
 
                 #slow_attribute

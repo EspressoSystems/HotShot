@@ -1,12 +1,10 @@
 #![allow(clippy::type_complexity)]
-use std::sync::Arc;
-
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     test_builder::{TestBuilder, TestMetadata},
     test_types::{StaticCommitteeTestTypes, StaticNodeImplType},
 };
-
+use std::sync::Arc;
 use tracing::instrument;
 
 // tests base level of working synchronous network

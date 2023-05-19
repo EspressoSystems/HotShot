@@ -1,22 +1,19 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
+use crate::{HotShot, HotShotType, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    async_primitives::broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn_local, async_timeout},
+    channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     traits::{
         network::{CommunicationChannel, TransmitType},
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ExchangesType, NodeImplementation, NodeType},
     },
-    ExecutionType,
 };
 use std::{
     collections::HashMap,
@@ -27,7 +24,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info, trace};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -39,8 +36,9 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
 pub struct TaskHandle<TYPES: NodeType> {
-    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
-    inner: RwLock<Option<TaskHandleInner>>,
+    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
+    /// early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
+    pub(crate) inner: RwLock<Option<TaskHandleInner>>,
     /// Reference to the [`NodeType`] used in this configuration
     _types: PhantomData<TYPES>,
 }
@@ -105,14 +103,6 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
                 inner.network_direct_task_handle,
                 "network_direct_task_handle",
             ),
-            (
-                inner.committee_network_broadcast_task_handle,
-                "committee_network_broadcast_task_handle",
-            ),
-            (
-                inner.committee_network_direct_task_handle,
-                "committee_network_direct_task_handle",
-            ),
             (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
@@ -120,10 +110,31 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
                 "{name} did not shut down within a second",
             );
         }
+
+        if let Some(committee_network_broadcast_task_handle) =
+            inner.committee_network_broadcast_task_handle
+        {
+            assert!(
+                async_timeout(long_timeout, committee_network_broadcast_task_handle)
+                    .await
+                    .is_ok(),
+                "committee_network_broadcast_task_handle did not shut down within a second",
+            );
+            if let Some(committee_network_direct_task_handle) =
+                inner.committee_network_direct_task_handle
+            {
+                assert!(
+                    async_timeout(long_timeout, committee_network_direct_task_handle)
+                        .await
+                        .is_ok(),
+                    "committee_network_direct_task_handle did not shut down within a second",
+                );
+            }
+        }
     }
 }
 /// Inner struct of the [`TaskHandle`]
-struct TaskHandleInner {
+pub(crate) struct TaskHandleInner {
     /// for the client to indicate "increment a view"
     /// only Some in Incremental exeuction mode
     /// otherwise None
@@ -136,10 +147,10 @@ struct TaskHandleInner {
     pub network_direct_task_handle: JoinHandle<()>,
 
     /// Join Handle for committee broadcast network task
-    pub committee_network_broadcast_task_handle: JoinHandle<()>,
+    pub committee_network_broadcast_task_handle: Option<JoinHandle<()>>,
 
     /// Join Handle for committee direct network task
-    pub committee_network_direct_task_handle: JoinHandle<()>,
+    pub committee_network_direct_task_handle: Option<JoinHandle<()>>,
 
     /// Join handle for `consensus_task`
     pub consensus_task_handle: JoinHandle<()>,
@@ -149,109 +160,7 @@ struct TaskHandleInner {
 
     /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
-    shutdown_timeout: Duration,
-}
-
-/// Spawn all tasks that operate on the given [`HotShot`].
-///
-/// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: &HotShot<TYPES::ConsensusType, TYPES, I>,
-) -> HotShotHandle<TYPES, I>
-where
-    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
-{
-    let shut_down = Arc::new(AtomicBool::new(false));
-    let started = Arc::new(AtomicBool::new(false));
-
-    let exchange = hotshot.inner.quorum_exchange.clone();
-    let committee_exchange = hotshot.inner.committee_exchange.clone();
-
-    let network_broadcast_task_handle = async_spawn(
-        network_task(
-            hotshot.clone(),
-            shut_down.clone(),
-            TransmitType::Broadcast,
-            exchange.clone(),
-        )
-        .instrument(info_span!("HotShot Broadcast Task",)),
-    );
-    let network_direct_task_handle = async_spawn(
-        network_task(
-            hotshot.clone(),
-            shut_down.clone(),
-            TransmitType::Direct,
-            exchange,
-        )
-        .instrument(info_span!("HotShot Direct Task",)),
-    );
-
-    let committee_network_broadcast_task_handle = async_spawn(
-        network_task(
-            hotshot.clone(),
-            shut_down.clone(),
-            TransmitType::Broadcast,
-            committee_exchange.clone(),
-        )
-        .instrument(info_span!("HotShot DA Broadcast Task",)),
-    );
-    let committee_network_direct_task_handle = async_spawn(
-        network_task(
-            hotshot.clone(),
-            shut_down.clone(),
-            TransmitType::Direct,
-            committee_exchange,
-        )
-        .instrument(info_span!("HotShot DA Direct Task",)),
-    );
-
-    async_spawn(
-        network_lookup_task(hotshot.clone(), shut_down.clone())
-            .instrument(info_span!("HotShot network lookup task",)),
-    );
-
-    let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
-        ExecutionType::Continuous => (None, None),
-        ExecutionType::Incremental => {
-            let (send_consensus_start, recv_consensus_start) = unbounded();
-            (Some(send_consensus_start), Some(recv_consensus_start))
-        }
-    };
-
-    let consensus_task_handle = async_spawn(
-        view_runner(
-            hotshot.clone(),
-            started.clone(),
-            shut_down.clone(),
-            task_channels,
-        )
-        .instrument(info_span!("Consensus task handle",)),
-    );
-
-    let (broadcast_sender, broadcast_receiver) = channel();
-
-    let handle = HotShotHandle {
-        sender_handle: Arc::new(broadcast_sender.clone()),
-        hotshot: hotshot.clone(),
-        stream_output: broadcast_receiver,
-        storage: hotshot.inner.storage.clone(),
-        shut_down,
-    };
-    *hotshot.inner.event_sender.write().await = Some(broadcast_sender);
-
-    let mut background_task_handle = hotshot.inner.background_task_handle.inner.write().await;
-    *background_task_handle = Some(TaskHandleInner {
-        network_broadcast_task_handle,
-        network_direct_task_handle,
-        committee_network_broadcast_task_handle,
-        committee_network_direct_task_handle,
-        consensus_task_handle,
-        shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
-        run_view_channels: handle_channels,
-        started,
-    });
-
-    handle
+    pub(crate) shutdown_timeout: Duration,
 }
 
 /// main thread driving consensus
@@ -282,10 +191,8 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
-    let networking = hotshot.inner.quorum_exchange.network().clone();
-    let c_api = HotShotConsensusApi {
-        inner: hotshot.inner.clone(),
-    };
+    let networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
+    let inner = hotshot.inner.clone();
 
     let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
 
@@ -297,8 +204,8 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             let _result = networking
                 .inject_consensus_info((
                     (*cur_view),
-                    c_api.inner.quorum_exchange.is_leader(cur_view),
-                    c_api.inner.quorum_exchange.is_leader(cur_view + 1),
+                    inner.exchanges.quorum_exchange().is_leader(cur_view),
+                    inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
                 ))
                 .await;
 
@@ -323,15 +230,15 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 .collect();
 
             // logic to look ahead
-            if !c_api.inner.quorum_exchange.is_leader(view_to_lookup) {
+            if !inner.exchanges.quorum_exchange().is_leader(view_to_lookup) {
                 let is_done = Arc::new(AtomicBool::new(false));
                 completion_map.insert(view_to_lookup, is_done.clone());
-                let c_api = c_api.clone();
+                let inner = inner.clone();
                 let networking = networking.clone();
                 async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
                     let _result = networking
-                        .lookup_node(c_api.inner.quorum_exchange.get_leader(view_to_lookup))
+                        .lookup_node(inner.exchanges.quorum_exchange().get_leader(view_to_lookup))
                         .await;
                     info!("finished lookup for {:?}", view_to_lookup);
                 });
@@ -355,7 +262,9 @@ pub async fn network_task<
     shut_down: Arc<AtomicBool>,
     transmit_type: TransmitType,
     exchange: Arc<EXCHANGE>,
-) {
+) where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     info!(
         "Launching network processing task for {:?} messages",
         transmit_type

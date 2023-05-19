@@ -6,17 +6,20 @@ use hotshot::{
         election::static_committee::GeneralStaticCommittee, implementations::Libp2pCommChannel,
     },
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::message::{Message, ValidatingMessage};
+use hotshot_types::traits::{
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NodeImpl {}
 
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
@@ -31,14 +34,18 @@ pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Leaf = ValidatingLeaf<VDemoTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         VDemoTypes,
-        Self::Leaf,
-        ThisProposal,
-        ThisMembership,
-        ThisNetwork,
         Message<VDemoTypes, Self>,
+        QuorumExchange<
+            VDemoTypes,
+            Self::Leaf,
+            ThisProposal,
+            ThisMembership,
+            ThisNetwork,
+            Message<VDemoTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
 }
 pub type ThisRun = Libp2pRun<VDemoTypes, NodeImpl, ThisMembership>;

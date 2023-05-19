@@ -9,18 +9,20 @@ use hotshot_testing::{
     test_builder::TestBuilder,
     test_types::{StaticCommitteeTestTypes, VrfTestTypes},
 };
+use hotshot_types::message::{Message, ValidatingMessage};
+use hotshot_types::traits::{
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
 };
-// use hotshot_utils::test_util::shutdown_logging;
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct VrfCentralizedImp {}
 
 type VrfMembership = VrfImpl<
@@ -43,15 +45,19 @@ type VrfCommunication = CentralizedCommChannel<
 impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
     type Leaf = ValidatingLeaf<VrfTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-        VrfMembership,
-        VrfCommunication,
         Message<VrfTestTypes, Self>,
+        QuorumExchange<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+            VrfMembership,
+            VrfCommunication,
+            Message<VrfTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
 }
 
 /// Centralized server network test
@@ -73,7 +79,7 @@ async fn centralized_server_network_vrf() {
     shutdown_logging();
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct StaticCentralizedImp {}
 
 type StaticMembership =
@@ -91,15 +97,19 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-    type QuorumExchange = QuorumExchange<
+    type Exchanges = ValidatingExchanges<
         StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
     >;
-    type CommitteeExchange = Self::QuorumExchange;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
 }
 
 /// Centralized server network test

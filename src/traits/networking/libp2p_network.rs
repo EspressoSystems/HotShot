@@ -15,7 +15,7 @@ use bincode::Options;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -120,6 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -697,7 +698,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 }
 
 /// libp2p identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -724,6 +725,50 @@ impl<
     }
 }
 
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
+    /// with the purpose of generating libp2p networks.
+    /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
+    /// nodes with sane defaults.
+    /// # Panics
+    /// Returned function may panic either:
+    /// - An invalid configuration
+    ///   (probably an issue with the defaults of this function)
+    /// - An inability to spin up the replica's network
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <Libp2pNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
@@ -736,6 +781,8 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 
@@ -756,8 +803,10 @@ impl<
         message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let recipients =
-            <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, message.get_view_number());
+        let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(
+            membership,
+            message.kind.get_view_number(),
+        );
         self.0.broadcast_message(message, recipients).await
     }
 
