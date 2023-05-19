@@ -1,13 +1,19 @@
-use std::{task::{Poll, Context}, pin::Pin, collections::HashMap};
-use async_compatibility_layer::channel::{UnboundedSender, UnboundedStream, unbounded};
+use async_compatibility_layer::channel::{unbounded, UnboundedSender, UnboundedStream};
 use async_std::sync::RwLock;
 use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use async_trait::async_trait;
 use futures::Stream;
 
 use crate::task::{FilterEvent, PassType};
 
+/// a stream that does nothing.
+/// it's immediately closed
 #[derive(Clone)]
 pub struct DummyStream;
 
@@ -25,22 +31,22 @@ impl EventStream for DummyStream {
 
     type StreamType = DummyStream;
 
-    async fn publish(&self, event: Self::EventType) {}
+    async fn publish(&self, _event: Self::EventType) {}
 
     async fn subscribe(
         &self,
-        filter: FilterEvent<Self::EventType>,
+        _filter: FilterEvent<Self::EventType>,
     ) -> (Self::StreamType, StreamId) {
         (DummyStream, 0)
     }
 
-    async fn unsubscribe(&self, id: StreamId) {}
+    async fn unsubscribe(&self, _id: StreamId) {}
 }
 
 /// this is only used for indexing
 pub type StreamId = usize;
 
-// async event stream
+/// Async pub sub event stream
 #[async_trait]
 pub trait EventStream: Clone {
     /// the type of event to process
@@ -56,21 +62,25 @@ pub trait EventStream: Clone {
     async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
         -> (Self::StreamType, StreamId);
 
+    /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
 }
 
-/// the event stream. We want it to be cloneable
+/// Event stream implementation using channels as the underlying primitive.
+/// We want it to be cloneable
 #[derive(Clone)]
 pub struct ChannelEventStream<EVENT: PassType> {
     inner: Arc<RwLock<ChannelEventStreamInner<EVENT>>>,
 }
 
+/// trick to make the event stream clonable
 pub struct ChannelEventStreamInner<EVENT: PassType> {
     subscribers: HashMap<StreamId, (FilterEvent<EVENT>, UnboundedSender<EVENT>)>,
     next_stream_id: StreamId,
 }
 
 impl<EVENT: PassType> ChannelEventStream<EVENT> {
+    /// construct a new event stream
     pub fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(ChannelEventStreamInner {
@@ -99,8 +109,6 @@ impl<EVENT: PassType> EventStream for ChannelEventStream<EVENT> {
         }
     }
 
-    /// subscribe to a particular set of events
-    /// specified by `filter`. Filter returns true if the event should be propagated
     async fn subscribe(
         &self,
         filter: FilterEvent<Self::EventType>,

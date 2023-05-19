@@ -1,6 +1,6 @@
-use std::ops::Deref;
 use async_lock::RwLock;
 use either::Either;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::task_state::{HotShotTaskState, HotShotTaskStatus};
@@ -51,7 +51,11 @@ impl GlobalRegistry {
     /// return a function to the caller (task) that can be used to deregister
     /// returns a function to call to shut down the task
     /// and the unique identifier of the task
-    pub async fn register(&mut self, name: &str, status: HotShotTaskState) -> (ShutdownFn, HotShotTaskId) {
+    pub async fn register(
+        &mut self,
+        name: &str,
+        status: HotShotTaskState,
+    ) -> (ShutdownFn, HotShotTaskId) {
         let mut list = self.status_list.write().await;
         let next_id = list.len();
         let new_entry = (status.clone(), name.to_string());

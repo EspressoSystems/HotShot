@@ -1,52 +1,49 @@
-#[allow(clippy::non_camel_case_types)]
-use async_compatibility_layer::channel::{
-    unbounded, Sender, UnboundedReceiver, UnboundedSender, UnboundedStream,
-};
-use async_lock::RwLock;
-// Async tasks will be the building blocks for the run view refactor.
-// An async task should be spannable by some trigger. That could be some other task completing or some event coming from the network.
-//
-// Task should be able to
-// - publish messages to a shared event stream (e.g. a view sync task can publish a view change event)
-// - register themselves with a shared task registry
-// - consume events from the shared event stream. Every task must handle the shutdown event.
-// - remove themselves from the registry on their competition
+//! Abstractions meant for usage with long running consensus tasks
+//! and testing harness
+#![allow(clippy::non_camel_case_types)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
 
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use async_trait::async_trait;
-use atomic_enum::atomic_enum;
-use either::Either;
-use event_stream::{EventStream, DummyStream};
-use futures::{stream::Fuse, Future, Stream, StreamExt, future::{LocalBoxFuture}, FutureExt};
-use global_registry::{ShutdownFn, HotShotTaskId, GlobalRegistry};
-use serde::{Deserialize, Serialize};
-use snafu::Snafu;
-use task_state::{HotShotTaskStatus, HotShotTaskState};
+use futures::{stream::Fuse, Stream, StreamExt};
 use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    ops::Deref,
     pin::Pin,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
-    task::{Context, Poll, Waker},
+    task::{Context, Poll},
 };
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
 use pin_project::pin_project;
 
+/// Astractions over the state of a task and a stream
+/// interface for task changes. Allows in the happy path
+/// for lockless manipulation of tasks
+/// and in the sad case, only the use of a mutex.
 pub mod task_state;
 
+/// the global registry storing the status of all tasks
+/// as well as the abiliity to terminate them
 pub mod global_registry;
 
+/// mpmc streamable to all subscribed tasks
 pub mod event_stream;
 
+/// The HotShot Task. The main point of this library. Uses all other abstractions
+/// to create an abstraction over tasks
 pub mod task;
+
+/// The hotshot task launcher. Useful for constructing tasks
+pub mod task_launcher;
 
 // NOTE: yoinked /from async-std
 // except this is executor agnostic (doesn't rely on async-std streamext/fuse)
+// NOTE: usage of this is for combining streams into one main stream
+// for usage with `MessageStream`
 // TODO move this to async-compatibility-layer
 #[pin_project]
 /// Stream returned by the [`merge`](super::StreamExt::merge) method.
@@ -60,6 +57,7 @@ pub struct Merge<T, U> {
 }
 
 impl<T, U> Merge<T, U> {
+    /// create a new Merged stream
     pub fn new(a: T, b: U) -> Merge<T, U>
     where
         T: Stream,
@@ -138,10 +136,6 @@ where
         Pending
     }
 }
-
-
-
-
 
 // TODO revive this explicitly for tasks
 // convenience launcher for tasks

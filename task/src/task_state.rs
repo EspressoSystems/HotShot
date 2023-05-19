@@ -1,10 +1,14 @@
-use std::{task::Waker, sync::{Mutex, Arc, atomic::Ordering}};
+use std::{
+    sync::{atomic::Ordering, Arc, Mutex},
+    task::Waker,
+};
 
 use atomic_enum::atomic_enum;
 use futures::Stream;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-// Nit: wish this was for u8 but sadly no
+/// Nit: wish this was for u8 but sadly no
+/// Represents the status of a hotshot task
 #[atomic_enum]
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HotShotTaskStatus {
@@ -119,14 +123,14 @@ pub mod test {
 
         async_spawn(async move {
             async_sleep(std::time::Duration::from_secs(2)).await;
-            task_dup.set_state(crate::HotShotTaskStatus::Running);
+            task_dup.set_state(crate::task_state::HotShotTaskStatus::Running);
         });
 
         // spawn new task that sleeps then increments
 
         assert_eq!(
             task.next().await.unwrap(),
-            crate::HotShotTaskStatus::Running
+            crate::task_state::HotShotTaskStatus::Running
         );
     }
     // TODO test global registry using either global + lazy_static
