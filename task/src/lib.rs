@@ -272,20 +272,6 @@ pub trait HotShotTaskTypes {
     type Error;
 }
 
-pub struct HST<STATE: TaskState> {
-    _pd: PhantomData<STATE>,
-}
-
-impl<STATE: TaskState> HotShotTaskTypes for HST<STATE> {
-    type Event = ();
-    type State = STATE;
-    type EventStream = DummyStream;
-    type Message = ();
-    type MessageStream = DummyStream;
-    // TODO fix for all instances (should be generic)
-    type Error = ();
-}
-
 pub struct HSTWithEvent<
     STATE: TaskState,
     EVENT: PassType,
@@ -346,11 +332,6 @@ impl<
     type Error = ();
 }
 
-
-
-
-
-
 /// hot shot task
 #[pin_project]
 pub struct HotShotTask<HST: HotShotTaskTypes> {
@@ -379,7 +360,6 @@ pub struct HotShotTask<HST: HotShotTaskTypes> {
     handle_message: Option<HandleMessage<HST>>,
     /// handler for filtering events (to use with stream)
     filter_event: Option<FilterEvent<HST::Event>>,
-    // TODO have a field here to track in progress events
 }
 
 /// TODO revive this explicitly for tasks
@@ -533,7 +513,7 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
     ) -> std::task::Poll<Self::Output> {
         // useful if we ever need to use self later.
         // this doesn't consume the reference
-        let mut projected = self.as_mut().project();
+        let projected = self.as_mut().project();
 
         // check if task is complete
         match projected.status.poll_next(cx) {
@@ -575,7 +555,6 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
 
         let message_stream = projected.message_stream.as_pin_mut();
 
-        // TODO is this logic sound? might need to do some better bookkeeping here
         let mut event_stream_finished = false;
         let mut message_stream_finished = false;
 
@@ -587,8 +566,8 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                             let maybe_state = projected.state.take();
                             if let Some(state) = maybe_state {
                                 let mut fut = handle_event(event, state);
-                                // TODO separate this out into a function. it's repeated in 3
-                                // places
+                                // TODO separate this out into a function.
+                                // it's repeated in 3 places
                                 match fut.poll_unpin(cx) {
                                     Poll::Ready((result, state)) => {
                                         *projected.in_progress_fut = None;
@@ -608,12 +587,16 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                             }
                        }
                     }
+                    // this is a fused future so `None` will come every time after the stream
+                    // finishes
                     None => {
                         event_stream_finished = true;
                     }
                 },
                 Poll::Pending => (),
             }
+        } else {
+            event_stream_finished = true;
         }
 
         if let Some(message_stream) = message_stream {
@@ -644,12 +627,16 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                             }
                         }
                     }
+                    // this is a fused future so `None` will come every time after the stream
+                    // finishes
                     None => {
                         message_stream_finished = true;
                     }
                 },
                 Poll::Pending => {}
             }
+        } else {
+            event_stream_finished = true;
         }
         if message_stream_finished && event_stream_finished {
             return Poll::Ready(HotShotTaskCompleted::StreamsDied);
@@ -834,7 +821,6 @@ impl HotShotTaskState {
             prev: Arc::new(HotShotTaskStatus::NotStarted.into()),
             next: Arc::new(HotShotTaskStatus::NotStarted.into()),
             wakers: Arc::default(),
-            // task_waker: None
         }
     }
 
