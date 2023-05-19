@@ -13,12 +13,10 @@ use async_lock::RwLock;
 // - remove themselves from the registry on their competition
 
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use async_stream::stream;
 use async_trait::async_trait;
 use atomic_enum::atomic_enum;
 use either::Either;
-use futures::{stream::Fuse, Future, Stream, StreamExt};
-use nll::nll_todo::nll_todo;
+use futures::{stream::Fuse, Future, Stream, StreamExt, future::{LocalBoxFuture}, FutureExt};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -261,6 +259,7 @@ pub enum HotShotTaskStatus {
     Completed = 3,
 }
 
+/// the task state
 pub trait TaskState: std::fmt::Debug {}
 
 pub trait HotShotTaskTypes {
@@ -269,6 +268,8 @@ pub trait HotShotTaskTypes {
     type EventStream: EventStream<EventType = Self::Event>;
     type Message: PassType;
     type MessageStream: Stream<Item = Self::Message>;
+    // TODO this requires a trait bound
+    type Error;
 }
 
 pub struct HST<STATE: TaskState> {
@@ -281,6 +282,8 @@ impl<STATE: TaskState> HotShotTaskTypes for HST<STATE> {
     type EventStream = DummyStream;
     type Message = ();
     type MessageStream = DummyStream;
+    // TODO fix for all instances (should be generic)
+    type Error = ();
 }
 
 pub struct HSTWithEvent<
@@ -299,6 +302,7 @@ impl<STATE: TaskState, EVENT: PassType, EVENT_STREAM: EventStream<EventType = EV
     type EventStream = EVENT_STREAM;
     type Message = ();
     type MessageStream = DummyStream;
+    type Error = ();
 }
 
 pub struct HSTWithMessage<STATE: TaskState, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> {
@@ -313,6 +317,7 @@ impl<STATE: TaskState, MSG: PassType, MSG_STREAM: Stream<Item = MSG>> HotShotTas
     type EventStream = DummyStream;
     type Message = MSG;
     type MessageStream = MSG_STREAM;
+    type Error = ();
 }
 
 pub struct HSTWithEventAndMessage<
@@ -338,11 +343,20 @@ impl<
     type EventStream = DummyStream;
     type Message = MSG;
     type MessageStream = MSG_STREAM;
+    type Error = ();
 }
+
+
+
+
+
 
 /// hot shot task
 #[pin_project]
 pub struct HotShotTask<HST: HotShotTaskTypes> {
+    /// the in progress future
+    /// TODO does `'static` make sense here
+    in_progress_fut: Option<LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>>,
     /// name of task
     name: String,
     /// state of the task
@@ -358,13 +372,14 @@ pub struct HotShotTask<HST: HotShotTaskTypes> {
     #[pin]
     message_stream: Option<Fuse<HST::MessageStream>>,
     /// state
-    state: HST::State,
+    state: Option<HST::State>,
     /// handler for events
     handle_event: Option<HandleEvent<HST>>,
     /// handler for messages
     handle_message: Option<HandleMessage<HST>>,
     /// handler for filtering events (to use with stream)
     filter_event: Option<FilterEvent<HST::Event>>,
+    // TODO have a field here to track in progress events
 }
 
 /// TODO revive this explicitly for tasks
@@ -385,21 +400,18 @@ pub enum HotShotTaskHandler<HST: HotShotTaskTypes> {
 }
 
 /// event handler
-pub struct HandleEvent<HST: HotShotTaskTypes>(Box<dyn Fn(HST::Event, &mut HST::State) -> bool>);
+pub struct HandleEvent<HST: HotShotTaskTypes>(Arc<dyn Fn(HST::Event, HST::State) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>>);
 impl<HST: HotShotTaskTypes> Deref for HandleEvent<HST> {
-    type Target = dyn Fn(HST::Event, &mut HST::State) -> bool;
+    type Target = dyn Fn(HST::Event, HST::State) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
 
-/// TODO hardcode? or generic?
-pub struct Message;
-
-pub struct HandleMessage<HST: HotShotTaskTypes>(Box<dyn Fn(&mut HST::State, HST::Message) -> bool>);
+pub struct HandleMessage<HST: HotShotTaskTypes>(Arc<dyn Fn(HST::Message, HST::State) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>>);
 impl<HST: HotShotTaskTypes> Deref for HandleMessage<HST> {
-    type Target = dyn Fn(&mut HST::State, HST::Message) -> bool;
+    type Target = dyn Fn(HST::Message, HST::State) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -464,7 +476,7 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     pub async fn with_state(self, state: HST::State) -> Self {
-        Self { state, ..self }
+        Self { state: Some(state), ..self }
     }
 
     pub async fn register_with_registry(self, registry: &mut GlobalRegistry) -> (Self, HotShotTaskId) {
@@ -480,32 +492,38 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
         Self {
             status: HotShotTaskState::new(),
             event_stream: None,
-            state,
+            state: Some(state),
             handle_event: None,
             handle_message: None,
             filter_event: None,
             shutdown_fn: None,
             message_stream: None,
             name,
+            in_progress_fut: None
         }
     }
 
-    pub async fn launch(self) -> HotShotTaskCompleted<HST> {
+    pub async fn launch(self) -> HotShotTaskCompleted<HST>{
         self.await
     }
 }
 
-pub enum HotShotTaskCompleted<HST: HotShotTaskTypes> {
+/// enum describing how the tasks completed
+pub enum HotShotTaskCompleted<HST: HotShotTaskTypes>{
+    /// the task shut down successfull
     ShutDown,
-    // TODO this needs to contain error variants but this creates a circular dependency on crates.
-    // Maybe this should be a generic?
-    Error,
+    /// the task encountered an error
+    Error(HST::Error),
+    /// the streams the task was listening for died
     StreamsDied,
-    Paused(HotShotTask<HST>),
+    /// we somehow lost the state
+    /// this is definitely a bug.
+    LostState
 }
 
 // TODO make this a stream instead of a poll
 // This way, we can error out the task, but gracefully restart it
+// this is semantically equal to just pausing on error
 impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
     type Output = HotShotTaskCompleted<HST>;
 
@@ -517,6 +535,7 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
         // this doesn't consume the reference
         let mut projected = self.as_mut().project();
 
+        // check if task is complete
         match projected.status.poll_next(cx) {
             Poll::Ready(Some(state_change)) => {
                 match state_change{
@@ -529,14 +548,34 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                     }
                 }
             },
+            // this stream will never end
             Poll::Ready(None) => unreachable!(),
-            Poll::Pending => todo!(),
+            // if there's nothing, that's fine
+            Poll::Pending => (),
+        }
+
+
+        if let Some(in_progress_fut) = projected.in_progress_fut {
+            match in_progress_fut.as_mut().poll(cx) {
+                Poll::Ready((result, state)) => {
+                    *projected.in_progress_fut = None;
+                    *projected.state = Some(state);
+                    match result {
+                        Some(completed) => return Poll::Ready(completed),
+                        None => {},
+                    }
+                }
+                Poll::Pending => {
+                    return Poll::Pending;
+                }
+            }
         }
 
         let event_stream = projected.event_stream.as_pin_mut();
 
         let message_stream = projected.message_stream.as_pin_mut();
 
+        // TODO is this logic sound? might need to do some better bookkeeping here
         let mut event_stream_finished = false;
         let mut message_stream_finished = false;
 
@@ -545,8 +584,29 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                 Poll::Ready(maybe_event) => match maybe_event {
                     Some(event) => {
                         if let Some(handle_event) = projected.handle_event {
-                            handle_event(event, &mut projected.state);
-                        }
+                            let maybe_state = projected.state.take();
+                            if let Some(state) = maybe_state {
+                                let mut fut = handle_event(event, state);
+                                // TODO separate this out into a function. it's repeated in 3
+                                // places
+                                match fut.poll_unpin(cx) {
+                                    Poll::Ready((result, state)) => {
+                                        *projected.in_progress_fut = None;
+                                        *projected.state = Some(state);
+                                        match result {
+                                            Some(completed) => return Poll::Ready(completed),
+                                            None => {},
+                                        }
+                                    }
+                                    Poll::Pending => {
+                                        *projected.in_progress_fut = Some(fut);
+                                        return Poll::Pending;
+                                    }
+                                }
+                            } else {
+                                return Poll::Ready(HotShotTaskCompleted::LostState);
+                            }
+                       }
                     }
                     None => {
                         event_stream_finished = true;
@@ -561,7 +621,27 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                 Poll::Ready(maybe_msg) => match maybe_msg {
                     Some(msg) => {
                         if let Some(handle_msg) = projected.handle_message {
-                            handle_msg(projected.state, msg);
+                            let maybe_state = projected.state.take();
+                            if let Some(state) = maybe_state {
+                                let mut fut = handle_msg(msg, state);
+                                match fut.poll_unpin(cx) {
+                                    Poll::Ready((result, state)) => {
+                                        *projected.in_progress_fut = None;
+                                        *projected.state = Some(state);
+                                        match result {
+                                            Some(completed) => return Poll::Ready(completed),
+                                            None => {},
+                                        }
+                                    },
+                                    Poll::Pending => {
+                                        *projected.in_progress_fut = Some(fut);
+                                        // TODO add in logic
+                                        return Poll::Pending
+                                    },
+                                };
+                            } else {
+                                return Poll::Ready(HotShotTaskCompleted::LostState);
+                            }
                         }
                     }
                     None => {
@@ -737,8 +817,6 @@ pub struct HotShotTaskState {
     next: Arc<AtomicHotShotTaskStatus>,
     /// using `std::sync::mutex` here because it's faster than async's version
     wakers: Arc<Mutex<Vec<Waker>>>,
-    // task waker
-    // task_waker: Option<Waker>
 }
 
 impl std::fmt::Debug for HotShotTaskState {
