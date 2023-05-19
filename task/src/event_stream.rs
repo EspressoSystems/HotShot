@@ -1,0 +1,122 @@
+use std::{task::{Poll, Context}, pin::Pin, collections::HashMap};
+use async_compatibility_layer::channel::{UnboundedSender, UnboundedStream, unbounded};
+use async_std::sync::RwLock;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use futures::Stream;
+
+use crate::task::{FilterEvent, PassType};
+
+#[derive(Clone)]
+pub struct DummyStream;
+
+impl Stream for DummyStream {
+    type Item = ();
+
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Poll::Ready(None)
+    }
+}
+
+#[async_trait]
+impl EventStream for DummyStream {
+    type EventType = ();
+
+    type StreamType = DummyStream;
+
+    async fn publish(&self, event: Self::EventType) {}
+
+    async fn subscribe(
+        &self,
+        filter: FilterEvent<Self::EventType>,
+    ) -> (Self::StreamType, StreamId) {
+        (DummyStream, 0)
+    }
+
+    async fn unsubscribe(&self, id: StreamId) {}
+}
+
+/// this is only used for indexing
+pub type StreamId = usize;
+
+// async event stream
+#[async_trait]
+pub trait EventStream: Clone {
+    /// the type of event to process
+    type EventType: PassType;
+    /// the type of stream to use
+    type StreamType: Stream<Item = Self::EventType>;
+
+    /// publish an event to the event stream
+    async fn publish(&self, event: Self::EventType);
+
+    /// subscribe to a particular set of events
+    /// specified by `filter`. Filter returns true if the event should be propagated
+    async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
+        -> (Self::StreamType, StreamId);
+
+    async fn unsubscribe(&self, id: StreamId);
+}
+
+/// the event stream. We want it to be cloneable
+#[derive(Clone)]
+pub struct ChannelEventStream<EVENT: PassType> {
+    inner: Arc<RwLock<ChannelEventStreamInner<EVENT>>>,
+}
+
+pub struct ChannelEventStreamInner<EVENT: PassType> {
+    subscribers: HashMap<StreamId, (FilterEvent<EVENT>, UnboundedSender<EVENT>)>,
+    next_stream_id: StreamId,
+}
+
+impl<EVENT: PassType> ChannelEventStream<EVENT> {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ChannelEventStreamInner {
+                subscribers: HashMap::new(),
+                next_stream_id: 0,
+            })),
+        }
+    }
+}
+
+#[async_trait]
+impl<EVENT: PassType> EventStream for ChannelEventStream<EVENT> {
+    type EventType = EVENT;
+    type StreamType = UnboundedStream<Self::EventType>;
+
+    /// publish an event to the event stream
+    async fn publish(&self, event: Self::EventType) {
+        let inner = self.inner.read().await;
+        for (_, (filter, sender)) in &inner.subscribers {
+            if filter(&event) {
+                match sender.send(event).await {
+                    Ok(_) => todo!(),
+                    Err(_) => todo!(),
+                }
+            }
+        }
+    }
+
+    /// subscribe to a particular set of events
+    /// specified by `filter`. Filter returns true if the event should be propagated
+    async fn subscribe(
+        &self,
+        filter: FilterEvent<Self::EventType>,
+    ) -> (Self::StreamType, StreamId) {
+        let mut inner = self.inner.write().await;
+        let new_stream_id = inner.next_stream_id;
+        let (s, r) = unbounded();
+        inner.next_stream_id += 1;
+        // NOTE: can never be already existing.
+        // so, this should always return `None`
+        inner.subscribers.insert(new_stream_id, (filter, s));
+        (r.into_stream(), new_stream_id)
+    }
+
+    async fn unsubscribe(&self, uid: StreamId) {
+        let mut inner = self.inner.write().await;
+        inner.subscribers.remove(&uid);
+    }
+}
