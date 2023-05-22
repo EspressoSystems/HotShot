@@ -1,6 +1,5 @@
+// Needed to avoid the non-biding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
-// TODO why is the let binding lint triggered on a struct??
-// if it's in a macro then this is the best we can do
 
 use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
@@ -1091,7 +1090,8 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             state::{dummy::DummyState, ValidatingConsensus},
+//             consensus_type::validating_consensus::ValidatingConsensus,
+//             state::dummy::DummyState,
 //         },
 //     };
 //     use jf_primitives::{

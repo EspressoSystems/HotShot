@@ -1,11 +1,9 @@
+use crate::infra::{main_entry_point, ValidatorArgs};
 use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
 
-use crate::{
-    infra::{main_entry_point, ValidatorArgs},
-    types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun},
-};
+use crate::types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun};
 
 pub mod types;
 

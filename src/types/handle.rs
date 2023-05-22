@@ -10,17 +10,18 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::CommitteeNetwork;
-use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
+    message::{GeneralConsensusMessage, MessageKind},
     traits::{
-        election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
-        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
+        election::ConsensusExchange,
+        election::SignedCertificate,
+        node_implementation::{ExchangesType, NodeType, QuorumEx},
+        state::ConsensusTime,
+        storage::Storage,
     },
-    vote::QuorumVote,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -29,11 +30,9 @@ use std::sync::{
 use tracing::{debug, error};
 
 #[cfg(feature = "hotshot-testing")]
-use crate::HotShotConsensusApi;
-#[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
-use hotshot_types::{message::ConsensusMessage, traits::signature_key::EncodedSignature};
+use hotshot_types::traits::signature_key::EncodedSignature;
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -231,33 +230,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &self.storage
     }
 
-    /// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
-    /// allowing access to networking stats.
-    pub fn quorum_network(&self) -> &QuorumNetwork<TYPES, I> {
-        self.hotshot.inner.quorum_exchange.network()
-    }
-
-    /// Provides a reference to the underlying committee networking interface for this [`HotShot`],
-    /// allowing access to networking stats.
-    pub fn committee_network(&self) -> &CommitteeNetwork<TYPES, I> {
-        self.hotshot.inner.committee_exchange.network()
+    /// Block the underlying quorum (and committee) networking interfaces until node is
+    /// successfully initialized into the networks.
+    pub async fn wait_for_networks_ready(&self) {
+        self.hotshot.inner.exchanges.wait_for_networks_ready().await;
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
-        self.hotshot
-            .inner
-            .committee_exchange
-            .network()
-            .shut_down()
-            .await;
-        self.hotshot
-            .inner
-            .quorum_exchange
-            .network()
-            .shut_down()
-            .await;
+        self.hotshot.inner.exchanges.shut_down_networks().await;
         self.hotshot
             .inner
             .background_task_handle
@@ -276,7 +258,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[allow(clippy::unused_async)] // async for API compatibility reasons
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        self.hotshot.inner.quorum_exchange.get_leader(view_number)
+        self.hotshot
+            .inner
+            .exchanges
+            .quorum_exchange()
+            .get_leader(view_number)
     }
 
     /// Wrapper to get this node's public key
@@ -296,15 +282,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-    ) -> EncodedSignature
-    where
-        I::QuorumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.inner
-            .quorum_exchange
+    ) -> EncodedSignature {
+        let inner = self.hotshot.inner.clone();
+        inner
+            .exchanges
+            .quorum_exchange()
             .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
     }
 
@@ -316,20 +298,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
+    ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::QuorumExchange: QuorumExchangeType<
+        QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
-            Vote = QuorumVote<TYPES, I::Leaf>,
         >,
     {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.inner.quorum_exchange.create_yes_message(
+        let inner = self.hotshot.inner.clone();
+        inner.exchanges.quorum_exchange().create_yes_message(
             justify_qc_commitment,
             leaf_commitment,
             current_view,
@@ -339,18 +317,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, I>) {
-        let _result = self.hotshot.send_broadcast_message(msg).await;
+    pub async fn send_broadcast_consensus_message(&self, msg: I::ConsensusMessage) {
+        let _result = self
+            .hotshot
+            .send_broadcast_message(MessageKind::from_consensus_message(msg))
+            .await;
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_direct_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I>,
+        msg: I::ConsensusMessage,
         recipient: TYPES::SignatureKey,
     ) {
-        let _result = self.hotshot.send_direct_message(msg, recipient).await;
+        let _result = self
+            .hotshot
+            .send_direct_message(MessageKind::from_consensus_message(msg), recipient)
+            .await;
     }
 
     /// Get length of the replica's receiver channel

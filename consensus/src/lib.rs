@@ -27,7 +27,7 @@ pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
-pub use traits::ConsensusApi;
+pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::{Commitment, Committable};
@@ -51,47 +51,6 @@ use utils::Terminator;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
-
-// frame the problem
-// - run_view assumes one type of consensus, but should be agnostic of the consensus type for all types of consensus
-// - avoid copy-pasta task running code
-// what should consensus do?
-// - run views
-// - handle messages
-// - have overarching struct for shared state
-// - what is currently called consensusapi we keep as an interface into consensus
-//   that, regardless of the type of consensus, must do
-//   - take things from the network
-//   - keys
-//   - configuration
-//   - track view number
-//   - track leader (may need to change if we do leaderless)
-// what is "HotShot" right now = ValidatingConsensus
-// ValidatingConsensus is a consensus implementation of ConsensusAbstraction
-
-// pub trait ConsensusAbstraction {
-//     type SharedConsensusData: Clone + std::fmt::Debug;
-//     type I: NodeImplementation;
-//
-//     fn run_view();
-//
-//     fn handle_direct_data_message() ;
-//
-//     fn handle_broadcast_data_message() ;
-//
-//     fn send_direct_data_message() ;
-//
-//     fn send_broadcast_data_message() ;
-//
-//     fn handle_direct_consensus_message() ;
-//
-//     fn handle_broadcast_consensus_message() ;
-//
-//     fn send_direct_consensus_message() ;
-//
-//     fn send_broadcast_consensus_message() ;
-//
-// }
 
 /// A reference to the consensus algorithm
 ///

@@ -1,11 +1,16 @@
 use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
+use crate::{
+    round::{Round, RoundCtx, RoundResult},
+    test_errors::ConsensusTestError,
+    test_launcher::TestLauncher,
+};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, Message},
-    HotShot, HotShotError, HotShotInitializer, ViewRunner,
+    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -14,31 +19,43 @@ use hotshot_types::{
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
+        node_implementation::{
+            ExchangesType, NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork,
+        },
         signature_key::SignatureKey,
     },
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
 
-use crate::{
-    round::{Round, RoundCtx, RoundResult},
-    test_errors::ConsensusTestError,
-    test_launcher::TestLauncher,
-};
-
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
+/// Wrapper Type for quorum function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type QuorumNetworkGenerator<TYPES, I, T> =
+    Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> T + 'static>;
+
+/// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
+
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     launcher: TestLauncher<TYPES, I>,
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
 }
 
-struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
@@ -47,7 +64,10 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 /// unfortunately, debug is only available for option
 /// and display is not
 #[allow(clippy::type_complexity)]
-pub fn concise_leaf_and_node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn concise_leaf_and_node<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     result: &Result<
         (
             Vec<<I as NodeImplementation<TYPES>>::Leaf>,
@@ -72,7 +92,18 @@ pub fn concise_leaf_and_node<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestRunner<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
             nodes: Vec::new(),
@@ -90,6 +121,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+        >,
     {
         setup_logging();
         setup_backtrace();
@@ -98,8 +136,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         self.add_nodes(self.launcher.metadata.start_nodes).await;
 
         for (idx, node) in self.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.quorum_network().wait_for_ready().await;
-            node.committee_network().wait_for_ready().await;
+            node.wait_for_networks_ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -117,13 +154,26 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+        >,
     {
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = Arc::new((self.launcher.generator.network)(node_id));
-            let quorum_network = (self.launcher.generator.quorum_network)(network.clone());
-            let committee_network = (self.launcher.generator.committee_network)(network);
+            let quorum_network_generator =
+                Arc::new((self.launcher.generator.quorum_network_generator)(node_id));
+            let committee_network_generator =
+                Arc::new((self.launcher.generator.committee_network_generator)(
+                    node_id,
+                ));
+            let quorum_network = (self.launcher.generator.quorum_network)(quorum_network_generator);
+            let committee_network =
+                (self.launcher.generator.committee_network)(committee_network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =
@@ -159,14 +209,21 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: QuorumNetwork<TYPES, I>,
-        committee_network: CommitteeNetwork<TYPES, I>,
+        quorum_network: QuorumCommChannel<TYPES, I>,
+        committee_network: I::CommitteeCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+        >,
     {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
@@ -178,23 +235,15 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             [0u8; 32],
         ));
         let election_config = config.election_config.clone().unwrap_or_else(|| {
-            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
-        let quorum_exchange = I::QuorumExchange::create(
+        let exchanges = I::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-            quorum_network,
-            public_key.clone(),
-            private_key.clone(),
-            ek.clone(),
-        );
-        let committee_exchange = I::CommitteeExchange::create(
-            known_nodes,
-            election_config,
-            committee_network,
+            (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),
             ek.clone(),
@@ -205,8 +254,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             node_id,
             config,
             storage,
-            quorum_exchange,
-            committee_exchange,
+            exchanges,
             initializer,
             NoMetrics::boxed(),
         )

@@ -3,31 +3,32 @@
 
 use crate::{
     utils::{Terminator, View, ViewInner},
-    Consensus, ConsensusApi,
+    Consensus, SequencingConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
-use hotshot_types::data::DAProposal;
 use hotshot_types::message::Message;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::QuorumProposal;
-use hotshot_types::traits::node_implementation::QuorumVoteType;
+use hotshot_types::traits::node_implementation::{
+    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
+    SequencingQuorumEx,
+};
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, LeafType, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
-    traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        Block,
+    data::{LeafType, QuorumProposal, SequencingLeaf},
+    message::{
+        ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
+        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
-    vote::QuorumVote,
+    traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
+        node_implementation::NodeType, signature_key::SignatureKey, Block,
+    },
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
@@ -38,10 +39,16 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-> {
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+> where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+{
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. The replica will require a write lock on this.
@@ -49,7 +56,7 @@ pub struct SequencingReplica<
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -58,37 +65,39 @@ pub struct SequencingReplica<
     pub api: A,
 
     /// the committee exchange
-    pub committee_exchange: Arc<I::CommitteeExchange>,
+    pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// the quorum exchange
-    pub quorum_exchange: Arc<I::QuorumExchange>,
+    pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
 
     /// needed to typecheck
     pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = CommitmentProposal<TYPES, I::Leaf>,
-            Certificate = QuorumCertificate<TYPES, I::Leaf>,
-            Vote = QuorumVote<TYPES, I::Leaf>,
-            Commitment = SequencingLeaf<TYPES>,
-        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    I::CommitteeExchange: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = DAProposal<TYPES>,
-            Certificate = DACertificate<TYPES>,
-            Vote = DAVote<TYPES, I::Leaf>,
-            Commitment = TYPES::BlockType,
-        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
 {
     /// The leaf from the genesis view.
     ///
@@ -134,199 +143,21 @@ where
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
+                if Into::<SequencingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
                 match msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) => {
-                        if view_leader_key != sender {
-                            continue;
-                        }
-
-                        let mut valid_leaf = None;
-                        let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
-                        match vote_token {
-                            Err(e) => {
-                                error!(
-                                    "Failed to generate vote token for {:?} {:?}",
-                                    self.cur_view, e
-                                );
-                            }
-                            Ok(None) => {
-                                info!(
-                                    "We were not chosen for consensus committee on {:?}",
-                                    self.cur_view
-                                );
-                            }
-                            Ok(Some(vote_token)) => {
-                                info!(
-                                    "We were chosen for consensus committee on {:?}",
-                                    self.cur_view
-                                );
-
-                                let message;
-
-                                // Construct the leaf.
-                                let justify_qc = p.data.justify_qc;
-                                let parent = if justify_qc.is_genesis() {
-                                    self.genesis_leaf().await
-                                } else {
-                                    consensus
-                                        .saved_leaves
-                                        .get(&justify_qc.leaf_commitment())
-                                        .cloned()
-                                };
-                                let Some(parent) = parent else {
-                                    warn!("Proposal's parent missing from storage");
+                    Left(general_message) => {
+                        match general_message {
+                            ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
+                                if view_leader_key != sender {
                                     continue;
-                                };
-                                let parent_commitment = parent.commit();
-                                let block_commitment = p.data.block_commitment;
-                                let leaf = SequencingLeaf {
-                                    view_number: self.cur_view,
-                                    height: p.data.height,
-                                    justify_qc: justify_qc.clone(),
-                                    parent_commitment,
-                                    deltas: Right(p.data.block_commitment),
-                                    rejected: Vec::new(),
-                                    timestamp: time::OffsetDateTime::now_utc()
-                                        .unix_timestamp_nanos(),
-                                    proposer_id: sender.to_bytes(),
-                                };
-                                let justify_qc_commitment = justify_qc.commit();
-                                let leaf_commitment = leaf.commit();
-
-                                // Validate the `justify_qc`.
-                                if !self
-                                    .quorum_exchange
-                                    .is_valid_cert(&justify_qc, parent_commitment)
-                                {
-                                    invalid_qc = true;
-                                    warn!("Invalid justify_qc in proposal!.");
-                                    message = self.quorum_exchange.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        self.cur_view,
-                                        vote_token,
-                                    );
-                                }
-                                // Validate the `height`.
-                                else if leaf.height != parent.height + 1 {
-                                    invalid_qc = true;
-                                    warn!(
-                                        "Incorrect height in proposal (expected {}, got {})",
-                                        parent.height + 1,
-                                        leaf.height
-                                    );
-                                    message = self.quorum_exchange.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        self.cur_view,
-                                        vote_token,
-                                    );
-                                }
-                                // Validate the DAC.
-                                else if !self
-                                    .committee_exchange
-                                    .is_valid_cert(&p.data.dac, block_commitment)
-                                {
-                                    warn!("Invalid DAC in proposal! Skipping proposal.");
-                                    message = self.quorum_exchange.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        self.cur_view,
-                                        vote_token,
-                                    );
-                                }
-                                // Validate the signature.
-                                else if !view_leader_key
-                                    .validate(&p.signature, leaf_commitment.as_ref())
-                                {
-                                    warn!(?p.signature, "Could not verify proposal.");
-                                    message = self.quorum_exchange.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        self.cur_view,
-                                        vote_token,
-                                    );
-                                }
-                                // Create a positive vote if either liveness or safety check
-                                // passes.
-                                else {
-                                    // Liveness check.
-                                    let liveness_check =
-                                        justify_qc.view_number > consensus.locked_view;
-
-                                    // Safety check.
-                                    // Check if proposal extends from the locked leaf.
-                                    let outcome = consensus.visit_leaf_ancestors(
-                                        justify_qc.view_number,
-                                        Terminator::Inclusive(consensus.locked_view),
-                                        false,
-                                        |leaf| {
-                                            // if leaf view no == locked view no then we're done, report success by
-                                            // returning true
-                                            leaf.view_number != consensus.locked_view
-                                        },
-                                    );
-                                    let safety_check = outcome.is_ok();
-                                    if let Err(e) = outcome {
-                                        self.api.send_view_error(self.cur_view, Arc::new(e)).await;
-                                    }
-
-                                    // Skip if both saftey and liveness checks fail.
-                                    if !safety_check && !liveness_check {
-                                        warn!("Failed safety check and liveness check");
-                                        message = self.quorum_exchange.create_no_message(
-                                            justify_qc_commitment,
-                                            leaf_commitment,
-                                            self.cur_view,
-                                            vote_token,
-                                        );
-                                    } else {
-                                        // A valid leaf is found.
-                                        valid_leaf = Some(leaf);
-
-                                        // Generate a message with yes vote.
-                                        message = self.quorum_exchange.create_yes_message(
-                                            justify_qc_commitment,
-                                            leaf_commitment,
-                                            self.cur_view,
-                                            vote_token,
-                                        );
-                                    }
                                 }
 
-                                info!("Sending vote to next leader {:?}", message);
-                                let next_leader =
-                                    self.quorum_exchange.get_leader(self.cur_view + 1);
-                                if self
-                                    .api
-                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
-                                    .await
-                                    .is_err()
-                                {
-                                    consensus.metrics.failed_to_send_messages.add(1);
-                                    warn!("Failed to send vote to next leader");
-                                } else {
-                                    consensus.metrics.outgoing_direct_messages.add(1);
-                                }
-                            }
-                        }
-                        break valid_leaf;
-                    }
-                    ProcessedConsensusMessage::InternalTrigger(trigger) => {
-                        match trigger {
-                            InternalTrigger::Timeout(_) => {
-                                let next_leader =
-                                    self.quorum_exchange.get_leader(self.cur_view + 1);
-
-                                consensus.metrics.number_of_timeouts.add(1);
-
+                                let mut valid_leaf = None;
                                 let vote_token =
                                     self.quorum_exchange.make_vote_token(self.cur_view);
-
                                 match vote_token {
                                     Err(e) => {
                                         error!(
@@ -336,60 +167,265 @@ where
                                     }
                                     Ok(None) => {
                                         info!(
-                                            "We were not chosen for committee on {:?}",
+                                            "We were not chosen for consensus committee on {:?}",
                                             self.cur_view
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg =
-                                            self.quorum_exchange.create_timeout_message(
-                                                self.high_qc.clone(),
+                                        info!(
+                                            "We were chosen for consensus committee on {:?}",
+                                            self.cur_view
+                                        );
+
+                                        let message;
+
+                                        // Construct the leaf.
+                                        let justify_qc = p.data.justify_qc;
+                                        let parent = if justify_qc.is_genesis() {
+                                            self.genesis_leaf().await
+                                        } else {
+                                            consensus
+                                                .saved_leaves
+                                                .get(&justify_qc.leaf_commitment())
+                                                .cloned()
+                                        };
+                                        let Some(parent) = parent else {
+                                            warn!("Proposal's parent missing from storage");
+                                            continue;
+                                        };
+                                        let parent_commitment = parent.commit();
+                                        let block_commitment = p.data.block_commitment;
+                                        let leaf = SequencingLeaf {
+                                            view_number: self.cur_view,
+                                            height: p.data.height,
+                                            justify_qc: justify_qc.clone(),
+                                            parent_commitment,
+                                            deltas: Right(p.data.block_commitment),
+                                            rejected: Vec::new(),
+                                            timestamp: time::OffsetDateTime::now_utc()
+                                                .unix_timestamp_nanos(),
+                                            proposer_id: sender.to_bytes(),
+                                        };
+                                        let justify_qc_commitment = justify_qc.commit();
+                                        let leaf_commitment = leaf.commit();
+
+                                        // Validate the `justify_qc`.
+                                        if !self
+                                            .quorum_exchange
+                                            .is_valid_cert(&justify_qc, parent_commitment)
+                                        {
+                                            invalid_qc = true;
+                                            warn!("Invalid justify_qc in proposal!.");
+                                            message = self.quorum_exchange.create_no_message(
+                                                justify_qc_commitment,
+                                                leaf_commitment,
                                                 self.cur_view,
                                                 vote_token,
                                             );
-                                        warn!(
-                                            "Timed out! Sending timeout to next leader {:?}",
-                                            timed_out_msg
-                                        );
+                                        }
+                                        // Validate the `height`.
+                                        else if leaf.height != parent.height + 1 {
+                                            invalid_qc = true;
+                                            warn!(
+                                                "Incorrect height in proposal (expected {}, got {})",
+                                                parent.height + 1,
+                                                leaf.height
+                                            );
+                                            message = self.quorum_exchange.create_no_message(
+                                                justify_qc_commitment,
+                                                leaf_commitment,
+                                                self.cur_view,
+                                                vote_token,
+                                            );
+                                        }
+                                        // Validate the DAC.
+                                        else if !self
+                                            .committee_exchange
+                                            .is_valid_cert(&p.data.dac, block_commitment)
+                                        {
+                                            warn!("Invalid DAC in proposal! Skipping proposal.");
+                                            message = self.quorum_exchange.create_no_message(
+                                                justify_qc_commitment,
+                                                leaf_commitment,
+                                                self.cur_view,
+                                                vote_token,
+                                            );
+                                        }
+                                        // Validate the signature.
+                                        else if !view_leader_key
+                                            .validate(&p.signature, leaf_commitment.as_ref())
+                                        {
+                                            warn!(?p.signature, "Could not verify proposal.");
+                                            message = self.quorum_exchange.create_no_message(
+                                                justify_qc_commitment,
+                                                leaf_commitment,
+                                                self.cur_view,
+                                                vote_token,
+                                            );
+                                        }
+                                        // Create a positive vote if either liveness or safety check
+                                        // passes.
+                                        else {
+                                            // Liveness check.
+                                            let liveness_check =
+                                                justify_qc.view_number > consensus.locked_view;
 
-                                        // send timedout message to the next leader
-                                        if let Err(e) = self
+                                            // Safety check.
+                                            // Check if proposal extends from the locked leaf.
+                                            let outcome = consensus.visit_leaf_ancestors(
+                                                justify_qc.view_number,
+                                                Terminator::Inclusive(consensus.locked_view),
+                                                false,
+                                                |leaf| {
+                                                    // if leaf view no == locked view no then we're done, report success by
+                                                    // returning true
+                                                    leaf.view_number != consensus.locked_view
+                                                },
+                                            );
+                                            let safety_check = outcome.is_ok();
+                                            if let Err(e) = outcome {
+                                                self.api
+                                                    .send_view_error(self.cur_view, Arc::new(e))
+                                                    .await;
+                                            }
+
+                                            // Skip if both saftey and liveness checks fail.
+                                            if !safety_check && !liveness_check {
+                                                warn!("Failed safety check and liveness check");
+                                                message = self.quorum_exchange.create_no_message(
+                                                    justify_qc_commitment,
+                                                    leaf_commitment,
+                                                    self.cur_view,
+                                                    vote_token,
+                                                );
+                                            } else {
+                                                // A valid leaf is found.
+                                                valid_leaf = Some(leaf);
+
+                                                // Generate a message with yes vote.
+                                                message = self.quorum_exchange.create_yes_message(
+                                                    justify_qc_commitment,
+                                                    leaf_commitment,
+                                                    self.cur_view,
+                                                    vote_token,
+                                                );
+                                            }
+                                        }
+
+                                        info!("Sending vote to next leader {:?}", message);
+                                        let next_leader =
+                                            self.quorum_exchange.get_leader(self.cur_view + 1);
+                                        if self
                                             .api
-                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, SequencingMessage(Left(message)))
                                             .await
+                                            .is_err()
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);
-                                            warn!(
-                                                ?next_leader,
-                                                ?e,
-                                                "Could not send time out message to next_leader"
-                                            );
+                                            warn!("Failed to send vote to next leader");
                                         } else {
                                             consensus.metrics.outgoing_direct_messages.add(1);
                                         }
-
-                                        // exits from entire function
-                                        self.api.send_replica_timeout(self.cur_view).await;
                                     }
                                 }
-                                return (consensus, None);
+                                break valid_leaf;
+                            }
+                            ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => {
+                                match trigger {
+                                    InternalTrigger::Timeout(_) => {
+                                        let next_leader =
+                                            self.quorum_exchange.get_leader(self.cur_view + 1);
+
+                                        consensus.metrics.number_of_timeouts.add(1);
+
+                                        let vote_token =
+                                            self.quorum_exchange.make_vote_token(self.cur_view);
+
+                                        match vote_token {
+                                            Err(e) => {
+                                                error!(
+                                                    "Failed to generate vote token for {:?} {:?}",
+                                                    self.cur_view, e
+                                                );
+                                            }
+                                            Ok(None) => {
+                                                info!(
+                                                    "We were not chosen for committee on {:?}",
+                                                    self.cur_view
+                                                );
+                                            }
+                                            Ok(Some(vote_token)) => {
+                                                let timed_out_msg =
+                                                    self.quorum_exchange.create_timeout_message(
+                                                        self.high_qc.clone(),
+                                                        self.cur_view,
+                                                        vote_token,
+                                                    );
+                                                warn!(
+                                                    "Timed out! Sending timeout to next leader {:?}",
+                                                    timed_out_msg
+                                                );
+
+                                                // send timedout message to the next leader
+                                                if let Err(e) = self
+                                                    .api
+                                                    .send_direct_message::<QuorumProposalType<
+                                                        TYPES,
+                                                        I,
+                                                    >, QuorumVoteType<
+                                                        TYPES,
+                                                        I,
+                                                    >>(
+                                                        next_leader.clone(),
+                                                        SequencingMessage(Left(timed_out_msg)),
+                                                    )
+                                                    .await
+                                                {
+                                                    consensus
+                                                        .metrics
+                                                        .failed_to_send_messages
+                                                        .add(1);
+                                                    warn!(
+                                                        ?next_leader,
+                                                        ?e,
+                                                        "Could not send time out message to next_leader"
+                                                    );
+                                                } else {
+                                                    consensus
+                                                        .metrics
+                                                        .outgoing_direct_messages
+                                                        .add(1);
+                                                }
+
+                                                // exits from entire function
+                                                self.api.send_replica_timeout(self.cur_view).await;
+                                            }
+                                        }
+                                        return (consensus, None);
+                                    }
+                                }
+                            }
+                            ProcessedGeneralConsensusMessage::Vote(_, _) => {
+                                // should only be for leader, never replica
+                                warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                                continue;
+                            }
+                            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+                        }
+                    }
+                    Right(committee_message) => {
+                        match committee_message {
+                            ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {
+                                warn!("Replica receieved a DA Proposal. This is not what the replica expects. Skipping.");
+                                // TODO (Keyao) why not continue here?
+                            }
+                            ProcessedCommitteeConsensusMessage::DAVote(_, _) => {
+                                // should only be for leader, never replica
+                                warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                                continue;
                             }
                         }
                     }
-                    ProcessedConsensusMessage::DAProposal(_p, _sender) => {
-                        warn!("Replica receieved a DA Proposal. This is not what the replica expects. Skipping.");
-                    }
-                    ProcessedConsensusMessage::Vote(_, _) => {
-                        // should only be for leader, never replica
-                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
-                        continue;
-                    }
-                    ProcessedConsensusMessage::DAVote(_, _) => {
-                        // should only be for leader, never replica
-                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
-                        continue;
-                    }
-                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

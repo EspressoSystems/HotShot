@@ -1,26 +1,43 @@
-use hotshot::traits::TestableNodeImplementation;
+use crate::round::{Round, RoundHook, RoundSafetyCheck, RoundSetup};
+use crate::test_builder::{TestMetadata, TimingData};
+use crate::test_runner::{
+    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
+};
 use hotshot::types::{Message, SignatureKey};
-
+use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::{CommitteeNetwork, NetworkType, QuorumNetwork};
+use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
-    traits::node_implementation::{NodeImplementation, NodeType},
+    traits::{
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType},
+    },
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
 
-use crate::round::{NetworkGenerator, Round, RoundHook, RoundSafetyCheck, RoundSetup};
-use crate::test_builder::{TestMetadata, TimingData};
-use crate::test_runner::{Generator, TestRunner};
-
 /// generators for resources used by each node
-pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// generate the underlying network used for each node
-    pub(super) network: Generator<NetworkType<TYPES, I>>,
+pub struct ResourceGenerators<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+> where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
+    /// generate the underlying quorum network used for each node
+    pub(super) quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    /// generate the underlying committee network used for each node
+    pub(super) committee_network_generator: Generator<I::CommitteeNetwork>,
     /// generate a new quorum network for each node
-    pub(super) quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
-    pub(super) committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
+    pub(super) committee_network:
+        CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
     /// generate a new storage for each node
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
@@ -28,7 +45,16 @@ pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYP
 }
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     pub(super) generator: ResourceGenerators<TYPES, I>,
     // contains builder metadata that is used sporadically
     pub(super) metadata: TestMetadata,
@@ -36,10 +62,29 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) round: Round<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(metadata: TestMetadata, round: Round<TYPES, I>) -> Self {
+    pub fn new(metadata: TestMetadata, round: Round<TYPES, I>) -> Self
+    where
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         let TestMetadata {
             total_nodes,
             num_bootstrap_nodes,
@@ -67,12 +112,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
-            election_config: Some(
-                <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-                    TYPES,
-                    Message<TYPES, I>,
-                >>::Membership::default_election_config(total_nodes as u64),
-            ),
+            election_config: Some(<QuorumEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(
+                total_nodes as u64
+            )),
         };
         let TimingData {
             next_view_timeout,
@@ -94,12 +139,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        let network = I::network_generator(total_nodes, num_bootstrap_nodes);
+        let quorum_network_generator =
+            I::quorum_network_generator(total_nodes, num_bootstrap_nodes);
+        let committee_network_generator =
+            I::committee_network_generator(total_nodes, num_bootstrap_nodes);
         Self {
             generator: ResourceGenerators {
-                network,
-                quorum_network: I::quorum_generator(),
-                committee_network: I::committee_generator(),
+                quorum_network_generator,
+                committee_network_generator,
+                quorum_network: I::quorum_comm_channel_generator(),
+                committee_network: I::committee_comm_channel_generator(),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
@@ -112,11 +161,21 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+where
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     /// Set a custom committee network generator
     pub fn with_committee_network(
         mut self,
-        committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
+        committee_network: CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
     ) -> Self {
         self.generator.committee_network = committee_network;
         self
@@ -125,17 +184,26 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     /// Set a custom committee network generator
     pub fn with_quorum_network(
         mut self,
-        quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
-    ) -> Self {
+        quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
+    ) -> Self
+    where
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         self.generator.quorum_network = quorum_network;
         self
     }
 
-    /// Set a custom committee network generator
-    pub fn with_network(mut self, network: Generator<NetworkType<TYPES, I>>) -> Self {
-        self.generator.network = network;
-        self
-    }
+    // /// Set a custom committee network generator
+    // pub fn with_network(mut self, network: Generator<NetworkType<TYPES, I>>) -> Self {
+    //     self.generator.network = network;
+    //     self
+    // }
 
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
@@ -215,7 +283,18 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+        <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+    >,
+{
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements and [`hotshot_types::traits::network::TestableNetworkingImplementation`]

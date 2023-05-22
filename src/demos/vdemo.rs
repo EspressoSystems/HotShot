@@ -19,10 +19,11 @@ use hotshot_types::{
     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::Membership,
         node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
 };

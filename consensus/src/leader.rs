@@ -1,25 +1,30 @@
 //! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-use crate::{CommitmentMap, Consensus, ConsensusApi};
+use crate::{CommitmentMap, Consensus, ValidatingConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use async_lock::RwLock;
 use commit::Committable;
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
-};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::GeneralConsensusMessage,
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus,
+        election::SignedCertificate,
+        node_implementation::{
+            NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType, ValidatingQuorumEx,
+        },
+        signature_key::SignatureKey,
+        Block, State,
     },
+};
+use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchangesType};
+use hotshot_types::{
+    message::{Proposal, ValidatingMessage},
+    traits::election::{ConsensusExchange, QuorumExchangeType},
 };
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
@@ -27,10 +32,16 @@ use tracing::{error, info, instrument, warn};
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-> {
+    A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
+> where
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+{
     /// id of node
     pub id: u64,
     /// Reference to consensus. Validating leader will require a read lock on this.
@@ -45,20 +56,28 @@ pub struct ValidatingLeader<
     pub api: A,
 
     /// the quorum exchange
-    pub exchange: Arc<I::QuorumExchange>,
+    pub exchange: Arc<ValidatingQuorumEx<TYPES, I>>,
 
     /// needed for type checking
     pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+        A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<TYPES, Message<TYPES, I>, Proposal = ValidatingProposal<TYPES, I::Leaf>>
-        + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
@@ -183,7 +202,11 @@ where
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
-            let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal { data, signature });
+            let message =
+                ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
+                    data,
+                    signature,
+                }));
             consensus
                 .metrics
                 .proposal_build_duration
@@ -192,7 +215,7 @@ where
 
             if let Err(e) = self
                 .api
-                .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                     message.clone(),
                 )
                 .await

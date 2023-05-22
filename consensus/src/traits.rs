@@ -1,29 +1,33 @@
-//! Contains the [`ConsensusApi`] trait.
+//! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 use async_trait::async_trait;
 
 use hotshot_types::certificate::QuorumCertificate;
-
-use hotshot_types::message::ConsensusMessage;
-
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+use hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
+};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{network::NetworkError, signature_key::SignatureKey},
+    traits::{
+        consensus_type::{
+            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+        },
+        network::NetworkError,
+        signature_key::SignatureKey,
+    },
     vote::VoteType,
 };
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-// FIXME these should be nonzero u64s
-/// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
-///
-/// [`HotStuff`]: struct.HotStuff.html
+/// The API that [`HotStuff`] needs to talk to the system, implemented for both validating and
+/// sequencing consensus.
 #[async_trait]
-pub trait ConsensusApi<
+pub trait ConsensusSharedApi<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES>,
@@ -35,7 +39,7 @@ pub trait ConsensusApi<
     /// The minimum amount of time a leader has to wait before sending a propose
     fn propose_min_round_time(&self) -> Duration;
 
-    /// The maximum amount of time a leader can wait before sending a propose.ConsensusApi
+    /// The maximum amount of time a leader can wait before sending a propose.
     /// If this time is reached, the leader has to send a propose without transactions.
     fn propose_max_round_time(&self) -> Duration;
 
@@ -56,32 +60,6 @@ pub trait ConsensusApi<
     ///
     /// In production code this should probably always return `true`.
     async fn should_start_round(&self, view_number: TYPES::Time) -> bool;
-
-    /// Send a direct message to the given recipient
-    async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, I>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// send a direct message using the DA communication channel
-    async fn send_direct_da_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, I>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a broadcast message to the entire network.
-    async fn send_broadcast_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
-        &self,
-        message: ConsensusMessage<TYPES, I>,
-    ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
     async fn send_event(&self, event: Event<TYPES, LEAF>);
@@ -146,10 +124,76 @@ pub trait ConsensusApi<
         })
         .await;
     }
+}
+
+/// The API that [`HotStuff`] needs to talk to the system for validating consensus.
+#[async_trait]
+pub trait ValidatingConsensusApi<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    LEAF: LeafType<NodeType = TYPES>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
+>: ConsensusSharedApi<TYPES, LEAF, I> where
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+{
+    /// Send a direct message to the given recipient
+    async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
+        &self,
+        recipient: TYPES::SignatureKey,
+        message: ValidatingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
+
+    /// Send a broadcast message to the entire network.
+    async fn send_broadcast_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        message: ValidatingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
+}
+
+/// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
+#[async_trait]
+pub trait SequencingConsensusApi<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    LEAF: LeafType<NodeType = TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+>: ConsensusSharedApi<TYPES, LEAF, I> where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+{
+    /// Send a direct message to the given recipient
+    async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
+        &self,
+        recipient: TYPES::SignatureKey,
+        message: SequencingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
+
+    /// send a direct message using the DA communication channel
+    async fn send_direct_da_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        recipient: TYPES::SignatureKey,
+        message: SequencingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
+
+    /// Send a broadcast message to the entire network.
+    async fn send_broadcast_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        message: SequencingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast to the DA comitee, stub for now
     async fn send_da_broadcast(
         &self,
-        message: ConsensusMessage<TYPES, I>,
+        message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 }
