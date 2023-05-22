@@ -863,9 +863,9 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a48bf42ab2178374a79853bceef600e279258c75049b20481b022d73c908882"
+checksum = "ce01ac37fdc85f10a43c43bc582cbd566720357011578a935761075f898baf58"
 dependencies = [
  "async-std",
  "futures-io",
@@ -2925,7 +2925,7 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.1",
+ "async-tungstenite 0.22.2",
  "atomic_store",
  "bimap",
  "bincode",
@@ -3115,7 +3115,7 @@ dependencies = [
  "async-compatibility-layer",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.1",
+ "async-tungstenite 0.22.2",
  "atomic_store",
  "bincode",
  "blake3",
