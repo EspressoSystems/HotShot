@@ -23,7 +23,7 @@ use pin_project::pin_project;
 /// Astractions over the state of a task and a stream
 /// interface for task changes. Allows in the happy path
 /// for lockless manipulation of tasks
-/// and in the sad case, only the use of a mutex.
+/// and in the sad case, only the use of a std::sync::mutex
 pub mod task_state;
 
 /// the global registry storing the status of all tasks

@@ -5,8 +5,10 @@ use std::sync::Arc;
 
 use crate::task_state::{HotShotTaskState, HotShotTaskStatus};
 
+/// function to shut down gobal registry
 pub struct ShutdownFn(Box<dyn Fn()>);
 
+// TODO this would be cleaner as `run()`
 impl Deref for ShutdownFn {
     type Target = dyn Fn();
 
@@ -27,12 +29,12 @@ pub struct GlobalRegistry {
     /// up-to-date shared list of statuses
     /// only used if `state_cpy` is out of date
     /// or if appending
-    status_list: Arc<RwLock<Vec<(HotShotTaskState, String)>>>,
+    state_list: Arc<RwLock<Vec<(HotShotTaskState, String)>>>,
     /// possibly stale read version of state
     /// NOTE: must include entire state in order to
     /// support both incrementing and reading
     /// writing to the status should gracefully shut down the task
-    state_cpy: Vec<(HotShotTaskState, String)>,
+    state_cache: Vec<(HotShotTaskState, String)>,
 }
 
 /// function to modify state
@@ -42,8 +44,8 @@ impl GlobalRegistry {
     /// create new registry
     pub fn spawn_new() -> Self {
         Self {
-            status_list: Arc::new(RwLock::new(vec![])),
-            state_cpy: vec![],
+            state_list: Arc::new(RwLock::new(vec![])),
+            state_cache: vec![],
         }
     }
 
@@ -56,14 +58,14 @@ impl GlobalRegistry {
         name: &str,
         status: HotShotTaskState,
     ) -> (ShutdownFn, HotShotTaskId) {
-        let mut list = self.status_list.write().await;
+        let mut list = self.state_list.write().await;
         let next_id = list.len();
         let new_entry = (status.clone(), name.to_string());
         let new_entry_dup = new_entry.0.clone();
         list.push(new_entry);
 
-        for i in self.state_cpy.len()..list.len() {
-            self.state_cpy.push(list[i].clone());
+        for i in self.state_cache.len()..list.len() {
+            self.state_cache.push(list[i].clone());
         }
 
         let shutdown_fn = ShutdownFn(Box::new(move || {
@@ -74,11 +76,9 @@ impl GlobalRegistry {
 
     /// update the cache
     async fn update_cache(&mut self) {
-        let list = self.status_list.read().await;
-        if list.len() > self.state_cpy.len() {
-            for i in self.state_cpy.len()..list.len() {
-                self.state_cpy.push(list[i].clone());
-            }
+        let list = self.state_list.read().await;
+        for i in self.state_cache.len()..list.len() {
+            self.state_cache.push(list[i].clone());
         }
     }
 
@@ -90,14 +90,14 @@ impl GlobalRegistry {
         modifier: Modifier,
     ) -> Either<HotShotTaskStatus, bool> {
         // the happy path
-        if uid < self.state_cpy.len() {
-            modifier.0(&self.state_cpy[uid].0)
+        if uid < self.state_cache.len() {
+            modifier.0(&self.state_cache[uid].0)
         }
         // the sad path
         else {
             self.update_cache().await;
-            if uid < self.state_cpy.len() {
-                modifier.0(&self.state_cpy[uid].0)
+            if uid < self.state_cache.len() {
+                modifier.0(&self.state_cache[uid].0)
             } else {
                 Either::Right(false)
             }
