@@ -1,6 +1,5 @@
 //! Abstractions meant for usage with long running consensus tasks
 //! and testing harness
-#![allow(clippy::non_camel_case_types)]
 #![warn(
     clippy::all,
     clippy::pedantic,
@@ -9,6 +8,8 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
+
+use Poll::{Pending, Ready};
 
 // The spawner of the task should be able to fire and forget the task if it makes sense.
 use futures::{stream::Fuse, Stream, StreamExt};
@@ -23,7 +24,7 @@ use pin_project::pin_project;
 /// Astractions over the state of a task and a stream
 /// interface for task changes. Allows in the happy path
 /// for lockless manipulation of tasks
-/// and in the sad case, only the use of a std::sync::mutex
+/// and in the sad case, only the use of a `std::sync::mutex`
 pub mod task_state;
 
 /// the global registry storing the status of all tasks
@@ -33,7 +34,7 @@ pub mod global_registry;
 /// mpmc streamable to all subscribed tasks
 pub mod event_stream;
 
-/// The HotShot Task. The main point of this library. Uses all other abstractions
+/// The `HotShot` Task. The main point of this library. Uses all other abstractions
 /// to create an abstraction over tasks
 pub mod task;
 
@@ -48,11 +49,13 @@ pub mod task_launcher;
 #[pin_project]
 /// Stream returned by the [`merge`](super::StreamExt::merge) method.
 pub struct Merge<T, U> {
+    /// first stream to merge
     #[pin]
     a: Fuse<T>,
+    /// second stream to merge
     #[pin]
     b: Fuse<U>,
-    // When `true`, poll `a` first, otherwise, `poll` b`.
+    /// When `true`, poll `a` first, otherwise, `poll` b`.
     a_first: bool,
 }
 
@@ -105,6 +108,7 @@ where
     }
 }
 
+/// poll the next item in the merged stream
 fn poll_next<T, U>(
     first: Pin<&mut T>,
     second: Pin<&mut U>,
@@ -114,8 +118,6 @@ where
     T: Stream,
     U: Stream<Item = T::Item>,
 {
-    use Poll::*;
-
     let mut done = true;
 
     match first.poll_next(cx) {

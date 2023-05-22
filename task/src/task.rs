@@ -7,11 +7,11 @@ use pin_project::pin_project;
 use std::sync::Arc;
 
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
-use crate::task_state::HotShotTaskStatus;
+use crate::task_state::TaskStatus;
 use crate::{
     event_stream::{DummyStream, EventStream},
     global_registry::ShutdownFn,
-    task_state::HotShotTaskState,
+    task_state::TaskState,
 };
 
 /// restrictions on types we wish to pass around.
@@ -20,14 +20,14 @@ pub trait PassType: Clone + std::fmt::Debug + Sync + Send {}
 impl PassType for () {}
 
 /// the task state
-pub trait TaskState: std::fmt::Debug {}
+pub trait TS: std::fmt::Debug {}
 
 /// group of types needed for a hotshot task
 pub trait HotShotTaskTypes {
     /// the event type from the event stream
     type Event: PassType;
     /// the state of the task
-    type State: TaskState;
+    type State: TS;
     /// the global event stream
     type EventStream: EventStream<EventType = Self::Event>;
     /// the message stream to receive
@@ -39,26 +39,26 @@ pub trait HotShotTaskTypes {
 }
 
 /// a hotshot task with an event stream
-#[allow(clippy::non_camel_case_types)]
 pub struct HSTWithEvent<
     ERR: std::error::Error,
     EVENT: PassType,
-    EVENT_STREAM: EventStream<EventType = EVENT>,
-    STATE: TaskState,
+    ESTREAM: EventStream<EventType = EVENT>,
+    STATE: TS,
 > {
-    _pd: PhantomData<(ERR, EVENT, EVENT_STREAM, STATE)>,
+    /// phantom data
+    _pd: PhantomData<(ERR, EVENT, ESTREAM, STATE)>,
 }
 
 impl<
         ERR: std::error::Error,
         EVENT: PassType,
-        EVENT_STREAM: EventStream<EventType = EVENT>,
-        STATE: TaskState,
-    > HotShotTaskTypes for HSTWithEvent<ERR, EVENT, EVENT_STREAM, STATE>
+        ESTREAM: EventStream<EventType = EVENT>,
+        STATE: TS,
+    > HotShotTaskTypes for HSTWithEvent<ERR, EVENT, ESTREAM, STATE>
 {
     type Event = EVENT;
     type State = STATE;
-    type EventStream = EVENT_STREAM;
+    type EventStream = ESTREAM;
     type Message = ();
     type MessageStream = DummyStream;
     type Error = ERR;
@@ -68,110 +68,118 @@ impl<
 pub struct HSTWithMessage<
     ERR: std::error::Error,
     MSG: PassType,
-    MSG_STREAM: Stream<Item = MSG>,
-    STATE: TaskState,
+    MSTREAM: Stream<Item = MSG>,
+    STATE: TS,
 > {
-    _pd: PhantomData<(ERR, MSG, MSG_STREAM, STATE)>,
+    /// phantom data
+    _pd: PhantomData<(ERR, MSG, MSTREAM, STATE)>,
 }
 
-impl<ERR: std::error::Error, MSG: PassType, MSG_STREAM: Stream<Item = MSG>, STATE: TaskState>
-    HotShotTaskTypes for HSTWithMessage<ERR, MSG, MSG_STREAM, STATE>
+impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: TS> HotShotTaskTypes
+    for HSTWithMessage<ERR, MSG, MSTREAM, STATE>
 {
     type Event = ();
     type State = STATE;
     type EventStream = DummyStream;
     type Message = MSG;
-    type MessageStream = MSG_STREAM;
+    type MessageStream = MSTREAM;
     type Error = ERR;
 }
 
+/// hotshot task with even and message
 pub struct HSTWithEventAndMessage<
     ERR: std::error::Error,
     EVENT: PassType,
-    EVENT_STREAM: EventStream<EventType = EVENT>,
+    ESTREAM: EventStream<EventType = EVENT>,
     MSG: PassType,
-    MSG_STREAM: Stream<Item = MSG>,
-    STATE: TaskState,
+    MSTREAM: Stream<Item = MSG>,
+    STATE: TS,
 > {
-    _pd: PhantomData<(ERR, EVENT, EVENT_STREAM, MSG, MSG_STREAM, STATE)>,
+    /// phantom data
+    _pd: PhantomData<(ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE)>,
 }
 
 impl<
         ERR: std::error::Error,
         EVENT: PassType,
-        EVENT_STREAM: EventStream<EventType = EVENT>,
+        ESTREAM: EventStream<EventType = EVENT>,
         MSG: PassType,
-        MSG_STREAM: Stream<Item = MSG>,
-        STATE: TaskState,
-    > HotShotTaskTypes
-    for HSTWithEventAndMessage<ERR, EVENT, EVENT_STREAM, MSG, MSG_STREAM, STATE>
+        MSTREAM: Stream<Item = MSG>,
+        STATE: TS,
+    > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
 {
     type Event = ();
     type State = STATE;
     type EventStream = DummyStream;
     type Message = MSG;
-    type MessageStream = MSG_STREAM;
+    type MessageStream = MSTREAM;
     type Error = ERR;
 }
 
 /// hot shot task
 #[pin_project]
-pub struct HotShotTask<HST: HotShotTaskTypes> {
+/// this is for `in_progress_fut`. The type is internal only so it's probably fine
+/// to not type alias
+#[allow(clippy::type_complexity)]
+pub struct HST<HSTT: HotShotTaskTypes> {
     /// the in progress future
     /// TODO does `'static` make sense here
     in_progress_fut:
-        Option<LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>>,
+        Option<LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
     #[pin]
-    status: HotShotTaskState,
+    status: TaskState,
     /// function to shut down the task
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
     /// shared stream
     #[pin]
-    event_stream: Option<Fuse<<HST::EventStream as EventStream>::StreamType>>,
+    event_stream: Option<Fuse<<HSTT::EventStream as EventStream>::StreamType>>,
     /// stream of messages
     #[pin]
-    message_stream: Option<Fuse<HST::MessageStream>>,
+    message_stream: Option<Fuse<HSTT::MessageStream>>,
     /// state
-    state: Option<HST::State>,
+    state: Option<HSTT::State>,
     /// handler for events
-    handle_event: Option<HandleEvent<HST>>,
+    handle_event: Option<HandleEvent<HSTT>>,
     /// handler for messages
-    handle_message: Option<HandleMessage<HST>>,
+    handle_message: Option<HandleMessage<HSTT>>,
     /// handler for filtering events (to use with stream)
-    filter_event: Option<FilterEvent<HST::Event>>,
+    filter_event: Option<FilterEvent<HSTT::Event>>,
 }
 
 /// ADT for wrapping all possible handler types
-pub enum HotShotTaskHandler<HST: HotShotTaskTypes> {
+pub enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
     /// handle an event
-    HandleEvent(HandleEvent<HST>),
+    HandleEvent(HandleEvent<HSTT>),
     /// handle a message
-    HandleMessage(HandleMessage<HST>),
+    HandleMessage(HandleMessage<HSTT>),
     /// filter an event
-    FilterEvent(FilterEvent<HST::Event>),
+    FilterEvent(FilterEvent<HSTT::Event>),
     /// deregister with the registry
     Shutdown(ShutdownFn),
 }
 
 /// Type wrapper for handling an event
-pub struct HandleEvent<HST: HotShotTaskTypes>(
+#[allow(clippy::type_complexity)]
+pub struct HandleEvent<HSTT: HotShotTaskTypes>(
     Arc<
         dyn Fn(
-            HST::Event,
-            HST::State,
-        ) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>,
+            HSTT::Event,
+            HSTT::State,
+        )
+            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
     >,
 );
-impl<HST: HotShotTaskTypes> Deref for HandleEvent<HST> {
+impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
     type Target =
         dyn Fn(
-            HST::Event,
-            HST::State,
-        ) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>;
+            HSTT::Event,
+            HSTT::State,
+        )
+            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -179,20 +187,23 @@ impl<HST: HotShotTaskTypes> Deref for HandleEvent<HST> {
 }
 
 /// Type wrapper for handling a message
-pub struct HandleMessage<HST: HotShotTaskTypes>(
+#[allow(clippy::type_complexity)]
+pub struct HandleMessage<HSTT: HotShotTaskTypes>(
     Arc<
         dyn Fn(
-            HST::Message,
-            HST::State,
-        ) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>,
+            HSTT::Message,
+            HSTT::State,
+        )
+            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
     >,
 );
-impl<HST: HotShotTaskTypes> Deref for HandleMessage<HST> {
+impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
     type Target =
         dyn Fn(
-            HST::Message,
-            HST::State,
-        ) -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HST>>, HST::State)>;
+            HSTT::Message,
+            HSTT::State,
+        )
+            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -217,9 +228,10 @@ impl<EVENT: PassType> Deref for FilterEvent<EVENT> {
     }
 }
 
-impl<HST: HotShotTaskTypes> HotShotTask<HST> {
+impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// register a handler with the task
-    pub fn register_handler(self, handler: HotShotTaskHandler<HST>) -> Self {
+    #[must_use]
+    pub fn register_handler(self, handler: HotShotTaskHandler<HSTT>) -> Self {
         match handler {
             HotShotTaskHandler::HandleEvent(handler) => Self {
                 handle_event: Some(handler),
@@ -243,8 +255,8 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     /// register an event stream with the taskk
     pub async fn with_event_stream(
         self,
-        stream: HST::EventStream,
-        filter: FilterEvent<HST::Event>,
+        stream: HSTT::EventStream,
+        filter: FilterEvent<HSTT::Event>,
     ) -> Self {
         // TODO perhaps GC the event stream
         // (unsunscribe)
@@ -255,7 +267,8 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     /// register a message with the task
-    pub async fn with_message_stream(self, stream: HST::MessageStream) -> Self {
+    #[must_use]
+    pub fn with_message_stream(self, stream: HSTT::MessageStream) -> Self {
         Self {
             message_stream: Some(stream.fuse()),
             ..self
@@ -263,7 +276,8 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     /// register state with the task
-    pub async fn with_state(self, state: HST::State) -> Self {
+    #[must_use]
+    pub fn with_state(self, state: HSTT::State) -> Self {
         Self {
             state: Some(state),
             ..self
@@ -286,9 +300,9 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     /// create a new task
-    pub fn new(state: HST::State, name: String) -> Self {
+    pub fn new(state: HSTT::State, name: String) -> Self {
         Self {
-            status: HotShotTaskState::new(),
+            status: TaskState::new(),
             event_stream: None,
             state: Some(state),
             handle_event: None,
@@ -302,17 +316,17 @@ impl<HST: HotShotTaskTypes> HotShotTask<HST> {
     }
 
     /// launch the task
-    pub async fn launch(self) -> HotShotTaskCompleted<HST> {
+    pub async fn launch(self) -> HotShotTaskCompleted<HSTT> {
         self.await
     }
 }
 
 /// enum describing how the tasks completed
-pub enum HotShotTaskCompleted<HST: HotShotTaskTypes> {
+pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
     /// the task shut down successfully
     ShutDown,
     /// the task encountered an error
-    Error(HST::Error),
+    Error(HSTT::Error),
     /// the streams the task was listening for died
     StreamsDied,
     /// we somehow lost the state
@@ -323,9 +337,14 @@ pub enum HotShotTaskCompleted<HST: HotShotTaskTypes> {
 // NOTE: this is a Future, but it could easily be a stream.
 // but these are semantically equivalent because instead of
 // returning when paused, we just return `Poll::Pending`
-impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
-    type Output = HotShotTaskCompleted<HST>;
+impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
+    type Output = HotShotTaskCompleted<HSTT>;
 
+    // NOTE: this is too many lines
+    // but I'm not sure how to separate this out
+    // into separate functions. `projected` and `self` are hard to
+    // pass around
+    #[allow(clippy::too_many_lines)]
     fn poll(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -338,11 +357,11 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
         match projected.status.poll_next(cx) {
             Poll::Ready(Some(state_change)) => {
                 match state_change {
-                    HotShotTaskStatus::NotStarted | HotShotTaskStatus::Paused => {
+                    TaskStatus::NotStarted | TaskStatus::Paused => {
                         return Poll::Pending;
                     }
-                    HotShotTaskStatus::Running => { /* do nothing if we are running */ }
-                    HotShotTaskStatus::Completed => {
+                    TaskStatus::Running => { /* do nothing if we are running */ }
+                    TaskStatus::Completed => {
                         return Poll::Ready(HotShotTaskCompleted::ShutDown);
                     }
                 }
@@ -358,9 +377,9 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                 Poll::Ready((result, state)) => {
                     *projected.in_progress_fut = None;
                     *projected.state = Some(state);
-                    match result {
-                        Some(completed) => return Poll::Ready(completed),
-                        None => {}
+                    // if the future errored out, return it, we're done
+                    if let Some(completed) = result {
+                        return Poll::Ready(completed);
                     }
                 }
                 Poll::Pending => {
@@ -388,9 +407,8 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                                     Poll::Ready((result, state)) => {
                                         *projected.in_progress_fut = None;
                                         *projected.state = Some(state);
-                                        match result {
-                                            Some(completed) => return Poll::Ready(completed),
-                                            None => {}
+                                        if let Some(completed) = result {
+                                            return Poll::Ready(completed);
                                         }
                                     }
                                     Poll::Pending => {
@@ -427,9 +445,8 @@ impl<HST: HotShotTaskTypes> Future for HotShotTask<HST> {
                                     Poll::Ready((result, state)) => {
                                         *projected.in_progress_fut = None;
                                         *projected.state = Some(state);
-                                        match result {
-                                            Some(completed) => return Poll::Ready(completed),
-                                            None => {}
+                                        if let Some(completed) = result {
+                                            return Poll::Ready(completed);
                                         }
                                     }
                                     Poll::Pending => {

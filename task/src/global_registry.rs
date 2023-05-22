@@ -3,7 +3,7 @@ use either::Either;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::task_state::{HotShotTaskState, HotShotTaskStatus};
+use crate::task_state::{TaskState, TaskStatus};
 
 /// function to shut down gobal registry
 pub struct ShutdownFn(Box<dyn Fn()>);
@@ -29,19 +29,21 @@ pub struct GlobalRegistry {
     /// up-to-date shared list of statuses
     /// only used if `state_cpy` is out of date
     /// or if appending
-    state_list: Arc<RwLock<Vec<(HotShotTaskState, String)>>>,
+    state_list: Arc<RwLock<Vec<(TaskState, String)>>>,
     /// possibly stale read version of state
     /// NOTE: must include entire state in order to
     /// support both incrementing and reading.
     /// Writing to the status should gracefully shut down the task
-    state_cache: Vec<(HotShotTaskState, String)>,
+    state_cache: Vec<(TaskState, String)>,
 }
 
 /// function to modify state
-struct Modifier(Box<dyn Fn(&HotShotTaskState) -> Either<HotShotTaskStatus, bool>>);
+#[allow(clippy::type_complexity)]
+struct Modifier(Box<dyn Fn(&TaskState) -> Either<TaskStatus, bool>>);
 
 impl GlobalRegistry {
     /// create new registry
+    #[must_use]
     pub fn spawn_new() -> Self {
         Self {
             state_list: Arc::new(RwLock::new(vec![])),
@@ -53,11 +55,7 @@ impl GlobalRegistry {
     /// return a function to the caller (task) that can be used to deregister
     /// returns a function to call to shut down the task
     /// and the unique identifier of the task
-    pub async fn register(
-        &mut self,
-        name: &str,
-        status: HotShotTaskState,
-    ) -> (ShutdownFn, HotShotTaskId) {
+    pub async fn register(&mut self, name: &str, status: TaskState) -> (ShutdownFn, HotShotTaskId) {
         let mut list = self.state_list.write().await;
         let next_id = list.len();
         let new_entry = (status.clone(), name.to_string());
@@ -69,7 +67,7 @@ impl GlobalRegistry {
         }
 
         let shutdown_fn = ShutdownFn(Box::new(move || {
-            new_entry_dup.set_state(HotShotTaskStatus::Completed);
+            new_entry_dup.set_state(TaskStatus::Completed);
         }));
         (shutdown_fn, next_id)
     }
@@ -88,7 +86,7 @@ impl GlobalRegistry {
         &mut self,
         uid: HotShotTaskId,
         modifier: Modifier,
-    ) -> Either<HotShotTaskStatus, bool> {
+    ) -> Either<TaskStatus, bool> {
         // the happy path
         if uid < self.state_cache.len() {
             modifier.0(&self.state_cache[uid].0)
@@ -108,7 +106,7 @@ impl GlobalRegistry {
     /// returns true upon success and false if `uid` is not registered
     pub async fn pause_task(&mut self, uid: HotShotTaskId) -> bool {
         let modifier = Modifier(Box::new(|state| {
-            state.set_state(HotShotTaskStatus::Paused);
+            state.set_state(TaskStatus::Paused);
             Either::Right(true)
         }));
         match self.operate_on_task(uid, modifier).await {
@@ -121,7 +119,7 @@ impl GlobalRegistry {
     /// returns true upon success and false if `uid` is not registered
     pub async fn run_task(&mut self, uid: HotShotTaskId) -> bool {
         let modifier = Modifier(Box::new(|state| {
-            state.set_state(HotShotTaskStatus::Running);
+            state.set_state(TaskStatus::Running);
             Either::Right(true)
         }));
         match self.operate_on_task(uid, modifier).await {
@@ -133,8 +131,8 @@ impl GlobalRegistry {
     /// if the `uid` is registered with the global registry
     /// return its task status
     /// this is a way to subscribe to state changes from the taskstatus
-    /// since HotShotTaskStatus implements stream
-    pub async fn get_task_state(&mut self, uid: HotShotTaskId) -> Option<HotShotTaskStatus> {
+    /// since `HotShotTaskStatus` implements stream
+    pub async fn get_task_state(&mut self, uid: HotShotTaskId) -> Option<TaskStatus> {
         let modifier = Modifier(Box::new(|state| Either::Left(state.get_status())));
         match self.operate_on_task(uid, modifier).await {
             Either::Left(state) => Some(state),
@@ -148,7 +146,7 @@ impl GlobalRegistry {
     /// returns false if the task does not exist
     pub async fn shutdown_task(&mut self, uid: usize) -> bool {
         let modifier = Modifier(Box::new(|state| {
-            state.set_state(HotShotTaskStatus::Completed);
+            state.set_state(TaskStatus::Completed);
             Either::Right(true)
         }));
         match self.operate_on_task(uid, modifier).await {

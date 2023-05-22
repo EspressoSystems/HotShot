@@ -69,21 +69,26 @@ pub trait EventStream: Clone {
 /// Event stream implementation using channels as the underlying primitive.
 /// We want it to be cloneable
 #[derive(Clone)]
-pub struct ChannelEventStream<EVENT: PassType> {
-    inner: Arc<RwLock<ChannelEventStreamInner<EVENT>>>,
+pub struct ChannelStream<EVENT: PassType> {
+    /// inner field. Useful for having the stream itself
+    /// be clone
+    inner: Arc<RwLock<ChannelStreamInner<EVENT>>>,
 }
 
 /// trick to make the event stream clonable
-pub struct ChannelEventStreamInner<EVENT: PassType> {
+struct ChannelStreamInner<EVENT: PassType> {
+    /// the subscribers to the channel
     subscribers: HashMap<StreamId, (FilterEvent<EVENT>, UnboundedSender<EVENT>)>,
+    /// the next unused assignable id
     next_stream_id: StreamId,
 }
 
-impl<EVENT: PassType> ChannelEventStream<EVENT> {
+impl<EVENT: PassType> ChannelStream<EVENT> {
     /// construct a new event stream
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(ChannelEventStreamInner {
+            inner: Arc::new(RwLock::new(ChannelStreamInner {
                 subscribers: HashMap::new(),
                 next_stream_id: 0,
             })),
@@ -91,15 +96,21 @@ impl<EVENT: PassType> ChannelEventStream<EVENT> {
     }
 }
 
+impl<EVENT: PassType> Default for ChannelStream<EVENT> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
-impl<EVENT: PassType> EventStream for ChannelEventStream<EVENT> {
+impl<EVENT: PassType> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType) {
         let inner = self.inner.read().await;
-        for (_, (filter, sender)) in &inner.subscribers {
+        for (filter, sender) in inner.subscribers.values() {
             if filter(&event) {
                 match sender.send(event).await {
                     Ok(_) => todo!(),
