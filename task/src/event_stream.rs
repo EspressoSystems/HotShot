@@ -103,7 +103,7 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
 }
 
 #[async_trait]
-impl<EVENT: PassType> EventStream for ChannelStream<EVENT> {
+impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
 
