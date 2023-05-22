@@ -41,6 +41,9 @@ pub mod task;
 /// The hotshot task launcher. Useful for constructing tasks
 pub mod task_launcher;
 
+/// the task implementations with different features
+pub mod task_impls;
+
 // NOTE: yoinked /from async-std
 // except this is executor agnostic (doesn't rely on async-std streamext/fuse)
 // NOTE: usage of this is for combining streams into one main stream

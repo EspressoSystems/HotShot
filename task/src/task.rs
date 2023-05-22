@@ -1,18 +1,15 @@
 use std::ops::Deref;
-use std::{marker::PhantomData, task::Poll};
+use std::task::Poll;
 
 use futures::{future::LocalBoxFuture, stream::Fuse, Stream};
 use futures::{Future, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
+use crate::event_stream::StreamId;
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_state::TaskStatus;
-use crate::{
-    event_stream::{DummyStream, EventStream},
-    global_registry::ShutdownFn,
-    task_state::TaskState,
-};
+use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::TaskState};
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
@@ -38,84 +35,6 @@ pub trait HotShotTaskTypes {
     type Error: std::error::Error;
 }
 
-/// a hotshot task with an event stream
-pub struct HSTWithEvent<
-    ERR: std::error::Error,
-    EVENT: PassType,
-    ESTREAM: EventStream<EventType = EVENT>,
-    STATE: TS,
-> {
-    /// phantom data
-    _pd: PhantomData<(ERR, EVENT, ESTREAM, STATE)>,
-}
-
-impl<
-        ERR: std::error::Error,
-        EVENT: PassType,
-        ESTREAM: EventStream<EventType = EVENT>,
-        STATE: TS,
-    > HotShotTaskTypes for HSTWithEvent<ERR, EVENT, ESTREAM, STATE>
-{
-    type Event = EVENT;
-    type State = STATE;
-    type EventStream = ESTREAM;
-    type Message = ();
-    type MessageStream = DummyStream;
-    type Error = ERR;
-}
-
-/// a hotshot task with a message
-pub struct HSTWithMessage<
-    ERR: std::error::Error,
-    MSG: PassType,
-    MSTREAM: Stream<Item = MSG>,
-    STATE: TS,
-> {
-    /// phantom data
-    _pd: PhantomData<(ERR, MSG, MSTREAM, STATE)>,
-}
-
-impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: TS> HotShotTaskTypes
-    for HSTWithMessage<ERR, MSG, MSTREAM, STATE>
-{
-    type Event = ();
-    type State = STATE;
-    type EventStream = DummyStream;
-    type Message = MSG;
-    type MessageStream = MSTREAM;
-    type Error = ERR;
-}
-
-/// hotshot task with even and message
-pub struct HSTWithEventAndMessage<
-    ERR: std::error::Error,
-    EVENT: PassType,
-    ESTREAM: EventStream<EventType = EVENT>,
-    MSG: PassType,
-    MSTREAM: Stream<Item = MSG>,
-    STATE: TS,
-> {
-    /// phantom data
-    _pd: PhantomData<(ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE)>,
-}
-
-impl<
-        ERR: std::error::Error,
-        EVENT: PassType,
-        ESTREAM: EventStream<EventType = EVENT>,
-        MSG: PassType,
-        MSTREAM: Stream<Item = MSG>,
-        STATE: TS,
-    > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
-{
-    type Event = ();
-    type State = STATE;
-    type EventStream = DummyStream;
-    type Message = MSG;
-    type MessageStream = MSTREAM;
-    type Error = ERR;
-}
-
 /// hot shot task
 #[pin_project]
 /// this is for `in_progress_fut`. The type is internal only so it's probably fine
@@ -134,6 +53,8 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// function to shut down the task
     /// if we're tracking with a global registry
     shutdown_fn: Option<ShutdownFn>,
+    /// event stream uid
+    event_stream_uid: Option<StreamId>,
     /// shared stream
     #[pin]
     event_stream: Option<Fuse<<HSTT::EventStream as EventStream>::StreamType>>,
@@ -148,10 +69,12 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     handle_message: Option<HandleMessage<HSTT>>,
     /// handler for filtering events (to use with stream)
     filter_event: Option<FilterEvent<HSTT::Event>>,
+    /// task id
+    pub(crate) tid: Option<HotShotTaskId>,
 }
 
 /// ADT for wrapping all possible handler types
-pub enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
+pub(crate) enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
     /// handle an event
     HandleEvent(HandleEvent<HSTT>),
     /// handle a message
@@ -231,7 +154,7 @@ impl<EVENT: PassType> Deref for FilterEvent<EVENT> {
 impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// register a handler with the task
     #[must_use]
-    pub fn register_handler(self, handler: HotShotTaskHandler<HSTT>) -> Self {
+    pub(crate) fn register_handler(self, handler: HotShotTaskHandler<HSTT>) -> Self {
         match handler {
             HotShotTaskHandler::HandleEvent(handler) => Self {
                 handle_event: Some(handler),
@@ -241,10 +164,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
                 handle_message: Some(handler),
                 ..self
             },
-            HotShotTaskHandler::FilterEvent(handler) => Self {
-                filter_event: Some(handler),
-                ..self
-            },
+            HotShotTaskHandler::FilterEvent(_handler) => unimplemented!(),
             HotShotTaskHandler::Shutdown(handler) => Self {
                 shutdown_fn: Some(handler),
                 ..self
@@ -252,8 +172,8 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         }
     }
 
-    /// register an event stream with the taskk
-    pub async fn with_event_stream(
+    /// register an event stream with the task
+    pub(crate) async fn register_event_stream(
         self,
         stream: HSTT::EventStream,
         filter: FilterEvent<HSTT::Event>,
@@ -268,7 +188,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
 
     /// register a message with the task
     #[must_use]
-    pub fn with_message_stream(self, stream: HSTT::MessageStream) -> Self {
+    pub(crate) fn register_message_stream(self, stream: HSTT::MessageStream) -> Self {
         Self {
             message_stream: Some(stream.fuse()),
             ..self
@@ -277,7 +197,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
 
     /// register state with the task
     #[must_use]
-    pub fn with_state(self, state: HSTT::State) -> Self {
+    pub(crate) fn register_state(self, state: HSTT::State) -> Self {
         Self {
             state: Some(state),
             ..self
@@ -285,33 +205,30 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     }
 
     /// register with the registry
-    pub async fn register_with_registry(
-        self,
-        registry: &mut GlobalRegistry,
-    ) -> (Self, HotShotTaskId) {
+    pub(crate) async fn register_registry(self, registry: &mut GlobalRegistry) -> Self {
         let (shutdown_fn, id) = registry.register(&self.name, self.status.clone()).await;
-        (
-            Self {
-                shutdown_fn: Some(shutdown_fn),
-                ..self
-            },
-            id,
-        )
+        Self {
+            shutdown_fn: Some(shutdown_fn),
+            tid: Some(id),
+            ..self
+        }
     }
 
     /// create a new task
-    pub fn new(state: HSTT::State, name: String) -> Self {
+    pub(crate) fn new(name: String) -> Self {
         Self {
+            name,
             status: TaskState::new(),
             event_stream: None,
-            state: Some(state),
+            state: None,
             handle_event: None,
             handle_message: None,
             filter_event: None,
             shutdown_fn: None,
             message_stream: None,
-            name,
+            event_stream_uid: None,
             in_progress_fut: None,
+            tid: None,
         }
     }
 
