@@ -32,8 +32,8 @@ pub struct GlobalRegistry {
     state_list: Arc<RwLock<Vec<(HotShotTaskState, String)>>>,
     /// possibly stale read version of state
     /// NOTE: must include entire state in order to
-    /// support both incrementing and reading
-    /// writing to the status should gracefully shut down the task
+    /// support both incrementing and reading.
+    /// Writing to the status should gracefully shut down the task
     state_cache: Vec<(HotShotTaskState, String)>,
 }
 
