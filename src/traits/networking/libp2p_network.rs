@@ -144,13 +144,10 @@ where
         for i in 0u64..(expected_node_count as u64) {
             let privkey = TYPES::SignatureKey::generate_test_key(i);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            if i < da_committee_size as u64 {
+                da_keys.insert(pubkey.clone());
+            }
             all_keys.insert(pubkey);
-        }
-
-        for i in 0u64..(da_committee_size as u64) {
-            let privkey = TYPES::SignatureKey::generate_test_key(i);
-            let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            da_keys.insert(pubkey);
         }
 
         // NOTE uncomment this for easier debugging

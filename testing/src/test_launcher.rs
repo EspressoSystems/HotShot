@@ -93,18 +93,13 @@ where
             da_committee_size,
             ..
         } = metadata;
-        let known_nodes = (0..total_nodes)
+        let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
             .map(|id| {
                 let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = (0..da_committee_size)
-            .map(|id| {
-                let priv_key = I::generate_test_key(id as u64);
-                TYPES::SignatureKey::from_private(&priv_key)
-            })
-            .collect();
+        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
