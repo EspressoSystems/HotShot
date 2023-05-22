@@ -1,5 +1,5 @@
 use async_compatibility_layer::channel::{unbounded, UnboundedSender, UnboundedStream};
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -110,11 +110,12 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType) {
         let inner = self.inner.read().await;
-        for (filter, sender) in inner.subscribers.values() {
+        for (uid, (filter, sender)) in &inner.subscribers {
             if filter(&event) {
-                match sender.send(event).await {
-                    Ok(_) => todo!(),
-                    Err(_) => todo!(),
+                match sender.send(event.clone()).await {
+                    Ok(_) => (),
+                    // error sending => stream is closed so remove it
+                    Err(_) => self.unsubscribe(*uid).await,
                 }
             }
         }
