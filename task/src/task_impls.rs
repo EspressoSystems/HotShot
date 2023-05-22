@@ -13,6 +13,7 @@ use crate::{
 
 /// trait to specify features
 pub trait ImplMessageStream {}
+
 /// trait to specify features
 pub trait ImplEventStream {}
 
@@ -93,11 +94,6 @@ impl<HSTT: HotShotTaskTypes> TaskBuilder<HSTT> {
         self.0.tid
     }
 
-    /// build the task
-    pub fn build(self) -> HST<HSTT> {
-        self.0
-    }
-
     /// create a new task builder
     #[must_use]
     pub fn new(name: String) -> Self {
@@ -143,6 +139,15 @@ impl<
     type Message = ();
     type MessageStream = DummyStream;
     type Error = ERR;
+
+    fn build(builder: TaskBuilder<Self>) -> HST<Self>
+    where
+        Self: Sized,
+    {
+        builder.0.base_check();
+        builder.0.event_check();
+        builder.0
+    }
 }
 
 /// a hotshot task with a message
@@ -165,6 +170,15 @@ impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: 
     type Message = MSG;
     type MessageStream = MSTREAM;
     type Error = ERR;
+
+    fn build(builder: TaskBuilder<Self>) -> HST<Self>
+    where
+        Self: Sized,
+    {
+        builder.0.base_check();
+        builder.0.message_check();
+        builder.0
+    }
 }
 
 /// hotshot task with even and message
@@ -217,4 +231,14 @@ impl<
     type Message = MSG;
     type MessageStream = MSTREAM;
     type Error = ERR;
+
+    fn build(builder: TaskBuilder<Self>) -> HST<Self>
+    where
+        Self: Sized,
+    {
+        builder.0.base_check();
+        builder.0.message_check();
+        builder.0.event_check();
+        builder.0
+    }
 }

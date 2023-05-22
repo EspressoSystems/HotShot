@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use crate::event_stream::StreamId;
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
+use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
 use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::TaskState};
 
@@ -33,6 +34,15 @@ pub trait HotShotTaskTypes {
     type MessageStream: Stream<Item = Self::Message>;
     /// the error to return
     type Error: std::error::Error;
+
+    /// build a task
+    /// NOTE: done here and not on `TaskBuilder` because
+    /// we want specific checks done on each
+    /// NOTE: all generics implement `Sized`, but this bound is
+    /// NOT applied to `Self` unless we specify
+    fn build(builder: TaskBuilder<Self>) -> HST<Self>
+    where
+        Self: Sized;
 }
 
 /// hot shot task
@@ -74,6 +84,7 @@ pub struct HST<HSTT: HotShotTaskTypes> {
 }
 
 /// ADT for wrapping all possible handler types
+#[allow(dead_code)]
 pub(crate) enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
     /// handle an event
     HandleEvent(HandleEvent<HSTT>),
@@ -152,6 +163,45 @@ impl<EVENT: PassType> Deref for FilterEvent<EVENT> {
 }
 
 impl<HSTT: HotShotTaskTypes> HST<HSTT> {
+    /// Do a consistency check on the `HST` construction
+    pub(crate) fn base_check(&self) {
+        assert!(
+            self.shutdown_fn.is_some(),
+            "Didn't register global registry"
+        );
+        assert!(
+            self.in_progress_fut.is_none(),
+            "This future has already been polled"
+        );
+
+        assert!(self.state.is_some(), "Didn't register state");
+
+        assert!(self.tid.is_some(), "Didn't register global registry");
+    }
+
+    /// perform event sanity checks
+    pub(crate) fn event_check(&self) {
+        assert!(
+            self.event_stream_uid.is_some(),
+            "Didn't register event stream uid"
+        );
+        assert!(self.event_stream.is_some(), "Didn't register event stream");
+        assert!(self.handle_event.is_some(), "Didn't register event handler");
+        assert!(self.filter_event.is_some(), "Didn't register event filter");
+    }
+
+    /// perform message sanity checks
+    pub(crate) fn message_check(&self) {
+        assert!(
+            self.handle_message.is_some(),
+            "Didn't reegister message handler"
+        );
+        assert!(
+            self.message_stream.is_some(),
+            "Didn't register message stream"
+        );
+    }
+
     /// register a handler with the task
     #[must_use]
     pub(crate) fn register_handler(self, handler: HotShotTaskHandler<HSTT>) -> Self {
