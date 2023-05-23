@@ -19,6 +19,7 @@ pub enum TaskStatus {
     /// NOTE: not useful generally, but VERY useful for byzantine nodes
     /// and testing malfunctions
     /// we'll have a granular way to, from the registry, stop a task momentarily
+    /// and inspect/modify its state
     Paused = 2,
     /// the task completed
     Completed = 3,

@@ -1,8 +1,9 @@
 use std::ops::Deref;
 use std::task::Poll;
 
-use futures::{future::LocalBoxFuture, stream::Fuse, Stream};
-use futures::{Future, StreamExt};
+use futures::future::LocalBoxFuture;
+use futures::{future::BoxFuture, stream::Fuse, Stream};
+use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
@@ -53,16 +54,17 @@ pub trait HotShotTaskTypes {
 pub struct HST<HSTT: HotShotTaskTypes> {
     /// the in progress future
     /// TODO does `'static` make sense here
-    in_progress_fut:
-        Option<LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
+    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
     #[pin]
     status: TaskState,
-    /// function to shut down the task
+    /// functions performing cleanup
+    /// one should shut down the task
     /// if we're tracking with a global registry
-    shutdown_fn: Option<ShutdownFn>,
+    /// the other should unsubscribe from the stream
+    shutdown_fns: Vec<ShutdownFn>,
     /// event stream uid
     event_stream_uid: Option<StreamId>,
     /// shared stream
@@ -103,17 +105,15 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
         dyn Fn(
             HSTT::Event,
             HSTT::State,
-        )
-            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
-    type Target =
-        dyn Fn(
-            HSTT::Event,
-            HSTT::State,
-        )
-            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+    type Target = dyn Fn(
+        HSTT::Event,
+        HSTT::State,
+    )
+        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -127,17 +127,15 @@ pub struct HandleMessage<HSTT: HotShotTaskTypes>(
         dyn Fn(
             HSTT::Message,
             HSTT::State,
-        )
-            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
-    type Target =
-        dyn Fn(
-            HSTT::Message,
-            HSTT::State,
-        )
-            -> LocalBoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+    type Target = dyn Fn(
+        HSTT::Message,
+        HSTT::State,
+    )
+        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -165,10 +163,7 @@ impl<EVENT: PassType> Deref for FilterEvent<EVENT> {
 impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// Do a consistency check on the `HST` construction
     pub(crate) fn base_check(&self) {
-        assert!(
-            self.shutdown_fn.is_some(),
-            "Didn't register global registry"
-        );
+        assert!(self.shutdown_fns.is_empty(), "No shutdown functions");
         assert!(
             self.in_progress_fut.is_none(),
             "This future has already been polled"
@@ -181,6 +176,10 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
 
     /// perform event sanity checks
     pub(crate) fn event_check(&self) {
+        assert!(
+            self.shutdown_fns.len() == 2,
+            "Expected 2 shutdown functions"
+        );
         assert!(
             self.event_stream_uid.is_some(),
             "Didn't register event stream uid"
@@ -215,23 +214,36 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
                 ..self
             },
             HotShotTaskHandler::FilterEvent(_handler) => unimplemented!(),
-            HotShotTaskHandler::Shutdown(handler) => Self {
-                shutdown_fn: Some(handler),
-                ..self
-            },
+            HotShotTaskHandler::Shutdown(_handler) => unimplemented!(),
         }
     }
 
     /// register an event stream with the task
     pub(crate) async fn register_event_stream(
         self,
-        stream: HSTT::EventStream,
+        event_stream: HSTT::EventStream,
         filter: FilterEvent<HSTT::Event>,
     ) -> Self {
+        let (stream, uid) = event_stream.subscribe(filter).await;
+
+        let mut shutdown_fns = self.shutdown_fns;
+        {
+            let event_stream = event_stream.clone();
+            shutdown_fns.push(ShutdownFn(Arc::new(
+                move || -> LocalBoxFuture<'static, ()> {
+                    let event_stream = event_stream.clone();
+                    async move {
+                        event_stream.clone().unsubscribe(uid).await;
+                    }
+                    .boxed_local()
+                },
+            )));
+        }
         // TODO perhaps GC the event stream
         // (unsunscribe)
         Self {
-            event_stream: Some(stream.subscribe(filter).await.0.fuse()),
+            event_stream: Some(stream.fuse()),
+            shutdown_fns,
             ..self
         }
     }
@@ -257,8 +269,10 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// register with the registry
     pub(crate) async fn register_registry(self, registry: &mut GlobalRegistry) -> Self {
         let (shutdown_fn, id) = registry.register(&self.name, self.status.clone()).await;
+        let mut shutdown_fns = self.shutdown_fns;
+        shutdown_fns.push(shutdown_fn);
         Self {
-            shutdown_fn: Some(shutdown_fn),
+            shutdown_fns,
             tid: Some(id),
             ..self
         }
@@ -274,7 +288,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
             handle_event: None,
             handle_message: None,
             filter_event: None,
-            shutdown_fn: None,
+            shutdown_fns: vec![],
             message_stream: None,
             event_stream_uid: None,
             in_progress_fut: None,
@@ -329,6 +343,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                     }
                     TaskStatus::Running => { /* do nothing if we are running */ }
                     TaskStatus::Completed => {
+                        for shutdown_fn in projected.shutdown_fns.drain(..) {
+                            shutdown_fn();
+                        }
                         return Poll::Ready(HotShotTaskCompleted::ShutDown);
                     }
                 }
@@ -346,6 +363,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                     *projected.state = Some(state);
                     // if the future errored out, return it, we're done
                     if let Some(completed) = result {
+                        for shutdown_fn in projected.shutdown_fns {
+                            shutdown_fn();
+                        }
                         return Poll::Ready(completed);
                     }
                 }
@@ -375,6 +395,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                                         *projected.in_progress_fut = None;
                                         *projected.state = Some(state);
                                         if let Some(completed) = result {
+                                            for shutdown_fn in projected.shutdown_fns {
+                                                shutdown_fn();
+                                            }
                                             return Poll::Ready(completed);
                                         }
                                     }
@@ -384,6 +407,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                                     }
                                 }
                             } else {
+                                for shutdown_fn in projected.shutdown_fns {
+                                    shutdown_fn();
+                                }
                                 return Poll::Ready(HotShotTaskCompleted::LostState);
                             }
                         }
@@ -413,6 +439,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                                         *projected.in_progress_fut = None;
                                         *projected.state = Some(state);
                                         if let Some(completed) = result {
+                                            for shutdown_fn in projected.shutdown_fns {
+                                                shutdown_fn();
+                                            }
                                             return Poll::Ready(completed);
                                         }
                                     }
@@ -423,6 +452,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                                     }
                                 };
                             } else {
+                                for shutdown_fn in projected.shutdown_fns {
+                                    shutdown_fn();
+                                }
                                 return Poll::Ready(HotShotTaskCompleted::LostState);
                             }
                         }
@@ -439,6 +471,9 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
             event_stream_finished = true;
         }
         if message_stream_finished && event_stream_finished {
+            for shutdown_fn in projected.shutdown_fns {
+                shutdown_fn();
+            }
             return Poll::Ready(HotShotTaskCompleted::StreamsDied);
         }
 
