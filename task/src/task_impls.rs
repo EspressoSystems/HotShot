@@ -54,18 +54,6 @@ impl<HSTT: HotShotTaskTypes> TaskBuilder<HSTT> {
         Self(self.0.register_message_stream(stream))
     }
 
-    /// register a event filter
-    #[must_use]
-    pub fn register_event_filter(self, handler: FilterEvent<HSTT::Event>) -> Self
-    where
-        HSTT: ImplEventStream,
-    {
-        Self(
-            self.0
-                .register_handler(HotShotTaskHandler::FilterEvent(handler)),
-        )
-    }
-
     /// register an event stream
     pub async fn register_event_stream(
         self,
@@ -247,10 +235,13 @@ impl<
 pub mod test {
     use snafu::Snafu;
 
+    use crate::event_stream;
     use crate::event_stream::ChannelStream;
     use crate::task::{PassType, HST, TS};
 
     use super::HSTWithEvent;
+    use crate::task::HotShotTaskTypes;
+    use crate::task_impls::TaskBuilder;
 
     #[derive(Snafu, Debug)]
     pub struct Error {}
@@ -269,13 +260,37 @@ pub mod test {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_task_with_event_stream() {
-        use crate::event_stream;
-
-        let _event_stream: event_stream::ChannelStream<()> = event_stream::ChannelStream::new();
-
+    #[should_panic]
+    async fn test_init_with_event_stream() {
         let task = HST::<AppliedHSTWithEvent>::new("Test Task".to_string());
-
         task.launch().await;
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_task_with_event_stream() {
+        use crate::{
+            global_registry::GlobalRegistry,
+            task::{FilterEvent, HandleEvent},
+        };
+
+        let event_stream: event_stream::ChannelStream<()> = event_stream::ChannelStream::new();
+
+        let state = State {};
+
+        let mut registry = GlobalRegistry::spawn_new();
+
+        let built_task = TaskBuilder::<AppliedHSTWithEvent>::new("Test Task".to_string())
+            .register_event_stream(event_stream.clone(), FilterEvent::default())
+            .await
+            .register_registry(&mut registry)
+            .await
+            .register_state(state)
+            .register_event_handler(HandleEvent::default());
+        AppliedHSTWithEvent::build(built_task).launch().await;
     }
 }

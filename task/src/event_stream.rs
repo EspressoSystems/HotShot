@@ -50,7 +50,7 @@ pub type StreamId = usize;
 /// NOTE: static bound indicates that if the type points to data, that data lives for the lifetime
 /// of the program
 #[async_trait]
-pub trait EventStream: Clone + 'static {
+pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
     /// the type of stream to use

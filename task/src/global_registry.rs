@@ -1,17 +1,17 @@
 use async_lock::RwLock;
 use either::Either;
-use futures::{future::LocalBoxFuture, FutureExt};
+use futures::{future::BoxFuture, FutureExt};
 use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::task_state::{TaskState, TaskStatus};
 
 /// function to shut down gobal registry
-pub struct ShutdownFn(pub Arc<dyn Fn() -> LocalBoxFuture<'static, ()>>);
+pub struct ShutdownFn(pub Arc<dyn Fn() -> BoxFuture<'static, ()>>);
 
 // TODO this would be cleaner as `run()`
 impl Deref for ShutdownFn {
-    type Target = dyn Fn() -> LocalBoxFuture<'static, ()>;
+    type Target = dyn Fn() -> BoxFuture<'static, ()>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -69,7 +69,7 @@ impl GlobalRegistry {
 
         let shutdown_fn = ShutdownFn(Arc::new(move || {
             new_entry_dup.set_state(TaskStatus::Completed);
-            async move {}.boxed_local()
+            async move {}.boxed()
         }));
         (shutdown_fn, next_id)
     }

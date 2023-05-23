@@ -1,7 +1,6 @@
 use std::ops::Deref;
 use std::task::Poll;
 
-use futures::future::LocalBoxFuture;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
@@ -19,7 +18,7 @@ pub trait PassType: Clone + std::fmt::Debug + Sync + Send {}
 impl PassType for () {}
 
 /// the task state
-pub trait TS: std::fmt::Debug {}
+pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 
 /// group of types needed for a hotshot task
 pub trait HotShotTaskTypes {
@@ -108,6 +107,13 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
         ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
     >,
 );
+
+impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
+    fn default() -> Self {
+        Self(Arc::new(|_event, state| async { (None, state) }.boxed()))
+    }
+}
+
 impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
     type Target = dyn Fn(
         HSTT::Event,
@@ -144,7 +150,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
 
 /// Return `true` if the event should be filtered
 #[derive(Clone)]
-pub struct FilterEvent<EVENT: PassType>(Arc<dyn Fn(&EVENT) -> bool + Send + 'static + Sync>);
+pub struct FilterEvent<EVENT: PassType>(pub Arc<dyn Fn(&EVENT) -> bool + Send + 'static + Sync>);
 
 impl<EVENT: PassType> Default for FilterEvent<EVENT> {
     fn default() -> Self {
@@ -229,15 +235,13 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         let mut shutdown_fns = self.shutdown_fns;
         {
             let event_stream = event_stream.clone();
-            shutdown_fns.push(ShutdownFn(Arc::new(
-                move || -> LocalBoxFuture<'static, ()> {
-                    let event_stream = event_stream.clone();
-                    async move {
-                        event_stream.clone().unsubscribe(uid).await;
-                    }
-                    .boxed_local()
-                },
-            )));
+            shutdown_fns.push(ShutdownFn(Arc::new(move || -> BoxFuture<'static, ()> {
+                let event_stream = event_stream.clone();
+                async move {
+                    event_stream.clone().unsubscribe(uid).await;
+                }
+                .boxed()
+            })));
         }
         // TODO perhaps GC the event stream
         // (unsunscribe)
