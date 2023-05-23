@@ -6,7 +6,6 @@ use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
-use crate::event_stream::StreamId;
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
@@ -64,8 +63,6 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// if we're tracking with a global registry
     /// the other should unsubscribe from the stream
     shutdown_fns: Vec<ShutdownFn>,
-    /// event stream uid
-    event_stream_uid: Option<StreamId>,
     /// shared stream
     #[pin]
     event_stream: Option<Fuse<<HSTT::EventStream as EventStream>::StreamType>>,
@@ -78,8 +75,6 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     handle_event: Option<HandleEvent<HSTT>>,
     /// handler for messages
     handle_message: Option<HandleMessage<HSTT>>,
-    /// handler for filtering events (to use with stream)
-    filter_event: Option<FilterEvent<HSTT::Event>>,
     /// task id
     pub(crate) tid: Option<HotShotTaskId>,
 }
@@ -100,7 +95,7 @@ pub(crate) enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
 /// Type wrapper for handling an event
 #[allow(clippy::type_complexity)]
 pub struct HandleEvent<HSTT: HotShotTaskTypes>(
-    Arc<
+    pub  Arc<
         dyn Fn(
             HSTT::Event,
             HSTT::State,
@@ -169,7 +164,7 @@ impl<EVENT: PassType> Deref for FilterEvent<EVENT> {
 impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// Do a consistency check on the `HST` construction
     pub(crate) fn base_check(&self) {
-        assert!(self.shutdown_fns.is_empty(), "No shutdown functions");
+        assert!(!self.shutdown_fns.is_empty(), "No shutdown functions");
         assert!(
             self.in_progress_fut.is_none(),
             "This future has already been polled"
@@ -186,13 +181,8 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
             self.shutdown_fns.len() == 2,
             "Expected 2 shutdown functions"
         );
-        assert!(
-            self.event_stream_uid.is_some(),
-            "Didn't register event stream uid"
-        );
         assert!(self.event_stream.is_some(), "Didn't register event stream");
         assert!(self.handle_event.is_some(), "Didn't register event handler");
-        assert!(self.filter_event.is_some(), "Didn't register event filter");
     }
 
     /// perform message sanity checks
@@ -291,16 +281,15 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
             state: None,
             handle_event: None,
             handle_message: None,
-            filter_event: None,
             shutdown_fns: vec![],
             message_stream: None,
-            event_stream_uid: None,
             in_progress_fut: None,
             tid: None,
         }
     }
 
     /// launch the task
+    /// TODO this shouldn't be allowed, do it in the `build` function
     pub async fn launch(self) -> HotShotTaskCompleted<HSTT> {
         self.await
     }

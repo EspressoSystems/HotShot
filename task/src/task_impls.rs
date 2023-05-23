@@ -237,11 +237,14 @@ pub mod test {
 
     use crate::event_stream;
     use crate::event_stream::ChannelStream;
-    use crate::task::{PassType, HST, TS};
+    use crate::task::{PassType, TS};
 
     use super::HSTWithEvent;
+    use crate::event_stream::EventStream;
     use crate::task::HotShotTaskTypes;
     use crate::task_impls::TaskBuilder;
+    use futures::FutureExt;
+    use std::sync::Arc;
 
     #[derive(Snafu, Debug)]
     pub struct Error {}
@@ -249,10 +252,18 @@ pub mod test {
     #[derive(Clone, Debug)]
     pub struct State {}
 
+    #[derive(Clone, Debug)]
+    pub enum Event {
+        Finished,
+        Dummy,
+    }
+
+    impl PassType for Event {}
+
     impl TS for State {}
     impl PassType for State {}
 
-    pub type AppliedHSTWithEvent = HSTWithEvent<Error, (), ChannelStream<()>, State>;
+    pub type AppliedHSTWithEvent = HSTWithEvent<Error, Event, ChannelStream<Event>, State>;
 
     #[cfg(test)]
     #[cfg_attr(
@@ -262,8 +273,8 @@ pub mod test {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[should_panic]
     async fn test_init_with_event_stream() {
-        let task = HST::<AppliedHSTWithEvent>::new("Test Task".to_string());
-        task.launch().await;
+        let task = TaskBuilder::<AppliedHSTWithEvent>::new("Test Task".to_string());
+        AppliedHSTWithEvent::build(task).launch().await;
     }
 
     #[cfg(test)]
@@ -275,14 +286,25 @@ pub mod test {
     async fn test_task_with_event_stream() {
         use crate::{
             global_registry::GlobalRegistry,
-            task::{FilterEvent, HandleEvent},
+            task::{FilterEvent, HandleEvent, HotShotTaskCompleted},
         };
 
-        let event_stream: event_stream::ChannelStream<()> = event_stream::ChannelStream::new();
+        let event_stream: event_stream::ChannelStream<Event> = event_stream::ChannelStream::new();
 
         let state = State {};
 
         let mut registry = GlobalRegistry::spawn_new();
+
+        let event_handler = HandleEvent(Arc::new(move |event, state| {
+            async move {
+                if let Event::Finished = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    (None, state)
+                }
+            }
+            .boxed()
+        }));
 
         let built_task = TaskBuilder::<AppliedHSTWithEvent>::new("Test Task".to_string())
             .register_event_stream(event_stream.clone(), FilterEvent::default())
@@ -290,7 +312,8 @@ pub mod test {
             .register_registry(&mut registry)
             .await
             .register_state(state)
-            .register_event_handler(HandleEvent::default());
+            .register_event_handler(event_handler);
+        event_stream.publish(Event::Finished).await;
         AppliedHSTWithEvent::build(built_task).launch().await;
     }
 }
