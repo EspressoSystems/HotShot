@@ -7,12 +7,13 @@ use std::sync::Arc;
 use crate::task_state::{TaskState, TaskStatus};
 
 /// function to shut down gobal registry
-pub struct ShutdownFn(pub Arc<dyn Fn() -> BoxFuture<'static, ()>>);
+#[derive(Clone)]
+pub struct ShutdownFn(pub Arc<dyn Fn() -> BoxFuture<'static, ()> + Sync + Send>);
 
 // TODO this might cleaner as `run()`
 // but then this pattern should change everywhere
 impl Deref for ShutdownFn {
-    type Target = dyn Fn() -> BoxFuture<'static, ()>;
+    type Target = dyn Fn() -> BoxFuture<'static, ()> + Sync + Send;
 
     fn deref(&self) -> &Self::Target {
         &*self.0

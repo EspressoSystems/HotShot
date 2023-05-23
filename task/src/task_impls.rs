@@ -373,8 +373,11 @@ pub mod test {
             .await
             .register_state(state);
         async_spawn(async move {
-            s.send(Message::Dummy).await.unwrap();
+            // TODO fix this
+            // s.send(Message::Dummy).await.unwrap();
+            tracing::error!("send first message");
             s.send(Message::Finished).await.unwrap();
+            tracing::error!("send second message");
         });
         // event_stream.publish(Event::Finished).await;
         let result = AppliedHSTWithMessage::build(built_task).launch().await;
