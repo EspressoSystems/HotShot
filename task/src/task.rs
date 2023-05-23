@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::task::Poll;
 
+use tracing::error;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
@@ -51,7 +52,6 @@ pub trait HotShotTaskTypes {
 #[allow(clippy::type_complexity)]
 pub struct HST<HSTT: HotShotTaskTypes> {
     /// the in progress future
-    /// TODO does `'static` make sense here
     in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
     /// name of task
     name: String,
@@ -124,7 +124,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
 /// Type wrapper for handling a message
 #[allow(clippy::type_complexity)]
 pub struct HandleMessage<HSTT: HotShotTaskTypes>(
-    Arc<
+    pub Arc<
         dyn Fn(
             HSTT::Message,
             HSTT::State,
@@ -296,6 +296,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
 }
 
 /// enum describing how the tasks completed
+#[derive(Eq)]
 pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
     /// the task shut down successfully
     ShutDown,
@@ -306,6 +307,15 @@ pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
     /// we somehow lost the state
     /// this is definitely a bug.
     LostState,
+}
+
+impl<HSTT: HotShotTaskTypes> PartialEq for HotShotTaskCompleted<HSTT> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Error(_l0), Self::Error(_r0)) => false,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 // NOTE: this is a Future, but it could easily be a stream.
@@ -323,6 +333,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
+        // FIXME broken future
         // useful if we ever need to use self later.
         // this doesn't consume the reference
         let projected = self.as_mut().project();
@@ -429,6 +440,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                                 let mut fut = handle_msg(msg, state);
                                 match fut.as_mut().poll(cx) {
                                     Poll::Ready((result, state)) => {
+                                        error!("WOO WE ARE READY");
                                         *projected.in_progress_fut = None;
                                         *projected.state = Some(state);
                                         if let Some(completed) = result {
