@@ -54,7 +54,7 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
     /// the type of stream to use
-    type StreamType: Stream<Item = Self::EventType>;
+    type StreamType: Stream<Item = Self::EventType> + Sync + Send + 'static;
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType);

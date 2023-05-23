@@ -1,6 +1,5 @@
-use std::marker::PhantomData;
-
 use futures::Stream;
+use std::marker::PhantomData;
 
 use crate::{
     event_stream::{DummyStream, EventStream},
@@ -244,14 +243,13 @@ pub mod test {
     use crate::event_stream::EventStream;
     use crate::task::HotShotTaskTypes;
     use crate::task_impls::TaskBuilder;
+    use async_compatibility_layer::art::async_spawn;
     use futures::FutureExt;
     use std::sync::Arc;
-    use async_compatibility_layer::art::async_spawn;
-    use tracing::error;
 
     use crate::{
         global_registry::GlobalRegistry,
-        task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HandleMessage},
+        task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted},
     };
     use async_compatibility_layer::logging::setup_logging;
 
@@ -275,7 +273,7 @@ pub mod test {
     #[derive(Clone, Debug)]
     pub enum Message {
         Finished,
-        Dummy
+        Dummy,
     }
 
     impl PassType for Message {}
@@ -283,8 +281,16 @@ pub mod test {
     // TODO fill in generics for stream
 
     pub type AppliedHSTWithEvent = HSTWithEvent<Error, Event, ChannelStream<Event>, State>;
-    pub type AppliedHSTWithMessage = HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
-    pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<Error, Message, UnboundedStream<Message>, Event, ChannelStream<Event>, State>;
+    pub type AppliedHSTWithMessage =
+        HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
+    pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<
+        Error,
+        Message,
+        UnboundedStream<Message>,
+        Event,
+        ChannelStream<Event>,
+        State,
+    >;
 
     #[cfg(test)]
     #[cfg_attr(

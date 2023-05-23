@@ -1,11 +1,11 @@
 use std::ops::Deref;
 use std::task::Poll;
 
-use tracing::error;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
+use tracing::error;
 
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
@@ -14,7 +14,7 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
-pub trait PassType: Clone + std::fmt::Debug + Sync + Send {}
+pub trait PassType: Clone + std::fmt::Debug + Sync + Send + 'static {}
 impl PassType for () {}
 
 /// the task state
@@ -124,7 +124,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
 /// Type wrapper for handling a message
 #[allow(clippy::type_complexity)]
 pub struct HandleMessage<HSTT: HotShotTaskTypes>(
-    pub Arc<
+    pub  Arc<
         dyn Fn(
             HSTT::Message,
             HSTT::State,
@@ -289,7 +289,9 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     }
 
     /// launch the task
-    /// TODO this shouldn't be allowed, do it in the `build` function
+    /// NOTE: the only way to get a `HST` is by usage
+    /// of one of the impls. Those all have checks enabled.
+    /// So, it should be safe to lanuch.
     pub async fn launch(self) -> HotShotTaskCompleted<HSTT> {
         self.await
     }

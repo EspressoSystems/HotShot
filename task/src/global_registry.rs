@@ -9,7 +9,8 @@ use crate::task_state::{TaskState, TaskStatus};
 /// function to shut down gobal registry
 pub struct ShutdownFn(pub Arc<dyn Fn() -> BoxFuture<'static, ()>>);
 
-// TODO this would be cleaner as `run()`
+// TODO this might cleaner as `run()`
+// but then this pattern should change everywhere
 impl Deref for ShutdownFn {
     type Target = dyn Fn() -> BoxFuture<'static, ()>;
 
