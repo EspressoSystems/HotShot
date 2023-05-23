@@ -29,7 +29,7 @@ use libp2p::{
     identity::Keypair,
     request_response::ResponseChannel,
     tcp,
-    yamux::{WindowUpdateMode, YamuxConfig},
+    yamux::{Config as YamuxConfig, WindowUpdateMode},
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
