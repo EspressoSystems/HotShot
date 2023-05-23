@@ -193,7 +193,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     pub(crate) fn message_check(&self) {
         assert!(
             self.handle_message.is_some(),
-            "Didn't reegister message handler"
+            "Didn't register message handler"
         );
         assert!(
             self.message_stream.is_some(),

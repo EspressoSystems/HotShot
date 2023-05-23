@@ -242,3 +242,40 @@ impl<
         builder.0
     }
 }
+
+#[cfg(test)]
+pub mod test {
+    use snafu::Snafu;
+
+    use crate::event_stream::ChannelStream;
+    use crate::task::{PassType, HST, TS};
+
+    use super::HSTWithEvent;
+
+    #[derive(Snafu, Debug)]
+    pub struct Error {}
+
+    #[derive(Clone, Debug)]
+    pub struct State {}
+
+    impl TS for State {}
+    impl PassType for State {}
+
+    pub type AppliedHSTWithEvent = HSTWithEvent<Error, (), ChannelStream<()>, State>;
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_task_with_event_stream() {
+        use crate::event_stream;
+
+        let _event_stream: event_stream::ChannelStream<()> = event_stream::ChannelStream::new();
+
+        let task = HST::<AppliedHSTWithEvent>::new("Test Task".to_string());
+
+        task.launch().await;
+    }
+}
