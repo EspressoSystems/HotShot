@@ -232,7 +232,7 @@ impl<
 
 #[cfg(test)]
 pub mod test {
-    use async_compatibility_layer::channel::UnboundedStream;
+    use async_compatibility_layer::channel::{unbounded, UnboundedStream};
     use snafu::Snafu;
 
     use crate::event_stream;
@@ -270,7 +270,7 @@ pub mod test {
     impl TS for State {}
     impl PassType for State {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum Message {
         Finished,
         Dummy,
@@ -305,6 +305,23 @@ pub mod test {
         AppliedHSTWithEvent::build(task).launch().await;
     }
 
+    // TODO this should be moved to async-compatibility-layer
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_channel_stream() {
+        use futures::StreamExt;
+        let (s, r) = unbounded();
+        let mut stream: UnboundedStream<Message> = r.into_stream();
+        s.send(Message::Dummy).await.unwrap();
+        s.send(Message::Finished).await.unwrap();
+        assert!(stream.next().await.unwrap() == Message::Dummy);
+        assert!(stream.next().await.unwrap() == Message::Finished);
+    }
+
     #[cfg(test)]
     #[cfg_attr(
         feature = "tokio-executor",
@@ -337,6 +354,8 @@ pub mod test {
             .await
             .register_state(state)
             .register_event_handler(event_handler);
+        event_stream.publish(Event::Dummy).await;
+        event_stream.publish(Event::Dummy).await;
         event_stream.publish(Event::Finished).await;
         AppliedHSTWithEvent::build(built_task).launch().await;
     }
@@ -373,13 +392,9 @@ pub mod test {
             .await
             .register_state(state);
         async_spawn(async move {
-            // TODO fix this
-            // s.send(Message::Dummy).await.unwrap();
-            tracing::error!("send first message");
+            s.send(Message::Dummy).await.unwrap();
             s.send(Message::Finished).await.unwrap();
-            tracing::error!("send second message");
         });
-        // event_stream.publish(Event::Finished).await;
         let result = AppliedHSTWithMessage::build(built_task).launch().await;
         assert!(result == HotShotTaskCompleted::ShutDown);
     }

@@ -127,7 +127,7 @@ pub mod test {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_stream() {
+    async fn test_state_stream() {
         setup_logging();
 
         let mut task = crate::task_state::TaskState::new();
@@ -135,8 +135,12 @@ pub mod test {
         let task_dup = task.clone();
 
         async_spawn(async move {
-            async_sleep(std::time::Duration::from_secs(2)).await;
+            async_sleep(std::time::Duration::from_secs(1)).await;
             task_dup.set_state(crate::task_state::TaskStatus::Running);
+            async_sleep(std::time::Duration::from_secs(1)).await;
+            task_dup.set_state(crate::task_state::TaskStatus::Paused);
+            async_sleep(std::time::Duration::from_secs(1)).await;
+            task_dup.set_state(crate::task_state::TaskStatus::Completed);
         });
 
         // spawn new task that sleeps then increments
@@ -144,6 +148,14 @@ pub mod test {
         assert_eq!(
             task.next().await.unwrap(),
             crate::task_state::TaskStatus::Running
+        );
+        assert_eq!(
+            task.next().await.unwrap(),
+            crate::task_state::TaskStatus::Paused
+        );
+        assert_eq!(
+            task.next().await.unwrap(),
+            crate::task_state::TaskStatus::Completed
         );
     }
     // TODO test global registry using either global + lazy_static

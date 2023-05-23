@@ -347,6 +347,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
     type Output = HotShotTaskCompleted<HSTT>;
 
     // NOTE: this is too many lines
+    // with a lot of repeated code
     // but I'm not sure how to separate this out
     // into separate functions. `projected` and `self` are hard to
     // pass around
@@ -355,6 +356,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
+        tracing::info!("HotShot Task {:?} awakened", self.name);
         // FIXME broken future
         // useful if we ever need to use self later.
         // this doesn't consume the reference
@@ -377,43 +379,43 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
 
         // check if task is complete
         match projected.status.poll_next(cx) {
-            Poll::Ready(Some(state_change)) => {
-                match state_change {
-                    TaskStatus::NotStarted | TaskStatus::Paused => {
-                        return Poll::Pending;
-                    }
-                    TaskStatus::Running => { /* do nothing if we are running */ }
-                    TaskStatus::Completed => {
-                        let shutdown_fns = projected.shutdown_fns.clone();
-                        let mut fut = async move {
-                            for shutdown_fn in shutdown_fns {
-                                shutdown_fn().await;
-                            }
+            Poll::Ready(Some(state_change)) => match state_change {
+                TaskStatus::NotStarted | TaskStatus::Paused => {
+                    return Poll::Pending;
+                }
+                TaskStatus::Running => {}
+                TaskStatus::Completed => {
+                    let shutdown_fns = projected.shutdown_fns.clone();
+                    let mut fut = async move {
+                        for shutdown_fn in shutdown_fns {
+                            shutdown_fn().await;
                         }
-                        .boxed();
-                        *projected.r_val = Some(HotShotTaskCompleted::ShutDown);
+                    }
+                    .boxed();
+                    *projected.r_val = Some(HotShotTaskCompleted::ShutDown);
 
-                        match fut.as_mut().poll(cx) {
-                            Poll::Ready(_) => {
-                                return Poll::Ready(
-                                    projected
-                                        .r_val
-                                        .take()
-                                        .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                                );
-                            }
-                            Poll::Pending => {
-                                *projected.in_progress_shutdown_fut = Some(fut);
-                                return Poll::Pending;
-                            }
+                    match fut.as_mut().poll(cx) {
+                        Poll::Ready(_) => {
+                            return Poll::Ready(
+                                projected
+                                    .r_val
+                                    .take()
+                                    .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
+                            );
+                        }
+                        Poll::Pending => {
+                            *projected.in_progress_shutdown_fut = Some(fut);
+                            return Poll::Pending;
                         }
                     }
                 }
-            }
+            },
             // this primitive's stream will never end
-            Poll::Ready(None) => unreachable!(),
+            Poll::Ready(None) => {
+                unreachable!()
+            }
             // if there's nothing, that's fine
-            Poll::Pending => (),
+            Poll::Pending => {}
         }
 
         if let Some(in_progress_fut) = projected.in_progress_fut {
@@ -460,149 +462,155 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         let mut event_stream_finished = false;
         let mut message_stream_finished = false;
 
-        if let Some(shared_stream) = event_stream {
-            match shared_stream.poll_next(cx) {
-                Poll::Ready(maybe_event) => match maybe_event {
-                    Some(event) => {
-                        if let Some(handle_event) = projected.handle_event {
-                            let maybe_state = projected.state.take();
-                            if let Some(state) = maybe_state {
-                                let mut fut = handle_event(event, state);
-                                match fut.as_mut().poll(cx) {
-                                    Poll::Ready((result, state)) => {
-                                        *projected.in_progress_fut = None;
-                                        *projected.state = Some(state);
-                                        if let Some(completed) = result {
-                                            *projected.r_val = Some(completed);
-                                            let shutdown_fns = projected.shutdown_fns.clone();
-                                            let mut fut = async move {
-                                                for shutdown_fn in shutdown_fns {
-                                                    shutdown_fn().await;
-                                                }
+        if let Some(mut shared_stream) = event_stream {
+            while let Poll::Ready(maybe_event) = shared_stream.as_mut().poll_next(cx) {
+                if let Some(event) = maybe_event {
+                    if let Some(handle_event) = projected.handle_event {
+                        let maybe_state = projected.state.take();
+                        if let Some(state) = maybe_state {
+                            let mut fut = handle_event(event, state);
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) => {
+                                    *projected.in_progress_fut = None;
+                                    *projected.state = Some(state);
+                                    if let Some(completed) = result {
+                                        *projected.r_val = Some(completed);
+                                        let shutdown_fns = projected.shutdown_fns.clone();
+                                        let mut fut = async move {
+                                            for shutdown_fn in shutdown_fns {
+                                                shutdown_fn().await;
                                             }
-                                            .boxed();
-                                            match fut.as_mut().poll(cx) {
-                                                Poll::Ready(_) => {
-                                                    return Poll::Ready(projected.r_val.take().unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue));
-                                                }
-                                                Poll::Pending => {
-                                                    *projected.in_progress_shutdown_fut = Some(fut);
-                                                    return Poll::Pending;
-                                                }
+                                        }
+                                        .boxed();
+                                        match fut.as_mut().poll(cx) {
+                                            Poll::Ready(_) => {
+                                                return Poll::Ready(
+                                                    projected.r_val.take().unwrap_or_else(|| {
+                                                        HotShotTaskCompleted::LostReturnValue
+                                                    }),
+                                                );
+                                            }
+                                            Poll::Pending => {
+                                                *projected.in_progress_shutdown_fut = Some(fut);
+                                                return Poll::Pending;
                                             }
                                         }
                                     }
-                                    Poll::Pending => {
-                                        *projected.in_progress_fut = Some(fut);
-                                        return Poll::Pending;
-                                    }
                                 }
-                            } else {
-                                *projected.r_val = Some(HotShotTaskCompleted::LostState);
-                                let shutdown_fns = projected.shutdown_fns.clone();
-                                let mut fut = async move {
-                                    for shutdown_fn in shutdown_fns {
-                                        shutdown_fn().await;
-                                    }
+                                Poll::Pending => {
+                                    *projected.in_progress_fut = Some(fut);
+                                    return Poll::Pending;
                                 }
-                                .boxed();
-                                match fut.as_mut().poll(cx) {
-                                    Poll::Ready(_) => {
-                                        return Poll::Ready(projected.r_val.take().unwrap_or_else(
-                                            || HotShotTaskCompleted::LostReturnValue,
-                                        ));
-                                    }
-                                    Poll::Pending => {
-                                        *projected.in_progress_shutdown_fut = Some(fut);
-                                        return Poll::Pending;
-                                    }
+                            }
+                        } else {
+                            *projected.r_val = Some(HotShotTaskCompleted::LostState);
+                            let shutdown_fns = projected.shutdown_fns.clone();
+                            let mut fut = async move {
+                                for shutdown_fn in shutdown_fns {
+                                    shutdown_fn().await;
+                                }
+                            }
+                            .boxed();
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready(_) => {
+                                    return Poll::Ready(
+                                        projected.r_val.take().unwrap_or_else(|| {
+                                            HotShotTaskCompleted::LostReturnValue
+                                        }),
+                                    );
+                                }
+                                Poll::Pending => {
+                                    *projected.in_progress_shutdown_fut = Some(fut);
+                                    return Poll::Pending;
                                 }
                             }
                         }
-                    }
-                    // this is a fused future so `None` will come every time after the stream
-                    // finishes
-                    None => {
+                    } else {
+                        // this is a fused future so `None` will come every time after the stream
+                        // finishes
                         event_stream_finished = true;
+                        break;
                     }
-                },
-                Poll::Pending => (),
+                }
             }
         } else {
             event_stream_finished = true;
         }
 
-        if let Some(message_stream) = message_stream {
-            match message_stream.poll_next(cx) {
-                Poll::Ready(maybe_msg) => match maybe_msg {
-                    Some(msg) => {
-                        if let Some(handle_msg) = projected.handle_message {
-                            let maybe_state = projected.state.take();
-                            if let Some(state) = maybe_state {
-                                let mut fut = handle_msg(msg, state);
-                                match fut.as_mut().poll(cx) {
-                                    Poll::Ready((result, state)) => {
-                                        *projected.in_progress_fut = None;
-                                        *projected.state = Some(state);
-                                        if let Some(completed) = result {
-                                            *projected.r_val = Some(completed);
-                                            let shutdown_fns = projected.shutdown_fns.clone();
-                                            let mut fut = async move {
-                                                for shutdown_fn in shutdown_fns {
-                                                    shutdown_fn().await;
-                                                }
+        if let Some(mut message_stream) = message_stream {
+            while let Poll::Ready(maybe_msg) = message_stream.as_mut().poll_next(cx) {
+                if let Some(msg) = maybe_msg {
+                    if let Some(handle_msg) = projected.handle_message {
+                        let maybe_state = projected.state.take();
+                        if let Some(state) = maybe_state {
+                            let mut fut = handle_msg(msg, state);
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) => {
+                                    *projected.in_progress_fut = None;
+                                    *projected.state = Some(state);
+                                    if let Some(completed) = result {
+                                        *projected.r_val = Some(completed);
+                                        let shutdown_fns = projected.shutdown_fns.clone();
+                                        let mut fut = async move {
+                                            for shutdown_fn in shutdown_fns {
+                                                shutdown_fn().await;
                                             }
-                                            .boxed();
-                                            match fut.as_mut().poll(cx) {
-                                                Poll::Ready(_) => {
-                                                    return Poll::Ready(projected.r_val.take().unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue));
-                                                }
-                                                Poll::Pending => {
-                                                    *projected.in_progress_shutdown_fut = Some(fut);
-                                                    return Poll::Pending;
-                                                }
+                                        }
+                                        .boxed();
+                                        match fut.as_mut().poll(cx) {
+                                            Poll::Ready(_) => {
+                                                return Poll::Ready(
+                                                    projected.r_val.take().unwrap_or_else(|| {
+                                                        HotShotTaskCompleted::LostReturnValue
+                                                    }),
+                                                );
+                                            }
+                                            Poll::Pending => {
+                                                *projected.in_progress_shutdown_fut = Some(fut);
+                                                return Poll::Pending;
                                             }
                                         }
                                     }
-                                    Poll::Pending => {
-                                        *projected.in_progress_fut = Some(fut);
-                                        // TODO add in logic
-                                        return Poll::Pending;
-                                    }
-                                };
-                            } else {
-                                *projected.r_val = Some(HotShotTaskCompleted::LostState);
-                                let shutdown_fns = projected.shutdown_fns.clone();
-                                let mut fut = async move {
-                                    for shutdown_fn in shutdown_fns {
-                                        shutdown_fn().await;
-                                    }
                                 }
-                                .boxed();
-                                match fut.as_mut().poll(cx) {
-                                    Poll::Ready(_) => {
-                                        return Poll::Ready(projected.r_val.take().unwrap_or_else(
-                                            || HotShotTaskCompleted::LostReturnValue,
-                                        ));
-                                    }
-                                    Poll::Pending => {
-                                        *projected.in_progress_shutdown_fut = Some(fut);
-                                        return Poll::Pending;
-                                    }
+                                Poll::Pending => {
+                                    *projected.in_progress_fut = Some(fut);
+                                    return Poll::Pending;
+                                }
+                            };
+                        } else {
+                            *projected.r_val = Some(HotShotTaskCompleted::LostState);
+                            let shutdown_fns = projected.shutdown_fns.clone();
+                            let mut fut = async move {
+                                for shutdown_fn in shutdown_fns {
+                                    shutdown_fn().await;
+                                }
+                            }
+                            .boxed();
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready(_) => {
+                                    return Poll::Ready(
+                                        projected.r_val.take().unwrap_or_else(|| {
+                                            HotShotTaskCompleted::LostReturnValue
+                                        }),
+                                    );
+                                }
+                                Poll::Pending => {
+                                    *projected.in_progress_shutdown_fut = Some(fut);
+                                    return Poll::Pending;
                                 }
                             }
                         }
                     }
                     // this is a fused future so `None` will come every time after the stream
                     // finishes
-                    None => {
+                    else {
                         message_stream_finished = true;
+                        break;
                     }
-                },
-                Poll::Pending => {}
+                }
             }
         } else {
-            event_stream_finished = true;
+            message_stream_finished = true;
         }
         if message_stream_finished && event_stream_finished {
             *projected.r_val = Some(HotShotTaskCompleted::StreamsDied);
