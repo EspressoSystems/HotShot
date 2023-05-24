@@ -34,7 +34,7 @@ use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, HandlerError,
+        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder,
         Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
@@ -412,7 +412,7 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEventInternal,
-            Either<Either<Either<HandlerError, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
+            Either<Either<Either<void::Void, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
         >,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
