@@ -157,14 +157,6 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
-    // TODO (DA): Pair channel maps with respective exchanges.
-    // <https://github.com/EspressoSystems/HotShot/issues/1193>
-    /// for sending/recv-ing things with the DA member task
-    member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
-
-    /// for sending/recv-ing things with the replica task
-    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
-
     /// for sending/recv-ing things with the next leader task
     next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 

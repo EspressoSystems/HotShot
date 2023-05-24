@@ -135,6 +135,9 @@ pub struct ValidatingExchanges<
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
 
+    /// Channel for sending/recv-ing things with the replica task.
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
+
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
@@ -200,6 +203,12 @@ pub struct SequencingExchanges<
 
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
+
+    /// Channel for sending/recv-ing things with the member task.
+    member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
+
+    /// Channel for sending/recv-ing things with the replica task.
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
