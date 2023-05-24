@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["__assert_not_repr_packed","poll_next"],"mod":["event_stream","global_registry","task","task_impls","task_launcher","task_state"],"struct":["Merge","__Merge","__MergeProjection","__MergeProjectionRef"],"trait":["MergeMustNotImplDrop"]};

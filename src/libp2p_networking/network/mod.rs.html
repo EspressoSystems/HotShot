@@ -295,7 +295,7 @@
     identity::Keypair,
     request_response::ResponseChannel,
     tcp,
-    yamux::{WindowUpdateMode, YamuxConfig},
+    yamux::{Config <span class="kw">as </span>YamuxConfig, WindowUpdateMode},
     Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["HSTWithEvent","HSTWithEventAndMessage","HSTWithMessage","TaskBuilder"],"trait":["ImplEventStream","ImplMessageStream"]};

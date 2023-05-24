@@ -637,7 +637,7 @@
 <span class="kw">use </span>libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder, HandlerError,
+        Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder,
         Message <span class="kw">as </span>GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
@@ -1015,7 +1015,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: SwarmEvent&lt;
             NetworkEventInternal,
-            Either&lt;Either&lt;Either&lt;HandlerError, Error&gt;, Error&gt;, ConnectionHandlerUpgrErr&lt;Error&gt;&gt;,
+            Either&lt;Either&lt;Either&lt;void::Void, Error&gt;, Error&gt;, ConnectionHandlerUpgrErr&lt;Error&gt;&gt;,
         &gt;,
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
