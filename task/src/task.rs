@@ -22,6 +22,7 @@ impl PassType for () {}
 /// the task state
 pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 
+/// a task error that has nice qualities
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 
 /// group of types needed for a hotshot task
@@ -35,7 +36,7 @@ pub trait HotShotTaskTypes {
     /// the message stream to receive
     type Message: PassType;
     /// the steam of messages from other tasks
-    type MessageStream: SendableStream<Obj = Self::Message>;
+    type MessageStream: SendableStream<Item = Self::Message>;
     /// the error to return
     type Error: TaskErr;
 
@@ -307,8 +308,11 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     }
 }
 
+/// trait that allows for a simple avoidance of commiting to types
+/// useful primarily in the launcher
 #[async_trait]
 pub trait TaskTrait<ERR: std::error::Error> {
+    /// launch the task
     async fn launch(self) -> HotShotTaskCompleted<ERR>;
 }
 

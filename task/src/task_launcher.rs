@@ -1,9 +1,11 @@
-use crate::task::{TaskErr, TaskTrait};
+use crate::{task::{TaskErr, TaskTrait}, global_registry::GlobalRegistry};
 
-// TODO revive this explicitly for tasks
-// convenience launcher for tasks
-pub struct TaskLauncher<
+/// runner for tasks
+pub struct TaskRunner<
     const N: usize,
 > {
-    tasks: [Box<dyn TaskTrait<dyn TaskErr>>; N]
+    /// this is the most noncommital thing ever
+    tasks: [Box<dyn TaskTrait<dyn TaskErr>>; N],
+    registry: GlobalRegistry,
 }
+

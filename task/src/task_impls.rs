@@ -151,7 +151,7 @@ pub struct HSTWithMessage<
 impl<
     ERR: TaskErr,
     MSG: PassType,
-    MSTREAM: SendableStream<Obj = MSG>,
+    MSTREAM: SendableStream<Item = MSG>,
     STATE: TS
 > HotShotTaskTypes
     for HSTWithMessage<ERR, MSG, MSTREAM, STATE>
@@ -213,7 +213,7 @@ impl<
         EVENT: PassType,
         ESTREAM: EventStream<EventType = EVENT>,
         MSG: PassType,
-        MSTREAM: SendableStream<Obj = MSG>,
+        MSTREAM: SendableStream<Item = MSG>,
         STATE: TS,
     > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
 {
