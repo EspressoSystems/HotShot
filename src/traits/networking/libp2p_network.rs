@@ -217,9 +217,11 @@ where
                     .unwrap()
                 });
                 let da_topic = "DA".to_string();
-                async_block_on(async {
-                    network.add_topic(&da_topic, da_keys.clone()).await.unwrap();
-                });
+                if node_id < da_committee_size.try_into().unwrap() {
+                    async_block_on(async {
+                        network.add_topic(&da_topic, da_keys.clone()).await.unwrap();
+                    });
+                }
                 network
             }
         })

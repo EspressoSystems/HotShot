@@ -112,7 +112,7 @@ pub enum ClientRequest {
     /// subscribe to a topic
     Subscribe(String, Option<Sender<()>>),
     /// unsubscribe from a topic
-    Unsubscribe(String, Sender<()>),
+    Unsubscribe(String, Option<Sender<()>>),
     /// client request to send a direct serialized message
     DirectRequest {
         /// peer id

@@ -34,6 +34,7 @@ use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use tracing::error;
 
 /// Node implementation aggregate trait
 ///
@@ -320,7 +321,7 @@ pub trait TestableNodeImplementation<
     type CommitteeNetwork;
 
     /// Generate a quorum network given an expected node count.
-    fn quorum_network_generator(
+    fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
@@ -333,13 +334,6 @@ pub trait TestableNodeImplementation<
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Vote,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
         >;
-
-    /// Generate a committee network given an expected node count.
-    fn committee_network_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        da_committee_size: usize,
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork>;
 
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
@@ -355,7 +349,7 @@ pub trait TestableNodeImplementation<
 
     /// Generate a committee communication channel given the network.
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<Self::CommitteeNetwork>) -> Self::CommitteeCommChannel + 'static>;
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -419,11 +413,12 @@ where
     type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
 
-    fn quorum_network_generator(
+    fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
+        error!("network_generator");
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -432,21 +427,13 @@ where
         )
     }
 
-    fn committee_network_generator(
-        _expected_node_count: usize,
-        _num_bootstrap: usize,
-        _da_committee_size: usize,
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
-        Box::new(|_| ())
-    }
-
     fn quorum_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> QuorumCommChannel<TYPES, Self> + 'static> {
         < QuorumCommChannel::<TYPES, Self> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<Self::CommitteeNetwork>) -> Self::CommitteeCommChannel + 'static> {
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static> {
         Box::new(|_| ())
     }
 
@@ -510,7 +497,7 @@ where
         CommitteeProposalType<TYPES, I>,
         CommitteeVote<TYPES, I>,
         CommitteeMembership<TYPES, I>,
-        CommitteeNetwork<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
     >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -521,28 +508,16 @@ where
     type CommitteeCommChannel = CommitteeCommChannel<TYPES, I>;
     type CommitteeNetwork = CommitteeNetwork<TYPES, I>;
 
-    fn quorum_network_generator(
+    fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
+        error!("network_generator");
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
-            da_committee_size,
-        )
-    }
-
-    fn committee_network_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        da_committee_size: usize,
-    ) -> Box<dyn Fn(u64) -> CommitteeNetwork<TYPES, I> + 'static> {
-        <CommitteeNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
-            expected_node_count,
-            num_bootstrap,
-            2,
             da_committee_size,
         )
     }
@@ -553,8 +528,8 @@ where
     }
 
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<CommitteeNetwork<TYPES, I>>) -> Self::CommitteeCommChannel + 'static> {
-        < CommitteeCommChannel<TYPES, I>as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::CommitteeCommChannel + 'static> {
+        < CommitteeCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
