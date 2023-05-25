@@ -5,6 +5,7 @@ use std::task::Poll;
 use async_trait::async_trait;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
+use nll::nll_todo::nll_todo;
 use pin_project::pin_project;
 use std::sync::Arc;
 
@@ -310,26 +311,27 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
 
 /// trait that allows for a simple avoidance of commiting to types
 /// useful primarily in the launcher
-#[async_trait]
-pub trait TaskTrait<ERR: std::error::Error> {
-    /// launch the task
-    async fn launch(self) -> HotShotTaskCompleted<ERR>;
-}
-
-#[async_trait]
-impl<HSTT: HotShotTaskTypes> TaskTrait<HSTT::Error> for HST<HSTT> {
-    async fn launch(self) -> HotShotTaskCompleted<HSTT::Error>{
-        self.launch().await
-    }
-}
+// #[async_trait]
+// pub trait TaskTrait<ERR: std::error::Error> {
+//     /// launch the task
+//     async fn launch(&self) -> HotShotTaskCompleted<ERR>;
+// }
+//
+// #[async_trait]
+// impl<HSTT: HotShotTaskTypes> TaskTrait<HSTT::Error> for HST<HSTT> {
+//     async fn launch(&self) -> HotShotTaskCompleted<HSTT::Error>{
+//         nll_todo()
+//
+//         // me.launch().await
+//     }
+// }
 
 /// enum describing how the tasks completed
-#[derive(Eq)]
-pub enum HotShotTaskCompleted<ERR: std::error::Error> {
+pub enum HotShotTaskCompleted<ERR: std::error::Error + 'static + ?Sized> {
     /// the task shut down successfully
     ShutDown,
     /// the task encountered an error
-    Error(ERR),
+    Error(Box<ERR>),
     /// the streams the task was listening for died
     StreamsDied,
     /// we somehow lost the state
