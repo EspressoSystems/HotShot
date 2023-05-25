@@ -299,6 +299,7 @@ where
         _expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
+        _da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let master: Arc<_> = MasterMap::new();
         Box::new(move |node_id| {
@@ -488,6 +489,7 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <MemoryNetwork<
             Message<TYPES, I>,
@@ -496,6 +498,7 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

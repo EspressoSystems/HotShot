@@ -370,8 +370,10 @@ impl NetworkNode {
                     }
                     ClientRequest::Unsubscribe(t, chan) => {
                         behaviour.unsubscribe_gossip(&t);
-                        if chan.send(()).is_err() {
-                            error!("finished unsubscribing but response channel dropped");
+                        if let Some(chan) = chan {
+                            if chan.send(()).is_err() {
+                                error!("finished unsubscribing but response channel dropped");
+                            }
                         }
                     }
                     ClientRequest::DirectRequest {
