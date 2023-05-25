@@ -137,6 +137,10 @@ where
         network_id: usize,
         da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        assert!(
+            da_committee_size <= expected_node_count,
+            "DA committee size must be less than or equal to total # nodes"
+        );
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
         let mut da_keys = BTreeSet::new();

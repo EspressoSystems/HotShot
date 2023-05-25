@@ -145,7 +145,6 @@ where
         Self {
             generator: ResourceGenerators {
                 network_generator,
-                // committee_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),

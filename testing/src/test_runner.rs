@@ -167,10 +167,6 @@ where
             tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
             let network_generator = Arc::new((self.launcher.generator.network_generator)(node_id));
-            // let committee_network_generator =
-            //     Arc::new((self.launcher.generator.committee_network_generator)(
-            //         node_id,
-            //     ));
             let quorum_network =
                 (self.launcher.generator.quorum_network)(network_generator.clone());
             let committee_network = (self.launcher.generator.committee_network)(network_generator);
