@@ -269,41 +269,6 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::round::{Round, RoundHook, RoundSafetyCheck, RoundSetup};
 <span class="kw">use </span><span class="kw">crate</span>::test_builder::{TestMetadata, TimingData};
 <span class="kw">use </span><span class="kw">crate</span>::test_runner::{
@@ -336,14 +301,12 @@
     &gt;,
 {
     <span class="doccomment">/// generate the underlying quorum network used for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) quorum_network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// generate the underlying committee network used for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) committee_network_generator: Generator&lt;I::CommitteeNetwork&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// generate a new quorum network for each node
     </span><span class="kw">pub</span>(<span class="kw">super</span>) quorum_network: QuorumNetworkGenerator&lt;TYPES, I, QuorumCommChannel&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// generate a new committee network for each node
     </span><span class="kw">pub</span>(<span class="kw">super</span>) committee_network:
-        CommitteeNetworkGenerator&lt;I::CommitteeNetwork, I::CommitteeCommChannel&gt;,
+        CommitteeNetworkGenerator&lt;QuorumNetwork&lt;TYPES, I&gt;, I::CommitteeCommChannel&gt;,
     <span class="doccomment">/// generate a new storage for each node
     </span><span class="kw">pub</span>(<span class="kw">super</span>) storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
@@ -396,14 +359,16 @@
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
+            da_committee_size,
             ..
         } = metadata;
-        <span class="kw">let </span>known_nodes = (<span class="number">0</span>..total_nodes)
+        <span class="kw">let </span>known_nodes: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; = (<span class="number">0</span>..total_nodes)
             .map(|id| {
                 <span class="kw">let </span>priv_key = I::generate_test_key(id <span class="kw">as </span>u64);
                 TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key)
             })
             .collect();
+        <span class="kw">let </span>da_committee_nodes = known_nodes[<span class="number">0</span>..da_committee_size].to_vec();
         <span class="kw">let </span>config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -411,6 +376,7 @@
             min_transactions,
             max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
             known_nodes,
+            da_committee_nodes,
             next_view_timeout: <span class="number">500</span>,
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">1</span>,
@@ -445,14 +411,11 @@
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        <span class="kw">let </span>quorum_network_generator =
-            I::quorum_network_generator(total_nodes, num_bootstrap_nodes);
-        <span class="kw">let </span>committee_network_generator =
-            I::committee_network_generator(total_nodes, num_bootstrap_nodes);
+        <span class="kw">let </span>network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
         <span class="self">Self </span>{
             generator: ResourceGenerators {
-                quorum_network_generator,
-                committee_network_generator,
+                network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
@@ -478,40 +441,7 @@
         &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
     &gt;,
 {
-    <span class="doccomment">/// Set a custom committee network generator
-    </span><span class="kw">pub fn </span>with_committee_network(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        committee_network: CommitteeNetworkGenerator&lt;I::CommitteeNetwork, I::CommitteeCommChannel&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.generator.committee_network = committee_network;
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Set a custom committee network generator
-    </span><span class="kw">pub fn </span>with_quorum_network(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        quorum_network: QuorumNetworkGenerator&lt;TYPES, I, QuorumCommChannel&lt;TYPES, I&gt;&gt;,
-    ) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-        &gt;,
-    {
-        <span class="self">self</span>.generator.quorum_network = quorum_network;
-        <span class="self">self
-    </span>}
-
-    <span class="comment">// /// Set a custom committee network generator
-    // pub fn with_network(mut self, network: Generator&lt;NetworkType&lt;TYPES, I&gt;&gt;) -&gt; Self {
-    //     self.generator.network = network;
-    //     self
-    // }
-
-    </span><span class="doccomment">/// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
+    <span class="doccomment">/// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     </span><span class="kw">pub fn </span>with_storage(
         <span class="kw-2">mut </span><span class="self">self</span>,
         storage: <span class="kw">impl </span>Fn(u64) -&gt; I::Storage + <span class="lifetime">&#39;static</span>,

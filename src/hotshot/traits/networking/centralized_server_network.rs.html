@@ -1067,6 +1067,9 @@
 <a href="#1067" id="1067">1067</a>
 <a href="#1068" id="1068">1068</a>
 <a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -2056,6 +2059,7 @@
         expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
+        _da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
@@ -2108,6 +2112,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;CentralizedServerNetwork&lt;
             TYPES::SignatureKey,
@@ -2115,7 +2120,8 @@
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,
-            network_id
+            network_id,
+            da_committee_size,
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }

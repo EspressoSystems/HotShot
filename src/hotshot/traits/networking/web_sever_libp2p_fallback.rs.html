@@ -336,6 +336,10 @@
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -451,6 +455,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generators = (
             &lt;WebServerNetwork&lt;
@@ -464,8 +469,9 @@
                 expected_node_count,
                 num_bootstrap,
                 network_id,
+                da_committee_size
             ),
-            &lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(expected_node_count, num_bootstrap, network_id)
+            &lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(expected_node_count, num_bootstrap, network_id, da_committee_size)
         );
         Box::new(<span class="kw">move </span>|node_id| {
             CombinedNetworks(
@@ -499,6 +505,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;CombinedNetworks&lt;
             TYPES,
@@ -510,6 +517,7 @@
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self </span>{
             networks: generator(node_id).into(),

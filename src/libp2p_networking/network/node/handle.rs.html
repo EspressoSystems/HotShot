@@ -1081,7 +1081,7 @@
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     </span><span class="kw">pub async fn </span>unsubscribe(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
-        <span class="kw">let </span>req = ClientRequest::Unsubscribe(topic, s);
+        <span class="kw">let </span>req = ClientRequest::Unsubscribe(topic, <span class="prelude-val">Some</span>(s));
         <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
         r.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| NetworkNodeHandleError::RecvError)
     }

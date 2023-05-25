@@ -829,6 +829,24 @@
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -966,13 +984,22 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+        <span class="macro">assert!</span>(
+            da_committee_size &lt;= expected_node_count,
+            <span class="string">&quot;DA committee size must be less than or equal to total # nodes&quot;
+        </span>);
         <span class="kw">let </span>bootstrap_addrs: PeerInfoVec = Arc::default();
         <span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0u64</span>..(expected_node_count <span class="kw">as </span>u64) {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(i);
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
+            <span class="kw">if </span>i &lt; da_committee_size <span class="kw">as </span>u64 {
+                da_keys.insert(pubkey.clone());
+            }
             all_keys.insert(pubkey);
         }
 
@@ -1028,7 +1055,8 @@
                         .unwrap()
                 };
                 <span class="kw">let </span>bootstrap_addrs_ref = bootstrap_addrs.clone();
-                <span class="kw">let </span>all_keys = all_keys.clone();
+                <span class="kw">let </span>keys = all_keys.clone();
+                <span class="kw">let </span>da = da_keys.clone();
                 async_block_on(<span class="kw">async move </span>{
                     Libp2pNetwork::new(
                         NoMetrics::boxed(),
@@ -1037,7 +1065,8 @@
                         bootstrap_addrs_ref,
                         num_bootstrap,
                         node_id <span class="kw">as </span>usize,
-                        all_keys,
+                        keys,
+                        da,
                     )
                     .<span class="kw">await
                     </span>.unwrap()
@@ -1079,6 +1108,7 @@
     /// # Panics
     ///
     /// This will panic if there are less than 5 bootstrap nodes
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>new(
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         config: NetworkNodeConfig,
@@ -1088,6 +1118,7 @@
         id: usize,
         <span class="comment">// HACK
         </span>committee_pks: BTreeSet&lt;K&gt;,
+        da_pks: BTreeSet&lt;K&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
         <span class="kw">let </span>network_handle = Arc::new(
@@ -1114,6 +1145,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>topic_map = BiHashMap::new();
         topic_map.insert(committee_pks, QC_TOPIC.to_string());
+        topic_map.insert(da_pks, <span class="string">&quot;DA&quot;</span>.to_string());
 
         <span class="kw">let </span>topic_map = RwLock::new(topic_map);
 
@@ -1189,6 +1221,7 @@
                 }
 
                 handle.subscribe(QC_TOPIC.to_string()).<span class="kw">await</span>.unwrap();
+                handle.subscribe(<span class="string">&quot;DA&quot;</span>.to_string()).<span class="kw">await</span>.unwrap();
                 <span class="comment">// TODO figure out some way of passing in ALL keypairs. That way we can add the
                 // global topic to the topic map
                 // NOTE this wont&#39; work without this change
@@ -1344,6 +1377,7 @@
                 source: NetworkNodeHandleError::NoSuchTopic,
             })<span class="question-mark">?
             </span>.clone();
+        <span class="macro">error!</span>(<span class="string">&quot;Broadcasting to topic {}&quot;</span>, topic);
 
         <span class="comment">// gossip doesn&#39;t broadcast from itself, so special case
         </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {
@@ -1553,6 +1587,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;Libp2pNetwork&lt;
             Message&lt;TYPES, I&gt;,
@@ -1561,6 +1596,7 @@
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }

@@ -601,6 +601,8 @@
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -973,8 +975,10 @@
                     }
                     ClientRequest::Unsubscribe(t, chan) =&gt; {
                         behaviour.unsubscribe_gossip(<span class="kw-2">&amp;</span>t);
-                        <span class="kw">if </span>chan.send(()).is_err() {
-                            <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = chan {
+                            <span class="kw">if </span>chan.send(()).is_err() {
+                                <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
+                            }
                         }
                     }
                     ClientRequest::DirectRequest {

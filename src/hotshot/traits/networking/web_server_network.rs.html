@@ -841,6 +841,9 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1572,6 +1575,7 @@
         expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
+        _da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
@@ -1620,6 +1624,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;WebServerNetwork&lt;
             Message&lt;TYPES, I&gt;,
@@ -1632,6 +1637,7 @@
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size,
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }

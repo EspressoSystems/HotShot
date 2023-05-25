@@ -463,10 +463,6 @@
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
 </pre><pre class="rust"><code><span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
@@ -633,16 +629,12 @@
     {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..count {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;running node{}&quot;</span>, _i);
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
-            <span class="kw">let </span>quorum_network_generator =
-                Arc::new((<span class="self">self</span>.launcher.generator.quorum_network_generator)(node_id));
-            <span class="kw">let </span>committee_network_generator =
-                Arc::new((<span class="self">self</span>.launcher.generator.committee_network_generator)(
-                    node_id,
-                ));
-            <span class="kw">let </span>quorum_network = (<span class="self">self</span>.launcher.generator.quorum_network)(quorum_network_generator);
-            <span class="kw">let </span>committee_network =
-                (<span class="self">self</span>.launcher.generator.committee_network)(committee_network_generator);
+            <span class="kw">let </span>network_generator = Arc::new((<span class="self">self</span>.launcher.generator.network_generator)(node_id));
+            <span class="kw">let </span>quorum_network =
+                (<span class="self">self</span>.launcher.generator.quorum_network)(network_generator.clone());
+            <span class="kw">let </span>committee_network = (<span class="self">self</span>.launcher.generator.committee_network)(network_generator);
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.generator.config.clone();
             <span class="kw">let </span>initializer =
