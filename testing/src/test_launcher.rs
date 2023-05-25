@@ -173,39 +173,6 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    /// Set a custom committee network generator
-    // pub fn with_committee_network(
-    //     mut self,
-    //     committee_network: CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
-    // ) -> Self {
-    //     self.generator.committee_network = committee_network;
-    //     self
-    // }
-
-    // /// Set a custom committee network generator
-    // pub fn with_quorum_network(
-    //     mut self,
-    //     quorum_network: NetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
-    // ) -> Self
-    // where
-    //     QuorumCommChannel<TYPES, I>: CommunicationChannel<
-    //         TYPES,
-    //         Message<TYPES, I>,
-    //         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-    //         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-    //         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
-    //     >,
-    // {
-    //     self.generator.quorum_network = quorum_network;
-    //     self
-    // }
-
-    // /// Set a custom committee network generator
-    // pub fn with_network(mut self, network: Generator<NetworkType<TYPES, I>>) -> Self {
-    //     self.generator.network = network;
-    //     self
-    // }
-
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
         mut self,
