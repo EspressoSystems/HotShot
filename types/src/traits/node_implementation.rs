@@ -34,7 +34,6 @@ use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
-use tracing::error;
 
 /// Node implementation aggregate trait
 ///
