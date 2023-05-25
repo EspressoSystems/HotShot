@@ -474,21 +474,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             Ok::<(), NetworkError>(())
         });
     }
-
-    /// Add and supscribe to a libp2p topic
-    async fn add_topic(
-        &self,
-        name: &str,
-        committee_pks: BTreeSet<K>,
-    ) -> Result<(), NetworkNodeHandleError> {
-        self.inner.handle.subscribe(name.to_owned()).await?;
-        self.inner
-            .topic_map
-            .write()
-            .await
-            .insert(committee_pks, name.to_owned());
-        Ok(())
-    }
 }
 
 #[async_trait]

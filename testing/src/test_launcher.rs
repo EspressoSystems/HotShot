@@ -142,8 +142,6 @@ where
 
         let network_generator =
             I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
-        // let committee_network_generator =
-        //     I::committee_network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
         Self {
             generator: ResourceGenerators {
                 network_generator,
