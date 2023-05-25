@@ -255,6 +255,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     /// # Panics
     ///
     /// This will panic if there are less than 5 bootstrap nodes
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         metrics: Box<dyn Metrics>,
         config: NetworkNodeConfig,
