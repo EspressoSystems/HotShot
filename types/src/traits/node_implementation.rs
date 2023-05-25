@@ -418,7 +418,6 @@ where
         num_bootstrap: usize,
         da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
-        error!("network_generator");
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -513,7 +512,6 @@ where
         num_bootstrap: usize,
         da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
-        error!("network_generator");
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
