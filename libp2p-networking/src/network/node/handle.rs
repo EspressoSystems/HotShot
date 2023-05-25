@@ -393,16 +393,20 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
-        let req = ClientRequest::Subscribe(topic, None);
-        self.send_request(req).await
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::Subscribe(topic, Some(s));
+        self.send_request(req).await?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
     /// Unsubscribe from a topic
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
-        let req = ClientRequest::Unsubscribe(topic, None);
-        self.send_request(req).await
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::Unsubscribe(topic, Some(s));
+        self.send_request(req).await?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
     /// Ignore `peers` when pruning
