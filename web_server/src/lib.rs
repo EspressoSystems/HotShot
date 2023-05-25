@@ -1,7 +1,7 @@
 pub mod api_config;
 
 use api_config::{
-    ProposalWithEncSecret, ServerKeys, DEFAULT_WEB_SERVER_PORT, FIRST_SECRET, MAX_TXNS, MAX_VIEWS, FirstSecret,
+    FirstSecret, ProposalWithEncSecret, ServerKeys, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS,
 };
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
@@ -9,7 +9,7 @@ use clap::Args;
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::SignatureKey;
-use jf_primitives::aead::EncKey;
+use jf_primitives::aead::{EncKey, KeyPair};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
@@ -90,7 +90,7 @@ pub trait WebServerDataSource<KEY> {
     fn get_proposal(&self, view_number: u64) -> Result<Option<ProposalWithEncSecret>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_first_secret(&self) -> Result<FirstSecret, Error>;
+    fn get_first_secret(&self) -> Result<Option<FirstSecret>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
@@ -186,6 +186,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
+        //KALEY TODO make info
         error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
@@ -219,18 +220,15 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_staketable(&mut self, keypair: ServerKeys<KEY>) -> Result<(), Error> {
         // KALEY TODO: need security checks here for valid staketable entries
         let node_index = self.stake_table.len() as u64;
-        let mut secret = String::new();
-        if node_index == 0 {
-            secret = String::from(FIRST_SECRET);
-        } else {
-            //generate secret for leader's first submission endpoint when key is added
-            //secret should be random
-            secret = thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(30)
-                .map(char::from)
-                .collect();
-        }
+
+        //generate secret for leader's first submission endpoint when key is added
+        //secret should be random
+        let secret = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+
         self.secrets.insert(node_index, secret);
         self.stake_table.push((keypair.pub_key, keypair.enc_key));
         Ok(())
@@ -240,6 +238,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     //but keeping it separate to not break things in the meantime
     fn post_secret_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error> {
         info!("Received proposal for view {}", view_number);
+        error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of views
         if self.proposals.len() >= MAX_VIEWS {
@@ -293,22 +292,20 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         Ok(())
     }
-    fn get_first_secret(&self) -> Result<FirstSecret, Error> {
+    fn get_first_secret(&self) -> Result<Option<FirstSecret>, Error> {
         let first_secret = self.secrets.get(&0);
         if let Some(first_secret) = first_secret {
             let leader_keys = &self.stake_table[0];
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let encrypted_secret = leader_keys.1.encrypt(
-                &mut rng,
-                first_secret.as_bytes(),
-                &leader_keys.0.to_bytes().0,
-            ).expect("Failed to encrypt secret");
-            Ok(FirstSecret{secret: encrypted_secret})
+            let rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let encrypted_secret = leader_keys
+                .1
+                .encrypt(rng, first_secret.as_bytes(), &leader_keys.0.to_bytes().0)
+                .expect("Failed to encrypt secret");
+            Ok(Some(FirstSecret {
+                secret: encrypted_secret,
+            }))
         } else {
-            Err(ServerError {
-                status: StatusCode::NotImplemented,
-                message: format!("No leader yet for view 0 because no keys have been added"),
-            })
+            Ok(None)
         }
     }
 }
@@ -387,19 +384,20 @@ where
         async move {
             //works one key at a time for now
             let keypair = req.body_auto::<ServerKeys<KEY>>();
-            if keypair.is_err() {
+            if let Ok(keypair) = keypair {
+                state.post_staketable(keypair)
+            } else {
                 Err(ServerError {
                     status: StatusCode::BadRequest,
                     message: "Only signature keys can be added to stake table".to_string(),
                 })
-            } else {
-                state.post_staketable(keypair.unwrap())
             }
         }
         .boxed()
     })?
     .post("secret", |req, state| {
         async move {
+            print!("getting proposal");
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
@@ -433,10 +431,7 @@ where
         .boxed()
     })?
     .get("getfirstsecret", |_req, state| {
-        async move {
-            state.get_first_secret()
-        }
-        .boxed()
+        async move { state.get_first_secret() }.boxed()
     })?;
     Ok(api)
 }
@@ -444,6 +439,7 @@ where
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
 ) -> io::Result<()> {
+    error!("starting web server");
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
@@ -454,12 +450,12 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
         .await
 }
 
+
 #[cfg(test)]
-//#[cfg(feature = "demo")]
 mod test {
     use crate::api_config::{
-        get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
-        post_staketable_route, post_transactions_route, post_vote_route, get_firstsecret_route,
+        get_firstsecret_route, get_proposal_route, get_transactions_route, get_vote_route,
+        post_proposal_route, post_staketable_route, post_transactions_route, post_vote_route,
     };
 
     use super::*;

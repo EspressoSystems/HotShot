@@ -17,7 +17,8 @@ use async_compatibility_layer::{
 use hotshot_types::message::MessagePurpose;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 
-use hotshot_web_server::api_config::ProposalWithEncSecret;
+use hotshot_web_server::api_config::FirstSecret;
+use hotshot_web_server::api_config::{ProposalWithEncSecret, ServerKeys};
 use hotshot_web_server::{self, api_config};
 
 use async_lock::RwLock;
@@ -52,6 +53,8 @@ use std::{
 };
 use surf_disco::error::ClientError;
 use tracing::{error, info};
+use jf_primitives::aead::KeyPair;
+
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct WebCommChannel<
@@ -144,9 +147,9 @@ impl<
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ConsensusInfo {
     /// The latest view number
-    view_number: u64,
+    pub view_number: u64,
     /// Whether this node is the leader of `view_number`
-    _is_current_leader: bool,
+    pub is_current_leader: bool,
     /// Whether this node is the leader of the next view
     pub is_next_leader: bool,
 }
@@ -438,6 +441,25 @@ impl<
         // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
+        async_spawn({
+            let client_clone = client.clone();
+            let enc_key_clone = encryption_key.enc_key().clone();
+            let key_clone = key.clone();
+            async move {
+                let keypair = ServerKeys {
+                    enc_key: enc_key_clone,
+                    pub_key: key_clone,
+                };
+                client_clone
+                    .post::<()>(&api_config::post_staketable_route())
+                    .body_binary(&keypair)
+                    .unwrap()
+                    .send()
+                    .await.unwrap();
+            }
+            
+        });
+
         let inner = Arc::new(Inner {
             phantom: PhantomData,
             consensus_info: Arc::default(),
@@ -530,11 +552,34 @@ impl<
 
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
-    fn parse_post_message(message: M, secret: String) -> Result<SendMsg<M>, WebServerNetworkError> {
+    async fn parse_post_message(
+        message: M,
+        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
+    ) -> Result<SendMsg<M>, WebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
+        let consensus_info = inner.consensus_info.copied().await;
 
         let endpoint = match &message.purpose() {
-            MessagePurpose::Proposal => api_config::post_proposal_route(*view_number, secret),
+            MessagePurpose::Proposal => {
+                //if we are first leader and this is the first view, we need to get the secret
+                //for the proposal submission from the server
+                if consensus_info.view_number == 1  {
+                    let secret =
+                        WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::get_first_secret(
+                            inner.clone(),
+                        )
+                        .await;
+                    match secret {
+                        Ok(secret) => api_config::post_proposal_route(*view_number, secret),
+                        Err(_) => return Err(WebServerNetworkError::EndpointError),
+                    }
+                } else {
+                    api_config::post_proposal_route(
+                        *view_number,
+                        inner.secret.read().await.clone(),
+                    )
+                }
+            }
             MessagePurpose::Vote => api_config::post_vote_route(*view_number),
             MessagePurpose::Data => api_config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
@@ -545,6 +590,40 @@ impl<
             endpoint,
         };
         Ok(network_msg)
+    }
+
+    /// Sends a get request for the first secret for submitting a proposal
+    async fn get_first_secret(
+        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
+    ) -> Result<String, WebServerNetworkError> {
+        let mut resp = None;
+        while resp.is_none() {
+            error!("getting first secret");
+            resp = inner
+            .client
+            .get::<Option<FirstSecret>>(&api_config::get_firstsecret_route())
+            .send()
+            .await
+            .unwrap();
+
+            async_sleep(Duration::from_millis(10)).await;
+        }
+
+        if let Some(resp) = resp {
+            let decrypted_secret = inner
+                .encryption_key
+                .decrypt(&resp.secret, &inner.own_key.to_bytes().0);
+            match decrypted_secret {
+                Ok(secret) => {
+                    Ok(String::from_utf8(secret).expect("Failed to convert secret to String"))
+                }
+                Err(_) => Ok(String::new()),
+            }
+        } else {
+            //should be unreachable
+            Err(WebServerNetworkError::EndpointError)
+        }
+        
     }
 }
 
@@ -694,8 +773,7 @@ impl<
         message: M,
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        let secret = self.inner.secret.read().await.clone();
-        let network_msg = Self::parse_post_message(message, secret);
+        let network_msg = Self::parse_post_message(message, Arc::clone(&self.inner)).await;
         match network_msg {
             Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
             Err(network_msg) => Err(NetworkError::WebServer {
@@ -707,8 +785,7 @@ impl<
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
-        let secret = self.inner.secret.read().await.clone();
-        let network_msg = Self::parse_post_message(message, secret);
+        let network_msg = Self::parse_post_message(message, Arc::clone(&self.inner)).await;
         match network_msg {
             Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
             Err(network_msg) => Err(NetworkError::WebServer {
@@ -751,11 +828,11 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        let (view_number, _is_current_leader, is_next_leader) = tuple;
+        let (view_number, is_current_leader, is_next_leader) = tuple;
 
         let new_consensus_info = ConsensusInfo {
             view_number,
-            _is_current_leader,
+            is_current_leader,
             is_next_leader,
         };
 
@@ -813,6 +890,7 @@ where
         let node_encryption_keys = (0..expected_node_count as u64)
             .map(|_| jf_primitives::aead::KeyPair::generate(&mut rng))
             .collect::<Vec<_>>();
+    
 
         // Start each node's web server client
         Box::new(move |id| {
@@ -832,6 +910,28 @@ where
     fn in_flight_message_count(&self) -> Option<usize> {
         None
     }
+}
+
+// Add keys to webserver (hack until genesis block is impelmented)
+pub async fn add_keys_to_server<KEY: SignatureKey + 'static>(sig_keys: Vec<KEY>, enc_keys: Vec<KeyPair>) -> Result<(), ClientError> {
+    let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
+    let web_client = surf_disco::Client::<ClientError>::new(base_url);
+    assert!(web_client.connect(None).await);
+    let endpoint = api_config::post_staketable_route();
+    for (pk, ek) in sig_keys.into_iter().zip(enc_keys) {
+        error!("adding key");
+        let keypair = ServerKeys {
+            enc_key: ek.enc_key(),
+            pub_key: pk,
+        };
+        web_client
+            .post::<()>(&endpoint)
+            .body_binary(&keypair)
+            .unwrap()
+            .send()
+            .await.unwrap();
+    }
+    Ok(())
 }
 
 impl<

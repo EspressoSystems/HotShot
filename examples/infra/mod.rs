@@ -796,7 +796,7 @@ impl OrchestratorClient {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
-        // TODO ED: Add healthcheck wait here
+        client.connect(None).await;
         OrchestratorClient { client }
     }
 

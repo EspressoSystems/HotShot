@@ -17,6 +17,7 @@ use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
+use tracing::error;
 
 use rand::SeedableRng;
 
