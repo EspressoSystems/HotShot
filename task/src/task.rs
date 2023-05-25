@@ -2,11 +2,13 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::task::Poll;
 
+use async_trait::async_trait;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
+use crate::event_stream::SendableStream;
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
@@ -20,6 +22,8 @@ impl PassType for () {}
 /// the task state
 pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 
+pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
+
 /// group of types needed for a hotshot task
 pub trait HotShotTaskTypes {
     /// the event type from the event stream
@@ -31,9 +35,9 @@ pub trait HotShotTaskTypes {
     /// the message stream to receive
     type Message: PassType;
     /// the steam of messages from other tasks
-    type MessageStream: Stream<Item = Self::Message>;
+    type MessageStream: SendableStream<Obj = Self::Message>;
     /// the error to return
-    type Error: std::error::Error;
+    type Error: TaskErr;
 
     /// build a task
     /// NOTE: done here and not on `TaskBuilder` because
@@ -52,11 +56,11 @@ pub trait HotShotTaskTypes {
 #[allow(clippy::type_complexity)]
 pub struct HST<HSTT: HotShotTaskTypes> {
     /// the eventual return value, post-cleanup
-    r_val: Option<HotShotTaskCompleted<HSTT>>,
+    r_val: Option<HotShotTaskCompleted<HSTT::Error>>,
     /// if we have a future for tracking shutdown progress
     in_progress_shutdown_fut: Option<BoxFuture<'static, ()>>,
     /// the in progress future
-    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
+    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
@@ -103,7 +107,7 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
         dyn Fn(
             HSTT::Event,
             HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)> + Sync + Send,
     >,
 );
 
@@ -118,7 +122,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
         HSTT::Event,
         HSTT::State,
     )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -132,7 +136,7 @@ pub struct HandleMessage<HSTT: HotShotTaskTypes>(
         dyn Fn(
             HSTT::Message,
             HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)> + Sync + Send,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
@@ -140,7 +144,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
         HSTT::Message,
         HSTT::State,
     )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -298,18 +302,30 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
     /// So, it should be safe to lanuch.
-    pub async fn launch(self) -> HotShotTaskCompleted<HSTT> {
+    pub async fn launch(self) -> HotShotTaskCompleted<HSTT::Error> {
         self.await
+    }
+}
+
+#[async_trait]
+pub trait TaskTrait<ERR: std::error::Error> {
+    async fn launch(self) -> HotShotTaskCompleted<ERR>;
+}
+
+#[async_trait]
+impl<HSTT: HotShotTaskTypes> TaskTrait<HSTT::Error> for HST<HSTT> {
+    async fn launch(self) -> HotShotTaskCompleted<HSTT::Error>{
+        self.launch().await
     }
 }
 
 /// enum describing how the tasks completed
 #[derive(Eq)]
-pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
+pub enum HotShotTaskCompleted<ERR: std::error::Error> {
     /// the task shut down successfully
     ShutDown,
     /// the task encountered an error
-    Error(HSTT::Error),
+    Error(ERR),
     /// the streams the task was listening for died
     StreamsDied,
     /// we somehow lost the state
@@ -319,7 +335,7 @@ pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
     LostReturnValue,
 }
 
-impl<HSTT: HotShotTaskTypes> std::fmt::Debug for HotShotTaskCompleted<HSTT> {
+impl<ERR: std::error::Error> std::fmt::Debug for HotShotTaskCompleted<ERR> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HotShotTaskCompleted::ShutDown => f.write_str("HotShotTaskCompleted::ShutDown"),
@@ -331,7 +347,7 @@ impl<HSTT: HotShotTaskTypes> std::fmt::Debug for HotShotTaskCompleted<HSTT> {
     }
 }
 
-impl<HSTT: HotShotTaskTypes> PartialEq for HotShotTaskCompleted<HSTT> {
+impl<ERR: std::error::Error> PartialEq for HotShotTaskCompleted<ERR> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Error(_l0), Self::Error(_r0)) => false,
@@ -344,7 +360,7 @@ impl<HSTT: HotShotTaskTypes> PartialEq for HotShotTaskCompleted<HSTT> {
 // but these are semantically equivalent because instead of
 // returning when paused, we just return `Poll::Pending`
 impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
-    type Output = HotShotTaskCompleted<HSTT>;
+    type Output = HotShotTaskCompleted<HSTT::Error>;
 
     // NOTE: this is too many lines
     // with a lot of repeated code

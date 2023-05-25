@@ -43,8 +43,16 @@ impl EventStream for DummyStream {
     async fn unsubscribe(&self, _id: StreamId) {}
 }
 
+impl SendableStream for DummyStream {
+    type Obj = ();
+}
+
 /// this is only used for indexing
 pub type StreamId = usize;
+
+pub trait SendableStream : Stream<Item = Self::Obj> + Sync + Send + 'static {
+    type Obj : PassType;
+}
 
 /// Async pub sub event stream
 /// NOTE: static bound indicates that if the type points to data, that data lives for the lifetime
@@ -54,7 +62,7 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
     /// the type of stream to use
-    type StreamType: Stream<Item = Self::EventType> + Sync + Send + 'static;
+    type StreamType: SendableStream<Obj = Self::EventType>;
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType);
@@ -102,6 +110,10 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
     fn default() -> Self {
         Self::new()
     }
+}
+
+impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {
+    type Obj = EVENT;
 }
 
 #[async_trait]

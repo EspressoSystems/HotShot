@@ -141,12 +141,3 @@ where
         Pending
     }
 }
-
-// TODO revive this explicitly for tasks
-// convenience launcher for tasks
-// pub struct TaskLauncher<
-//     const N: usize,
-//     HST: HotS
-// > {
-//     tasks: [HotShotTask<EVENT, STATE, STREAM, MSG, MSG_STREAM>; N],
-// }

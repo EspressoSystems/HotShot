@@ -2,11 +2,11 @@ use futures::Stream;
 use std::marker::PhantomData;
 
 use crate::{
-    event_stream::{DummyStream, EventStream},
+    event_stream::{DummyStream, EventStream, SendableStream},
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskHandler, HotShotTaskTypes, PassType,
-        HST, TS,
+        HST, TS, TaskErr,
     },
 };
 
@@ -114,7 +114,7 @@ impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: 
 }
 
 impl<
-        ERR: std::error::Error,
+        ERR: TaskErr,
         EVENT: PassType,
         ESTREAM: EventStream<EventType = EVENT>,
         STATE: TS,
@@ -148,7 +148,12 @@ pub struct HSTWithMessage<
     _pd: PhantomData<(ERR, MSG, MSTREAM, STATE)>,
 }
 
-impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: TS> HotShotTaskTypes
+impl<
+    ERR: TaskErr,
+    MSG: PassType,
+    MSTREAM: SendableStream<Obj = MSG>,
+    STATE: TS
+> HotShotTaskTypes
     for HSTWithMessage<ERR, MSG, MSTREAM, STATE>
 {
     type Event = ();
@@ -204,11 +209,11 @@ impl<
 }
 
 impl<
-        ERR: std::error::Error,
+        ERR: TaskErr,
         EVENT: PassType,
         ESTREAM: EventStream<EventType = EVENT>,
         MSG: PassType,
-        MSTREAM: Stream<Item = MSG>,
+        MSTREAM: SendableStream<Obj = MSG>,
         STATE: TS,
     > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
 {
@@ -237,7 +242,7 @@ pub mod test {
 
     use crate::event_stream;
     use crate::event_stream::ChannelStream;
-    use crate::task::{PassType, TS};
+    use crate::task::{PassType, TS, TaskErr};
 
     use super::{HSTWithEvent, HSTWithEventAndMessage, HSTWithMessage};
     use crate::event_stream::EventStream;
@@ -255,6 +260,8 @@ pub mod test {
 
     #[derive(Snafu, Debug)]
     pub struct Error {}
+
+    impl TaskErr for Error {}
 
     #[derive(Clone, Debug)]
     pub struct State {}
