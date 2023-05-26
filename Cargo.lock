@@ -3035,6 +3035,7 @@ dependencies = [
 name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "async-compatibility-layer",
  "async-lock",
  "async-std",

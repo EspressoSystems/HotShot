@@ -27,7 +27,7 @@ pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 
 /// group of types needed for a hotshot task
-pub trait HotShotTaskTypes {
+pub trait HotShotTaskTypes : 'static {
     /// the event type from the event stream
     type Event: PassType;
     /// the state of the task
@@ -304,27 +304,10 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
     /// So, it should be safe to lanuch.
-    pub async fn launch(self) -> HotShotTaskCompleted<HSTT::Error> {
+    pub(crate) async fn launch(self) -> HotShotTaskCompleted<HSTT::Error> {
         self.await
     }
 }
-
-/// trait that allows for a simple avoidance of commiting to types
-/// useful primarily in the launcher
-// #[async_trait]
-// pub trait TaskTrait<ERR: std::error::Error> {
-//     /// launch the task
-//     async fn launch(&self) -> HotShotTaskCompleted<ERR>;
-// }
-//
-// #[async_trait]
-// impl<HSTT: HotShotTaskTypes> TaskTrait<HSTT::Error> for HST<HSTT> {
-//     async fn launch(&self) -> HotShotTaskCompleted<HSTT::Error>{
-//         nll_todo()
-//
-//         // me.launch().await
-//     }
-// }
 
 /// enum describing how the tasks completed
 pub enum HotShotTaskCompleted<ERR: std::error::Error + 'static + ?Sized> {

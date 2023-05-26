@@ -47,7 +47,7 @@ struct Modifier(Box<dyn Fn(&TaskState) -> Either<TaskStatus, bool>>);
 impl GlobalRegistry {
     /// create new registry
     #[must_use]
-    pub fn spawn_new() -> Self {
+    pub fn new() -> Self {
         Self {
             state_list: Arc::new(RwLock::new(vec![])),
             state_cache: vec![],

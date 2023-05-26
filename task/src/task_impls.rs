@@ -341,7 +341,7 @@ pub mod test {
 
         let state = State {};
 
-        let mut registry = GlobalRegistry::spawn_new();
+        let mut registry = GlobalRegistry::new();
 
         let event_handler = HandleEvent(Arc::new(move |event, state| {
             async move {
@@ -377,7 +377,7 @@ pub mod test {
         setup_logging();
         let state = State {};
 
-        let mut registry = GlobalRegistry::spawn_new();
+        let mut registry = GlobalRegistry::new();
 
         let (s, r) = async_compatibility_layer::channel::unbounded();
 
