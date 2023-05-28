@@ -43,13 +43,13 @@ impl EventStream for DummyStream {
     async fn unsubscribe(&self, _id: StreamId) {}
 }
 
-impl SendableStream for DummyStream { }
+impl SendableStream for DummyStream {}
 
 /// this is only used for indexing
 pub type StreamId = usize;
 
 /// a stream that plays nicely with async
-pub trait SendableStream : Stream + Sync + Send + 'static { }
+pub trait SendableStream: Stream + Sync + Send + 'static {}
 
 /// Async pub sub event stream
 /// NOTE: static bound indicates that if the type points to data, that data lives for the lifetime
@@ -109,7 +109,7 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
     }
 }
 
-impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> { }
+impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {}
 
 #[async_trait]
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {

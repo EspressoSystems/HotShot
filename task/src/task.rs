@@ -27,7 +27,7 @@ pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 
 /// group of types needed for a hotshot task
-pub trait HotShotTaskTypes : 'static {
+pub trait HotShotTaskTypes: 'static {
     /// the event type from the event stream
     type Event: PassType;
     /// the state of the task
@@ -62,7 +62,8 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// if we have a future for tracking shutdown progress
     in_progress_shutdown_fut: Option<BoxFuture<'static, ()>>,
     /// the in progress future
-    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>>,
+    in_progress_fut:
+        Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
@@ -107,9 +108,12 @@ pub(crate) enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
 pub struct HandleEvent<HSTT: HotShotTaskTypes>(
     pub  Arc<
         dyn Fn(
-            HSTT::Event,
-            HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)> + Sync + Send,
+                HSTT::Event,
+                HSTT::State,
+            )
+                -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>
+            + Sync
+            + Send,
     >,
 );
 
@@ -120,11 +124,12 @@ impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
 }
 
 impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
-    type Target = dyn Fn(
-        HSTT::Event,
-        HSTT::State,
-    )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
+    type Target =
+        dyn Fn(
+            HSTT::Event,
+            HSTT::State,
+        )
+            -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -136,17 +141,21 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
 pub struct HandleMessage<HSTT: HotShotTaskTypes>(
     pub  Arc<
         dyn Fn(
-            HSTT::Message,
-            HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)> + Sync + Send,
+                HSTT::Message,
+                HSTT::State,
+            )
+                -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>
+            + Sync
+            + Send,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
-    type Target = dyn Fn(
-        HSTT::Message,
-        HSTT::State,
-    )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
+    type Target =
+        dyn Fn(
+            HSTT::Message,
+            HSTT::State,
+        )
+            -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT::Error>>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
