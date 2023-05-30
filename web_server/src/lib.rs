@@ -187,7 +187,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
         //KALEY TODO make info
-        error!("Received proposal for view {}", view_number);
+        //error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.old_proposals_struct.len() >= MAX_VIEWS {
@@ -220,14 +220,18 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_staketable(&mut self, keypair: ServerKeys<KEY>) -> Result<(), Error> {
         // KALEY TODO: need security checks here for valid staketable entries
         let node_index = self.stake_table.len() as u64;
-
-        //generate secret for leader's first submission endpoint when key is added
-        //secret should be random
-        let secret = thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(30)
-            .map(char::from)
-            .collect();
+        let mut secret = String::new();
+        if node_index == 0 {
+            secret = "FIRST".to_string();
+        } else {
+            // generate secret for leader's first submission endpoint when key is added
+            // secret should be random
+            secret = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .map(char::from)
+                .collect();
+        }
 
         self.secrets.insert(node_index, secret);
         self.stake_table.push((keypair.pub_key, keypair.enc_key));
@@ -397,16 +401,19 @@ where
     })?
     .post("secret", |req, state| {
         async move {
-            print!("getting proposal");
+            error!("getting proposal");
             let view_number: u64 = req.integer_param("view_number")?;
-            let secret: &str = req.string_param("secret")?;
+            let secret: String = req.string_param("secret")?.to_string();
             //if secret is correct and view_number->proposal is empty, proposal is valid
             if state.proposal(view_number).is_none() {
-                if let Some(server_secret) = state.secret(view_number) {
-                    if server_secret == secret {
+                //error!("server secret: {}, send secret: {}", state.secret(view_number-1).unwrap(), secret);
+                if let Some(server_secret) = state.secret(view_number-1) {
+                    if server_secret.eq(&secret) {
                         let proposal = req.body_bytes();
+                        error!("posting prop");
                         state.post_secret_proposal(view_number, proposal)
                     } else {
+                        //error!("props didn't match");
                         Err(ServerError {
                             status: StatusCode::BadRequest,
                             message: format!(
@@ -431,7 +438,9 @@ where
         .boxed()
     })?
     .get("getfirstsecret", |_req, state| {
-        async move { state.get_first_secret() }.boxed()
+        async move { 
+            state.get_first_secret() 
+        }.boxed()
     })?;
     Ok(api)
 }

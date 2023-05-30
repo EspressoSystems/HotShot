@@ -230,6 +230,7 @@ impl<
                     let msg = self.get_proposal_from_web_server(endpoint).await;
                     match msg {
                         Ok(Some(new_msg)) => {
+                            error!("got new prop");
                             // save new secret if we're next leader
                             if !new_msg.1.is_empty() {
                                 *self.secret.write().await = new_msg.1;
@@ -334,6 +335,7 @@ impl<
                 source: WebServerNetworkError::ClientError,
             }),
             Ok(Some(message)) => {
+                error!("got message");
                 let deserialized_message = bincode::deserialize(&message.proposal);
                 if let Err(e) = deserialized_message {
                     Err(NetworkError::FailedToDeserialize { source: e })
@@ -564,15 +566,17 @@ impl<
                 //if we are first leader and this is the first view, we need to get the secret
                 //for the proposal submission from the server
                 if consensus_info.view_number == 1  {
-                    let secret =
-                        WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::get_first_secret(
-                            inner.clone(),
-                        )
-                        .await;
-                    match secret {
-                        Ok(secret) => api_config::post_proposal_route(*view_number, secret),
-                        Err(_) => return Err(WebServerNetworkError::EndpointError),
-                    }
+                    // let secret =
+                    //     WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::get_first_secret(
+                    //         inner.clone(),
+                    //     )
+                    //     .await;
+                    // match secret {
+                    //     Ok(secret) => api_config::post_proposal_route(*view_number, secret),
+                            
+                    //     Err(_) => return Err(WebServerNetworkError::EndpointError),
+                    // }
+                    api_config::post_proposal_route(*view_number, "FIRST".to_string())
                 } else {
                     api_config::post_proposal_route(
                         *view_number,
@@ -615,6 +619,7 @@ impl<
                 .decrypt(&resp.secret, &inner.own_key.to_bytes().0);
             match decrypted_secret {
                 Ok(secret) => {
+                    error!("got secret");
                     Ok(String::from_utf8(secret).expect("Failed to convert secret to String"))
                 }
                 Err(_) => Ok(String::new()),
@@ -912,27 +917,6 @@ where
     }
 }
 
-// Add keys to webserver (hack until genesis block is impelmented)
-pub async fn add_keys_to_server<KEY: SignatureKey + 'static>(sig_keys: Vec<KEY>, enc_keys: Vec<KeyPair>) -> Result<(), ClientError> {
-    let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
-    let web_client = surf_disco::Client::<ClientError>::new(base_url);
-    assert!(web_client.connect(None).await);
-    let endpoint = api_config::post_staketable_route();
-    for (pk, ek) in sig_keys.into_iter().zip(enc_keys) {
-        error!("adding key");
-        let keypair = ServerKeys {
-            enc_key: ek.enc_key(),
-            pub_key: pk,
-        };
-        web_client
-            .post::<()>(&endpoint)
-            .body_binary(&keypair)
-            .unwrap()
-            .send()
-            .await.unwrap();
-    }
-    Ok(())
-}
 
 impl<
         TYPES: NodeType,
