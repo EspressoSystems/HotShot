@@ -862,21 +862,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-tungstenite"
-version = "0.22.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce01ac37fdc85f10a43c43bc582cbd566720357011578a935761075f898baf58"
-dependencies = [
- "async-std",
- "futures-io",
- "futures-util",
- "log",
- "pin-project-lite 0.2.9",
- "tokio",
- "tungstenite 0.19.0",
-]
-
-[[package]]
 name = "asynchronous-codec"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -904,18 +889,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "atomic_store"
-version = "0.1.3"
-source = "git+https://github.com/EspressoSystems/atomicstore?tag=0.1.3#9da9998dd8d92f61c5b78a8f0676d415e6fafe92"
-dependencies = [
- "ark-serialize",
- "bincode",
- "glob",
- "serde",
- "snafu",
 ]
 
 [[package]]
@@ -1054,21 +1027,6 @@ checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "bit-set"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
-dependencies = [
- "bit-vec",
-]
-
-[[package]]
-name = "bit-vec"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
@@ -1402,21 +1360,6 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
-
-[[package]]
-name = "commit"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/commit?tag=0.2.0#1744c3d7ebf08d0c9725cb12e073b0153488c263"
-dependencies = [
- "arbitrary",
- "ark-serialize",
- "bitvec",
- "funty",
- "generic-array",
- "hex",
- "serde",
- "sha3",
-]
 
 [[package]]
 name = "commit"
@@ -2657,12 +2600,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0a93d233ebf96623465aad4046a8d3aa4da22d4f4beba5388838c8a434bbb4"
 
 [[package]]
-name = "glob"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
-
-[[package]]
 name = "gloo-timers"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2912,13 +2849,11 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.2",
- "atomic_store",
  "bimap",
  "bincode",
  "blake3",
  "clap 4.3.0",
- "commit 0.2.2",
+ "commit",
  "custom_debug",
  "dashmap",
  "derivative",
@@ -2943,18 +2878,15 @@ dependencies = [
  "num",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "rand_xoshiro",
  "serde",
  "serde_json",
  "sha2 0.10.6",
  "snafu",
  "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?branch=main)",
- "tempfile",
  "time 0.3.21",
  "tokio",
  "toml 0.7.4",
  "tracing",
- "tracing-unwrap",
 ]
 
 [[package]]
@@ -2965,7 +2897,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "commit 0.2.2",
+ "commit",
  "futures",
  "hotshot-types",
  "hotshot-utils",
@@ -2988,7 +2920,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "commit 0.2.2",
+ "commit",
  "custom_debug",
  "derivative",
  "either",
@@ -3012,7 +2944,6 @@ dependencies = [
  "bincode",
  "blake3",
  "clap 4.3.0",
- "commit 0.1.0",
  "futures",
  "hotshot-types",
  "hotshot-utils",
@@ -3020,7 +2951,6 @@ dependencies = [
  "libp2p-core",
  "libp2p-networking",
  "nll",
- "portpicker",
  "serde",
  "serde_json",
  "snafu",
@@ -3038,19 +2968,13 @@ dependencies = [
  "async-compatibility-layer",
  "async-lock",
  "async-std",
- "async-stream",
  "async-trait",
- "async-tungstenite 0.22.2",
  "atomic_enum",
- "bincode",
- "custom_debug",
- "derivative",
  "either",
  "futures",
  "nll",
  "pin-project",
  "serde",
- "serde_bytes",
  "snafu",
  "tokio",
  "tracing",
@@ -3066,7 +2990,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "blake3",
- "commit 0.2.2",
+ "commit",
  "either",
  "futures",
  "hotshot",
@@ -3075,12 +2999,10 @@ dependencies = [
  "hotshot-utils",
  "jf-primitives",
  "nll",
- "proptest",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
  "snafu",
- "tempfile",
  "tokio",
  "tracing",
 ]
@@ -3095,7 +3017,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "blake3",
- "commit 0.2.2",
+ "commit",
  "derive_builder 0.12.0",
  "either",
  "futures",
@@ -3106,7 +3028,6 @@ dependencies = [
  "jf-primitives",
  "nll",
  "proc-macro2",
- "proptest",
  "quote",
  "rand 0.8.5",
  "serde",
@@ -3127,11 +3048,9 @@ dependencies = [
  "async-compatibility-layer",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.2",
- "atomic_store",
  "bincode",
  "blake3",
- "commit 0.2.2",
+ "commit",
  "custom_debug",
  "derivative",
  "ed25519-compact",
@@ -3145,7 +3064,6 @@ dependencies = [
  "nll",
  "rand 0.8.5",
  "serde",
- "serde_bytes",
  "serde_json",
  "snafu",
  "tagged-base64 0.2.4",
@@ -3172,7 +3090,6 @@ dependencies = [
  "async-trait",
  "bincode",
  "clap 4.3.0",
- "commit 0.1.0",
  "futures",
  "hotshot-types",
  "hotshot-utils",
@@ -3791,12 +3708,6 @@ name = "libm"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
-
-[[package]]
-name = "libm"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
 
 [[package]]
 name = "libnghttp2-sys"
@@ -5149,7 +5060,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
- "libm 0.2.6",
 ]
 
 [[package]]
@@ -5426,7 +5336,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
 dependencies = [
  "cfg-if",
- "libm 0.1.4",
+ "libm",
 ]
 
 [[package]]
@@ -5823,26 +5733,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proptest"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e35c06b98bf36aba164cc17cb25f7e232f5c4aeea73baa14b8a9f0d92dbfa65"
-dependencies = [
- "bit-set",
- "bitflags",
- "byteorder",
- "lazy_static",
- "num-traits",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_xorshift",
- "regex-syntax 0.6.29",
- "rusty-fork",
- "tempfile",
- "unarray",
-]
-
-[[package]]
 name = "prost"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6048,24 +5938,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_xorshift"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
-dependencies = [
- "rand_core 0.6.4",
-]
-
-[[package]]
-name = "rand_xoshiro"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
-dependencies = [
- "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -6462,18 +6334,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
 
 [[package]]
-name = "rusty-fork"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb3dcc6e454c328bb824492db107ab7c0ae8fcffe4ad210136ef014458c1bc4f"
-dependencies = [
- "fnv",
- "quick-error",
- "tempfile",
- "wait-timeout",
-]
-
-[[package]]
 name = "rw-stream-sink"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6636,15 +6496,6 @@ name = "serde-big-array"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "416bda436f9aab92e02c8e10d49a15ddd339cea90b6e340fe51ed97abb548294"
 dependencies = [
  "serde",
 ]
@@ -7967,15 +7818,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-unwrap"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77934bd2f10b38daeb37d0e24fb94f7bb83e08b474a0568d6ba71876c797c02e"
-dependencies = [
- "tracing",
-]
-
-[[package]]
 name = "trust-dns-proto"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8067,25 +7909,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tungstenite"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15fba1a6d6bb030745759a9a2a588bfe8490fc8b4751a277db3a0be1c9ebbf67"
-dependencies = [
- "byteorder",
- "bytes 1.4.0",
- "data-encoding",
- "http",
- "httparse",
- "log",
- "rand 0.8.5",
- "sha1 0.10.5",
- "thiserror",
- "url",
- "utf-8",
-]
-
-[[package]]
 name = "turn"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8127,12 +7950,6 @@ dependencies = [
  "hex",
  "static_assertions",
 ]
-
-[[package]]
-name = "unarray"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unicase"
@@ -8291,15 +8108,6 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
-
-[[package]]
-name = "wait-timeout"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "waitgroup"
