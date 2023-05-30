@@ -40,7 +40,7 @@ impl TaskRunner /* <N> */ {
 
     /// to support builder pattern
     // pub fn add_task<HSTT: HotShotTaskTypes<Error = (dyn TaskErr + 'static)>>(&mut self, id: HotShotTaskId, name: String, builder: TaskBuilder<HSTT>) -> TaskRunner<N+1>{
-    pub fn add_task<HSTT: HotShotTaskTypes<Error = (dyn TaskErr + 'static)>>(
+    pub fn add_task<HSTT: HotShotTaskTypes<Error = dyn TaskErr + 'static>>(
         mut self,
         id: HotShotTaskId,
         name: String,

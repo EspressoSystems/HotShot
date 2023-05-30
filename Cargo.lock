@@ -2930,6 +2930,7 @@ dependencies = [
  "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-orchestrator",
+ "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
