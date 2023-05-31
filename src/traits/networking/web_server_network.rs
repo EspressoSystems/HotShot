@@ -63,11 +63,9 @@ pub struct WebCommChannel<
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
-            PROPOSAL,
-            VOTE,
         >,
     >,
-    PhantomData<(MEMBERSHIP, I)>,
+    PhantomData<(MEMBERSHIP, I, PROPOSAL, VOTE)>,
 );
 
 impl<
@@ -87,8 +85,6 @@ impl<
                 TYPES::SignatureKey,
                 TYPES::ElectionConfigType,
                 TYPES,
-                PROPOSAL,
-                VOTE,
             >,
         >,
     ) -> Self {
@@ -103,11 +99,9 @@ pub struct WebServerNetwork<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
 > {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
+    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
@@ -117,9 +111,7 @@ impl<
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
@@ -155,11 +147,9 @@ struct Inner<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
 > {
     /// Phantom data for generic types
-    phantom: PhantomData<(KEY, ELECTIONCONFIG, PROPOSAL, VOTE)>,
+    phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
     /// Our own key
@@ -183,9 +173,7 @@ impl<
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
@@ -351,9 +339,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
-        VOTE: VoteType<TYPES> + 'static,
-    > WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > WebServerNetwork<M, K, E, TYPES>
 {
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
@@ -393,7 +379,7 @@ impl<
             async move {
                 while inner.running.load(Ordering::Relaxed) {
                     if let Err(e) =
-                        WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(
+                        WebServerNetwork::<M, K, E, TYPES>::run_background_receive(
                             Arc::clone(&inner),
                         )
                         .await
@@ -412,7 +398,7 @@ impl<
 
     /// Launches background tasks for polling the web server
     async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
+        inner: Arc<Inner<M, K, E, TYPES>>,
     ) -> Result<(), ClientError> {
         let proposal_handle = async_spawn({
             let inner_clone = inner.clone();
@@ -509,13 +495,11 @@ impl<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
-        PROPOSAL,
-        VOTE,
     >;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -525,7 +509,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
@@ -536,7 +520,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -571,7 +555,7 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
@@ -585,7 +569,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
@@ -599,9 +583,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
-        VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -710,16 +692,12 @@ impl<
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebServerNetwork<
         Message<TYPES, I>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
-        PROPOSAL,
-        VOTE,
     >
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -784,8 +762,6 @@ where
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
-            PROPOSAL,
-            VOTE,
         > as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -818,8 +794,6 @@ impl<
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
-            PROPOSAL,
-            VOTE,
         >,
     > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
@@ -833,8 +807,6 @@ where
                         TYPES::SignatureKey,
                         TYPES::ElectionConfigType,
                         TYPES,
-                        PROPOSAL,
-                        VOTE,
                     >,
                 >,
             ) -> Self
