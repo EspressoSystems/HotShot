@@ -51,8 +51,7 @@ use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
-    CONSENSUS: ConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
@@ -77,7 +76,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     #[must_use]
@@ -503,7 +502,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     type NETWORK = WebServerNetwork<
         Message<TYPES, I>,
@@ -770,7 +769,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -822,7 +821,7 @@ impl<
             PROPOSAL,
             VOTE,
         >,
-    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
