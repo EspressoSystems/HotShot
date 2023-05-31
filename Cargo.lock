@@ -3113,6 +3113,7 @@ dependencies = [
  "ark-serialize",
  "ark-std 0.4.0",
  "async-compatibility-layer",
+ "async-lock",
  "async-std",
  "async-trait",
  "async-tungstenite 0.22.2",

@@ -29,7 +29,10 @@ use crate::{
         Block,
     },
 };
+// use hotshot::ChannelMaps;
+use hotshot_consensus::ChannelMaps;
 use async_trait::async_trait;
+use async_lock::RwLock;
 use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -62,10 +65,17 @@ pub trait NodeImplementation<TYPES: NodeType>:
         + for<'a> Deserialize<'a>
         + Serialize;
 
+    /// Channels for sending/recv-ing proposals and votes for committee exchanges, only applicable
+    /// for sequencing consensus.
+    type CommitteeChannelMaps;
+
     /// Consensus type selected exchanges.
     ///
     /// Implements either `ValidatingExchangesType` or `SequencingExchangesType`.
     type Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, Self::Leaf, Message<TYPES, Self>>;
+
+    /// Create channels for sending/recv-ing proposals and votes.
+    fn new_channel_maps() -> (ChannelMaps<TYPES, Self>, Self::CommitteeChannelMaps);
 }
 
 /// Contains the protocols for exchanging proposals and votes.
@@ -77,10 +87,11 @@ pub trait ExchangesType<
     MESSAGE: NetworkMsg,
 >: Send + Sync
 {
-    /// Protocol for exchanging consensus proposals and votes.
+    /// Protocol for exchanging quorum proposals and votes.
     type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
-    /// Networking implementations for all exchanges.
+    /// Networking implementations for quorum and committee exchanges, the latter of which is only
+    /// applicable for sequencing consensus.
     type Networks;
 
     /// Create all exchanges.
@@ -134,9 +145,6 @@ pub struct ValidatingExchanges<
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
-
-    /// Channel for sending/recv-ing things with the replica task.
-    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
@@ -203,12 +211,6 @@ pub struct SequencingExchanges<
 
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
-
-    /// Channel for sending/recv-ing things with the member task.
-    member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
-
-    /// Channel for sending/recv-ing things with the replica task.
-    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,

@@ -115,6 +115,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SendToTasks<TYPES, I> {
     }
 }
 
+/// Channels for sending/recv-ing proposals and votes.
+pub struct ChannelMaps<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Channel for the next consensus leader or DA leader.
+    proposal_channel:Arc<RwLock<SendToTasks<TYPES, I>>>,
+
+    /// Channel for the replica or DA committee member.
+    vote_channel:Arc<RwLock<SendToTasks<TYPES, I>>>,
+  }
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ChannelMaps<TYPES, I> {
+    pub fn new(start_view: TYPES::Time) -> Self {
+        Self {
+            proposal_channel:Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            vote_channel: Arc::new(RwLock::new(SendToTasks::new(start_view)))
+        }
+    }
+}
+
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
 pub struct View<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {

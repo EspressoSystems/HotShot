@@ -28,7 +28,7 @@ pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
 pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
-pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
+pub use utils::{SendToTasks, View, ViewInner, ViewQueue, ChannelMaps};
 
 use commit::{Commitment, Committable};
 use derivative::Derivative;

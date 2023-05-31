@@ -56,7 +56,7 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks,
     SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::QuorumProposal;
+use hotshot_types::{data::QuorumProposal};
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
@@ -89,7 +89,7 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, VoteType},
     ExecutionType, HotShotConfig,
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{ChannelMaps,bincode::bincode_opts};
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
@@ -157,11 +157,9 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
-    /// for sending/recv-ing things with the next leader task
-    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
-
-    /// for sending/recv-ing things to the da leader
-    da_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
+    /// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
+    /// latter of which is only applicable for sequencing consensus.
+    channel_maps: (ChannelMaps, I::CommitteeChannelMaps),
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -260,10 +258,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             inner,
             transactions: txns,
             hotstuff,
-            member_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            da_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            channel_maps: I::new_channel_maps(),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
@@ -724,7 +719,7 @@ where
         match msg.0 {
             // this is ONLY intended for replica
             GeneralConsensusMessage::Proposal(_) => {
-                let channel_map = self.replica_channel_map.upgradable_read().await;
+                let channel_map = self.channel_maps.0.vote_channel.upgradable_read().await;
 
                 // skip if the proposal is stale
                 if msg_time < channel_map.cur_view {
@@ -778,7 +773,7 @@ where
             c @ ValidatingMessage(GeneralConsensusMessage::Vote(_)) => {
                 let msg_time = c.view_number();
 
-                let channel_map = self.next_leader_channel_map.upgradable_read().await;
+                let channel_map = self.channel_maps.0.proposal_channel.upgradable_read().await;
 
                 // check if
                 // - is in fact, actually is the next leader
@@ -960,7 +955,7 @@ where
                 match general_message {
                     // this is ONLY intended for replica
                     GeneralConsensusMessage::Proposal(_) => {
-                        let channel_map = self.replica_channel_map.upgradable_read().await;
+                        let channel_map = self.channel_maps.0.vote_channel.upgradable_read().await;
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
@@ -1007,7 +1002,7 @@ where
                         );
                     }
                     CommitteeConsensusMessage::DAProposal(_) => {
-                        let channel_map = self.member_channel_map.upgradable_read().await;
+                        let channel_map = self.channel_maps.1.vote_channel.upgradable_read().await;
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
@@ -1058,7 +1053,7 @@ where
                 }
                 // this is ONLY intended for next leader
                 c @ GeneralConsensusMessage::Vote(_) => {
-                    let channel_map = self.next_leader_channel_map.upgradable_read().await;
+                    let channel_map = self.channel_maps.0.proposal_channel.upgradable_read().await;
 
                     // check if
                     // - is in fact, actually is the next leader
@@ -1094,7 +1089,7 @@ where
             Right(committee_message) => {
                 match committee_message {
                     c @ CommitteeConsensusMessage::DAVote(_) => {
-                        let channel_map = self.da_leader_channel_map.upgradable_read().await;
+                        let channel_map = self.channel_maps.1.proposal_channel.upgradable_read().await;
 
                         // check if
                         // - is in fact, actually is the next leader
@@ -1171,7 +1166,7 @@ where
         // do book keeping on channel map
         // TODO probably cleaner to separate this into a function
         // e.g. insert the view and remove the last view
-        let mut send_to_replica = hotshot.replica_channel_map.write().await;
+        let mut send_to_replica = hotshot.channel_maps.0.vote_channel.write().await;
         let replica_last_view: TYPES::Time = send_to_replica.cur_view;
         // gc previous view's channel map
         send_to_replica.channel_map.remove(&replica_last_view);
@@ -1187,7 +1182,7 @@ where
         )
         .await;
 
-        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let mut send_to_next_leader = hotshot.channel_maps.0.proposal_channel.write().await;
         let next_leader_last_view = send_to_next_leader.cur_view;
         // gc previous view's channel map
         send_to_next_leader
@@ -1373,7 +1368,7 @@ where
         };
 
         // Setup channel for recieving DA votes
-        let mut send_to_leader = hotshot.da_leader_channel_map.write().await;
+        let mut send_to_leader = hotshot.channel_maps.1.proposal_channel.write().await;
         let leader_last_view: TYPES::Time = send_to_leader.cur_view;
         send_to_leader.channel_map.remove(&leader_last_view);
         send_to_leader.cur_view += 1;
@@ -1389,7 +1384,7 @@ where
         };
 
         // Set up vote collection channel for commitment proposals/votes
-        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let mut send_to_next_leader = hotshot.channel_maps.0.proposal_channel.write().await;
         let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
         send_to_next_leader.channel_map.remove(&leader_last_view);
         send_to_next_leader.cur_view += 1;
@@ -1409,7 +1404,7 @@ where
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        let mut send_to_member = hotshot.member_channel_map.write().await;
+        let mut send_to_member = hotshot.channel_maps.1.vote_channel.write().await;
         let member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(&member_last_view);
         send_to_member.cur_view += 1;
@@ -1422,7 +1417,7 @@ where
             send_to_member,
         )
         .await;
-        let mut send_to_replica = hotshot.replica_channel_map.write().await;
+        let mut send_to_replica = hotshot.channel_maps.0.vote_channel.write().await;
         let replica_last_view: TYPES::Time = send_to_replica.cur_view;
         send_to_replica.channel_map.remove(&replica_last_view);
         send_to_replica.cur_view += 1;
