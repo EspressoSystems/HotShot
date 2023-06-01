@@ -44,8 +44,7 @@ impl TaskRunner /* <N> */ {
         name: String,
         task: BoxFuture<'static, HotShotTaskCompleted>,
     ) -> TaskRunner {
-        self.tasks
-            .push((id, name, task));
+        self.tasks.push((id, name, task));
         self
     }
 

@@ -62,8 +62,7 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// if we have a future for tracking shutdown progress
     in_progress_shutdown_fut: Option<BoxFuture<'static, ()>>,
     /// the in progress future
-    in_progress_fut:
-        Option<BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>>,
+    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
@@ -110,8 +109,7 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
         dyn Fn(
                 HSTT::Event,
                 HSTT::State,
-            )
-                -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
+            ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
             + Sync
             + Send,
     >,
@@ -124,12 +122,10 @@ impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
 }
 
 impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
-    type Target =
-        dyn Fn(
-            HSTT::Event,
-            HSTT::State,
-        )
-            -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
+    type Target = dyn Fn(
+        HSTT::Event,
+        HSTT::State,
+    ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -143,19 +139,16 @@ pub struct HandleMessage<HSTT: HotShotTaskTypes>(
         dyn Fn(
                 HSTT::Message,
                 HSTT::State,
-            )
-                -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
+            ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
             + Sync
             + Send,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
-    type Target =
-        dyn Fn(
-            HSTT::Message,
-            HSTT::State,
-        )
-            -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
+    type Target = dyn Fn(
+        HSTT::Message,
+        HSTT::State,
+    ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -314,9 +307,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// of one of the impls. Those all have checks enabled.
     /// So, it should be safe to lanuch.
     pub fn launch(self) -> BoxFuture<'static, HotShotTaskCompleted> {
-        async move {
-            self.await
-        }.boxed()
+        async move { self.await }.boxed()
     }
 }
 
@@ -643,8 +634,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                         projected
                             .r_val
                             .take()
-                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue))
-                    ;
+                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
+                    );
                 }
                 Poll::Pending => {
                     *projected.in_progress_shutdown_fut = Some(fut);
