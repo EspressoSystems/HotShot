@@ -1,12 +1,8 @@
-use futures::{
-    future::{join_all, BoxFuture},
-    FutureExt,
-};
+use futures::future::{join_all, BoxFuture};
 
 use crate::{
     global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{HotShotTaskCompleted, HotShotTaskTypes, TaskErr},
-    task_impls::TaskBuilder,
+    task::HotShotTaskCompleted,
 };
 
 // TODO use genericarray + typenum to make this use the number of tasks as a parameter
@@ -18,6 +14,7 @@ pub struct TaskRunner
 //     const N: usize,
 // >
 {
+    /// internal set of tasks to launch
     tasks: Vec<(
         HotShotTaskId,
         String,
@@ -27,8 +24,15 @@ pub struct TaskRunner
     pub registry: GlobalRegistry,
 }
 
+impl Default for TaskRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TaskRunner /* <N> */ {
     /// create new runner
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tasks: Vec::new(),
@@ -38,6 +42,7 @@ impl TaskRunner /* <N> */ {
 
     /// to support builder pattern
     // pub fn add_task<HSTT: HotShotTaskTypes<Error = (dyn TaskErr + 'static)>>(&mut self, id: HotShotTaskId, name: String, builder: TaskBuilder<HSTT>) -> TaskRunner<N+1>{
+    #[must_use]
     pub fn add_task(
         mut self,
         id: HotShotTaskId,

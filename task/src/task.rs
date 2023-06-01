@@ -2,10 +2,8 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::task::Poll;
 
-use async_trait::async_trait;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
-use nll::nll_todo::nll_todo;
 use pin_project::pin_project;
 use std::sync::Arc;
 
@@ -24,6 +22,7 @@ impl PassType for () {}
 pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
 
 /// a task error that has nice qualities
+#[allow(clippy::module_name_repetitions)]
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 
 /// group of types needed for a hotshot task
