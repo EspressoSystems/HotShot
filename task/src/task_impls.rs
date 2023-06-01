@@ -337,7 +337,7 @@ pub mod test {
         let event_handler = HandleEvent(Arc::new(move |event, state| {
             async move {
                 if let Event::Finished = event {
-                    (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                    (Some(HotShotTaskCompleted::ShutDown), state)
                 } else {
                     (None, state)
                 }
@@ -375,7 +375,7 @@ pub mod test {
         let message_handler = HandleMessage(Arc::new(move |message, state| {
             async move {
                 if let Message::Finished = message {
-                    (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                    (Some(HotShotTaskCompleted::ShutDown), state)
                 } else {
                     (None, state)
                 }

@@ -368,7 +368,7 @@ pub async fn new_view_runner() {
     let networking_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
-                (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
                 (None, state)
             }
@@ -399,7 +399,7 @@ pub async fn new_view_runner() {
     let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
-                (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
                 (None, state)
             }
@@ -430,7 +430,7 @@ pub async fn new_view_runner() {
     let da_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
-                (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
                 (None, state)
             }
@@ -459,7 +459,7 @@ pub async fn new_view_runner() {
     let view_sync_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
-                (Some(Box::new(HotShotTaskCompleted::ShutDown)), state)
+                (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
                 (None, state)
             }
