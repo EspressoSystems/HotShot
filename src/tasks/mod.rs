@@ -174,7 +174,7 @@ pub(crate) struct TaskHandleInner {
 }
 
 /// main thread driving consensus
-pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
@@ -543,7 +543,12 @@ pub async fn add_view_sync_task(
 }
 
 /// the view runner
-pub async fn new_view_runner() {
+pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    _hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    _started: Arc<AtomicBool>,
+    _shut_down: Arc<AtomicBool>,
+    _run_once: Option<UnboundedReceiver<()>>,
+) {
     let task_runner = TaskRunner::new();
     let event_stream = event_stream::ChannelStream::new();
 
