@@ -70,7 +70,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for ViewQueue<TYPES,
     }
 }
 
-/// metadata for sending information to replica (and in the future, the leader)
+/// metadata for sending information to the leader, replica, or DA committee member.
 pub struct SendToTasks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// the current view number
     /// this should always be in sync with `Consensus`
@@ -93,12 +93,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SendToTasks<TYPES, I> {
 }
 
 /// Channels for sending/recv-ing proposals and votes.
+#[derive(Clone)]
 pub struct ChannelMaps<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Channel for the next consensus leader or DA leader.
-    proposal_channel: Arc<RwLock<SendToTasks<TYPES, I>>>,
+    pub proposal_channel: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// Channel for the replica or DA committee member.
-    vote_channel: Arc<RwLock<SendToTasks<TYPES, I>>>,
+    pub vote_channel: Arc<RwLock<SendToTasks<TYPES, I>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ChannelMaps<TYPES, I> {
@@ -137,17 +138,16 @@ pub trait NodeImplementation<TYPES: NodeType>:
         + for<'a> Deserialize<'a>
         + Serialize;
 
-    /// Channels for sending/recv-ing proposals and votes for committee exchanges, only applicable
-    /// for sequencing consensus.
-    type CommitteeChannelMaps;
-
     /// Consensus type selected exchanges.
     ///
     /// Implements either `ValidatingExchangesType` or `SequencingExchangesType`.
     type Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, Self::Leaf, Message<TYPES, Self>>;
 
-    /// Create channels for sending/recv-ing proposals and votes.
-    fn new_channel_maps() -> (ChannelMaps<TYPES, Self>, Self::CommitteeChannelMaps);
+    /// Create channels for sending/recv-ing proposals and votes for quorum and committee
+    /// exchanges, the latter of which is only applicable for sequencing consensus.
+    fn new_channel_maps(
+        start_view: TYPES::Time,
+    ) -> (ChannelMaps<TYPES, Self>, Option<ChannelMaps<TYPES, Self>>);
 }
 
 /// Contains the protocols for exchanging proposals and votes.

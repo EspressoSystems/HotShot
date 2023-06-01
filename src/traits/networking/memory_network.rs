@@ -608,7 +608,7 @@ mod tests {
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::traits::election::QuorumExchange;
-    use hotshot_types::traits::node_implementation::ValidatingExchanges;
+    use hotshot_types::traits::node_implementation::{ChannelMaps, ValidatingExchanges};
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind, ValidatingMessage},
@@ -674,6 +674,12 @@ mod tests {
         >;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
+
+        fn new_channel_maps(
+            start_view: ViewNumber,
+        ) -> (ChannelMaps<Test, Self>, Option<ChannelMaps<Test, Self>>) {
+            (ChannelMaps::new(start_view), None)
+        }
     }
 
     type TestLeaf = ValidatingLeaf<Test>;

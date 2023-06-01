@@ -160,7 +160,7 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
 
     /// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
-    channel_maps: (ChannelMaps, I::CommitteeChannelMaps),
+    channel_maps: (ChannelMaps<TYPES, I>, Option<ChannelMaps<TYPES, I>>),
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -259,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             inner,
             transactions: txns,
             hotstuff,
-            channel_maps: I::new_channel_maps(),
+            channel_maps: I::new_channel_maps(start_view),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
@@ -1003,7 +1003,15 @@ where
                         );
                     }
                     CommitteeConsensusMessage::DAProposal(_) => {
-                        let channel_map = self.channel_maps.1.vote_channel.upgradable_read().await;
+                        let channel_map = match &self.channel_maps.1 {
+                            Some(committee_channels) => {
+                                committee_channels.vote_channel.upgradable_read().await
+                            }
+                            None => {
+                                warn!("Committee channels not found.");
+                                return;
+                            }
+                        };
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
@@ -1090,8 +1098,15 @@ where
             Right(committee_message) => {
                 match committee_message {
                     c @ CommitteeConsensusMessage::DAVote(_) => {
-                        let channel_map =
-                            self.channel_maps.1.proposal_channel.upgradable_read().await;
+                        let channel_map = match &self.channel_maps.1 {
+                            Some(committee_channels) => {
+                                committee_channels.proposal_channel.upgradable_read().await
+                            }
+                            None => {
+                                warn!("Committee channels not found.");
+                                return;
+                            }
+                        };
 
                         // check if
                         // - is in fact, actually is the next leader
@@ -1370,7 +1385,13 @@ where
         };
 
         // Setup channel for recieving DA votes
-        let mut send_to_leader = hotshot.channel_maps.1.proposal_channel.write().await;
+        let mut send_to_leader = match &hotshot.channel_maps.1 {
+            Some(committee_channels) => committee_channels.proposal_channel.write().await,
+            None => {
+                warn!("Committee channels not found.");
+                return Err(());
+            }
+        };
         let leader_last_view: TYPES::Time = send_to_leader.cur_view;
         send_to_leader.channel_map.remove(&leader_last_view);
         send_to_leader.cur_view += 1;
@@ -1406,7 +1427,13 @@ where
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        let mut send_to_member = hotshot.channel_maps.1.vote_channel.write().await;
+        let mut send_to_member = match &hotshot.channel_maps.1 {
+            Some(committee_channels) => committee_channels.vote_channel.write().await,
+            None => {
+                warn!("Committee channels not found.");
+                return Err(());
+            }
+        };
         let member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(&member_last_view);
         send_to_member.cur_view += 1;

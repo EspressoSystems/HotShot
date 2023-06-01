@@ -339,6 +339,25 @@ impl TestData {
                     type Storage = #storage<TestTypes, #leaf>;
                     type ConsensusMessage = #consensus_message;
                     type Exchanges = #exchanges;
+
+                    fn new_channel_maps(
+                        start_view: #time_type
+                    ) -> (
+                        hotshot_types::traits::node_implementation::ChannelMaps<TestTypes, Self>,
+                        Option<hotshot_types::traits::node_implementation::ChannelMaps<TestTypes, Self>>
+                    ) {
+                        let committee_channel_maps = if std::any::type_name::<#consensus_type>() == 
+                            std::any::type_name::<hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus>().to_string()
+                        {
+                            None
+                        } else {
+                            Some(hotshot_types::traits::node_implementation::ChannelMaps::new(start_view))
+                        };
+                        (
+                            hotshot_types::traits::node_implementation::ChannelMaps::new(start_view),
+                            committee_channel_maps
+                        )
+                    }
                 }
 
                 #slow_attribute
