@@ -58,8 +58,6 @@ either = { version = "1.8.1", features = [ "serde" ] }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 futures = "0.3.28"
 hex_fmt = "0.3.0"
-# hotshot = { path = "../", default-features = false }
-hotshot-consensus = { path = "../consensus" }
 hotshot-utils = { path = "../utils" }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
   "std",

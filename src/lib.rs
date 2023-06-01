@@ -53,10 +53,10 @@ use commit::{Commitment, Committable};
 use either::{Left, Right};
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
-    ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks,
-    SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
+    ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
+    ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::{data::QuorumProposal};
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
@@ -78,8 +78,9 @@ use hotshot_types::{
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::{
-            CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SequencingExchangesType,
-            SequencingQuorumEx, ValidatingExchangesType, ValidatingQuorumEx,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SendToTasks,
+            SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
+            ValidatingQuorumEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -89,7 +90,7 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, VoteType},
     ExecutionType, HotShotConfig,
 };
-use hotshot_utils::{ChannelMaps,bincode::bincode_opts};
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
@@ -1089,7 +1090,8 @@ where
             Right(committee_message) => {
                 match committee_message {
                     c @ CommitteeConsensusMessage::DAVote(_) => {
-                        let channel_map = self.channel_maps.1.proposal_channel.upgradable_read().await;
+                        let channel_map =
+                            self.channel_maps.1.proposal_channel.upgradable_read().await;
 
                         // check if
                         // - is in fact, actually is the next leader

@@ -22,13 +22,14 @@ mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use da_member::DAMember;
+pub use hotshot_types::traits::node_implementation::ViewQueue;
 pub use leader::ValidatingLeader;
 pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
 pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
-pub use utils::{SendToTasks, View, ViewInner, ViewQueue, ChannelMaps};
+pub use utils::{View, ViewInner};
 
 use commit::{Commitment, Committable};
 use derivative::Derivative;
