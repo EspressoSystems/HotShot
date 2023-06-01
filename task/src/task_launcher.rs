@@ -18,12 +18,10 @@ pub struct TaskRunner
 //     const N: usize,
 // >
 {
-    /// this is the most noncommital thing ever
-    /// as we're allowing entirely different generics for each task.
     tasks: Vec<(
         HotShotTaskId,
         String,
-        BoxFuture<'static, HotShotTaskCompleted<dyn TaskErr>>,
+        BoxFuture<'static, HotShotTaskCompleted>,
     )>,
     /// global registry
     pub registry: GlobalRegistry,
@@ -40,19 +38,19 @@ impl TaskRunner /* <N> */ {
 
     /// to support builder pattern
     // pub fn add_task<HSTT: HotShotTaskTypes<Error = (dyn TaskErr + 'static)>>(&mut self, id: HotShotTaskId, name: String, builder: TaskBuilder<HSTT>) -> TaskRunner<N+1>{
-    pub fn add_task<HSTT: HotShotTaskTypes<Error = dyn TaskErr + 'static>>(
+    pub fn add_task(
         mut self,
         id: HotShotTaskId,
         name: String,
-        builder: TaskBuilder<HSTT>,
+        task: BoxFuture<'static, HotShotTaskCompleted>,
     ) -> TaskRunner {
         self.tasks
-            .push((id, name, HSTT::build(builder).launch().boxed()));
+            .push((id, name, task));
         self
     }
 
     /// returns a `Vec` because type isn't known
-    pub async fn launch(self) -> Vec<(String, HotShotTaskCompleted<dyn TaskErr>)> {
+    pub async fn launch(self) -> Vec<(String, HotShotTaskCompleted)> {
         let names = self
             .tasks
             .iter()
