@@ -2,7 +2,7 @@
 
 use crate::{HotShot, HotShotType, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn_local, async_timeout},
+    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
@@ -13,7 +13,7 @@ use hotshot_task::{
         FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
-    task_launcher::TaskRunner,
+    task_launcher::TaskRunner, global_registry::GlobalRegistry,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -174,6 +174,7 @@ pub(crate) struct TaskHandleInner {
 }
 
 /// main thread driving consensus
+/// TODO run_view refactor: delete
 pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     started: Arc<AtomicBool>,
@@ -548,13 +549,19 @@ pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     _started: Arc<AtomicBool>,
     _shut_down: Arc<AtomicBool>,
     _run_once: Option<UnboundedReceiver<()>>,
-) {
+) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
     let task_runner = TaskRunner::new();
+    let registry = task_runner.registry.clone();
     let event_stream = event_stream::ChannelStream::new();
 
     let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
     let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
     let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_view_sync_task(task_runner, event_stream).await;
-    task_runner.launch().await;
+    let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+    async_spawn(async move {
+        task_runner.launch().await;
+        }
+    );
+    (registry, event_stream)
+
 }
