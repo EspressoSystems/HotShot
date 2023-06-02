@@ -103,6 +103,7 @@ pub struct ChannelMaps<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ChannelMaps<TYPES, I> {
+    /// Create channels starting from a given view.
     pub fn new(start_view: TYPES::Time) -> Self {
         Self {
             proposal_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),

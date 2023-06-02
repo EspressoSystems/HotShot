@@ -16,7 +16,6 @@ use hotshot_types::{
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
-use libp2p::core::transport::memory::Chan;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

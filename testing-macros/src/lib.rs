@@ -346,7 +346,7 @@ impl TestData {
                         hotshot_types::traits::node_implementation::ChannelMaps<TestTypes, Self>,
                         Option<hotshot_types::traits::node_implementation::ChannelMaps<TestTypes, Self>>
                     ) {
-                        let committee_channel_maps = if std::any::type_name::<#consensus_type>() == 
+                        let committee_channel_maps = if std::any::type_name::<#consensus_type>() ==
                             std::any::type_name::<hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus>().to_string()
                         {
                             None
