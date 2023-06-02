@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Install Nix
-        uses: cachix/install-nix-action@v20
+        uses: cachix/install-nix-action@v21
 
       - name: Checkout Repository
         uses: actions/checkout@v3

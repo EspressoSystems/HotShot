@@ -254,6 +254,7 @@ pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static>;
 
     /// Get the number of messages in-flight.

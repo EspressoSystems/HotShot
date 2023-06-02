@@ -29,7 +29,7 @@ use libp2p::{
     identity::Keypair,
     request_response::ResponseChannel,
     tcp,
-    yamux::{WindowUpdateMode, YamuxConfig},
+    yamux::{Config as YamuxConfig, WindowUpdateMode},
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
@@ -112,7 +112,7 @@ pub enum ClientRequest {
     /// subscribe to a topic
     Subscribe(String, Option<Sender<()>>),
     /// unsubscribe from a topic
-    Unsubscribe(String, Sender<()>),
+    Unsubscribe(String, Option<Sender<()>>),
     /// client request to send a direct serialized message
     DirectRequest {
         /// peer id

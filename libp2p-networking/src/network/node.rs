@@ -34,7 +34,7 @@ use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, HandlerError,
+        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder,
         Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
@@ -370,8 +370,10 @@ impl NetworkNode {
                     }
                     ClientRequest::Unsubscribe(t, chan) => {
                         behaviour.unsubscribe_gossip(&t);
-                        if chan.send(()).is_err() {
-                            error!("finished unsubscribing but response channel dropped");
+                        if let Some(chan) = chan {
+                            if chan.send(()).is_err() {
+                                error!("finished unsubscribing but response channel dropped");
+                            }
                         }
                     }
                     ClientRequest::DirectRequest {
@@ -412,7 +414,7 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEventInternal,
-            Either<Either<Either<HandlerError, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
+            Either<Either<Either<void::Void, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
         >,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {

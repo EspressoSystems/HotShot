@@ -1,14 +1,24 @@
-name: Build with Nix Workflow
+name: Build Workflow for ARM
 
 on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: [self-hosted, arm64]
+    container:
+      image: ghcr.io/espressosystems/nix:main
+      volumes:
+        - github_nix:/nix
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds
@@ -16,8 +26,10 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v21
+      - uses: cachix/cachix-action@v12
+        with:
+          name: espresso-systems-private
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Checkout Repository
         uses: actions/checkout@v3

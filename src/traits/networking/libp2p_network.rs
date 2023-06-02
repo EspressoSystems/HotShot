@@ -135,13 +135,22 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        assert!(
+            da_committee_size <= expected_node_count,
+            "DA committee size must be less than or equal to total # nodes"
+        );
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
+        let mut da_keys = BTreeSet::new();
 
         for i in 0u64..(expected_node_count as u64) {
             let privkey = TYPES::SignatureKey::generate_test_key(i);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            if i < da_committee_size as u64 {
+                da_keys.insert(pubkey.clone());
+            }
             all_keys.insert(pubkey);
         }
 
@@ -197,7 +206,8 @@ where
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
-                let all_keys = all_keys.clone();
+                let keys = all_keys.clone();
+                let da = da_keys.clone();
                 async_block_on(async move {
                     Libp2pNetwork::new(
                         NoMetrics::boxed(),
@@ -206,7 +216,8 @@ where
                         bootstrap_addrs_ref,
                         num_bootstrap,
                         node_id as usize,
-                        all_keys,
+                        keys,
+                        da,
                     )
                     .await
                     .unwrap()
@@ -248,6 +259,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     /// # Panics
     ///
     /// This will panic if there are less than 5 bootstrap nodes
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         metrics: Box<dyn Metrics>,
         config: NetworkNodeConfig,
@@ -257,6 +269,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
+        da_pks: BTreeSet<K>,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
@@ -283,6 +296,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
         let mut topic_map = BiHashMap::new();
         topic_map.insert(committee_pks, QC_TOPIC.to_string());
+        topic_map.insert(da_pks, "DA".to_string());
 
         let topic_map = RwLock::new(topic_map);
 
@@ -358,6 +372,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 }
 
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
+                handle.subscribe("DA".to_string()).await.unwrap();
                 // TODO figure out some way of passing in ALL keypairs. That way we can add the
                 // global topic to the topic map
                 // NOTE this wont' work without this change
@@ -513,6 +528,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 source: NetworkNodeHandleError::NoSuchTopic,
             })?
             .clone();
+        error!("Broadcasting to topic {}", topic);
 
         // gossip doesn't broadcast from itself, so special case
         if recipients.contains(&self.inner.pk) {
@@ -722,6 +738,7 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES, I>,
@@ -730,6 +747,7 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

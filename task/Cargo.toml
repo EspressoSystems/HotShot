@@ -1,0 +1,59 @@
+[package]
+authors = ["Espresso Systems <hello@espressosys.com>"]
+description = "Types and traits for the HotShot consesus module"
+edition = "2021"
+name = "hotshot-task"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+
+full-ci = ["async-std-executor", "channel-async-std"]
+tokio-ci = ["tokio-executor", "channel-tokio"]
+profiling = ["async-compatibility-layer/profiling"]
+async-std-executor = [
+    "dep:async-std",
+    "async-compatibility-layer/async-std-executor",
+]
+tokio-executor = [
+    "dep:tokio",
+    "async-compatibility-layer/tokio-executor",
+]
+channel-flume = [
+    "async-compatibility-layer/channel-flume",
+]
+channel-tokio = [
+    "async-compatibility-layer/channel-tokio",
+]
+channel-async-std = [
+    "async-compatibility-layer/channel-async-std",
+]
+
+[dependencies]
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", default-features = false, features = [ "logging-utils" ], tag = "1.2.0" }
+async-std = { version = "1.12.0", optional = true, features = ["unstable"] }
+async-trait = "0.1.68"
+either = { version = "1.8.1", features = [ "serde" ] }
+futures = "0.3.28"
+nll = { git = "https://github.com/EspressoSystems/nll.git" }
+serde = { version = "1.0.163", features = ["derive"] }
+snafu = "0.7.4"
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing",
+] }
+async-lock = "2.7.0"
+tracing = "0.1.37"
+atomic_enum = "0.2.0"
+pin-project = "1.1.0"
