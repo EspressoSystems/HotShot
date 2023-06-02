@@ -388,14 +388,13 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     let mut da_app = App::<State<KEY>, Error>::with_state(da_state);
 
     app.register_module("api", api).unwrap();
-    da_app.register_module("da", da_api).unwrap();
+    app.register_module("da", da_api).unwrap();
 
     let app_future = app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"));
-    let da_future = da_app.serve(format!("http://0.0.0.0:7777"));
 
     println!("Both endpoints started");
 
-    let children_finished = join!(app_future, da_future);
+    app_future.await;
 
     Ok(())
 }
