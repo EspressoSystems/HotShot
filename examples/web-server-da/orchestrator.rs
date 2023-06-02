@@ -1,7 +1,7 @@
 pub mod types;
 
 use clap::Parser;
-use hotshot::demos::vdemo::VDemoTypes;
+use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 use types::ThisMembership;
 
@@ -20,5 +20,5 @@ pub mod infra;
 async fn main() {
     let args = OrchestratorArgs::parse();
 
-    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
+    run_orchestrator::<SDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
 }
