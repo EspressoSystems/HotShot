@@ -16,7 +16,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_types::message::{Message, MessagePurpose};
+use hotshot_types::message::{Message, MessagePurpose, MessagePurposeDestination};
 use hotshot_types::traits::consensus_type::ConsensusType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -57,14 +57,7 @@ pub struct WebCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Arc<
-        WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-        >,
-    >,
+    Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>>,
     PhantomData<(MEMBERSHIP, I, PROPOSAL, VOTE)>,
 );
 
@@ -106,12 +99,8 @@ pub struct WebServerNetwork<
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<
-        M: NetworkMsg,
-        KEY: SignatureKey,
-        ELECTIONCONFIG: ElectionConfig,
-        TYPES: NodeType,
-    > WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES>
+impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
+    WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
@@ -142,12 +131,7 @@ pub struct ConsensusInfo {
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<
-    M: NetworkMsg,
-    KEY: SignatureKey,
-    ELECTIONCONFIG: ElectionConfig,
-    TYPES: NodeType,
-> {
+struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
     /// Phantom data for generic types
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     /// Consensus data about the current view number, leader, and next leader
@@ -168,12 +152,8 @@ struct Inner<
     wait_between_polls: Duration,
 }
 
-impl<
-        M: NetworkMsg,
-        KEY: SignatureKey,
-        ELECTIONCONFIG: ElectionConfig,
-        TYPES: NodeType,
-    > Inner<M, KEY, ELECTIONCONFIG, TYPES>
+impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
+    Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
@@ -378,11 +358,10 @@ impl<
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
-                    if let Err(e) =
-                        WebServerNetwork::<M, K, E, TYPES>::run_background_receive(
-                            Arc::clone(&inner),
-                        )
-                        .await
+                    if let Err(e) = WebServerNetwork::<M, K, E, TYPES>::run_background_receive(
+                        Arc::clone(&inner),
+                    )
+                    .await
                     {
                         error!(?e, "Background polling task exited");
                     }
@@ -397,9 +376,7 @@ impl<
     }
 
     /// Launches background tasks for polling the web server
-    async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES>>,
-    ) -> Result<(), ClientError> {
+    async fn run_background_receive(inner: Arc<Inner<M, K, E, TYPES>>) -> Result<(), ClientError> {
         let proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
@@ -455,10 +432,18 @@ impl<
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.purpose() {
-            MessagePurpose::Proposal => config::post_proposal_route(*view_number),
-            MessagePurpose::Vote => config::post_vote_route(*view_number),
-            MessagePurpose::Data => config::post_transactions_route(),
-            MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            MessagePurposeDestination::Committee(purpose) => match purpose {
+                MessagePurpose::Proposal => config::post_proposal_route(*view_number),
+                MessagePurpose::Vote => config::post_vote_route(*view_number),
+                MessagePurpose::Data => config::post_transactions_route(),
+                MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            },
+            MessagePurposeDestination::Quorum(purpose) => match purpose {
+                MessagePurpose::Proposal => config::post_proposal_route(*view_number),
+                MessagePurpose::Vote => config::post_vote_route(*view_number),
+                MessagePurpose::Data => config::post_transactions_route(),
+                MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            },
         };
 
         let network_msg: SendMsg<M> = SendMsg {
@@ -490,16 +475,12 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
-    type NETWORK = WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-    >;
+    type NETWORK =
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -520,7 +501,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -689,16 +670,9 @@ impl<
         result
     }
 }
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-    >
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -789,12 +763,7 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-        >,
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
     > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,

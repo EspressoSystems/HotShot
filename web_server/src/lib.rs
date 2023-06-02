@@ -4,6 +4,7 @@ use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
 use config::DEFAULT_WEB_SERVER_PORT;
+use futures::join;
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
@@ -376,13 +377,27 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
 ) -> io::Result<()> {
     let options = Options::default();
+
+    // TODO ED Shutdown listener doesn't work anymore with two apis running
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
+    let da_api = define_api(&options).unwrap();
+    let da_state = State::new(WebServerState::new().with_shutdown_signal(None));
+    let mut da_app = App::<State<KEY>, Error>::with_state(da_state);
+
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
-        .await
+    da_app.register_module("da", da_api).unwrap();
+
+    let app_future = app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"));
+    let da_future = da_app.serve(format!("http://0.0.0.0:7777"));
+
+    println!("Both endpoints started");
+
+    let children_finished = join!(app_future, da_future);
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -1304,7 +1304,7 @@ where
             task_handles.push(next_leader_handle);
         }
 
-        let children_finished = futures::future::join_all(task_handles);
+        let children_finished = futures::future::join_all((task_handles));
 
         async_spawn({
             let next_view_timeout = hotshot.inner.config.next_view_timeout;
