@@ -1,20 +1,20 @@
 use crate::infra::WebServerRun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
-    demos::vdemo::VDemoTypes,
+    demos::sdemo::SDemoTypes,
     traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
-    consensus_type::validating_consensus::ValidatingConsensus,
+    consensus_type::sequencing_consensus::SequencingConsensus,
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{NodeImplementation, SequencingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
-    message::ValidatingMessage,
+    data::{SequencingLeaf, DAProposal},
+    message::SequencingMessage,
     traits::node_implementation::NodeType,
-    vote::QuorumVote,
+    vote::DAVote,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -22,35 +22,35 @@ use std::fmt::Debug;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NodeImpl {}
 
-pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
+pub type ThisLeaf = SequencingLeaf<SDemoTypes>;
 pub type ThisMembership =
-    GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
+    GeneralStaticCommittee<SDemoTypes, ThisLeaf, <SDemoTypes as NodeType>::SignatureKey>;
 pub type ThisNetwork = WebCommChannel<
-    ValidatingConsensus,
-    VDemoTypes,
+    SequencingConsensus,
+    SDemoTypes,
     NodeImpl,
     ThisProposal,
     ThisVote,
     ThisMembership,
 >;
-pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
-pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
+pub type ThisProposal = SequencingProposal<SDemoTypes, ThisLeaf>;
+pub type ThisVote = DAVote<SDemoTypes, ThisLeaf>;
 
-impl NodeImplementation<VDemoTypes> for NodeImpl {
-    type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-    type Leaf = ValidatingLeaf<VDemoTypes>;
-    type Exchanges = ValidatingExchanges<
-        VDemoTypes,
-        Message<VDemoTypes, Self>,
-        QuorumExchange<
-            VDemoTypes,
+impl NodeImplementation<SDemoTypes> for NodeImpl {
+    type Storage = MemoryStorage<SDemoTypes, Self::Leaf>;
+    type Leaf = SequencingLeaf<SDemoTypes>;
+    type Exchanges = SequencingExchanges<
+        SDemoTypes,
+        Message<SDemoTypes, Self>,
+        CommitteeExchange<
+            SDemoTypes,
             Self::Leaf,
             ThisProposal,
             ThisMembership,
             ThisNetwork,
-            Message<VDemoTypes, Self>,
+            Message<SDemoTypes, Self>,
         >,
     >;
-    type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
+    type ConsensusMessage = SequencingMessage<SDemoTypes, Self>;
 }
-pub type ThisRun = WebServerRun<VDemoTypes, NodeImpl, ThisMembership>;
+pub type ThisRun = WebServerRun<SDemoTypes, NodeImpl, ThisMembership>;

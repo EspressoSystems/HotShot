@@ -5,20 +5,29 @@
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
-use std::{collections::HashSet, fmt::Display, ops::Deref};
+use crate::traits::{election::static_committee::{StaticElectionConfig, StaticVoteToken},};
+use std::{collections::{HashSet, BTreeMap,}, fmt::{Display, Debug}, ops::Deref, marker::PhantomData,};
 
 use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::{fake_commitment, ViewNumber},
+    data::{fake_commitment, ViewNumber, LeafType, random_commitment, SequencingLeaf},
     traits::{
         block_contents::Transaction,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
+        node_implementation::NodeType,
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        signature_key::ed25519::Ed25519Pub,
+        election::Membership,
     },
+    certificate::{QuorumCertificate, YesNoSignature},
+    constants::genesis_proposer_id,
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+use derivative::Derivative;
+use either::Either;
 
 /// The transaction for the sequencing demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -169,6 +178,14 @@ impl Display for SDemoBlock {
         }
     }
 }
+//KALEY TODO might not need; possibly delete
+// impl SDemoBlock {
+//     /// generate a genesis block 
+//     #[must_use]
+//     pub fn genesis() -> Self {
+//         Self::Genesis(SDemoGenesisBlock {})
+//     }
+// }
 
 impl TestableBlock for SDemoBlock {
     fn genesis() -> Self {
@@ -272,3 +289,102 @@ impl TestableState for SDemoState {
         }
     }
 }
+/// Implementation of [`NodeType`] for [`VDemoNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct SDemoTypes;
+
+impl NodeType for SDemoTypes {
+    type ConsensusType = SequencingConsensus;
+    type Time = ViewNumber;
+    type BlockType = SDemoBlock;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
+    type Transaction = SDemoTransaction;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = SDemoState;
+}
+
+/// The node implementation for the sequencing demo
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct SDemoNode<MEMBERSHIP>(PhantomData<MEMBERSHIP>)
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug;
+
+impl<MEMBERSHIP> SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    /// Create a new `SDemoNode`
+    #[must_use]
+    pub fn new() -> Self {
+        SDemoNode(PhantomData)
+    }
+}
+
+impl<MEMBERSHIP> Debug for SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SDemoNode")
+            .field("_phantom", &"phantom")
+            .finish()
+    }
+}
+
+impl<MEMBERSHIP> Default for SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Provides a random [`QuorumCertificate`]
+pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
+    rng: &mut dyn rand::RngCore,
+) -> QuorumCertificate<TYPES, LEAF> {
+    QuorumCertificate {
+        // block_commitment: random_commitment(rng),
+        leaf_commitment: random_commitment(rng),
+        view_number: TYPES::Time::new(rng.gen()),
+        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        is_genesis: rng.gen(),
+    }
+}
+
+/// Provides a random [`SequencingLeaf`]
+pub fn random_sequencing_leaf<TYPES: NodeType<ConsensusType = SequencingConsensus>>(
+    deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
+    rng: &mut dyn rand::RngCore,
+) -> SequencingLeaf<TYPES> {
+    let justify_qc = random_quorum_certificate(rng);
+    // let state = TYPES::StateType::default()
+    //     .append(&deltas, &TYPES::Time::new(42))
+    //     .unwrap_or_default();
+    SequencingLeaf {
+        view_number: justify_qc.view_number,
+        height: rng.next_u64(),
+        justify_qc,
+        parent_commitment: random_commitment(rng),
+        deltas,
+        rejected: Vec::new(),
+        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+        proposer_id: genesis_proposer_id(),
+    }
+}
+
