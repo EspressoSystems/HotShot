@@ -124,7 +124,7 @@ pub struct ConsensusInfo {
     /// The latest view number
     view_number: u64,
     /// Whether this node is the leader of `view_number`
-    _is_current_leader: bool,
+    is_current_leader: bool,
     /// Whether this node is the leader of the next view
     is_next_leader: bool,
 }
@@ -158,7 +158,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
         &self,
-        message_type: MessageType,
+        message_destination: MessagePurposeDestination,
         _num_views_ahead: u64,
     ) -> Result<(), NetworkError> {
         // Subscribe to changes in consensus info
@@ -168,25 +168,54 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut tx_index: u64 = 0;
 
         while self.running.load(Ordering::Relaxed) {
-            let endpoint = match message_type {
-                MessageType::Proposal => config::get_proposal_route(consensus_info.view_number),
-                MessageType::VoteTimedOut => {
-                    config::get_vote_route(consensus_info.view_number, vote_index)
-                }
-                MessageType::Transaction => config::get_transactions_route(tx_index),
+            let (endpoint, message_purpose) = match message_destination {
+                MessagePurposeDestination::Committee(purpose) => match purpose {
+                    MessagePurpose::Proposal => {
+                        (config::get_proposal_route(consensus_info.view_number, true), purpose)
+                    }
+                    MessagePurpose::Vote => (
+                        config::get_vote_route(consensus_info.view_number, vote_index, true),
+                        purpose,
+                    ),
+                    MessagePurpose::Data => {
+                        (config::get_transactions_route(tx_index, true), purpose)
+                    }
+                    MessagePurpose::Internal => unimplemented!(),
+                },
+                MessagePurposeDestination::Quorum(purpose) => match purpose {
+                    MessagePurpose::Proposal => {
+                        (config::get_proposal_route(consensus_info.view_number, false), purpose)
+                    }
+                    MessagePurpose::Vote => (
+                        config::get_vote_route(consensus_info.view_number, vote_index, false),
+                        purpose,
+                    ),
+                    MessagePurpose::Data => {
+                        (config::get_transactions_route(tx_index, false), purpose)
+                    }
+                    MessagePurpose::Internal => unimplemented!(),
+                },
             };
 
-            let possible_message =
-                if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
-                    Ok(None)
-                } else {
-                    self.get_message_from_web_server(endpoint).await
-                };
+            // TODO ED Double check this logic for skipping polling
+            let possible_message = if message_destination
+                == MessagePurposeDestination::Committee(MessagePurpose::Vote)
+                && !consensus_info.is_current_leader
+            {
+                Ok(None)
+            } else if message_destination
+                == MessagePurposeDestination::Quorum(MessagePurpose::Vote)
+                && !consensus_info.is_next_leader
+            {
+                Ok(None)
+            } else {
+                self.get_message_from_web_server(endpoint).await
+            };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
-                    match message_type {
-                        MessageType::Proposal => {
+                    match message_purpose {
+                        MessagePurpose::Proposal => {
                             info!("Received proposal for view {}", consensus_info.view_number);
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
@@ -196,7 +225,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             // Wait for the view to change before polling for proposals again
                             consensus_info = consensus_update.recv().await.unwrap();
                         }
-                        MessageType::VoteTimedOut => {
+                        MessagePurpose::Vote => {
                             info!(
                                 "Received {} votes for view {}",
                                 deserialized_messages.len(),
@@ -208,13 +237,16 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 direct_poll_queue.push(vote.clone());
                             }
                         }
-                        MessageType::Transaction => {
+                        MessagePurpose::Data => {
                             info!("Received new transaction");
                             let mut lock = self.broadcast_poll_queue.write().await;
                             for tx in &deserialized_messages {
                                 tx_index += 1;
                                 lock.push(tx.clone());
                             }
+                        }
+                        MessagePurpose::Internal => {
+                            unimplemented!()
                         }
                     }
                 }
@@ -377,10 +409,16 @@ impl<
 
     /// Launches background tasks for polling the web server
     async fn run_background_receive(inner: Arc<Inner<M, K, E, TYPES>>) -> Result<(), ClientError> {
-        let proposal_handle = async_spawn({
+        let quorum_proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
-                if let Err(e) = inner_clone.poll_web_server(MessageType::Proposal, 0).await {
+                if let Err(e) = inner_clone
+                    .poll_web_server(
+                        MessagePurposeDestination::Quorum(MessagePurpose::Proposal),
+                        0,
+                    )
+                    .await
+                {
                     error!(
                         "Background receive proposal polling encountered an error: {:?}",
                         e
@@ -388,12 +426,12 @@ impl<
                 }
             }
         });
-        let vote_handle = async_spawn({
+        let quorum_vote_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
                 if let Err(e) = inner_clone
-                    .poll_web_server(MessageType::VoteTimedOut, 0)
+                    .poll_web_server(MessagePurposeDestination::Quorum(MessagePurpose::Vote), 0)
                     .await
                 {
                     error!(
@@ -403,12 +441,15 @@ impl<
                 }
             }
         });
-        let transaction_handle = async_spawn({
+        let committee_transaction_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
                 if let Err(e) = inner_clone
-                    .poll_web_server(MessageType::Transaction, 0)
+                    .poll_web_server(
+                        MessagePurposeDestination::Committee(MessagePurpose::Data),
+                        0,
+                    )
                     .await
                 {
                     error!(
@@ -419,7 +460,13 @@ impl<
             }
         });
 
-        let task_handles = vec![proposal_handle, vote_handle, transaction_handle];
+        // TODO ED Add committee polling tasks here:
+
+        let task_handles = vec![
+            quorum_proposal_handle,
+            quorum_vote_handle,
+            committee_transaction_handle,
+        ];
 
         let _children_finished = futures::future::join_all(task_handles).await;
 
@@ -433,15 +480,15 @@ impl<
 
         let endpoint = match &message.purpose() {
             MessagePurposeDestination::Committee(purpose) => match purpose {
-                MessagePurpose::Proposal => config::post_proposal_route(*view_number),
-                MessagePurpose::Vote => config::post_vote_route(*view_number),
-                MessagePurpose::Data => config::post_transactions_route(),
+                MessagePurpose::Proposal => config::post_proposal_route(*view_number, true),
+                MessagePurpose::Vote => config::post_vote_route(*view_number, true),
+                MessagePurpose::Data => config::post_transactions_route(true),
                 MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
             },
             MessagePurposeDestination::Quorum(purpose) => match purpose {
-                MessagePurpose::Proposal => config::post_proposal_route(*view_number),
-                MessagePurpose::Vote => config::post_vote_route(*view_number),
-                MessagePurpose::Data => config::post_transactions_route(),
+                MessagePurpose::Proposal => config::post_proposal_route(*view_number, false),
+                MessagePurpose::Vote => config::post_vote_route(*view_number, false),
+                MessagePurpose::Data => config::post_transactions_route(false),
                 MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
             },
         };
@@ -647,11 +694,11 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        let (view_number, _is_current_leader, is_next_leader) = tuple;
+        let (view_number, is_current_leader, is_next_leader) = tuple;
 
         let new_consensus_info = ConsensusInfo {
             view_number,
-            _is_current_leader,
+            is_current_leader,
             is_next_leader,
         };
 

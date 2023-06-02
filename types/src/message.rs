@@ -53,6 +53,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
 }
 
 /// A message type agnostic description of a messages purpose
+#[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
     /// Message contains a proposal
     Proposal,
@@ -65,6 +66,7 @@ pub enum MessagePurpose {
 }
 
 /// A wrapper for the intended message destination: either committee network or quorum network
+#[derive(PartialEq)]
 pub enum MessagePurposeDestination {
     Committee(MessagePurpose),
     Quorum(MessagePurpose),
