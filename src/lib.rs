@@ -1115,10 +1115,11 @@ where
                             .is_leader(msg_time);
                         if !is_leader || msg_time < channel_map.cur_view {
                             warn!(
-                                "Throwing away {} message for view number: {:?}, Channel cur view: {:?}",
+                                "Throwing away {} message for view number: {:?}, Channel cur view: {:?} Is leader: {}",
                                 std::any::type_name::<DAVote<TYPES, I::Leaf>>(),
                                 msg_time,
                                 channel_map.cur_view,
+                                is_leader
                             );
                             return;
                         }
@@ -1443,6 +1444,16 @@ where
             send_to_replica,
         )
         .await;
+
+        // TODO ED Added this here
+        if hotshot
+            .send_network_lookup
+            .send(Some(cur_view))
+            .await
+            .is_err()
+        {
+            error!("Failed to initiate network lookup");
+        };
 
         let mut task_handles = Vec::new();
         let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
