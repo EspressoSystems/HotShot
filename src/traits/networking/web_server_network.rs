@@ -34,6 +34,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_web_server::{self, config};
+use rand::random;
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;
@@ -774,9 +775,12 @@ where
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
+        // TODO ED Restrict this to be an open port using portpicker
+        let port = random::<u16>();
+        println!("Port is {}", port);
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown),
+            Some(server_shutdown), port
         ));
 
         let known_nodes = (0..expected_node_count as u64)
@@ -790,7 +794,7 @@ where
             let sender = Arc::clone(&sender);
             let mut network = WebServerNetwork::create(
                 "0.0.0.0",
-                9000,
+                port,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
             );

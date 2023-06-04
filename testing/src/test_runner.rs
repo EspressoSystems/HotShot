@@ -168,9 +168,10 @@ where
             tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
             let network_generator = Arc::new((self.launcher.generator.network_generator)(node_id));
+            let secondary_network_generator = Arc::new((self.launcher.generator.secondary_network_generator)(node_id));
             let quorum_network =
                 (self.launcher.generator.quorum_network)(network_generator.clone());
-            let committee_network = (self.launcher.generator.committee_network)(network_generator);
+            let committee_network = (self.launcher.generator.committee_network)(secondary_network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =

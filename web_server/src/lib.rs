@@ -376,6 +376,7 @@ where
 
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
+    port: u16
 ) -> io::Result<()> {
     let options = Options::default();
 
@@ -392,7 +393,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     app.register_module("api", api).unwrap();
     app.register_module("da", da_api).unwrap();
 
-    let app_future = app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"));
+    let app_future = app.serve(format!("http://0.0.0.0:{port}"));
 
     println!("Both endpoints started");
 
