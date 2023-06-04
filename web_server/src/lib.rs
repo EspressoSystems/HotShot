@@ -191,6 +191,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
+        error!("RECVED TX)");
         // Only keep MAX_TXNS in memory
         if self.transactions.len() >= MAX_TXNS {
             self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
@@ -384,8 +385,9 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     let da_api = define_api(&options).unwrap();
-    let da_state = State::new(WebServerState::new().with_shutdown_signal(None));
-    let mut da_app = App::<State<KEY>, Error>::with_state(da_state);
+    // let da_state = State::new(WebServerState::new().with_shutdown_signal(None));
+    // let mut da_app = App::<State<KEY>, Error>::with_state(da_state);
+    // TODO ED Need to make da and api have separate state, but tide disco forces them to share state.  
 
     app.register_module("api", api).unwrap();
     app.register_module("da", da_api).unwrap();

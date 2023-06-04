@@ -168,13 +168,15 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut tx_index: u64 = 0;
 
         while self.running.load(Ordering::Relaxed) {
+            let view_number = consensus_info.view_number + _num_views_ahead;
             let (endpoint, message_purpose) = match message_destination {
                 MessagePurposeDestination::Committee(purpose) => match purpose {
-                    MessagePurpose::Proposal => {
-                        (config::get_proposal_route(consensus_info.view_number, true), purpose)
-                    }
+                    MessagePurpose::Proposal => (
+                        config::get_proposal_route(view_number, true),
+                        purpose,
+                    ),
                     MessagePurpose::Vote => (
-                        config::get_vote_route(consensus_info.view_number, vote_index, true),
+                        config::get_vote_route(view_number, vote_index, true),
                         purpose,
                     ),
                     MessagePurpose::Data => {
@@ -183,11 +185,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     MessagePurpose::Internal => unimplemented!(),
                 },
                 MessagePurposeDestination::Quorum(purpose) => match purpose {
-                    MessagePurpose::Proposal => {
-                        (config::get_proposal_route(consensus_info.view_number, false), purpose)
-                    }
+                    MessagePurpose::Proposal => (
+                        config::get_proposal_route(view_number, false),
+                        purpose,
+                    ),
                     MessagePurpose::Vote => (
-                        config::get_vote_route(consensus_info.view_number, vote_index, false),
+                        config::get_vote_route(view_number, vote_index, false),
                         purpose,
                     ),
                     MessagePurpose::Data => {
@@ -198,25 +201,25 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             };
 
             // TODO ED Double check this logic for skipping polling
-            let possible_message = if message_destination
-                == MessagePurposeDestination::Committee(MessagePurpose::Vote)
-                && !consensus_info.is_current_leader
-            {
-                Ok(None)
-            } else if message_destination
-                == MessagePurposeDestination::Quorum(MessagePurpose::Vote)
-                && !consensus_info.is_next_leader
-            {
-                Ok(None)
-            } else {
-                self.get_message_from_web_server(endpoint).await
-            };
+            let possible_message =self.get_message_from_web_server(endpoint).await;
+            //  if message_destination
+            //     == MessagePurposeDestination::Committee(MessagePurpose::Vote)
+            //     && !consensus_info.is_current_leader
+            // {
+            //     Ok(None)
+            // } else if message_destination == MessagePurposeDestination::Quorum(MessagePurpose::Vote)
+            //     && !consensus_info.is_next_leader
+            // {
+            //     Ok(None)
+            // } else {
+            //     self.get_message_from_web_server(endpoint).await
+            // };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
                         MessagePurpose::Proposal => {
-                            info!("Received proposal for view {}", consensus_info.view_number);
+                            error!("Received proposal for view {}", view_number);
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
@@ -229,8 +232,9 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             info!(
                                 "Received {} votes for view {}",
                                 deserialized_messages.len(),
-                                consensus_info.view_number
+                                view_number
                             );
+                            // error!("Consensus info {:?}\n Message is {:?}", consensus_info, deserialized_messages );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -460,11 +464,49 @@ impl<
             }
         });
 
-        // TODO ED Add committee polling tasks here:
+        let committee_proposal_handle = async_spawn({
+            let inner_clone = inner.clone();
+
+            async move {
+                if let Err(e) = inner_clone
+                    .poll_web_server(
+                        MessagePurposeDestination::Committee(MessagePurpose::Proposal),
+                        0,
+                    )
+                    .await
+                {
+                    error!(
+                        "Background receive transaction polling encountered an error: {:?}",
+                        e
+                    );
+                }
+            }
+        });
+
+        let committee_vote_handle = async_spawn({
+            let inner_clone = inner.clone();
+
+            async move {
+                if let Err(e) = inner_clone
+                    .poll_web_server(
+                        MessagePurposeDestination::Committee(MessagePurpose::Vote),
+                        0,
+                    )
+                    .await
+                {
+                    error!(
+                        "Background receive transaction polling encountered an error: {:?}",
+                        e
+                    );
+                }
+            }
+        });
 
         let task_handles = vec![
             quorum_proposal_handle,
             quorum_vote_handle,
+            committee_proposal_handle,
+            committee_vote_handle,
             committee_transaction_handle,
         ];
 
@@ -502,6 +544,7 @@ impl<
 }
 
 /// Enum for matching messages to their type
+/// // TODO ED Delete
 #[derive(PartialEq)]
 enum MessageType {
     /// Message is a transaction

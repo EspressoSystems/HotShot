@@ -493,9 +493,12 @@ where
                                     accumulator,
                                 ) {
                                     Either::Left(acc) => {
+                                        error!("Here");
                                         accumulator = acc;
                                     }
                                     Either::Right(qc) => {
+                                        // TODO ED delete
+                                        panic!();
                                         return qc;
                                     }
                                 }
