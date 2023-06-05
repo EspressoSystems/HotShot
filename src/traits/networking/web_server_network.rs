@@ -427,8 +427,6 @@ impl<
         let task_handles = vec![
             quorum_proposal_handle,
             quorum_vote_handle,
-            // committee_proposal_handle,
-            // committee_vote_handle,
             committee_transaction_handle,
         ];
 

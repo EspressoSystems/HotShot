@@ -334,19 +334,6 @@ pub trait TestableNodeImplementation<
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
         >;
 
-    // fn secondary_network_generator(
-    //     expected_node_count: usize,
-    //     num_bootstrap: usize,
-    //     da_committee_size: usize,
-    // ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>
-    // where
-    //     CommitteeCommChannel<TYPES, Self>: CommunicationChannel<
-    //         TYPES,
-    //         Message<TYPES, Self>,
-    //         <CommitteeEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Proposal,
-    //         <CommitteeEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Vote,
-    //         <CommitteeEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
-    //     >;
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> QuorumCommChannel<TYPES, Self> + 'static>
