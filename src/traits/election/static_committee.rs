@@ -78,6 +78,8 @@ impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
 /// configuration for static committee. stub for now
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct StaticElectionConfig {
+    /// Number of nodes on the committee
+    num_nodes: u64
 }
 
 impl ElectionConfig for StaticElectionConfig {}
@@ -140,13 +142,18 @@ where
         }
     }
 
-    fn default_election_config(_num_nodes: u64) -> TYPES::ElectionConfigType {
-        StaticElectionConfig {}
+    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
+        StaticElectionConfig {
+            num_nodes
+        }
     }
 
-    fn create_election(keys: Vec<PUBKEY>, _config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
+        let mut nodes = keys.clone();
+        nodes.truncate(config.num_nodes.try_into().unwrap());
+        println!("Size of election is: {}", nodes.len());
         Self {
-            nodes: keys,
+            nodes,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }

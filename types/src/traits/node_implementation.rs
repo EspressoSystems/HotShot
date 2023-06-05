@@ -247,6 +247,8 @@ where
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
+        println!("{:?}", configs.0.clone());
+
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
             configs.0,
@@ -257,6 +259,7 @@ where
         );
         // TODO ED HERE Add committee size to config
         // How to get committee size from some config?  where is config set?
+        println!("{:?}", configs.1.clone());
         let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.1, pk, sk, ek);
         Self {
             quorum_exchange,
@@ -541,7 +544,7 @@ where
     }
 
     fn committee_election_config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
-        Box::new(|_| < CommitteeMembership<TYPES, I>>::default_election_config(44))
+        Box::new(|_| < CommitteeMembership<TYPES, I>>::default_election_config(4))
     }
 
     fn quorum_comm_channel_generator(

@@ -274,10 +274,6 @@ pub trait TestableChannelImplementation<
 {
     /// generates the `CommunicationChannel` given it's associated network type
     fn generate_network() -> Box<dyn Fn(Arc<NETWORK>) -> Self + 'static>;
-
-    // fn config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
-    //     Box::new(|_| ())
-    // }
 }
 
 /// Changes that can occur in the network

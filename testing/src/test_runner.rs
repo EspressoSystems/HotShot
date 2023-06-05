@@ -258,6 +258,7 @@ where
 
         let committee_election_config = I::committee_election_config_generator();
 
+        // TODO ED Come back to this: 
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
             (quorum_election_config, committee_election_config(55)),

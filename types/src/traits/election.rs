@@ -1113,6 +1113,4 @@ impl<
 pub trait TestableElection<TYPES: NodeType>: Membership<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
-
-    // fn generate_test_election_config() -> TYPES::ElectionConfigType;
 }
