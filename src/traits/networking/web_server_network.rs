@@ -17,7 +17,6 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::message::{Message, MessagePurpose};
-use hotshot_types::traits::consensus_type::ConsensusType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
@@ -34,6 +33,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_web_server::{self, config};
+use rand::random;
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;
@@ -51,24 +51,14 @@ use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
-    CONSENSUS: ConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Arc<
-        WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-            PROPOSAL,
-            VOTE,
-        >,
-    >,
-    PhantomData<(MEMBERSHIP, I)>,
+    Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>>,
+    PhantomData<(MEMBERSHIP, I, PROPOSAL, VOTE)>,
 );
 
 impl<
@@ -77,7 +67,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     #[must_use]
@@ -88,8 +78,6 @@ impl<
                 TYPES::SignatureKey,
                 TYPES::ElectionConfigType,
                 TYPES,
-                PROPOSAL,
-                VOTE,
             >,
         >,
     ) -> Self {
@@ -104,23 +92,15 @@ pub struct WebServerNetwork<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
 > {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
+    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<
-        M: NetworkMsg,
-        KEY: SignatureKey,
-        ELECTIONCONFIG: ElectionConfig,
-        TYPES: NodeType,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
+    WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
@@ -144,23 +124,16 @@ pub struct ConsensusInfo {
     /// The latest view number
     view_number: u64,
     /// Whether this node is the leader of `view_number`
-    _is_current_leader: bool,
+    is_current_leader: bool,
     /// Whether this node is the leader of the next view
     is_next_leader: bool,
 }
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<
-    M: NetworkMsg,
-    KEY: SignatureKey,
-    ELECTIONCONFIG: ElectionConfig,
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-> {
+struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
     /// Phantom data for generic types
-    phantom: PhantomData<(KEY, ELECTIONCONFIG, PROPOSAL, VOTE)>,
+    phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
     /// Our own key
@@ -179,20 +152,14 @@ struct Inner<
     wait_between_polls: Duration,
 }
 
-impl<
-        M: NetworkMsg,
-        KEY: SignatureKey,
-        ELECTIONCONFIG: ElectionConfig,
-        TYPES: NodeType,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
+    Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
         &self,
-        message_type: MessageType,
-        _num_views_ahead: u64,
+        message_purpose: MessagePurpose,
+        num_views_ahead: u64,
     ) -> Result<(), NetworkError> {
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
@@ -201,26 +168,31 @@ impl<
         let mut tx_index: u64 = 0;
 
         while self.running.load(Ordering::Relaxed) {
-            let endpoint = match message_type {
-                MessageType::Proposal => config::get_proposal_route(consensus_info.view_number),
-                MessageType::VoteTimedOut => {
-                    config::get_vote_route(consensus_info.view_number, vote_index)
-                }
-                MessageType::Transaction => config::get_transactions_route(tx_index),
+            let view_number = consensus_info.view_number + num_views_ahead;
+            let endpoint = match message_purpose {
+                MessagePurpose::Proposal => config::get_proposal_route(view_number),
+                MessagePurpose::Vote => config::get_vote_route(view_number, vote_index),
+                MessagePurpose::Data => config::get_transactions_route(tx_index),
+                MessagePurpose::Internal => unimplemented!(),
             };
 
-            let possible_message =
-                if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
-                    Ok(None)
-                } else {
-                    self.get_message_from_web_server(endpoint).await
-                };
+            // TODO ED To account for DA, this logic polls all votes if a node
+            // is the current leader or next leader, which is inefficient.  But this
+            // will be updated during the run_view refactor. If this causes performance
+            // issues we can revert back to using MessagePurposeDestination
+            let possible_message = if message_purpose == (MessagePurpose::Vote)
+                && (!consensus_info.is_current_leader && !consensus_info.is_next_leader)
+            {
+                Ok(None)
+            } else {
+                self.get_message_from_web_server(endpoint).await
+            };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
-                    match message_type {
-                        MessageType::Proposal => {
-                            info!("Received proposal for view {}", consensus_info.view_number);
+                    match message_purpose {
+                        MessagePurpose::Proposal => {
+                            info!("Received proposal for view {}", view_number);
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
@@ -229,11 +201,11 @@ impl<
                             // Wait for the view to change before polling for proposals again
                             consensus_info = consensus_update.recv().await.unwrap();
                         }
-                        MessageType::VoteTimedOut => {
+                        MessagePurpose::Vote => {
                             info!(
                                 "Received {} votes for view {}",
                                 deserialized_messages.len(),
-                                consensus_info.view_number
+                                view_number
                             );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
@@ -241,13 +213,16 @@ impl<
                                 direct_poll_queue.push(vote.clone());
                             }
                         }
-                        MessageType::Transaction => {
+                        MessagePurpose::Data => {
                             info!("Received new transaction");
                             let mut lock = self.broadcast_poll_queue.write().await;
                             for tx in &deserialized_messages {
                                 tx_index += 1;
                                 lock.push(tx.clone());
                             }
+                        }
+                        MessagePurpose::Internal => {
+                            unimplemented!()
                         }
                     }
                 }
@@ -352,9 +327,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
-        VOTE: VoteType<TYPES> + 'static,
-    > WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > WebServerNetwork<M, K, E, TYPES>
 {
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
@@ -393,11 +366,10 @@ impl<
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
-                    if let Err(e) =
-                        WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(
-                            Arc::clone(&inner),
-                        )
-                        .await
+                    if let Err(e) = WebServerNetwork::<M, K, E, TYPES>::run_background_receive(
+                        Arc::clone(&inner),
+                    )
+                    .await
                     {
                         error!(?e, "Background polling task exited");
                     }
@@ -412,13 +384,14 @@ impl<
     }
 
     /// Launches background tasks for polling the web server
-    async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
-    ) -> Result<(), ClientError> {
-        let proposal_handle = async_spawn({
+    async fn run_background_receive(inner: Arc<Inner<M, K, E, TYPES>>) -> Result<(), ClientError> {
+        let quorum_proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
-                if let Err(e) = inner_clone.poll_web_server(MessageType::Proposal, 0).await {
+                if let Err(e) = inner_clone
+                    .poll_web_server(MessagePurpose::Proposal, 0)
+                    .await
+                {
                     error!(
                         "Background receive proposal polling encountered an error: {:?}",
                         e
@@ -426,14 +399,11 @@ impl<
                 }
             }
         });
-        let vote_handle = async_spawn({
+        let quorum_vote_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server(MessageType::VoteTimedOut, 0)
-                    .await
-                {
+                if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 0).await {
                     error!(
                         "Background receive vote polling encountered an error: {:?}",
                         e
@@ -441,14 +411,11 @@ impl<
                 }
             }
         });
-        let transaction_handle = async_spawn({
+        let committee_transaction_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server(MessageType::Transaction, 0)
-                    .await
-                {
+                if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Data, 0).await {
                     error!(
                         "Background receive transaction polling encountered an error: {:?}",
                         e
@@ -457,7 +424,11 @@ impl<
             }
         });
 
-        let task_handles = vec![proposal_handle, vote_handle, transaction_handle];
+        let task_handles = vec![
+            quorum_proposal_handle,
+            quorum_vote_handle,
+            committee_transaction_handle,
+        ];
 
         let _children_finished = futures::future::join_all(task_handles).await;
 
@@ -484,17 +455,6 @@ impl<
     }
 }
 
-/// Enum for matching messages to their type
-#[derive(PartialEq)]
-enum MessageType {
-    /// Message is a transaction
-    Transaction,
-    /// Message is a vote or time out
-    VoteTimedOut,
-    /// Message is a proposal
-    Proposal,
-}
-
 #[async_trait]
 impl<
         TYPES: NodeType,
@@ -503,20 +463,14 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
-    type NETWORK = WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    >;
+    type NETWORK =
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -526,7 +480,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
@@ -537,7 +491,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -572,7 +526,7 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
@@ -586,7 +540,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
@@ -600,9 +554,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
-        VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -685,11 +637,11 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        let (view_number, _is_current_leader, is_next_leader) = tuple;
+        let (view_number, is_current_leader, is_next_leader) = tuple;
 
         let new_consensus_info = ConsensusInfo {
             view_number,
-            _is_current_leader,
+            is_current_leader,
             is_next_leader,
         };
 
@@ -708,20 +660,9 @@ impl<
         result
     }
 }
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    >
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -733,9 +674,13 @@ where
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
+        // TODO ED Restrict this to be an open port using portpicker
+        let port = random::<u16>();
+        error!("Launching web server on port {port}");
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
             Some(server_shutdown),
+            port,
         ));
 
         let known_nodes = (0..expected_node_count as u64)
@@ -749,7 +694,7 @@ where
             let sender = Arc::clone(&sender);
             let mut network = WebServerNetwork::create(
                 "0.0.0.0",
-                9000,
+                port,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
             );
@@ -770,7 +715,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -785,8 +730,6 @@ where
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
-            PROPOSAL,
-            VOTE,
         > as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -814,15 +757,8 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-            PROPOSAL,
-            VOTE,
-        >,
-    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -834,8 +770,6 @@ where
                         TYPES::SignatureKey,
                         TYPES::ElectionConfigType,
                         TYPES,
-                        PROPOSAL,
-                        VOTE,
                     >,
                 >,
             ) -> Self
