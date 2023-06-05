@@ -906,6 +906,63 @@ where
             tasks::network_lookup_task(self.clone(), shut_down.clone())
                 .instrument(info_span!("HotShot Network Lookup Task",)),
         );
+        // let (hotshot2, shutdown_down2) = (self.clone(), shut_down.clone());
+
+        // async_spawn(async {
+        //     info!("Launching network lookup task");
+        //     let hotshot = hotshot2;
+        //     let shut_down = shutdown_down2;
+        //     let networking = hotshot
+        //         .inner
+        //         .exchanges
+        //         .committee_exchange()
+        //         .network()
+        //         .clone();
+
+        //     // let secondary_networking = hotshot
+        //     //     .inner
+        //     //     .exchanges
+        //     //     .committee_exchange()
+        //     //     .network()
+        //     //     .clone();
+
+        //     let inner = hotshot.inner.clone();
+
+            // let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
+
+            // while !shut_down.load(Ordering::Relaxed) {
+            //     error!("top of while loopp");
+
+            //     let lock = hotshot.recv_network_lookup.lock().await;
+
+            //     if let Ok(Some(cur_view)) = lock.recv().await {
+            //         // Injecting consensus data into the networking implementation
+            //         error!("Injecting consensus info");
+            //         let _result = networking
+            //             .inject_consensus_info((
+            //                 (*cur_view),
+            //                 inner.exchanges.quorum_exchange().is_leader(cur_view),
+            //                 inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
+            //             ))
+            //             .await;
+            //     }
+            // }
+
+            // let _result = secondary_networking
+            //     .inject_consensus_info((
+            //         (*cur_view),
+            //         inner.exchanges.quorum_exchange().is_leader(cur_view),
+            //         inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
+            //     ))
+            //     .await;
+        // });
+
+        // let secondary_networking = hotshot
+        // .inner
+        // .exchanges
+        // .committee_exchange()
+        // .network()
+        // .clone();
 
         let (handle_channels, task_channels) = match self.inner.config.execution_type {
             ExecutionType::Continuous => (None, None),
@@ -1396,6 +1453,15 @@ where
             .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
+
+        let networking = hotshot.inner.exchanges.committee_exchange().network().clone();
+        let _result = networking
+        .inject_consensus_info((
+            (*cur_view),
+            hotshot.inner.exchanges.quorum_exchange().is_leader(cur_view),
+            hotshot.inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
+        ))
+        .await;
 
         // Set up vote collection channel for commitment proposals/votes
         let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
