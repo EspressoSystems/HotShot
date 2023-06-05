@@ -159,7 +159,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
         &self,
-        message_destination: MessagePurposeDestination,
+        message_destination: MessagePurpose,
         _num_views_ahead: u64,
     ) -> Result<(), NetworkError> {
         // Subscribe to changes in consensus info
@@ -170,55 +170,55 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
 
         while self.running.load(Ordering::Relaxed) {
             let view_number = consensus_info.view_number + _num_views_ahead;
-            let (endpoint, message_purpose) = match message_destination {
-                MessagePurposeDestination::Committee(purpose) => match purpose {
+            let endpoint = match message_destination {
+                // MessagePurposeDestination::Committee(purpose) => match purpose {
                     MessagePurpose::Proposal => (
-                        config::get_proposal_route(view_number, true),
-                        purpose,
+                        config::get_proposal_route(view_number, true)
+                        
                     ),
                     MessagePurpose::Vote => (
-                        config::get_vote_route(view_number, vote_index, true),
-                        purpose,
+                        config::get_vote_route(view_number, vote_index, true)
+                        
                     ),
                     MessagePurpose::Data => {
-                        (config::get_transactions_route(tx_index, true), purpose)
+                        config::get_transactions_route(tx_index, true)
                     }
                     MessagePurpose::Internal => unimplemented!(),
-                },
-                MessagePurposeDestination::Quorum(purpose) => match purpose {
-                    MessagePurpose::Proposal => (
-                        config::get_proposal_route(view_number, false),
-                        purpose,
-                    ),
-                    MessagePurpose::Vote => (
-                        config::get_vote_route(view_number, vote_index, false),
-                        purpose,
-                    ),
-                    MessagePurpose::Data => {
-                        (config::get_transactions_route(tx_index, false), purpose)
-                    }
-                    MessagePurpose::Internal => unimplemented!(),
-                },
+                // },
+                // MessagePurposeDestination::Quorum(purpose) => match purpose {
+                //     MessagePurpose::Proposal => (
+                //         config::get_proposal_route(view_number, false),
+                //         purpose,
+                //     ),
+                //     MessagePurpose::Vote => (
+                //         config::get_vote_route(view_number, vote_index, false),
+                //         purpose,
+                //     ),
+                //     MessagePurpose::Data => {
+                //         (config::get_transactions_route(tx_index, false), purpose)
+                //     }
+                //     MessagePurpose::Internal => unimplemented!(),
+                // },
             };
 
             // TODO ED Double check this logic for skipping polling
-            let possible_message =self.get_message_from_web_server(endpoint).await;
-            //  if message_destination
-            //     == MessagePurposeDestination::Committee(MessagePurpose::Vote)
-            //     && !consensus_info.is_current_leader
-            // {
-            //     Ok(None)
-            // } else if message_destination == MessagePurposeDestination::Quorum(MessagePurpose::Vote)
+            let possible_message = // self.get_message_from_web_server(endpoint).await;
+             if message_destination
+                == (MessagePurpose::Vote)
+                && (!consensus_info.is_current_leader && !consensus_info.is_next_leader)
+            {
+                Ok(None)
+            // } else if message_destination == (MessagePurpose::Vote)
             //     && !consensus_info.is_next_leader
             // {
             //     Ok(None)
-            // } else {
-            //     self.get_message_from_web_server(endpoint).await
-            // };
+            } else {
+                self.get_message_from_web_server(endpoint).await
+            };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
-                    match message_purpose {
+                    match message_destination {
                         MessagePurpose::Proposal => {
                             error!("Received proposal for view {}", view_number);
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
@@ -419,7 +419,7 @@ impl<
             async move {
                 if let Err(e) = inner_clone
                     .poll_web_server(
-                        MessagePurposeDestination::Quorum(MessagePurpose::Proposal),
+                        (MessagePurpose::Proposal),
                         0,
                     )
                     .await
@@ -436,7 +436,7 @@ impl<
 
             async move {
                 if let Err(e) = inner_clone
-                    .poll_web_server(MessagePurposeDestination::Quorum(MessagePurpose::Vote), 0)
+                    .poll_web_server((MessagePurpose::Vote), 0)
                     .await
                 {
                     error!(
@@ -452,7 +452,7 @@ impl<
             async move {
                 if let Err(e) = inner_clone
                     .poll_web_server(
-                        MessagePurposeDestination::Committee(MessagePurpose::Data),
+                        (MessagePurpose::Data),
                         0,
                     )
                     .await
@@ -465,49 +465,49 @@ impl<
             }
         });
 
-        let committee_proposal_handle = async_spawn({
-            let inner_clone = inner.clone();
+        // let committee_proposal_handle = async_spawn({
+        //     let inner_clone = inner.clone();
 
-            async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server(
-                        MessagePurposeDestination::Committee(MessagePurpose::Proposal),
-                        0,
-                    )
-                    .await
-                {
-                    error!(
-                        "Background receive transaction polling encountered an error: {:?}",
-                        e
-                    );
-                }
-            }
-        });
+        //     async move {
+        //         if let Err(e) = inner_clone
+        //             .poll_web_server(
+        //                 MessagePurposeDestination::Committee(MessagePurpose::Proposal),
+        //                 0,
+        //             )
+        //             .await
+        //         {
+        //             error!(
+        //                 "Background receive transaction polling encountered an error: {:?}",
+        //                 e
+        //             );
+        //         }
+        //     }
+        // });
 
-        let committee_vote_handle = async_spawn({
-            let inner_clone = inner.clone();
+        // let committee_vote_handle = async_spawn({
+        //     let inner_clone = inner.clone();
 
-            async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server(
-                        MessagePurposeDestination::Committee(MessagePurpose::Vote),
-                        0,
-                    )
-                    .await
-                {
-                    error!(
-                        "Background receive transaction polling encountered an error: {:?}",
-                        e
-                    );
-                }
-            }
-        });
+        //     async move {
+        //         if let Err(e) = inner_clone
+        //             .poll_web_server(
+        //                 MessagePurposeDestination::Committee(MessagePurpose::Vote),
+        //                 0,
+        //             )
+        //             .await
+        //         {
+        //             error!(
+        //                 "Background receive transaction polling encountered an error: {:?}",
+        //                 e
+        //             );
+        //         }
+        //     }
+        // });
 
         let task_handles = vec![
             quorum_proposal_handle,
             quorum_vote_handle,
-            committee_proposal_handle,
-            committee_vote_handle,
+            // committee_proposal_handle,
+            // committee_vote_handle,
             committee_transaction_handle,
         ];
 

@@ -42,70 +42,69 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-// #[derive(Clone, Debug, Deserialize, Serialize)]
-// struct StaticCentralizedImp {}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct StaticCentralizedImp {}
 
-// type StaticMembership =
-//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+type StaticMembershipV =
+    StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
 
-// type StaticCommunication = WebCommChannel<
-//     ValidatingConsensus,
-//     StaticCommitteeTestTypes,
-//     StaticCentralizedImp,
-//     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-// >;
+type StaticCommunication = WebCommChannel<
+    StaticCommitteeTestTypes,
+    StaticCentralizedImp,
+    ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+>;
 
-// impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
-//     type Storage =
-//         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-//     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         StaticCommitteeTestTypes,
-//         Message<StaticCommitteeTestTypes, Self>,
-//         QuorumExchange<
-//             StaticCommitteeTestTypes,
-//             ValidatingLeaf<StaticCommitteeTestTypes>,
-//             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//             StaticMembership,
-//             StaticCommunication,
-//             Message<StaticCommitteeTestTypes, Self>,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
-// }
+impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
+    type Storage =
+        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+    type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        StaticCommitteeTestTypes,
+        Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembershipV,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
+    >;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+}
 
-// /// Web server network test
-// #[cfg_attr(
-//     feature = "tokio-executor",
-//     tokio::test(flavor = "multi_thread", worker_threads = 2)
-// )]
-// #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// #[instrument]
-// async fn web_server_network() {
-//     let builder = TestBuilder {
-//         metadata: TestMetadata {
-//             timing_data: TimingData {
-//                 round_start_delay: 25,
-//                 next_view_timeout: 3000,
-//                 start_delay: 120000,
-//                 ..Default::default()
-//             },
-//             num_succeeds: 5,
-//             ..TestMetadata::default()
-//         },
-//         ..Default::default()
-//     };
+/// Web server network test
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn web_server_network() {
+    let builder = TestBuilder {
+        metadata: TestMetadata {
+            timing_data: TimingData {
+                round_start_delay: 25,
+                next_view_timeout: 3000,
+                start_delay: 120000,
+                ..Default::default()
+            },
+            num_succeeds: 5,
+            ..TestMetadata::default()
+        },
+        ..Default::default()
+    };
 
-//     builder
-//         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
-//         .launch()
-//         .run_test()
-//         .await
-//         .unwrap();
-//     shutdown_logging();
-// }
+    builder
+        .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
+    shutdown_logging();
+}
 
 #[derive(
     Copy,
@@ -186,7 +185,16 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebServerImpl {
 #[instrument]
 async fn sequencing_web_server_test() {
     let builder: TestBuilder = TestBuilder::default_multiple_rounds_da();
-
+    // let builder: TestBuilder = TestBuilder {
+    //     metadata: TestMetadata {
+    //         total_nodes: 4,
+    //         start_nodes: 4,
+    //         num_succeeds: 3,
+    //         failure_threshold: 4,
+    //         ..TestMetadata::default()
+    //     },
+    //     ..Default::default()
+    // };
     builder
         .build::<SequencingTestTypes, SequencingWebServerImpl>()
         .launch()

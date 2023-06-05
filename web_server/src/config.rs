@@ -1,6 +1,7 @@
 pub const DEFAULT_WEB_SERVER_PORT: u16 = 9000;
 pub const GENERAL_CONSENSUS_API_PATH: &str = "api";
-pub const DA_API_PATH: &str = "da";
+// TODO ED Come back to this below: 
+pub const DA_API_PATH: &str = "api";
 
 fn get_api_path(is_da: bool) -> &'static str {
     if is_da {

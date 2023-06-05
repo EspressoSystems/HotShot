@@ -1454,12 +1454,13 @@ where
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
 
+        // TODO ED here
         let networking = hotshot.inner.exchanges.committee_exchange().network().clone();
         let _result = networking
         .inject_consensus_info((
             (*cur_view),
-            hotshot.inner.exchanges.quorum_exchange().is_leader(cur_view),
-            hotshot.inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
+            hotshot.inner.exchanges.committee_exchange().is_leader(cur_view),
+            hotshot.inner.exchanges.committee_exchange().is_leader(cur_view + 1),
         ))
         .await;
 
