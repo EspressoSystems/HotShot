@@ -544,7 +544,7 @@ where
     }
 
     fn committee_election_config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
-        Box::new(|_| < CommitteeMembership<TYPES, I>>::default_election_config(4))
+        Box::new(|num_nodes| < CommitteeMembership<TYPES, I>>::default_election_config(num_nodes))
     }
 
     fn quorum_comm_channel_generator(

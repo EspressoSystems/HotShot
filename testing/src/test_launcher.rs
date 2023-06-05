@@ -102,7 +102,6 @@ where
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -110,7 +109,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_nodes,
+            da_committee_size: NonZeroUsize::new(da_committee_size).unwrap(),
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,

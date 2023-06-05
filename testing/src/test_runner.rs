@@ -1,5 +1,6 @@
 use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
+use std::num::NonZeroUsize;
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
@@ -261,7 +262,7 @@ where
         // TODO ED Come back to this: 
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, committee_election_config(55)),
+            (quorum_election_config, committee_election_config(config.da_committee_size.get() as u64)),
             (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),
