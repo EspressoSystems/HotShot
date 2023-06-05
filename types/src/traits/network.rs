@@ -11,7 +11,6 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::message::MessagePurposeDestination;
 use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -141,7 +140,7 @@ pub trait ViewMessage<TYPES: NodeType> {
     fn get_view_number(&self) -> TYPES::Time;
     // TODO move out of this trait.
     /// get the purpose of the message
-    fn purpose(&self) -> MessagePurposeDestination;
+    fn purpose(&self) -> MessagePurpose;
 }
 
 /// API for interacting directly with a consensus committee

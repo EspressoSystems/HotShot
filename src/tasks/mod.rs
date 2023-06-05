@@ -24,7 +24,6 @@ use std::{
     },
     time::Duration,
 };
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use tracing::{error, info, trace};
 
 #[cfg(feature = "async-std-executor")]
@@ -219,14 +218,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
                 ))
                 .await;
-
-            // let _result = secondary_networking
-            //     .inject_consensus_info((
-            //         (*cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
-            //     ))
-            //     .await;
 
             let view_to_lookup = cur_view + LOOK_AHEAD;
 

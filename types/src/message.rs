@@ -47,7 +47,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
     fn get_view_number(&self) -> TYPES::Time {
         self.kind.get_view_number()
     }
-    fn purpose(&self) -> MessagePurposeDestination {
+    fn purpose(&self) -> MessagePurpose {
         self.kind.purpose()
     }
 }
@@ -63,13 +63,6 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
-}
-
-/// A wrapper for the intended message destination: either committee network or quorum network
-#[derive(PartialEq)]
-pub enum MessagePurposeDestination {
-    Committee(MessagePurpose),
-    Quorum(MessagePurpose),
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -129,12 +122,11 @@ impl<
         }
     }
 
-    fn purpose(&self) -> MessagePurposeDestination {
+    fn purpose(&self) -> MessagePurpose {
         match &self {
             MessageKind::Consensus(message) => message.purpose(),
             MessageKind::Data(message) => match message {
-                // TODO ED This will break validating consensus
-                DataMessage::SubmitTransaction(_, _) => MessagePurposeDestination::Committee(MessagePurpose::Data),
+                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
             },
             MessageKind::_Unreachable(_) => unimplemented!(),
         }
@@ -363,7 +355,7 @@ pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     fn view_number(&self) -> TYPES::Time;
 
     /// Get the message purpose.
-    fn purpose(&self) -> MessagePurposeDestination;
+    fn purpose(&self) -> MessagePurpose;
 }
 
 /// Messages related to the validating consensus protocol.
@@ -419,14 +411,13 @@ impl<
 
     // TODO: Disable panic after the `ViewSync` case is implemented.
     #[allow(clippy::panic)]
-    fn purpose(&self) -> MessagePurposeDestination {
-        let purpose = match &self.0 {
+    fn purpose(&self) -> MessagePurpose {
+        match &self.0 {
             GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
             GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
             GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
             GeneralConsensusMessage::ViewSync(_) => todo!(),
-        };
-        MessagePurposeDestination::Quorum(purpose)
+        }
     }
 }
 
@@ -479,22 +470,18 @@ impl<
 
     // TODO: Disable panic after the `ViewSync` case is implemented.
     #[allow(clippy::panic)]
-    fn purpose(&self) -> MessagePurposeDestination {
+    fn purpose(&self) -> MessagePurpose {
         match &self.0 {
-            Left(general_message) => { let purpose = match general_message {
+            Left(general_message) => match general_message {
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
                 GeneralConsensusMessage::ViewSync(_) => todo!(),
-            };
-            MessagePurposeDestination::Quorum(purpose)
             },
-            Right(committee_message) => {let purpose = match committee_message {
+            Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
-            };
-            MessagePurposeDestination::Committee(purpose)
-        },
+            },
         }
     }
 }

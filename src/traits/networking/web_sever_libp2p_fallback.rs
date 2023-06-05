@@ -37,11 +37,8 @@ pub struct WebServerWithFallbackCommChannel<
     networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 {
     /// Constructor
     #[must_use]
@@ -53,12 +50,8 @@ impl<
     #[must_use]
     pub fn network(
         &self,
-    ) -> &WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-    > {
+    ) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
+    {
         &self.networks.0
     }
 
@@ -78,21 +71,13 @@ pub struct CombinedNetworks<
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-    >,
+    WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
     Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<MEMBERSHIP>,
 );
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for CombinedNetworks<TYPES, I, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -134,11 +119,8 @@ where
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,

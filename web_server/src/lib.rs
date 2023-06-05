@@ -3,8 +3,6 @@ pub mod config;
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
-use config::DEFAULT_WEB_SERVER_PORT;
-use futures::join;
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
@@ -376,7 +374,7 @@ where
 
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
-    port: u16
+    port: u16,
 ) -> io::Result<()> {
     let options = Options::default();
 
@@ -388,7 +386,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     // let da_api = define_api(&options).unwrap();
     // let da_state = State::new(WebServerState::new().with_shutdown_signal(None));
     // let mut da_app = App::<State<KEY>, Error>::with_state(da_state);
-    // TODO ED Need to make da and api have separate state, but tide disco forces them to share state.  
+    // TODO ED Need to make da and api have separate state, but tide disco forces them to share state.
 
     app.register_module("api", api).unwrap();
     // app.register_module("da", da_api).unwrap();
@@ -397,9 +395,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 
     println!("Both endpoints started");
 
-    app_future.await;
-
-    Ok(())
+    app_future.await
 }
 
 #[cfg(test)]

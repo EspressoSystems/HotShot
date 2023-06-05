@@ -33,7 +33,7 @@ pub struct ResourceGenerators<
     /// generate the underlying quorum network used for each node
     pub(super) network_generator: Generator<QuorumNetwork<TYPES, I>>,
 
-    // TODO ED Make this a committee network
+    // TODO ED Make this a committee network; is a quorum network for now to get things working
     pub(super) secondary_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate a new quorum network for each node
     pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,

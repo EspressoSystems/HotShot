@@ -150,7 +150,6 @@ where
         Ok(())
     }
 
-    // TODO ED HERE
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
@@ -168,10 +167,23 @@ where
             tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
             let network_generator = Arc::new((self.launcher.generator.network_generator)(node_id));
-            let secondary_network_generator = Arc::new((self.launcher.generator.secondary_network_generator)(node_id));
+
+            // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
+            // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
+            // test libp2p change the below line to the one commented out.
+            let secondary_network_generator =
+                Arc::new((self.launcher.generator.secondary_network_generator)(
+                    node_id,
+                ));
+            // let secondary_network_generator =
+            //     Arc::new((self.launcher.generator.network_generator)(
+            //         node_id,
+            //     ));
+
             let quorum_network =
                 (self.launcher.generator.quorum_network)(network_generator.clone());
-            let committee_network = (self.launcher.generator.committee_network)(secondary_network_generator);
+            let committee_network =
+                (self.launcher.generator.committee_network)(secondary_network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =

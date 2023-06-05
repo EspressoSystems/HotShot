@@ -496,7 +496,6 @@ where
                                         accumulator = acc;
                                     }
                                     Either::Right(qc) => {
-                                    
                                         return qc;
                                     }
                                 }

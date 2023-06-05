@@ -16,8 +16,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_types::message::{Message, MessagePurpose, MessagePurposeDestination};
-use hotshot_types::traits::consensus_type::ConsensusType;
+use hotshot_types::message::{Message, MessagePurpose};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
@@ -159,8 +158,8 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
     /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(
         &self,
-        message_destination: MessagePurpose,
-        _num_views_ahead: u64,
+        message_purpose: MessagePurpose,
+        num_views_ahead: u64,
     ) -> Result<(), NetworkError> {
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
@@ -169,58 +168,31 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut tx_index: u64 = 0;
 
         while self.running.load(Ordering::Relaxed) {
-            let view_number = consensus_info.view_number + _num_views_ahead;
-            let endpoint = match message_destination {
-                // MessagePurposeDestination::Committee(purpose) => match purpose {
-                    MessagePurpose::Proposal => (
-                        config::get_proposal_route(view_number, true)
-                        
-                    ),
-                    MessagePurpose::Vote => (
-                        config::get_vote_route(view_number, vote_index, true)
-                        
-                    ),
-                    MessagePurpose::Data => {
-                        config::get_transactions_route(tx_index, true)
-                    }
-                    MessagePurpose::Internal => unimplemented!(),
-                // },
-                // MessagePurposeDestination::Quorum(purpose) => match purpose {
-                //     MessagePurpose::Proposal => (
-                //         config::get_proposal_route(view_number, false),
-                //         purpose,
-                //     ),
-                //     MessagePurpose::Vote => (
-                //         config::get_vote_route(view_number, vote_index, false),
-                //         purpose,
-                //     ),
-                //     MessagePurpose::Data => {
-                //         (config::get_transactions_route(tx_index, false), purpose)
-                //     }
-                //     MessagePurpose::Internal => unimplemented!(),
-                // },
+            let view_number = consensus_info.view_number + num_views_ahead;
+            let endpoint = match message_purpose {
+                MessagePurpose::Proposal => config::get_proposal_route(view_number),
+                MessagePurpose::Vote => config::get_vote_route(view_number, vote_index),
+                MessagePurpose::Data => config::get_transactions_route(tx_index),
+                MessagePurpose::Internal => unimplemented!(),
             };
 
-            // TODO ED Double check this logic for skipping polling
-            let possible_message = // self.get_message_from_web_server(endpoint).await;
-             if message_destination
-                == (MessagePurpose::Vote)
+            // TODO ED To account for DA, this logic polls all votes if a node
+            // is the current leader or next leader, which is inefficient.  But this
+            // will be updated during the run_view refactor. If this causes performance
+            // issues we can revert back to using MessagePurposeDestination
+            let possible_message = if message_purpose == (MessagePurpose::Vote)
                 && (!consensus_info.is_current_leader && !consensus_info.is_next_leader)
             {
                 Ok(None)
-            // } else if message_destination == (MessagePurpose::Vote)
-            //     && !consensus_info.is_next_leader
-            // {
-            //     Ok(None)
             } else {
                 self.get_message_from_web_server(endpoint).await
             };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
-                    match message_destination {
+                    match message_purpose {
                         MessagePurpose::Proposal => {
-                            // error!("Received proposal for view {}", view_number);
+                            info!("Received proposal for view {}", view_number);
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
@@ -235,7 +207,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 deserialized_messages.len(),
                                 view_number
                             );
-                            // error!("Consensus info {:?}\n Message is {:?}", consensus_info, deserialized_messages );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -418,10 +389,7 @@ impl<
             let inner_clone = inner.clone();
             async move {
                 if let Err(e) = inner_clone
-                    .poll_web_server(
-                        (MessagePurpose::Proposal),
-                        0,
-                    )
+                    .poll_web_server(MessagePurpose::Proposal, 0)
                     .await
                 {
                     error!(
@@ -435,10 +403,7 @@ impl<
             let inner_clone = inner.clone();
 
             async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server((MessagePurpose::Vote), 0)
-                    .await
-                {
+                if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 0).await {
                     error!(
                         "Background receive vote polling encountered an error: {:?}",
                         e
@@ -450,13 +415,7 @@ impl<
             let inner_clone = inner.clone();
 
             async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server(
-                        (MessagePurpose::Data),
-                        0,
-                    )
-                    .await
-                {
+                if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Data, 0).await {
                     error!(
                         "Background receive transaction polling encountered an error: {:?}",
                         e
@@ -464,44 +423,6 @@ impl<
                 }
             }
         });
-
-        // let committee_proposal_handle = async_spawn({
-        //     let inner_clone = inner.clone();
-
-        //     async move {
-        //         if let Err(e) = inner_clone
-        //             .poll_web_server(
-        //                 MessagePurposeDestination::Committee(MessagePurpose::Proposal),
-        //                 0,
-        //             )
-        //             .await
-        //         {
-        //             error!(
-        //                 "Background receive transaction polling encountered an error: {:?}",
-        //                 e
-        //             );
-        //         }
-        //     }
-        // });
-
-        // let committee_vote_handle = async_spawn({
-        //     let inner_clone = inner.clone();
-
-        //     async move {
-        //         if let Err(e) = inner_clone
-        //             .poll_web_server(
-        //                 MessagePurposeDestination::Committee(MessagePurpose::Vote),
-        //                 0,
-        //             )
-        //             .await
-        //         {
-        //             error!(
-        //                 "Background receive transaction polling encountered an error: {:?}",
-        //                 e
-        //             );
-        //         }
-        //     }
-        // });
 
         let task_handles = vec![
             quorum_proposal_handle,
@@ -522,18 +443,10 @@ impl<
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.purpose() {
-            MessagePurposeDestination::Committee(purpose) => match purpose {
-                MessagePurpose::Proposal => config::post_proposal_route(*view_number, true),
-                MessagePurpose::Vote => config::post_vote_route(*view_number, true),
-                MessagePurpose::Data => config::post_transactions_route(true),
-                MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
-            },
-            MessagePurposeDestination::Quorum(purpose) => match purpose {
-                MessagePurpose::Proposal => config::post_proposal_route(*view_number, false),
-                MessagePurpose::Vote => config::post_vote_route(*view_number, false),
-                MessagePurpose::Data => config::post_transactions_route(false),
-                MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
-            },
+            MessagePurpose::Proposal => config::post_proposal_route(*view_number),
+            MessagePurpose::Vote => config::post_vote_route(*view_number),
+            MessagePurpose::Data => config::post_transactions_route(),
+            MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
@@ -542,18 +455,6 @@ impl<
         };
         Ok(network_msg)
     }
-}
-
-/// Enum for matching messages to their type
-/// // TODO ED Delete
-#[derive(PartialEq)]
-enum MessageType {
-    /// Message is a transaction
-    Transaction,
-    /// Message is a vote or time out
-    VoteTimedOut,
-    /// Message is a proposal
-    Proposal,
 }
 
 #[async_trait]
@@ -777,10 +678,11 @@ where
         let sender = Arc::new(server_shutdown_sender);
         // TODO ED Restrict this to be an open port using portpicker
         let port = random::<u16>();
-        println!("Port is {}", port);
+        error!("Launching web server on port {port}");
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown), port
+            Some(server_shutdown),
+            port,
         ));
 
         let known_nodes = (0..expected_node_count as u64)
