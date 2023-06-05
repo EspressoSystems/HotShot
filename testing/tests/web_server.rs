@@ -83,19 +83,21 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn web_server_network() {
-    let builder = TestBuilder {
-        metadata: TestMetadata {
-            timing_data: TimingData {
-                round_start_delay: 25,
-                next_view_timeout: 3000,
-                start_delay: 120000,
-                ..Default::default()
-            },
-            num_succeeds: 5,
-            ..TestMetadata::default()
-        },
-        ..Default::default()
-    };
+    let builder: TestBuilder = TestBuilder::default_multiple_rounds();
+
+    // let builder = TestBuilder {
+    //     metadata: TestMetadata {
+    //         timing_data: TimingData {
+    //             round_start_delay: 25,
+    //             next_view_timeout: 3000,
+    //             start_delay: 120000,
+    //             ..Default::default()
+    //         },
+    //         num_succeeds: 5,
+    //         ..TestMetadata::default()
+    //     },
+    //     ..Default::default()
+    // };
 
     builder
         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
