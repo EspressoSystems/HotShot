@@ -145,7 +145,7 @@ where
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        // TODO ED Update here:
+        // TODO ED This should call a secondary_network_generator function in the future
         let network_generator =
             I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
         let secondary_network_generator =
@@ -153,7 +153,6 @@ where
         Self {
             generator: ResourceGenerators {
                 network_generator,
-
                 secondary_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),

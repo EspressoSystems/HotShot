@@ -15,6 +15,7 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
+use crate::traits::election::Membership;
 use crate::{data::TestableLeaf, message::Message};
 use crate::{
     data::{LeafType, SequencingLeaf, ValidatingLeaf},
@@ -83,10 +84,13 @@ pub trait ExchangesType<
     /// Networking implementations for all exchanges.
     type Networks;
 
+    /// Election configurations for exchanges
+    type ElectionConfigs;
+
     /// Create all exchanges.
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -159,17 +163,18 @@ where
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, ());
+    type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
+            quorum_exchange: QUORUMEXCHANGE::create(keys, configs.0, networks.0, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -232,10 +237,11 @@ where
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
+    type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -243,13 +249,15 @@ where
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
-            config.clone(),
+            configs.0,
             networks.0,
             pk.clone(),
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk, ek);
+        // TODO ED HERE Add committee size to config
+        // How to get committee size from some config?  where is config set?
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.1, pk, sk, ek);
         Self {
             quorum_exchange,
             committee_exchange,
@@ -319,6 +327,9 @@ pub trait TestableNodeImplementation<
     /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
 
+
+    type CommitteeElectionConfig; 
+
     /// Generate a quorum network given an expected node count.
     fn network_generator(
         expected_node_count: usize,
@@ -333,6 +344,8 @@ pub trait TestableNodeImplementation<
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Vote,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
         >;
+
+    fn committee_election_config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static>;
 
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
@@ -411,6 +424,7 @@ where
 {
     type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
+    type CommitteeElectionConfig = ();
 
     fn network_generator(
         expected_node_count: usize,
@@ -424,6 +438,11 @@ where
             da_committee_size,
         )
     }
+
+    fn committee_election_config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|_| ())
+    }
+
 
     fn quorum_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> QuorumCommChannel<TYPES, Self> + 'static> {
@@ -505,6 +524,8 @@ where
 {
     type CommitteeCommChannel = CommitteeCommChannel<TYPES, I>;
     type CommitteeNetwork = CommitteeNetwork<TYPES, I>;
+    type CommitteeElectionConfig = TYPES::ElectionConfigType;
+
 
     fn network_generator(
         expected_node_count: usize,
@@ -517,6 +538,10 @@ where
             1,
             da_committee_size,
         )
+    }
+
+    fn committee_election_config_generator () -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|_| < CommitteeMembership<TYPES, I>>::default_election_config(44))
     }
 
     fn quorum_comm_channel_generator(

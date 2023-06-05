@@ -77,7 +77,8 @@ impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
 
 /// configuration for static committee. stub for now
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
-pub struct StaticElectionConfig {}
+pub struct StaticElectionConfig {
+}
 
 impl ElectionConfig for StaticElectionConfig {}
 
@@ -113,12 +114,17 @@ where
         view_number: TYPES::Time,
         private_key: &<PUBKEY as SignatureKey>::PrivateKey,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
+        // TODO ED Below
+        let pub_key = PUBKEY::from_private(private_key);
+        if !self.nodes.contains(&pub_key) {
+            return Ok(None);
+        }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
         let signature = PUBKEY::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,
-            pub_key: PUBKEY::from_private(private_key),
+            pub_key,
         }))
     }
 

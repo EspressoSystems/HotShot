@@ -20,8 +20,9 @@ use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
 };
 use hotshot_types::traits::state::State;
+use hotshot_types::vote::YesOrNoVote;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
@@ -157,6 +158,11 @@ where
                                 accumulator = acc;
                             }
                             Either::Right(qc) => {
+                                // TODO ED 
+                                match qc.clone().signatures {
+                                    YesNoSignature::Yes(map) => println!("Number of DA Signatures: {}", map.len()),
+                                    _ => unimplemented!(), 
+                                };
                                 return Some(qc);
                             }
                         }
