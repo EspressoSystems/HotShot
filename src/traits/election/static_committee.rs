@@ -22,6 +22,8 @@ use std::num::NonZeroU64;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// The nodes participating
     nodes: Vec<PUBKEY>,
+
+    committee_nodes: Vec<PUBKEY>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -39,7 +41,8 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     #[must_use]
     pub fn new(nodes: Vec<PUBKEY>) -> Self {
         Self {
-            nodes,
+            nodes: nodes.clone(),
+            committee_nodes: nodes,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -79,7 +82,7 @@ impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct StaticElectionConfig {
     /// Number of nodes on the committee
-    num_nodes: u64
+    num_nodes: u64,
 }
 
 impl ElectionConfig for StaticElectionConfig {}
@@ -118,59 +121,61 @@ where
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
-        if !self.nodes.contains(&pub_key) {
+        if !self.committee_nodes.contains(&pub_key) {
             return Ok(None);
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
         let signature = PUBKEY::sign(private_key, &message);
-        Ok(Some(StaticVoteToken {
-            signature,
-            pub_key,
-        }))
+        Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 
     fn validate_vote_token(
         &self,
         _view_number: TYPES::Time,
-        _pub_key: PUBKEY,
+        pub_key: PUBKEY,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
-            Checked::Valid(t) | Checked::Unchecked(t) => Ok(Checked::Valid(t)),
+            Checked::Valid(t) | Checked::Unchecked(t) => {
+                if !self.committee_nodes.contains(&pub_key) {
+                    Ok(Checked::Inval(t))
+                } else {
+                    Ok(Checked::Valid(t))
+                }
+            }
             Checked::Inval(t) => Ok(Checked::Inval(t)),
         }
     }
 
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
-        StaticElectionConfig {
-            num_nodes
-        }
+        StaticElectionConfig { num_nodes }
     }
 
     fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
-        let mut nodes = keys.clone();
-        nodes.truncate(config.num_nodes.try_into().unwrap());
-        println!("Size of election is: {}", nodes.len());
+        let mut committee_nodes = keys.clone();
+        committee_nodes.truncate(config.num_nodes.try_into().unwrap());
+        println!("Size of election is: {}", committee_nodes.len());
         Self {
-            nodes,
+            nodes: keys,
+            committee_nodes,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
     }
 
     fn success_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
+        NonZeroU64::new(((self.committee_nodes.len() as u64 * 2) / 3) + 1).unwrap()
     }
 
     fn failure_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.nodes.len() as u64) / 3) + 1).unwrap()
+        NonZeroU64::new(((self.committee_nodes.len() as u64) / 3) + 1).unwrap()
     }
 
     fn get_committee(
         &self,
         _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
-        self.nodes.clone().into_iter().collect()
+        self.committee_nodes.clone().into_iter().collect()
     }
 }

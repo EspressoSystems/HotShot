@@ -502,6 +502,10 @@ where
                                         accumulator = acc;
                                     }
                                     Either::Right(qc) => {
+                                        match qc.clone().signatures {
+                                            YesNoSignature::Yes(map) => println!("Number of Quorum Signatures: {}", map.len()),
+                                            _ => unimplemented!(), 
+                                        };
                                         return qc;
                                     }
                                 }
