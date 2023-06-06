@@ -62,7 +62,7 @@ libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-
 rand = "0.8.5"
 serde = { version = "1.0.163", features = ["derive"] }
 snafu = "0.7.4"
-tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
+tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.1" }
 time = "0.3.21"
 tokio = { version = "1", optional = true, features = [
     "fs",
