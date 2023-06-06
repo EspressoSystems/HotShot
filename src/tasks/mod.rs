@@ -1,15 +1,21 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use futures::FutureExt;
-use hotshot_task::{task::{TaskErr, PassType, TS, HotShotTaskCompleted, HandleEvent, FilterEvent, HotShotTaskTypes}, task_impls::{HSTWithEvent, TaskBuilder}, event_stream::{ChannelStream, self}, task_launcher::TaskRunner};
-use snafu::Snafu;
 use crate::{HotShot, HotShotType, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use hotshot_types::message::Message;
+use futures::FutureExt;
+use hotshot_task::{
+    event_stream::{self, ChannelStream},
+    task::{
+        FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
+    },
+    task_impls::{HSTWithEvent, TaskBuilder},
+    task_launcher::TaskRunner,
+};
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -18,6 +24,7 @@ use hotshot_types::{
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
     },
 };
+use snafu::Snafu;
 use std::{
     collections::HashMap,
     marker::PhantomData,
@@ -310,57 +317,58 @@ pub struct NetworkingTaskError {}
 impl TaskErr for NetworkingTaskError {}
 
 #[derive(Debug)]
-pub struct NetworkingTaskState { }
+pub struct NetworkingTaskState {}
 impl TS for NetworkingTaskState {}
 
 #[derive(Clone, Debug)]
 pub enum GlobalEvent {
-    Shutdown
+    Shutdown,
 }
 impl PassType for GlobalEvent {}
 
-pub type NetworkingTaskTypes = HSTWithEvent<NetworkingTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkingTaskState>;
-
-
+pub type NetworkingTaskTypes =
+    HSTWithEvent<NetworkingTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkingTaskState>;
 
 // Consensus Types
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError{}
+impl TaskErr for ConsensusTaskError {}
 
 #[derive(Debug)]
 pub struct ConsensusTaskState {}
 impl TS for ConsensusTaskState {}
 
-pub type ConsensusTaskTypes = HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
+pub type ConsensusTaskTypes =
+    HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
 
 // DA types
 #[derive(Snafu, Debug)]
 pub struct DATaskError {}
-impl TaskErr for DATaskError{}
+impl TaskErr for DATaskError {}
 
 #[derive(Debug)]
 pub struct DATaskState {}
 impl TS for DATaskState {}
 
-pub type DATaskTypes = HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
+pub type DATaskTypes =
+    HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
 
 // View Sync types
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError{}
+impl TaskErr for ViewSyncTaskError {}
 
 #[derive(Debug)]
 pub struct ViewSyncTaskState {}
 impl TS for ViewSyncTaskState {}
 
-pub type ViewSyncTaskTypes = HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
+pub type ViewSyncTaskTypes =
+    HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
 /// the view runner
 pub async fn new_view_runner() {
     let mut task_runner = TaskRunner::new();
     let event_stream = event_stream::ChannelStream::new();
-
 
     let networking_state = NetworkingTaskState {};
     let networking_event_handler = HandleEvent(Arc::new(move |event, state| {
@@ -376,14 +384,14 @@ pub async fn new_view_runner() {
     let networking_name = "Networking Task";
     let networking_event_filter = FilterEvent::default();
 
-    let networking_task_builder = TaskBuilder::<NetworkingTaskTypes>::new(networking_name.to_string())
-        .register_event_stream(event_stream.clone(), networking_event_filter)
-        .await
-        .register_registry(&mut task_runner.registry)
-        .await
-        .register_state(networking_state)
-        .register_event_handler(networking_event_handler)
-        ;
+    let networking_task_builder =
+        TaskBuilder::<NetworkingTaskTypes>::new(networking_name.to_string())
+            .register_event_stream(event_stream.clone(), networking_event_filter)
+            .await
+            .register_registry(&mut task_runner.registry)
+            .await
+            .register_state(networking_state)
+            .register_event_handler(networking_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
@@ -391,9 +399,11 @@ pub async fn new_view_runner() {
     //     HotShotTaskTypes<Error = (dyn TaskErr + 'static),
     //     >>>= Box::new(networking_task_builder);
 
-
-    task_runner.add_task(networking_task_id, networking_name.to_string(), networking_task_builder);
-
+    task_runner.add_task(
+        networking_task_id,
+        networking_name.to_string(),
+        networking_task_builder,
+    );
 
     // build the consensus task
     let consensus_state = ConsensusTaskState {};
@@ -416,15 +426,16 @@ pub async fn new_view_runner() {
         .register_registry(&mut task_runner.registry)
         .await
         .register_state(consensus_state)
-        .register_event_handler(consensus_event_handler)
-        ;
+        .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
 
-
-    task_runner.add_task(consensus_task_id, consensus_name.to_string(), consensus_task_builder);
-
+    task_runner.add_task(
+        consensus_task_id,
+        consensus_name.to_string(),
+        consensus_task_builder,
+    );
 
     // build the da task
     let da_state = DATaskState {};
@@ -447,15 +458,12 @@ pub async fn new_view_runner() {
         .register_registry(&mut task_runner.registry)
         .await
         .register_state(da_state)
-        .register_event_handler(da_event_handler)
-        ;
+        .register_event_handler(da_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let da_task_id = da_task_builder.get_task_id().unwrap();
 
-
     task_runner.add_task(da_task_id, da_name.to_string(), da_task_builder);
-
 
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {};
@@ -478,15 +486,16 @@ pub async fn new_view_runner() {
         .register_registry(&mut task_runner.registry)
         .await
         .register_state(view_sync_state)
-        .register_event_handler(view_sync_event_handler)
-        ;
+        .register_event_handler(view_sync_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
 
-
-    task_runner.add_task(view_sync_task_id, view_sync_name.to_string(), view_sync_task_builder);
-
+    task_runner.add_task(
+        view_sync_task_id,
+        view_sync_name.to_string(),
+        view_sync_task_builder,
+    );
 
     task_runner.launch().await;
 }
