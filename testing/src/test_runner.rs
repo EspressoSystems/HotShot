@@ -172,20 +172,20 @@ where
 
             // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
             // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
-            // test libp2p change the below line to the one commented out.
+            // test libp2p commout out the below lines where noted.
+
+            // NOTE ED: Comment out this line to run libp2p tests
             let secondary_network_generator =
                 Arc::new((self.launcher.generator.secondary_network_generator)(
                     node_id,
                 ));
-            // let secondary_network_generator =
-            //     Arc::new((self.launcher.generator.network_generator)(
-            //         node_id,
-            //     ));
 
             let quorum_network =
                 (self.launcher.generator.quorum_network)(network_generator.clone());
             let committee_network =
                 (self.launcher.generator.committee_network)(secondary_network_generator);
+            // NOTE ED: Switch the below line with the above line to run libp2p tests
+            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =

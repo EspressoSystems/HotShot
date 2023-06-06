@@ -134,6 +134,8 @@ pub struct ConsensusInfo {
 struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
     /// Phantom data for generic types
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
+    /// Nodes in the election committee (either quorum election or committee election)
+    committee_nodes: Vec<TYPES::SignatureKey>,
     /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
     /// Our own key
@@ -337,6 +339,7 @@ impl<
         port: u16,
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
+        committee_nodes: Vec<TYPES::SignatureKey>,
     ) -> Self {
         let base_url_string = format!("http://{host}:{port}");
         error!("Connecting to web server at {base_url_string:?}");
@@ -351,6 +354,7 @@ impl<
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
+            committee_nodes, 
             consensus_info: Arc::default(),
             broadcast_poll_queue: Arc::default(),
             direct_poll_queue: Arc::default(),
@@ -670,7 +674,7 @@ where
         expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
-        _da_committee_size: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -689,6 +693,9 @@ where
             })
             .collect::<Vec<_>>();
 
+        let mut committee_nodes = known_nodes.clone(); 
+        committee_nodes.truncate(da_committee_size);
+
         // Start each node's web server client
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
@@ -697,6 +704,7 @@ where
                 port,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
+                committee_nodes.clone()
             );
             network.server_shutdown_signal = Some(sender);
             network

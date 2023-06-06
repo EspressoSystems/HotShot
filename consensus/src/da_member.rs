@@ -100,6 +100,7 @@ where
                         match general_message {
                             ProcessedGeneralConsensusMessage::InternalTrigger(_trigger) => {
                                 warn!("DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.");
+                                // After run_view refactor we will handle timeout triggers properly
                                 return None;
                             }
                             ProcessedGeneralConsensusMessage::Vote(_, _) => {
