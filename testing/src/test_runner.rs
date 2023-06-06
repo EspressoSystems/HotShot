@@ -1,6 +1,5 @@
 use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
-use std::num::NonZeroUsize;
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
@@ -129,7 +128,6 @@ where
             Message<TYPES, I>,
             Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
-
         >,
     {
         setup_logging();
@@ -164,7 +162,6 @@ where
             Message<TYPES, I>,
             Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
-
         >,
     {
         let mut results = vec![];
@@ -259,10 +256,12 @@ where
 
         let committee_election_config = I::committee_election_config_generator();
 
-        // TODO ED Come back to this: 
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, committee_election_config(config.da_committee_size.get() as u64)),
+            (
+                quorum_election_config,
+                committee_election_config(config.da_committee_size.get() as u64),
+            ),
             (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),

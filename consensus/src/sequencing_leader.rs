@@ -20,7 +20,6 @@ use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
 };
 use hotshot_types::traits::state::State;
-use hotshot_types::vote::YesOrNoVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate, YesNoSignature},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
@@ -158,10 +157,11 @@ where
                                 accumulator = acc;
                             }
                             Either::Right(qc) => {
-                                // TODO ED 
                                 match qc.clone().signatures {
-                                    YesNoSignature::Yes(map) => println!("Number of DA Signatures: {}", map.len()),
-                                    _ => unimplemented!(), 
+                                    YesNoSignature::Yes(map) => {
+                                        info!("Number of DA signatures in this QC: {}", map.len())
+                                    }
+                                    _ => unimplemented!(),
                                 };
                                 return Some(qc);
                             }
@@ -503,8 +503,11 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            YesNoSignature::Yes(map) => println!("Number of Quorum Signatures: {}", map.len()),
-                                            _ => unimplemented!(), 
+                                            YesNoSignature::Yes(map) => info!(
+                                                "Number of qurorum signatures in this QC: {}",
+                                                map.len()
+                                            ),
+                                            _ => unimplemented!(),
                                         };
                                         return qc;
                                     }

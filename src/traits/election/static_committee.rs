@@ -20,9 +20,9 @@ use std::num::NonZeroU64;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
-    /// The nodes participating
+    /// All the nodes participating
     nodes: Vec<PUBKEY>,
-
+    /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
@@ -155,7 +155,6 @@ where
     fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
-        println!("Size of election is: {}", committee_nodes.len());
         Self {
             nodes: keys,
             committee_nodes,

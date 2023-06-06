@@ -6,7 +6,6 @@ use crate::test_runner::{
 use hotshot::types::{Message, SignatureKey};
 use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::CommitteeNetwork;
 use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
     traits::{

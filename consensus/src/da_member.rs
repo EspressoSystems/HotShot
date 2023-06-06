@@ -100,7 +100,7 @@ where
                         match general_message {
                             ProcessedGeneralConsensusMessage::InternalTrigger(_trigger) => {
                                 warn!("DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.");
-                                continue;
+                                return None;
                             }
                             ProcessedGeneralConsensusMessage::Vote(_, _) => {
                                 // Should only be for DA leader, never member.

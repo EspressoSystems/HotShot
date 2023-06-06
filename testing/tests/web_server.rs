@@ -24,13 +24,9 @@ use hotshot::traits::{
     implementations::{MemoryStorage, WebCommChannel},
 };
 
-use hotshot_testing::{
-    test_builder::{TestBuilder, TestMetadata, TimingData},
-    test_types::StaticCommitteeTestTypes,
-};
+use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
-    consensus_type::validating_consensus::ValidatingConsensus,
     election::QuorumExchange,
     node_implementation::{NodeImplementation, ValidatingExchanges},
 };
