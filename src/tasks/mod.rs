@@ -15,7 +15,11 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
+<<<<<<< HEAD
 use hotshot_types::message::{Message, SequencingMessage};
+=======
+use hotshot_types::message::Message;
+>>>>>>> jr/launcher
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -174,7 +178,7 @@ pub(crate) struct TaskHandleInner {
 }
 
 /// main thread driving consensus
-pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
@@ -311,66 +315,81 @@ pub async fn network_task<
     }
 }
 
-// networking task types
+/// networking task error type
 #[derive(Snafu, Debug)]
 pub struct NetworkingTaskError {}
 impl TaskErr for NetworkingTaskError {}
 
+/// networking task's state
 #[derive(Debug)]
 pub struct NetworkingTaskState {}
 impl TS for NetworkingTaskState {}
 
+/// event for global event stream
 #[derive(Clone, Debug)]
 pub enum GlobalEvent {
+    /// shut everything down
     Shutdown,
+    /// dummy (TODO delete later)
+    Dummy,
 }
 impl PassType for GlobalEvent {}
 
+/// Networking task types
 pub type NetworkingTaskTypes =
     HSTWithEvent<NetworkingTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkingTaskState>;
 
-// Consensus Types
+/// Consensus Task Error
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
 
+/// consensus task state
 #[derive(Debug)]
 pub struct ConsensusTaskState {}
 impl TS for ConsensusTaskState {}
 
+/// consensus task types
 pub type ConsensusTaskTypes =
     HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
 
-// DA types
+/// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct DATaskError {}
 impl TaskErr for DATaskError {}
 
+/// Data availability task state
 #[derive(Debug)]
 pub struct DATaskState {}
 impl TS for DATaskState {}
 
+/// Data Availability task types
 pub type DATaskTypes =
     HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
 
-// View Sync types
+/// view sync error type
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
 impl TaskErr for ViewSyncTaskError {}
 
+/// view sync task state
 #[derive(Debug)]
 pub struct ViewSyncTaskState {}
 impl TS for ViewSyncTaskState {}
 
+/// Types for view sync task
 pub type ViewSyncTaskTypes =
     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
-/// the view runner
-pub async fn new_view_runner() {
-    let mut task_runner = TaskRunner::new();
-    let event_stream = event_stream::ChannelStream::new();
-
+/// add the networking task
+/// # Panics
+/// Is unable to panic. This section here is just to satisfy clippy
+pub async fn add_networking_task(
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<GlobalEvent>,
+) -> TaskRunner {
     let networking_state = NetworkingTaskState {};
+    let registry = task_runner.registry.clone();
     let networking_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
@@ -388,25 +407,33 @@ pub async fn new_view_runner() {
         TaskBuilder::<NetworkingTaskTypes>::new(networking_name.to_string())
             .register_event_stream(event_stream.clone(), networking_event_filter)
             .await
-            .register_registry(&mut task_runner.registry)
+            .register_registry(&mut registry.clone())
             .await
             .register_state(networking_state)
             .register_event_handler(networking_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
-    // let boxed_networking_task_builder : Box<TaskBuilder<
-    //     HotShotTaskTypes<Error = (dyn TaskErr + 'static),
-    //     >>>= Box::new(networking_task_builder);
+
+    let networking_task = NetworkingTaskTypes::build(networking_task_builder).launch();
 
     task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
-        networking_task_builder,
-    );
+        networking_task,
+    )
+}
 
+/// add the consensus task
+/// # Panics
+/// Is unable to panic. This section here is just to satisfy clippy
+pub async fn add_consensus_task(
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<GlobalEvent>,
+) -> TaskRunner {
     // build the consensus task
     let consensus_state = ConsensusTaskState {};
+    let registry = task_runner.registry.clone();
     let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
@@ -423,22 +450,32 @@ pub async fn new_view_runner() {
     let consensus_task_builder = TaskBuilder::<ConsensusTaskTypes>::new(consensus_name.to_string())
         .register_event_stream(event_stream.clone(), consensus_event_filter)
         .await
-        .register_registry(&mut task_runner.registry)
+        .register_registry(&mut registry.clone())
         .await
         .register_state(consensus_state)
         .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
+    let consensus_task = ConsensusTaskTypes::build(consensus_task_builder).launch();
 
     task_runner.add_task(
         consensus_task_id,
         consensus_name.to_string(),
-        consensus_task_builder,
-    );
+        consensus_task,
+    )
+}
 
+/// add the Data Availability task
+/// # Panics
+/// Is unable to panic. This section here is just to satisfy clippy
+pub async fn add_da_task(
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<GlobalEvent>,
+) -> TaskRunner {
     // build the da task
     let da_state = DATaskState {};
+    let registry = task_runner.registry.clone();
     let da_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
@@ -455,7 +492,7 @@ pub async fn new_view_runner() {
     let da_task_builder = TaskBuilder::<DATaskTypes>::new(da_name.to_string())
         .register_event_stream(event_stream.clone(), da_event_filter)
         .await
-        .register_registry(&mut task_runner.registry)
+        .register_registry(&mut registry.clone())
         .await
         .register_state(da_state)
         .register_event_handler(da_event_handler);
@@ -463,10 +500,20 @@ pub async fn new_view_runner() {
     // we *just* registered
     let da_task_id = da_task_builder.get_task_id().unwrap();
 
-    task_runner.add_task(da_task_id, da_name.to_string(), da_task_builder);
+    let da_task = DATaskTypes::build(da_task_builder).launch();
+    task_runner.add_task(da_task_id, da_name.to_string(), da_task)
+}
 
+/// add the view sync task
+/// # Panics
+/// Is unable to panic. This section here is just to satisfy clippy
+pub async fn add_view_sync_task(
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<GlobalEvent>,
+) -> TaskRunner {
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {};
+    let registry = task_runner.registry.clone();
     let view_sync_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let GlobalEvent::Shutdown = event {
@@ -483,7 +530,7 @@ pub async fn new_view_runner() {
     let view_sync_task_builder = TaskBuilder::<ViewSyncTaskTypes>::new(view_sync_name.to_string())
         .register_event_stream(event_stream.clone(), view_sync_event_filter)
         .await
-        .register_registry(&mut task_runner.registry)
+        .register_registry(&mut registry.clone())
         .await
         .register_state(view_sync_state)
         .register_event_handler(view_sync_event_handler);
@@ -491,11 +538,27 @@ pub async fn new_view_runner() {
     // we *just* registered
     let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
 
+    let view_sync_task = ViewSyncTaskTypes::build(view_sync_task_builder).launch();
     task_runner.add_task(
         view_sync_task_id,
         view_sync_name.to_string(),
-        view_sync_task_builder,
-    );
+        view_sync_task,
+    )
+}
 
+/// the view runner
+pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    _hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    _started: Arc<AtomicBool>,
+    _shut_down: Arc<AtomicBool>,
+    _run_once: Option<UnboundedReceiver<()>>,
+) {
+    let task_runner = TaskRunner::new();
+    let event_stream = event_stream::ChannelStream::new();
+
+    let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
+    let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+    let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+    let task_runner = add_view_sync_task(task_runner, event_stream).await;
     task_runner.launch().await;
 }

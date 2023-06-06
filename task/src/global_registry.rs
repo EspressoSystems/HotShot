@@ -44,6 +44,12 @@ pub struct GlobalRegistry {
 #[allow(clippy::type_complexity)]
 struct Modifier(Box<dyn Fn(&TaskState) -> Either<TaskStatus, bool>>);
 
+impl Default for GlobalRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalRegistry {
     /// create new registry
     #[must_use]
