@@ -131,7 +131,7 @@ hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-featu
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 itertools = "0.10"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
         "std",
 ] }
 libp2p-swarm-derive = { version = "=0.32.0" }
