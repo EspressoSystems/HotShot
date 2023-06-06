@@ -333,6 +333,7 @@ pub trait TestableNodeImplementation<
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>
     where
         QuorumCommChannel<TYPES, Self>: CommunicationChannel<
@@ -430,12 +431,14 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
     }
 
@@ -530,12 +533,14 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
     }
 

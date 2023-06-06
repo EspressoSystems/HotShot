@@ -135,7 +135,9 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     /// Phantom data for generic types
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     /// Nodes in the election committee (either quorum election or committee election)
-    committee_nodes: Vec<TYPES::SignatureKey>,
+    _committee_nodes: Vec<TYPES::SignatureKey>,
+    /// Whether or not we are in the committee nodes
+    on_committee: bool,
     /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
     /// Our own key
@@ -168,6 +170,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut consensus_info = self.consensus_info.copied().await;
         let mut vote_index: u64 = 0;
         let mut tx_index: u64 = 0;
+
+        // No need to poll for proposals if we aren't on the committee
+        // TODO ED Revisit this: is causing timeouts
+        // if (message_purpose == MessagePurpose::Proposal) && !self.on_committee {
+        //     return Ok(())
+        // }
 
         while self.running.load(Ordering::Relaxed) {
             let view_number = consensus_info.view_number + num_views_ahead;
@@ -339,7 +347,7 @@ impl<
         port: u16,
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
-        committee_nodes: Vec<TYPES::SignatureKey>,
+        _committee_nodes: Vec<TYPES::SignatureKey>,
     ) -> Self {
         let base_url_string = format!("http://{host}:{port}");
         error!("Connecting to web server at {base_url_string:?}");
@@ -351,10 +359,12 @@ impl<
 
         // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
+        let on_committee = _committee_nodes.contains(&key);
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
-            committee_nodes, 
+            _committee_nodes,
+            on_committee,
             consensus_info: Arc::default(),
             broadcast_poll_queue: Arc::default(),
             direct_poll_queue: Arc::default(),
@@ -675,6 +685,7 @@ where
         _num_bootstrap: usize,
         _network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -693,8 +704,10 @@ where
             })
             .collect::<Vec<_>>();
 
-        let mut committee_nodes = known_nodes.clone(); 
-        committee_nodes.truncate(da_committee_size);
+        let mut committee_nodes = known_nodes.clone();
+        if is_da {
+            committee_nodes.truncate(da_committee_size);
+        }
 
         // Start each node's web server client
         Box::new(move |id| {
@@ -704,7 +717,7 @@ where
                 port,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
-                committee_nodes.clone()
+                committee_nodes.clone(),
             );
             network.server_shutdown_signal = Some(sender);
             network
@@ -732,6 +745,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <WebServerNetwork<
             Message<TYPES, I>,
@@ -743,6 +757,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
+            is_da,
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

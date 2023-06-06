@@ -145,9 +145,9 @@ where
 
         // TODO ED This should call a secondary_network_generator function in the future
         let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
         let secondary_network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         Self {
             generator: ResourceGenerators {
                 network_generator,
