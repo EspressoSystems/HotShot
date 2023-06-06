@@ -127,6 +127,7 @@ where
             I::Leaf,
             Message<TYPES, I>,
             Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         setup_logging();
@@ -160,6 +161,7 @@ where
             I::Leaf,
             Message<TYPES, I>,
             Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let mut results = vec![];
@@ -170,20 +172,20 @@ where
 
             // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
             // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
-            // test libp2p change the below line to the one commented out.
+            // test libp2p commout out the below lines where noted.
+
+            // NOTE ED: Comment out this line to run libp2p tests
             let secondary_network_generator =
                 Arc::new((self.launcher.generator.secondary_network_generator)(
                     node_id,
                 ));
-            // let secondary_network_generator =
-            //     Arc::new((self.launcher.generator.network_generator)(
-            //         node_id,
-            //     ));
 
             let quorum_network =
                 (self.launcher.generator.quorum_network)(network_generator.clone());
             let committee_network =
                 (self.launcher.generator.committee_network)(secondary_network_generator);
+            // NOTE ED: Switch the below line with the above line to run libp2p tests
+            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =
@@ -233,6 +235,7 @@ where
             I::Leaf,
             Message<TYPES, I>,
             Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let node_id = self.next_node_id;
@@ -244,15 +247,21 @@ where
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
-        let election_config = config.election_config.clone().unwrap_or_else(|| {
+        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+
+        let committee_election_config = I::committee_election_config_generator();
+
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (
+                quorum_election_config,
+                committee_election_config(config.da_committee_size.get() as u64),
+            ),
             (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),

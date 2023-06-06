@@ -87,6 +87,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generators = (
             <WebServerNetwork<
@@ -98,9 +99,10 @@ where
                 expected_node_count,
                 num_bootstrap,
                 network_id,
-                da_committee_size
+                da_committee_size,
+                _is_da
             ),
-            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id, da_committee_size)
+            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id, da_committee_size,     _is_da)
         );
         Box::new(move |node_id| {
             CombinedNetworks(
@@ -130,6 +132,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CombinedNetworks<
             TYPES,
@@ -139,7 +142,8 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),

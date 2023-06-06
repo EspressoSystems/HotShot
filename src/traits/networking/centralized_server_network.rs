@@ -988,6 +988,7 @@ where
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -1041,6 +1042,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CentralizedServerNetwork<
             TYPES::SignatureKey,
@@ -1050,6 +1052,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

@@ -6,7 +6,6 @@ use crate::test_runner::{
 use hotshot::types::{Message, SignatureKey};
 use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::CommitteeNetwork;
 use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
     traits::{
@@ -102,7 +101,6 @@ where
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -110,7 +108,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_nodes,
+            da_committee_size: NonZeroUsize::new(da_committee_size).unwrap(),
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -145,15 +143,14 @@ where
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        // TODO ED Update here:
+        // TODO ED This should call a secondary_network_generator function in the future
         let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
         let secondary_network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         Self {
             generator: ResourceGenerators {
                 network_generator,
-
                 secondary_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
