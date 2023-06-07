@@ -105,6 +105,8 @@ path = "examples/web-server/validator.rs"
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
+# TODO ED We should upgrade other ark libraries accordingly with the one below
+ark-ed-on-bls12-381 = "0.4.0"
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.2.0", default-features = false, features = [ "logging-utils" ] }
