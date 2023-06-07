@@ -47,6 +47,7 @@ pub struct HotShotConfig<K, ELECTIONCONFIG> {
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
     /// List of DA committee nodes for static DA committe
+    // TODO ED Make this a usize, since validating consensus will have no DA committee
     pub da_committee_size: NonZeroUsize,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,

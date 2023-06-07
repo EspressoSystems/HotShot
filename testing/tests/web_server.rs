@@ -108,7 +108,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
