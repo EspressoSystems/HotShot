@@ -27,7 +27,7 @@ use hotshot_types::{
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
 use jf_primitives::{
     signatures::{
-        bls::{BLSSignature, BLSVerKey},
+        bls_over_bls12381::{BLSSignature, BLSVerKey},
         BLSSignatureScheme,
     },
     vrf::blsvrf::BLSVRFScheme,
@@ -54,7 +54,7 @@ impl NodeType for VrfTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DummyBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
     type VoteTokenType = VRFVoteToken<BLSVerKey<Param381>, BLSSignature<Param381>>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
@@ -80,8 +80,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme>>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
@@ -95,7 +95,7 @@ pub struct StandardNodeImplType {}
 pub type VrfMembership = VrfImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    BLSSignatureScheme<Param381>,
+    BLSSignatureScheme,
     BLSVRFScheme<Param381>,
     Hasher,
     Param381,

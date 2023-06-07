@@ -1,5 +1,5 @@
-// Needed to avoid the non-biding `let` warning.
-#![allow(clippy::let_underscore_untyped)]
+// // Needed to avoid the non-biding `let` warning.
+// #![allow(clippy::let_underscore_untyped)]
 
 use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
@@ -20,13 +20,14 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
-    hash_to_group::SWHashToGroup,
+    hash_to_group::TEHashToGroup,
     signatures::{
-        bls::{BLSSignature, BLSVerKey},
+        bls_over_bls12381::{BLSSignature, BLSVerKey},
         BLSSignatureScheme, SignatureScheme,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
 #[allow(deprecated)]
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
@@ -71,7 +72,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
 }
 
 /// concrete type for bls public key
-pub type BlsPubKey = JfPubKey<BLSSignatureScheme<Param381>>;
+pub type BlsPubKey = JfPubKey<BLSSignatureScheme>;
 
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
@@ -274,9 +275,9 @@ impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
 where
-    VRF: Vrf<VRFHASHER, VRFPARAMS>,
+    VRF: Vrf,
     VRFPARAMS: Bls12Parameters,
-    <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    <VRFPARAMS as Bls12Parameters>::G1Parameters: TEHashToGroup,
     VRF::PublicKey: Clone,
 {
     /// get total stake
@@ -304,7 +305,7 @@ where
 #[derivative(Debug, Eq, PartialEq)]
 pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
-    VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
+    VRF: Vrf + Sync + Send,
     TYPES: NodeType,
 {
     /// the stake table
@@ -331,7 +332,7 @@ where
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
     for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
-    VRF: Vrf<VRFHASHER, VRFPARAMS, PublicParameter = ()> + Sync + Send,
+    VRF: Vrf<PublicParameter = ()> + Sync + Send,
     TYPES: NodeType,
 {
     fn clone(&self) -> Self {
@@ -432,11 +433,9 @@ where
     SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     VRF: Vrf<
-            VRFHASHER,
-            VRFPARAMS,
             PublicParameter = (),
-            Input = [u8; 32],
-            Output = [u8; 32],
+            Input = Vec<u8>,
+            Output = Vec<u8>,
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
@@ -446,7 +445,7 @@ where
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: digest::Digest + Clone + Sync + Send + 'static,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    <VRFPARAMS as Bls12Parameters>::G1Parameters: TEHashToGroup,
     TYPES: NodeType<
         VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
         ElectionConfigType = VRFStakeTableConfig,
@@ -859,8 +858,6 @@ where
     SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     VRF: Vrf<
-            VRFHASHER,
-            VRFPARAMS,
             PublicParameter = (),
             Input = [u8; 32],
             Output = [u8; 32],
@@ -872,7 +869,7 @@ where
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: digest::Digest + Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    <VRFPARAMS as Bls12Parameters>::G1Parameters: TEHashToGroup,
     TYPES: NodeType,
 {
     /// create stake table with this initial stake
@@ -1038,15 +1035,15 @@ where
 }
 
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>> TestableElection<TYPES>
-    for VrfImpl<TYPES, LEAF, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
+    for VrfImpl<TYPES, LEAF, BLSSignatureScheme, BLSVRFScheme, Hasher, Param381>
 where
     TYPES: NodeType<
         VoteTokenType = VRFVoteToken<
-            BLSVerKey<ark_bls12_381::Parameters>,
-            BLSSignature<ark_bls12_381::Parameters>,
+            BLSVerKey,
+            BLSSignature,
         >,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>,
+        SignatureKey = JfPubKey<BLSSignatureScheme>,
     >,
 {
     fn generate_test_vote_token() -> TYPES::VoteTokenType {
@@ -1122,7 +1119,7 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         type ConsensusType = ValidatingConsensus;
 //         type Time = ViewNumber;
 //         type BlockType = DummyBlock;
-//         type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+//         type SignatureKey = JfPubKey<BLSSignatureScheme>;
 //         type VoteTokenType = VRFVoteToken<
 //             BLSVerKey<ark_bls12_381::Parameters>,
 //             BLSSignature<ark_bls12_381::Parameters>,
@@ -1138,7 +1135,7 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         VrfImpl<
 //             TestTypes,
 //             LEAF,
-//             BLSSignatureScheme<Param381>,
+//             BLSSignatureScheme,
 //             BLSVRFScheme<Param381>,
 //             Hasher,
 //             Param381,
@@ -1227,8 +1224,8 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         // Note that there is currently an issue with `VRFPubKey` where it can't be serialized with toml
 //         // so instead we only test with serde_json
 //         let key =
-//             <JfPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
-//         let pub_key = JfPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
+//             <JfPubKey<BLSSignatureScheme> as TestableSignatureKey>::generate_test_key(1);
+//         let pub_key = JfPubKey::<BLSSignatureScheme>::from_private(&key);
 //         let mut config = hotshot_centralized_server::NetworkConfig {
 //             config: hotshot_types::HotShotConfig {
 //                 election_config: Some(super::VRFStakeTableConfig {
