@@ -95,6 +95,7 @@ where
             da_committee_size,
             ..
         } = metadata;
+
         let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
             .map(|id| {
                 let priv_key = I::generate_test_key(id as u64);

@@ -159,7 +159,7 @@ where
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
                                     YesNoSignature::Yes(map) => {
-                                        info!("Number of DA signatures in this QC: {}", map.len())
+                                        info!("Number of DA signatures in this QC: {}", map.len());
                                     }
                                     _ => unimplemented!(),
                                 };
