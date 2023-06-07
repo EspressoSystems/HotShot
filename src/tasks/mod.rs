@@ -7,23 +7,28 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use futures::FutureExt;
+use futures::Stream;
+use futures::StreamExt;
 use hotshot_task::{
-    event_stream::{self, ChannelStream},
+    event_stream::{self, ChannelStream, EventStream},
     task::{
         FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
+    data::{ProposalType, ViewNumber},
     traits::{
-        network::{CommunicationChannel, TransmitType},
+        election::Membership,
+        network::{CommunicationChannel, NetworkMsg, TransmitType},
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
     },
+    vote::VoteType,
 };
+use hotshot_types::{message::Message, traits::network::NetworkError};
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -259,6 +264,93 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     // shut down all child tasks
     for (_, is_done) in completion_map {
         is_done.store(true, Ordering::Relaxed);
+    }
+}
+
+enum NetworkEvent<MSG: NetworkMsg> {
+    MessageReceived(MSG),
+    SendMessage(MSG),
+    ViewChange(ViewNumber),
+    Shutdown,
+}
+
+struct NetworkTask<
+    TYPES: NodeType,
+    MSG: NetworkMsg,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
+    STREAM: Stream,
+    ESTREAM: EventStream<EventType = NetworkEvent<MSG>>,
+> {
+    channel: COMMCHANNEL,
+    events: STREAM,
+    global_stream: ESTREAM,
+    view: ViewNumber,
+    phantom: PhantomData<(TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP)>,
+}
+
+impl<
+        TYPES: NodeType,
+        MSG: NetworkMsg,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
+        STREAM: Stream,
+        ESTREAM: EventStream<EventType = NetworkEvent<MSG>>,
+    > NetworkTask<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL, STREAM, ESTREAM>
+{
+    /// Handle the given event and return whether to keep running.
+    async fn handle_event(&self, event: NetworkEvent<MSG>, membership: MEMBERSHIP) -> bool {
+        match event {
+            NetworkEvent::SendMessage(msg) => self
+                .channel
+                .broadcast_message(msg, membership)
+                .await
+                .expect("Failed to broadcast message"),
+            NetworkEvent::ViewChange(view) => self.view = view,
+            NetworkEvent::Shutdown => {
+                self.channel.shut_down();
+                return false;
+            }
+            _ => {}
+        }
+        return true;
+    }
+
+    /// Filter network event.
+    fn filter(event: NetworkEvent<MSG>) -> bool {
+        match event {
+            NetworkEvent::SendMessage(_) | NetworkEvent::Shutdown | NetworkEvent::ViewChange(_) => {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Subscribe to network evens.
+    async fn subscribe(&self, global_stream: ESTREAM) {
+        self.events = global_stream.subscribe(Self::filter).await
+    }
+
+    /// Run when spawning the network tasks.
+    async fn run(&self, transmit_type: TransmitType, membership: MEMBERSHIP) {
+        let messages = self
+            .channel
+            .recv_msgs(transmit_type)
+            .await
+            .expect("Failed to receive message");
+        for msg in messages {
+            self.global_stream
+                .publish(NetworkEvent::MessageReceived(msg));
+        }
+        let running = true;
+        while running {
+            let event = self.events.next();
+            running = self.handle_event(event, membership);
+        }
     }
 }
 
