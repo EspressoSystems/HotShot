@@ -172,7 +172,7 @@ where
 
 /// A protocol for determining membership in and participating in a ccommittee.
 pub trait Membership<TYPES: NodeType>:
-    Clone + std::fmt::Debug + Eq + PartialEq + Send + Sync + 'static
+    Clone + Debug + Eq + PartialEq + Send + Sync + 'static
 {
     /// Data used to determine the weight (voting power) of participants.
     type StakeTable: Send + Sync;
