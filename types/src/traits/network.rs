@@ -152,7 +152,7 @@ pub trait CommunicationChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
->: Clone + Send + Sync + 'static
+>: Clone + std::fmt::Debug + Send + Sync + 'static
 {
     /// Underlying Network implementation's type
     type NETWORK;
