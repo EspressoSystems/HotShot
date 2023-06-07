@@ -239,7 +239,7 @@ pub async fn gen_transport(
 /// a single node, connects them to each other
 /// and waits for connections to propagate to all nodes.
 #[instrument]
-pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
+pub async fn spin_up_swarm<S: Debug + Default>(
     timeout_len: Duration,
     known_nodes: Vec<(Option<PeerId>, Multiaddr)>,
     config: NetworkNodeConfig,

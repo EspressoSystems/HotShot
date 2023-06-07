@@ -2,7 +2,11 @@ use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, Testa
 use ed25519_compact::{PublicKey, Signature};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
-use std::{cmp::Ordering, fmt, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::{self, Debug},
+    str::FromStr,
+};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 
@@ -15,7 +19,7 @@ pub struct Ed25519Pub {
     pub_key: PublicKey,
 }
 
-impl std::fmt::Debug for Ed25519Pub {
+impl Debug for Ed25519Pub {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Ed25519Pub")
             .field(&tagged_base64::to_string(&self.to_tagged_base64()))
