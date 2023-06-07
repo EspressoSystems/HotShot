@@ -44,6 +44,7 @@ use serde::Serialize;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeSet, HashSet},
+    fmt::Debug,
     marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
@@ -62,7 +63,7 @@ pub enum Empty {
     Empty,
 }
 
-impl<M: NetworkMsg, K: SignatureKey + 'static> std::fmt::Debug for Libp2pNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> Debug for Libp2pNetwork<M, K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Libp2p").field("inner", &"inner").finish()
     }

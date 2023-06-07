@@ -99,7 +99,7 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
 /// Spins up `num_of_nodes` nodes, connects them to each other
 /// and waits for connections to propagate to all nodes.
 #[instrument]
-pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
+pub async fn spin_up_swarms<S: Debug + Default>(
     num_of_nodes: usize,
     timeout_len: Duration,
     num_bootstrap: usize,
