@@ -675,6 +675,10 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
@@ -780,7 +784,11 @@
             .<span class="kw">await
             </span>.context(NetworkSnafu)<span class="question-mark">?</span>;
         <span class="macro">info!</span>(<span class="string">&quot;LISTEN ADDRESS IS {:?}&quot;</span>, listen_addr);
-        <span class="kw">let </span>(send_chan, recv_chan) = network.spawn_listeners().<span class="kw">await</span>.context(NetworkSnafu)<span class="question-mark">?</span>;
+        <span class="comment">// pin here to force the future onto the heap since it can be large
+        // in the case of flume
+        </span><span class="kw">let </span>(send_chan, recv_chan) = Box::pin(network.spawn_listeners())
+            .<span class="kw">await
+            </span>.context(NetworkSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>(kill_switch, recv_kill) = oneshot();
 
         <span class="kw">let </span>kill_switch = Mutex::new(<span class="prelude-val">Some</span>(kill_switch));
