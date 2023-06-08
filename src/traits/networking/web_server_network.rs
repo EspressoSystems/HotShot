@@ -171,12 +171,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut vote_index: u64 = 0;
         let mut tx_index: u64 = 0;
 
-        // No need to poll for proposals if we aren't on the committee
-        // TODO ED Revisit this: is causing timeouts
-        // if (message_purpose == MessagePurpose::Proposal) && !self.on_committee {
-        //     return Ok(())
-        // }
-
         while self.running.load(Ordering::Relaxed) {
             let view_number = consensus_info.view_number + num_views_ahead;
             let endpoint = match message_purpose {
@@ -402,6 +396,10 @@ impl<
         let quorum_proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
+                // Exit task if we are not on committee
+                if !inner_clone.on_committee {
+                    return;
+                }
                 if let Err(e) = inner_clone
                     .poll_web_server(MessagePurpose::Proposal, 0)
                     .await

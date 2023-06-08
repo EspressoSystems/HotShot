@@ -58,6 +58,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
+use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
@@ -1543,8 +1544,19 @@ where
             exchange: committee_exchange.clone().into(),
             _pd: PhantomData,
         };
-        let member_handle = async_spawn(async move { da_member.run_view().await });
-        task_handles.push(member_handle);
+        // DA task will only run if node is on committee
+        let is_da_member = committee_exchange
+            .clone()
+            .membership()
+            .get_committee(cur_view)
+            .get(&hotshot.inner.public_key)
+            .to_owned()
+            .is_some();
+
+        if is_da_member {
+            let member_handle = async_spawn(async move { da_member.run_view().await });
+            task_handles.push(member_handle);
+        }
         let replica = SequencingReplica {
             id: hotshot.id,
             consensus: hotshot.hotstuff.clone(),
