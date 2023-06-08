@@ -1,4 +1,4 @@
-use crate::infra::WebServerRun;
+use crate::infraDA::WebServerDARun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
     demos::sdemo::SDemoTypes,
@@ -7,14 +7,14 @@ use hotshot::{
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
     consensus_type::sequencing_consensus::SequencingConsensus,
-    election::QuorumExchange,
+    election::{QuorumExchange, CommitteeExchange},
     node_implementation::{NodeImplementation, SequencingExchanges},
 };
 use hotshot_types::{
-    data::{SequencingLeaf, DAProposal},
+    data::{SequencingLeaf, DAProposal, QuorumProposal},
     message::SequencingMessage,
     traits::node_implementation::NodeType,
-    vote::DAVote,
+    vote::{DAVote, QuorumVote},
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -25,16 +25,27 @@ pub struct NodeImpl {}
 pub type ThisLeaf = SequencingLeaf<SDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<SDemoTypes, ThisLeaf, <SDemoTypes as NodeType>::SignatureKey>;
-pub type ThisNetwork = WebCommChannel<
+pub type DANetwork = WebCommChannel<
     SequencingConsensus,
     SDemoTypes,
     NodeImpl,
-    ThisProposal,
-    ThisVote,
+    ThisDAProposal,
+    ThisDAVote,
     ThisMembership,
 >;
-pub type ThisProposal = SequencingProposal<SDemoTypes, ThisLeaf>;
-pub type ThisVote = DAVote<SDemoTypes, ThisLeaf>;
+pub type QuorumNetwork = WebCommChannel<
+    SequencingConsensus,
+    SDemoTypes,
+    NodeImpl,
+    ThisQuorumProposal,
+    ThisQuorumVote,
+    ThisMembership,
+>;
+pub type ThisDAProposal = DAProposal<SDemoTypes>;
+pub type ThisDAVote = DAVote<SDemoTypes, ThisLeaf>;
+
+pub type ThisQuorumProposal = QuorumProposal<SDemoTypes, ThisLeaf>;
+pub type ThisQuorumVote = QuorumVote<SDemoTypes, ThisLeaf>;
 
 impl NodeImplementation<SDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<SDemoTypes, Self::Leaf>;
@@ -42,15 +53,21 @@ impl NodeImplementation<SDemoTypes> for NodeImpl {
     type Exchanges = SequencingExchanges<
         SDemoTypes,
         Message<SDemoTypes, Self>,
-        CommitteeExchange<
+        QuorumExchange<
             SDemoTypes,
             Self::Leaf,
-            ThisProposal,
+            ThisQuorumProposal,
             ThisMembership,
-            ThisNetwork,
+            QuorumNetwork,
+            Message<SDemoTypes, Self>,
+        >,
+        CommitteeExchange<
+            SDemoTypes,
+            ThisMembership,
+            DANetwork,
             Message<SDemoTypes, Self>,
         >,
     >;
     type ConsensusMessage = SequencingMessage<SDemoTypes, Self>;
 }
-pub type ThisRun = WebServerRun<SDemoTypes, NodeImpl, ThisMembership>;
+pub type ThisRun = WebServerDARun<SDemoTypes, NodeImpl, ThisMembership>;
