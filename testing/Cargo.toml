@@ -91,5 +91,3 @@ serde = { version = "1.0.163", features = ["derive"] }
 [dev-dependencies]
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 async-lock = "2.7"
-proptest = "1.2.0"
-tempfile = "3.5.0"

@@ -299,6 +299,7 @@ where
         _expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
+        _da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let master: Arc<_> = MasterMap::new();
         Box::new(move |node_id| {
@@ -488,6 +489,7 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <MemoryNetwork<
             Message<TYPES, I>,
@@ -496,6 +498,7 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
+            da_committee_size
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -608,7 +611,7 @@ mod tests {
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::traits::election::QuorumExchange;
-    use hotshot_types::traits::node_implementation::ValidatingExchanges;
+    use hotshot_types::traits::node_implementation::{ChannelMaps, ValidatingExchanges};
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind, ValidatingMessage},
@@ -674,6 +677,12 @@ mod tests {
         >;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
+
+        fn new_channel_maps(
+            start_view: ViewNumber,
+        ) -> (ChannelMaps<Test, Self>, Option<ChannelMaps<Test, Self>>) {
+            (ChannelMaps::new(start_view), None)
+        }
     }
 
     type TestLeaf = ValidatingLeaf<Test>;

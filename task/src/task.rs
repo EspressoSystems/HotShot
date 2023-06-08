@@ -1,4 +1,4 @@
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::task::Poll;
 
@@ -15,11 +15,11 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
-pub trait PassType: Clone + std::fmt::Debug + Sync + Send + 'static {}
+pub trait PassType: Clone + Debug + Sync + Send + 'static {}
 impl PassType for () {}
 
 /// the task state
-pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
+pub trait TS: Debug + Sync + Send + 'static {}
 
 /// a task error that has nice qualities
 #[allow(clippy::module_name_repetitions)]
@@ -325,7 +325,7 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
 }
 
-impl std::fmt::Debug for HotShotTaskCompleted {
+impl<HSTT: HotShotTaskTypes> Debug for HotShotTaskCompleted<HSTT> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HotShotTaskCompleted::ShutDown => f.write_str("HotShotTaskCompleted::ShutDown"),

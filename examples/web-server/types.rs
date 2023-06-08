@@ -8,10 +8,10 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::{
     consensus_type::validating_consensus::ValidatingConsensus,
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
     traits::node_implementation::NodeType,
     vote::QuorumVote,
@@ -52,5 +52,14 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<VDemoTypes, Self>,
+        Option<ChannelMaps<VDemoTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 pub type ThisRun = WebServerRun<VDemoTypes, NodeImpl, ThisMembership>;

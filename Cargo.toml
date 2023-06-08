@@ -40,7 +40,6 @@ hotshot-testing = []
 
 async-std-executor = [
         "dep:async-std",
-        "async-tungstenite/async-std-runtime",
         "hotshot-centralized-server/async-std-executor",
         "hotshot-consensus/async-std-executor",
         "hotshot-types/async-std-executor",
@@ -50,7 +49,6 @@ async-std-executor = [
 ]
 tokio-executor = [
         "dep:tokio",
-        "async-tungstenite/tokio-runtime",
         "hotshot-centralized-server/tokio-executor",
         "hotshot-consensus/tokio-executor",
         "hotshot-types/tokio-executor",
@@ -120,8 +118,6 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
 async-lock = "2.7"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.68"
-async-tungstenite = "0.22.2"
-atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
 bimap = "0.6.3"
 bincode = "1.3.3"
 blake3 = { version = "1.3.3", optional = true, features = ["traits-preview"] }
@@ -179,8 +175,7 @@ rand_chacha = "0.3.1"
 serde = { version = "1.0.163", features = ["derive", "rc"] }
 snafu = "0.7.4"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
-tempfile = "3.5.0"
-time = "0.3.21"
+time = "0.3.22"
 toml = { version = "0.7.4", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
@@ -198,12 +193,10 @@ tokio = { version = "1", optional = true, features = [
         "tracing",
 ] }
 tracing = "0.1.37"
-tracing-unwrap = { version = "0.10.0", features = ["log-location"] }
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.3", features = ["derive", "env"] }
-rand_xoshiro = "0.6.0"
 serde_json = "1.0.96"
 sha2 = { version = "0.10.1" }
 toml = "0.7.4"

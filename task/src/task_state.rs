@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     sync::{atomic::Ordering, Arc, Mutex},
     task::Waker,
 };
@@ -37,7 +38,7 @@ pub struct TaskState {
     wakers: Arc<Mutex<Vec<Waker>>>,
 }
 
-impl std::fmt::Debug for TaskState {
+impl Debug for TaskState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TaskState")
             .field("status", &self.get_status())

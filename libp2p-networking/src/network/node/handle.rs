@@ -103,7 +103,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .await
             .context(NetworkSnafu)?;
         info!("LISTEN ADDRESS IS {:?}", listen_addr);
-        let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
+        // pin here to force the future onto the heap since it can be large
+        // in the case of flume
+        let (send_chan, recv_chan) = Box::pin(network.spawn_listeners())
+            .await
+            .context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = oneshot();
 
         let kill_switch = Mutex::new(Some(kill_switch));
@@ -404,7 +408,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
-        let req = ClientRequest::Unsubscribe(topic, s);
+        let req = ClientRequest::Unsubscribe(topic, Some(s));
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
