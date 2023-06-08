@@ -49,6 +49,15 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pRun;
 <span class="kw">use </span>hotshot::traits::implementations::MemoryStorage;
 <span class="kw">use </span>hotshot::{
@@ -60,10 +69,10 @@
 <span class="kw">use </span>hotshot_types::message::{Message, ValidatingMessage};
 <span class="kw">use </span>hotshot_types::traits::{
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
@@ -98,6 +107,15 @@
         &gt;,
     &gt;;
     <span class="kw">type </span>ConsensusMessage = ValidatingMessage&lt;VDemoTypes, <span class="self">Self</span>&gt;;
+
+    <span class="kw">fn </span>new_channel_maps(
+        start_view: ViewNumber,
+    ) -&gt; (
+        ChannelMaps&lt;VDemoTypes, <span class="self">Self</span>&gt;,
+        <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;VDemoTypes, <span class="self">Self</span>&gt;&gt;,
+    ) {
+        (ChannelMaps::new(start_view), <span class="prelude-val">None</span>)
+    }
 }
 <span class="kw">pub type </span>ThisRun = Libp2pRun&lt;VDemoTypes, NodeImpl, ThisMembership&gt;;
 </code></pre></div></section></main></body></html>

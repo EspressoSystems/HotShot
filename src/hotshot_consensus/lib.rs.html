@@ -359,6 +359,7 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements both sequencing and validating
 //! consensus
 
@@ -383,13 +384,14 @@
 
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 <span class="kw">pub use </span>da_member::DAMember;
+<span class="kw">pub use </span>hotshot_types::traits::node_implementation::ViewQueue;
 <span class="kw">pub use </span>leader::ValidatingLeader;
 <span class="kw">pub use </span>next_leader::NextValidatingLeader;
 <span class="kw">pub use </span>replica::Replica;
 <span class="kw">pub use </span>sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 <span class="kw">pub use </span>sequencing_replica::SequencingReplica;
 <span class="kw">pub use </span>traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
-<span class="kw">pub use </span>utils::{SendToTasks, View, ViewInner, ViewQueue};
+<span class="kw">pub use </span>utils::{View, ViewInner};
 
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;

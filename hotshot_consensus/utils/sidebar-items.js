@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Terminator","ViewInner"],"struct":["RoundFinishedEvent","SendToTasks","View","ViewQueue"],"type":["ProcessedConsensusMessageType"]};
+window.SIDEBAR_ITEMS = {"enum":["Terminator","ViewInner"],"struct":["RoundFinishedEvent","View"]};

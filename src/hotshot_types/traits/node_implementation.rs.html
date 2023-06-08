@@ -657,6 +657,90 @@
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -688,11 +772,88 @@
         Block,
     },
 };
+<span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
+<span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::hash::Hash;
-<span class="kw">use </span>std::{fmt::Debug, marker::PhantomData, sync::Arc};
+<span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::Debug,
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc},
+};
+
+<span class="doccomment">/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
+</span><span class="kw">type </span>ProcessedConsensusMessageType&lt;TYPES, I&gt; = &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::ConsensusMessage <span class="kw">as </span>ConsensusMessageType&lt;TYPES, I&gt;&gt;::ProcessedConsensusMessage;
+
+<span class="doccomment">/// struct containing messages for a view to send to a replica or DA committee member.
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>ViewQueue&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// to send networking events to a replica or DA committee member.
+    </span><span class="kw">pub </span>sender_chan: UnboundedSender&lt;ProcessedConsensusMessageType&lt;TYPES, I&gt;&gt;,
+
+    <span class="doccomment">/// to recv networking events for a replica or DA committee member.
+    </span><span class="kw">pub </span>receiver_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessageType&lt;TYPES, I&gt;&gt;&gt;&gt;,
+
+    <span class="doccomment">/// `true` if this queue has already received a proposal
+    </span><span class="kw">pub </span>has_received_proposal: Arc&lt;AtomicBool&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>ViewQueue&lt;TYPES, I&gt; {
+    <span class="doccomment">/// create new view queue
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(s, r) = unbounded();
+        ViewQueue {
+            sender_chan: s,
+            receiver_chan: Arc::new(Mutex::new(r)),
+            has_received_proposal: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
+        }
+    }
+}
+
+<span class="doccomment">/// metadata for sending information to the leader, replica, or DA committee member.
+</span><span class="kw">pub struct </span>SendToTasks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// the current view number
+    /// this should always be in sync with `Consensus`
+    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+
+    <span class="doccomment">/// a map from view number to ViewQueue
+    /// one of (replica|next leader)&#39;s&#39; task for view i will be listening on the channel in here
+    </span><span class="kw">pub </span>channel_map: BTreeMap&lt;TYPES::Time, ViewQueue&lt;TYPES, I&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SendToTasks&lt;TYPES, I&gt; {
+    <span class="doccomment">/// create new sendtosasks
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>new(view_num: TYPES::Time) -&gt; <span class="self">Self </span>{
+        SendToTasks {
+            cur_view: view_num,
+            channel_map: BTreeMap::default(),
+        }
+    }
+}
+
+<span class="doccomment">/// Channels for sending/recv-ing proposals and votes.
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>ChannelMaps&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Channel for the next consensus leader or DA leader.
+    </span><span class="kw">pub </span>proposal_channel: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Channel for the replica or DA committee member.
+    </span><span class="kw">pub </span>vote_channel: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ChannelMaps&lt;TYPES, I&gt; {
+    <span class="doccomment">/// Create channels starting from a given view.
+    </span><span class="kw">pub fn </span>new(start_view: TYPES::Time) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            proposal_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            vote_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+        }
+    }
+}
 
 <span class="doccomment">/// Node implementation aggregate trait
 ///
@@ -725,6 +886,12 @@
     ///
     /// Implements either `ValidatingExchangesType` or `SequencingExchangesType`.
     </span><span class="kw">type </span>Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
+
+    <span class="doccomment">/// Create channels for sending/recv-ing proposals and votes for quorum and committee
+    /// exchanges, the latter of which is only applicable for sequencing consensus.
+    </span><span class="kw">fn </span>new_channel_maps(
+        start_view: TYPES::Time,
+    ) -&gt; (ChannelMaps&lt;TYPES, <span class="self">Self</span>&gt;, <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;TYPES, <span class="self">Self</span>&gt;&gt;);
 }
 
 <span class="doccomment">/// Contains the protocols for exchanging proposals and votes.
@@ -736,10 +903,11 @@
     MESSAGE: NetworkMsg,
 &gt;: Send + Sync
 {
-    <span class="doccomment">/// Protocol for exchanging consensus proposals and votes.
+    <span class="doccomment">/// Protocol for exchanging quorum proposals and votes.
     </span><span class="kw">type </span>QuorumExchange: QuorumExchangeType&lt;TYPES, LEAF, MESSAGE&gt; + Clone + Debug;
 
-    <span class="doccomment">/// Networking implementations for all exchanges.
+    <span class="doccomment">/// Networking implementations for quorum and committee exchanges, the latter of which is only
+    /// applicable for sequencing consensus.
     </span><span class="kw">type </span>Networks;
 
     <span class="doccomment">/// Create all exchanges.

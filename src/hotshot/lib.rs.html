@@ -1920,6 +1920,22 @@
 <a href="#1920" id="1920">1920</a>
 <a href="#1921" id="1921">1921</a>
 <a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1975,8 +1991,8 @@
 <span class="kw">use </span>either::{Left, Right};
 <span class="kw">use </span>hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
-    ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks,
-    SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
+    ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
+    ValidatingLeader, View, ViewInner, ViewQueue,
 };
 <span class="kw">use </span>hotshot_types::data::QuorumProposal;
 <span class="kw">use </span>hotshot_types::data::{DeltasType, SequencingLeaf};
@@ -2000,8 +2016,9 @@
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::{
-            CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SequencingExchangesType,
-            SequencingQuorumEx, ValidatingExchangesType, ValidatingQuorumEx,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SendToTasks,
+            SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
+            ValidatingQuorumEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -2079,19 +2096,9 @@
     <span class="doccomment">/// The hotstuff implementation
     </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
 
-    <span class="comment">// TODO (DA): Pair channel maps with respective exchanges.
-    // &lt;https://github.com/EspressoSystems/HotShot/issues/1193&gt;
-    </span><span class="doccomment">/// for sending/recv-ing things with the DA member task
-    </span>member_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
-
-    <span class="doccomment">/// for sending/recv-ing things with the replica task
-    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
-
-    <span class="doccomment">/// for sending/recv-ing things with the next leader task
-    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
-
-    <span class="doccomment">/// for sending/recv-ing things to the da leader
-    </span>da_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
+    <span class="doccomment">/// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
+    /// latter of which is only applicable for sequencing consensus.
+    </span>channel_maps: (ChannelMaps&lt;TYPES, I&gt;, <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;TYPES, I&gt;&gt;),
 
     <span class="doccomment">/// for sending messages to network lookup task
     </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;,
@@ -2190,10 +2197,7 @@
             inner,
             transactions: txns,
             hotstuff,
-            member_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            da_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            channel_maps: I::new_channel_maps(start_view),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
@@ -2654,7 +2658,7 @@
         <span class="kw">match </span>msg.<span class="number">0 </span>{
             <span class="comment">// this is ONLY intended for replica
             </span>GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>channel_map = <span class="self">self</span>.replica_channel_map.upgradable_read().<span class="kw">await</span>;
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.vote_channel.upgradable_read().<span class="kw">await</span>;
 
                 <span class="comment">// skip if the proposal is stale
                 </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
@@ -2708,7 +2712,7 @@
             </span>c @ ValidatingMessage(GeneralConsensusMessage::Vote(<span class="kw">_</span>)) =&gt; {
                 <span class="kw">let </span>msg_time = c.view_number();
 
-                <span class="kw">let </span>channel_map = <span class="self">self</span>.next_leader_channel_map.upgradable_read().<span class="kw">await</span>;
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.proposal_channel.upgradable_read().<span class="kw">await</span>;
 
                 <span class="comment">// check if
                 // - is in fact, actually is the next leader
@@ -2890,7 +2894,7 @@
                 <span class="kw">match </span>general_message {
                     <span class="comment">// this is ONLY intended for replica
                     </span>GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="self">self</span>.replica_channel_map.upgradable_read().<span class="kw">await</span>;
+                        <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.vote_channel.upgradable_read().<span class="kw">await</span>;
 
                         <span class="comment">// skip if the proposal is stale
                         </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
@@ -2937,7 +2941,15 @@
                         </span>);
                     }
                     CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="self">self</span>.member_channel_map.upgradable_read().<span class="kw">await</span>;
+                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.channel_maps.<span class="number">1 </span>{
+                            <span class="prelude-val">Some</span>(committee_channels) =&gt; {
+                                committee_channels.vote_channel.upgradable_read().<span class="kw">await
+                            </span>}
+                            <span class="prelude-val">None </span>=&gt; {
+                                <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
+                                <span class="kw">return</span>;
+                            }
+                        };
 
                         <span class="comment">// skip if the proposal is stale
                         </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
@@ -2988,7 +3000,7 @@
                 }
                 <span class="comment">// this is ONLY intended for next leader
                 </span>c @ GeneralConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">let </span>channel_map = <span class="self">self</span>.next_leader_channel_map.upgradable_read().<span class="kw">await</span>;
+                    <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.proposal_channel.upgradable_read().<span class="kw">await</span>;
 
                     <span class="comment">// check if
                     // - is in fact, actually is the next leader
@@ -3024,7 +3036,15 @@
             Right(committee_message) =&gt; {
                 <span class="kw">match </span>committee_message {
                     c @ CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="self">self</span>.da_leader_channel_map.upgradable_read().<span class="kw">await</span>;
+                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.channel_maps.<span class="number">1 </span>{
+                            <span class="prelude-val">Some</span>(committee_channels) =&gt; {
+                                committee_channels.proposal_channel.upgradable_read().<span class="kw">await
+                            </span>}
+                            <span class="prelude-val">None </span>=&gt; {
+                                <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
+                                <span class="kw">return</span>;
+                            }
+                        };
 
                         <span class="comment">// check if
                         // - is in fact, actually is the next leader
@@ -3101,7 +3121,7 @@
         <span class="comment">// do book keeping on channel map
         // TODO probably cleaner to separate this into a function
         // e.g. insert the view and remove the last view
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.replica_channel_map.write().<span class="kw">await</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>replica_last_view: TYPES::Time = send_to_replica.cur_view;
         <span class="comment">// gc previous view&#39;s channel map
         </span>send_to_replica.channel_map.remove(<span class="kw-2">&amp;</span>replica_last_view);
@@ -3117,7 +3137,7 @@
         )
         .<span class="kw">await</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.next_leader_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>next_leader_last_view = send_to_next_leader.cur_view;
         <span class="comment">// gc previous view&#39;s channel map
         </span>send_to_next_leader
@@ -3303,7 +3323,13 @@
         };
 
         <span class="comment">// Setup channel for recieving DA votes
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_leader = hotshot.da_leader_channel_map.write().<span class="kw">await</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_leader = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.channel_maps.<span class="number">1 </span>{
+            <span class="prelude-val">Some</span>(committee_channels) =&gt; committee_channels.proposal_channel.write().<span class="kw">await</span>,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(());
+            }
+        };
         <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_leader.cur_view;
         send_to_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
         send_to_leader.cur_view += <span class="number">1</span>;
@@ -3319,7 +3345,7 @@
         };
 
         <span class="comment">// Set up vote collection channel for commitment proposals/votes
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.next_leader_channel_map.write().<span class="kw">await</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
         send_to_next_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
         send_to_next_leader.cur_view += <span class="number">1</span>;
@@ -3339,7 +3365,13 @@
             <span class="kw">let </span>txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = hotshot.member_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.channel_maps.<span class="number">1 </span>{
+            <span class="prelude-val">Some</span>(committee_channels) =&gt; committee_channels.vote_channel.write().<span class="kw">await</span>,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(());
+            }
+        };
         <span class="kw">let </span>member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(<span class="kw-2">&amp;</span>member_last_view);
         send_to_member.cur_view += <span class="number">1</span>;
@@ -3352,7 +3384,7 @@
             send_to_member,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.replica_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>replica_last_view: TYPES::Time = send_to_replica.cur_view;
         send_to_replica.channel_map.remove(<span class="kw-2">&amp;</span>replica_last_view);
         send_to_replica.cur_view += <span class="number">1</span>;
