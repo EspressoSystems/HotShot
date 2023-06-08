@@ -75,11 +75,11 @@ use tracing::error;
 /// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// The configuration file to be used for this run
-    config_file: String,
+    pub config_file: String,
 }
 
 /// Reads a network configuration from a given filepath
@@ -110,6 +110,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
 }
 
 /// Runs the orchestrator
+/// KALEY TODO: run_da_orchestrator
 pub async fn run_orchestrator<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MEMBERSHIP: Membership<TYPES> + Debug,
@@ -164,12 +165,12 @@ pub async fn run_orchestrator<
 /// Arguments passed to the validator
 pub struct ValidatorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// This node's public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
-    public_ip: Option<IpAddr>,
+    pub public_ip: Option<IpAddr>,
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -769,7 +770,7 @@ pub struct OrchestratorClient {
 
 impl OrchestratorClient {
     /// Creates the client that connects to the orchestrator
-    async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
+    pub async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
@@ -779,7 +780,7 @@ impl OrchestratorClient {
 
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
-    async fn identify_with_orchestrator(&self, identity: String) -> u16 {
+    pub async fn identify_with_orchestrator(&self, identity: String) -> u16 {
         let identity = identity.as_str();
         let f = |client: Client<ClientError>| {
             async move {
@@ -796,7 +797,7 @@ impl OrchestratorClient {
 
     /// Returns the run configuration from the orchestrator
     /// Will block until the configuration is returned
-    async fn get_config_from_orchestrator<TYPES: NodeType>(
+    pub async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
         node_index: u16,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
@@ -818,7 +819,7 @@ impl OrchestratorClient {
 
     /// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
-    async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
+    pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<ClientError>| {
             async move {
                 let result: Result<_, ClientError> = client
@@ -843,7 +844,7 @@ impl OrchestratorClient {
 
     /// Generic function that waits for the orchestrator to return a non-error
     /// Returns whatever type the given function returns
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
+    pub async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,

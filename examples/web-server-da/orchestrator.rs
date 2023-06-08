@@ -5,9 +5,12 @@ use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 use types::ThisMembership;
 
-use crate::infra::{run_orchestrator, OrchestratorArgs};
-use crate::types::{NodeImpl, ThisNetwork};
+use crate::infra::{OrchestratorArgs};
+use crate::infraDA::run_orchestrator_da;
+use crate::types::{NodeImpl, DANetwork, QuorumNetwork};
 
+#[path = "../infra/modDA.rs"]
+pub mod infraDA;
 #[path = "../infra/mod.rs"]
 pub mod infra;
 
@@ -20,5 +23,5 @@ pub mod infra;
 async fn main() {
     let args = OrchestratorArgs::parse();
 
-    run_orchestrator::<SDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
+    run_orchestrator_da::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, NodeImpl>(args).await;
 }
