@@ -25,13 +25,7 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-use jf_primitives::{
-    signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-    },
-    // vrf::blsvrf::BLSVRFScheme,
-};
+use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 
 // #[derive(
