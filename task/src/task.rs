@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::task::{Poll, Context};
 
-use either::Either;
+use either::Either::{self, Right};
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use nll::nll_todo::nll_todo;
@@ -397,16 +397,33 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
         *self.message_stream = message_stream;
     }
 
-    /// check the message future
+    /// check the event stream
+    /// returns either a poll if there's a future IP
+    /// or a bool stating whether or not the stream is finished
+    fn check_event_stream(&mut self, event_stream: MaybePinnedEventStream<HSTT>, cx: &mut Context<'_>) -> (Either<Poll<HotShotTaskCompleted>, bool>, MaybePinnedEventStream<HSTT>){
+        if let Some(mut inner_event_stream) = event_stream {
+            while let Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
+                if let Some(event) = maybe_event {
+                } else {
+
+                }
+
+            }
+
+        } else {
+            return (Right(true), event_stream);
+        }
+
+        nll_todo()
+    }
+
+    /// check the message stream
     /// returns either a poll if there's a future IP
     /// or a bool stating whether or not the stream is finished
     fn check_message(&mut self) -> Either<Poll<HotShotTaskCompleted>, bool> {
         nll_todo()
     }
 
-    fn check_event_stream(&mut self) -> Either<Poll<HotShotTaskCompleted>, bool> {
-        nll_todo()
-    }
 }
 
 // NOTE: this is a Future, but it could easily be a stream.
@@ -471,7 +488,12 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
 
         let mut event_stream = projected.event_stream.take();
 
+        // do a thing
+
+
         let mut message_stream = projected.message_stream.take();
+
+        // do a thing
 
         let mut event_stream_finished = false;
         let mut message_stream_finished = false;
@@ -479,7 +501,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         if let Some(mut inner_event_stream) = event_stream {
             while let Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
                 if let Some(event) = maybe_event {
-                    if let Some(handle_event) = projected.handle_event.take() {
+                    if let Some(ref handle_event) = projected.handle_event {
+                        tracing::error!("GOT AN EVENT");
                         let maybe_state = projected.state.take();
                         if let Some(state) = maybe_state {
                             let mut fut = handle_event(event, state);
@@ -506,12 +529,14 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                             projected.cleanup(Some(inner_event_stream), message_stream);
                             return result;
                         }
-                    } else {
-                        // this is a fused future so `None` will come every time after the stream
-                        // finishes
-                        event_stream_finished = true;
-                        break;
                     }
+                }
+                else {
+                    tracing::error!("Did NOT get an event");
+                    // this is a fused future so `None` will come every time after the stream
+                    // finishes
+                    event_stream_finished = true;
+                    break;
                 }
             }
             // passing this stuff around is a trick and a half
@@ -523,7 +548,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         if let Some(mut inner_message_stream) = message_stream {
             while let Poll::Ready(maybe_msg) = inner_message_stream.as_mut().poll_next(cx) {
                 if let Some(msg) = maybe_msg {
-                    if let Some(handle_msg) = projected.handle_message {
+                    if let Some(ref handle_msg) = projected.handle_message {
                         let maybe_state = projected.state.take();
                         if let Some(state) = maybe_state {
                             let mut fut = handle_msg(msg, state);
@@ -551,12 +576,12 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                             return result;
                         }
                     }
-                    // this is a fused future so `None` will come every time after the stream
-                    // finishes
-                    else {
-                        message_stream_finished = true;
-                        break;
-                    }
+                }
+                // this is a fused future so `None` will come every time after the stream
+                // finishes
+                else {
+                    message_stream_finished = true;
+                    break;
                 }
             }
             message_stream = Some(inner_message_stream);
@@ -564,6 +589,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
             message_stream_finished = true;
         }
         if message_stream_finished && event_stream_finished {
+            tracing::error!("Message and event stream both finished!");
             *projected.r_val = Some(HotShotTaskCompleted::StreamsDied);
             let result = projected.launch_shutdown_fut(cx);
             projected.cleanup(event_stream, message_stream);
@@ -572,6 +598,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
 
         projected.cleanup(event_stream, message_stream);
 
+        tracing::error!("PENDING AT THE END");
         Poll::Pending
     }
 }
