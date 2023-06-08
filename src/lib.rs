@@ -48,6 +48,7 @@ use async_compatibility_layer::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use nll::nll_todo::nll_todo;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::{Left, Right};
@@ -708,7 +709,7 @@ where
             network_direct_task_handle,
             committee_network_broadcast_task_handle: None,
             committee_network_direct_task_handle: None,
-            consensus_task_handle,
+            consensus_task_handle: nll_todo(),
             shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
             run_view_channels: handle_channels,
             started,
@@ -942,7 +943,7 @@ where
             network_direct_task_handle,
             committee_network_broadcast_task_handle: Some(committee_network_broadcast_task_handle),
             committee_network_direct_task_handle: Some(committee_network_direct_task_handle),
-            consensus_task_handle,
+            consensus_task_handle: nll_todo(),
             shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
             run_view_channels: handle_channels,
             started,
