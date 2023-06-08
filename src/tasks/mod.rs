@@ -9,11 +9,12 @@ use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_task::{
     event_stream::{self, ChannelStream},
+    global_registry::GlobalRegistry,
     task::{
         FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
-    task_launcher::TaskRunner, global_registry::GlobalRegistry,
+    task_launcher::TaskRunner,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -560,8 +561,6 @@ pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
     async_spawn(async move {
         task_runner.launch().await;
-        }
-    );
+    });
     (registry, event_stream)
-
 }
