@@ -345,7 +345,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ) -> Option<usize> {
         use async_compatibility_layer::channel::UnboundedReceiver;
 
-        let channel_map = self.hotshot.replica_channel_map.read().await;
+        let channel_map = self.hotshot.channel_maps.0.vote_channel.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
         let receiver = chan.receiver_chan.lock().await;
         UnboundedReceiver::len(&*receiver)
@@ -359,7 +359,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ) -> Option<usize> {
         use async_compatibility_layer::channel::UnboundedReceiver;
 
-        let channel_map = self.hotshot.next_leader_channel_map.read().await;
+        let channel_map = self.hotshot.channel_maps.0.proposal_channel.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
 
         let receiver = chan.receiver_chan.lock().await;
