@@ -274,6 +274,8 @@ enum NetworkEvent<MSG: NetworkMsg> {
     Shutdown,
 }
 
+impl<MSG: NetworkMsg> PassType for NetworkEvent<MSG> {}
+
 struct NetworkTask<
     TYPES: NodeType,
     MSG: NetworkMsg,
@@ -281,7 +283,7 @@ struct NetworkTask<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
-    STREAM: Stream,
+    STREAM: Stream + Unpin,
     ESTREAM: EventStream<EventType = NetworkEvent<MSG>>,
 > {
     channel: COMMCHANNEL,
@@ -307,7 +309,7 @@ impl<
         match event {
             NetworkEvent::SendMessage(msg) => self
                 .channel
-                .broadcast_message(msg, membership)
+                .broadcast_message(msg, &membership)
                 .await
                 .expect("Failed to broadcast message"),
             NetworkEvent::ViewChange(view) => self.view = view,
@@ -332,7 +334,7 @@ impl<
 
     /// Subscribe to network evens.
     async fn subscribe(&self, global_stream: ESTREAM) {
-        self.events = global_stream.subscribe(Self::filter).await
+        self.events = global_stream.subscribe(FilterEvent(Self::filter)).await
     }
 
     /// Run when spawning the network tasks.
@@ -349,7 +351,7 @@ impl<
         let running = true;
         while running {
             let event = self.events.next();
-            running = self.handle_event(event, membership);
+            running = self.handle_event(event, membership).await;
         }
     }
 }
