@@ -64,17 +64,17 @@ NOTE: this should always be called before any <code>request_response</code> is i
 <p>if the client has stopped listening for a response</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.put_record" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#289-308">source</a><h4 class="code-header">pub async fn <a href="#method.put_record" class="fn">put_record</a>(
     &amp;self,
-    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
-    value: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
+    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    value: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Insert a record into the kademlia DHT</p>
 <h5 id="errors-4"><a href="#errors-4">Errors</a></h5>
 <ul>
 <li>Will return <a href="node/handle/enum.NetworkNodeHandleError.html#variant.DHTError" title="variant libp2p_networking::network::node::handle::NetworkNodeHandleError::DHTError"><code>NetworkNodeHandleError::DHTError</code></a> when encountering an error putting to DHT</li>
 <li>Will return <a href="node/handle/enum.NetworkNodeHandleError.html#variant.SerializationError" title="variant libp2p_networking::network::node::handle::NetworkNodeHandleError::SerializationError"><code>NetworkNodeHandleError::SerializationError</code></a> when unable to serialize the key or value</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_record" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#316-337">source</a><h4 class="code-header">pub async fn <a href="#method.get_record" class="fn">get_record</a>&lt;V: for&lt;'a&gt; <a class="trait" href="https://docs.rs/serde/1.0.163/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'a&gt;&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_record" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#316-337">source</a><h4 class="code-header">pub async fn <a href="#method.get_record" class="fn">get_record</a>&lt;V: for&lt;'a&gt; <a class="trait" href="https://docs.rs/serde/1.0.164/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'a&gt;&gt;(
     &amp;self,
-    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
     retry_count: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;V, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Receive a record from the kademlia DHT if it exists.
 Must be replicated on at least 2 nodes</p>
@@ -84,9 +84,9 @@ Must be replicated on at least 2 nodes</p>
 <li>Will return <a href="node/handle/enum.NetworkNodeHandleError.html#variant.SerializationError" title="variant libp2p_networking::network::node::handle::NetworkNodeHandleError::SerializationError"><code>NetworkNodeHandleError::SerializationError</code></a> when unable to serialize the key</li>
 <li>Will return <a href="node/handle/enum.NetworkNodeHandleError.html#variant.DeserializationError" title="variant libp2p_networking::network::node::handle::NetworkNodeHandleError::DeserializationError"><code>NetworkNodeHandleError::DeserializationError</code></a> when unable to deserialize the returned value</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_record_timeout" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#345-355">source</a><h4 class="code-header">pub async fn <a href="#method.get_record_timeout" class="fn">get_record_timeout</a>&lt;V: for&lt;'a&gt; <a class="trait" href="https://docs.rs/serde/1.0.163/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'a&gt;&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_record_timeout" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#345-355">source</a><h4 class="code-header">pub async fn <a href="#method.get_record_timeout" class="fn">get_record_timeout</a>&lt;V: for&lt;'a&gt; <a class="trait" href="https://docs.rs/serde/1.0.164/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'a&gt;&gt;(
     &amp;self,
-    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
     timeout: <a class="struct" href="https://doc.rust-lang.org/1.70.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;V, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Get a record from the kademlia DHT with a timeout</p>
 <h5 id="errors-6"><a href="#errors-6">Errors</a></h5>
@@ -98,8 +98,8 @@ Must be replicated on at least 2 nodes</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.put_record_timeout" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#363-374">source</a><h4 class="code-header">pub async fn <a href="#method.put_record_timeout" class="fn">put_record_timeout</a>(
     &amp;self,
-    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
-    value: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    key: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    value: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
     timeout: <a class="struct" href="https://doc.rust-lang.org/1.70.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Insert a record into the kademlia DHT with a timeout</p>
 <h5 id="errors-7"><a href="#errors-7">Errors</a></h5>
@@ -143,7 +143,7 @@ e.g. maintain their connection</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.direct_request" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#429-441">source</a><h4 class="code-header">pub async fn <a href="#method.direct_request" class="fn">direct_request</a>(
     &amp;self,
     pid: <a class="struct" href="../reexport/struct.PeerId.html" title="struct libp2p_networking::reexport::PeerId">PeerId</a>,
-    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
+    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Make a direct request to <code>peer_id</code> containing <code>msg</code></p>
 <h5 id="errors-12"><a href="#errors-12">Errors</a></h5>
 <ul>
@@ -153,7 +153,7 @@ e.g. maintain their connection</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.direct_response" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#447-455">source</a><h4 class="code-header">pub async fn <a href="#method.direct_response" class="fn">direct_response</a>(
     &amp;self,
     chan: ResponseChannel&lt;<a class="struct" href="behaviours/direct_message_codec/struct.DirectMessageResponse.html" title="struct libp2p_networking::network::behaviours::direct_message_codec::DirectMessageResponse">DirectMessageResponse</a>&gt;,
-    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
+    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Reply with <code>msg</code> to a request over <code>chan</code></p>
 <h5 id="errors-13"><a href="#errors-13">Errors</a></h5>
 <ul>
@@ -173,7 +173,7 @@ shouldn’t happen.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.gossip" class="method"><a class="srclink rightside" href="../../src/libp2p_networking/network/node/handle.rs.html#473-481">source</a><h4 class="code-header">pub async fn <a href="#method.gossip" class="fn">gossip</a>(
     &amp;self,
     topic: <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.163/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
+    msg: &amp;impl <a class="trait" href="https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>, <a class="enum" href="node/handle/enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Gossip a message to peers</p>
 <h5 id="errors-15"><a href="#errors-15">Errors</a></h5>
 <ul>
