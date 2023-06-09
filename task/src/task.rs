@@ -325,7 +325,7 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
 }
 
-impl<HSTT: HotShotTaskTypes> Debug for HotShotTaskCompleted<HSTT> {
+impl std::fmt::Debug for HotShotTaskCompleted {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HotShotTaskCompleted::ShutDown => f.write_str("HotShotTaskCompleted::ShutDown"),

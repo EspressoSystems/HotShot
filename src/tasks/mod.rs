@@ -1,11 +1,12 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShot, HotShotType, ViewRunner};
+use crate::{HotShot, HotShotType, ViewRunner, events::SequencingHotShotEvent};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
+use either::Either::{Left, Right};
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
@@ -17,7 +18,6 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, ViewNumber},
@@ -29,6 +29,10 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_types::{message::Message, traits::network::NetworkError};
+use hotshot_types::{
+    message::{CommitteeConsensusMessage, Proposal, SequencingMessage},
+    traits::election::ConsensusExchange,
+};
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -267,15 +271,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
 }
 
-enum NetworkEvent<MSG: NetworkMsg> {
-    MessageReceived(MSG),
-    SendMessage(MSG),
-    ViewChange(ViewNumber),
-    Shutdown,
-}
-
-impl<MSG: NetworkMsg> PassType for NetworkEvent<MSG> {}
-
 struct NetworkTask<
     TYPES: NodeType,
     MSG: NetworkMsg,
@@ -284,7 +279,7 @@ struct NetworkTask<
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
     STREAM: Stream + Unpin,
-    ESTREAM: EventStream<EventType = NetworkEvent<MSG>>,
+    ESTREAM: EventStream<EventType = SequencingHotShotEvent<TYPES, I>>,
 > {
     channel: COMMCHANNEL,
     events: STREAM,
@@ -301,33 +296,55 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
         STREAM: Stream,
-        ESTREAM: EventStream<EventType = NetworkEvent<MSG>>,
+        ESTREAM: EventStream<EventType = SequencingHotShotEvent<TYPES, I>>,
     > NetworkTask<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL, STREAM, ESTREAM>
 {
     /// Handle the given event and return whether to keep running.
-    async fn handle_event(&self, event: NetworkEvent<MSG>, membership: MEMBERSHIP) -> bool {
-        match event {
-            NetworkEvent::SendMessage(msg) => self
-                .channel
-                .broadcast_message(msg, &membership)
-                .await
-                .expect("Failed to broadcast message"),
-            NetworkEvent::ViewChange(view) => self.view = view,
-            NetworkEvent::Shutdown => {
+    async fn handle_event(
+        &self,
+        event: SequencingHotShotEvent<TYPES, I>,
+        membership: MEMBERSHIP,
+    ) -> bool {
+        let consensus_message = match event {
+            SequencingHotShotEvent::QuorumProposalSend(proposal) => {
+                SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal)))
+            }
+            SequencingHotShotEvent::QuorumVoteSend(msg) => {
+                SequencingMessage(Left(GeneralConsensusMessage::Vote(proposal)))
+            }
+            SequencingHotShotEvent::DAProposalSend(msg) => {
+                SequencingMessage(Right(CommitteeConsensusMessage::Proposal(proposal)))
+            }
+            SequencingHotShotEvent::DAVoteSend(msg) => {
+                SequencingMessage(Right(CommitteeConsensusMessage::Vote(proposal)))
+            }
+            SequencingHotShotEvent::ViewChange(view) => {
+                self.view = view;
+                return true;
+            }
+            SequencingHotShotEvent::Shutdown => {
                 self.channel.shut_down();
                 return false;
             }
-            _ => {}
-        }
+            _ => {
+                return true;
+            }
+        };
+        let message_kind =
+            MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(consensus_message);
+        self.channel
+            .broadcast_message(msg, &membership)
+            .await
+            .expect("Failed to broadcast message");
         return true;
     }
 
     /// Filter network event.
-    fn filter(event: NetworkEvent<MSG>) -> bool {
+    fn filter(event: SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            NetworkEvent::SendMessage(_) | NetworkEvent::Shutdown | NetworkEvent::ViewChange(_) => {
-                true
-            }
+            SequencingHotShotEvent::SendMessage(_)
+            | SequencingHotShotEvent::Shutdown
+            | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
         }
     }
@@ -346,7 +363,7 @@ impl<
             .expect("Failed to receive message");
         for msg in messages {
             self.global_stream
-                .publish(NetworkEvent::MessageReceived(msg));
+                .publish(SequencingHotShotEvent::MessageReceived(msg));
         }
         let running = true;
         while running {
