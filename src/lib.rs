@@ -297,12 +297,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone().into()).await.is_err() {
-                warn!("Error timing out next leader task");
+                debug!("Error timing out next leader task");
             }
         };
         // NOTE this should always exist
         if send_replica.send(msg.into()).await.is_err() {
-            warn!("Error timing out replica task");
+            debug!("Error timing out replica task");
         };
     }
 
