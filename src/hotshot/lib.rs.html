@@ -2235,12 +2235,12 @@
         );
         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
             <span class="kw">if </span>chan.send(msg.clone().into()).<span class="kw">await</span>.is_err() {
-                <span class="macro">warn!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
             }
         };
         <span class="comment">// NOTE this should always exist
         </span><span class="kw">if </span>send_replica.send(msg.into()).<span class="kw">await</span>.is_err() {
-            <span class="macro">warn!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
         };
     }
 
