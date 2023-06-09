@@ -21,7 +21,7 @@ pub trait PassType: Clone + std::fmt::Debug + Sync + Send + 'static {}
 impl PassType for () {}
 
 /// the task state
-pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
+pub trait TS: Sync + Send + 'static {}
 
 /// a task error that has nice qualities
 #[allow(clippy::module_name_repetitions)]

@@ -5,6 +5,8 @@ use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
+
+#[derive(Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,
     QuorumProposalRecv((Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey)),

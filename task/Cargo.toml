@@ -68,3 +68,5 @@ async-stream = "0.3.5"
 hotshot-types = { path = "../types", default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 time = "0.3.21"
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+

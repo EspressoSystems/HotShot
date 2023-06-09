@@ -2,6 +2,7 @@ use crate::event_stream::ChannelStream;
 use crate::events::SequencingHotShotEvent;
 use crate::task::{HandleEvent, HotShotTaskCompleted, TaskErr, HST, TS};
 use crate::task_impls::HSTWithEvent;
+use commit::Committable;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
     art::async_timeout,
@@ -46,16 +47,17 @@ use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use hotshot_types::traits::state::ConsensusTime;
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
+    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -88,19 +90,22 @@ pub struct SequencingConsensusTaskState<
 
     pub api: A,
 
+    /// the committee exchange
+    pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+
     /// needed to typecheck
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task
-    pub vote_collectors: HST<ConsensusTaskTypes<TYPES, I, A>>,
+    // pub vote_collectors: HST<ConsensusTaskTypes<TYPES, I, A>>,
 
-    /// timeout task
-    pub timeout_task: HST<ConsensusTaskTypes<TYPES, I, A>>,
+    // /// timeout task
+    // pub timeout_task: HST<ConsensusTaskTypes<TYPES, I, A>>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct VoteCollectionTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES>,
@@ -123,7 +128,7 @@ fn vote_handle<
     event: SequencingHotShotEvent<TYPES, I>,
 ) {
     match event {
-        SequencingHotShotEvent::SequencingVoteRecv(vote, sender) => {}
+        SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {}
         SequencingHotShotEvent::Shutdown => {}
         _ => {}
     }
@@ -131,8 +136,8 @@ fn vote_handle<
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
     > SequencingConsensusTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -150,10 +155,30 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
+        let consensus = self.consensus.read().await;
+        let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
+            warn!("Couldn't find genesis view in state map.");
+            return None;
+        };
+        let Some(leaf) = genesis_view.get_leaf_commitment() else {
+            warn!(
+                ?genesis_view,
+                "Genesis view points to a view without a leaf"
+            );
+            return None;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find genesis leaf.");
+            return None;
+        };
+        Some(leaf.clone())
+    }
+
     pub async fn handle_event(&self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::Shutdown => {}
-            SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
+            SequencingHotShotEvent::QuorumProposalRecv((proposal, sender)) => {
                 let consensus = self.consensus.upgradable_read().await;
                 let view_leader_key = self.quorum_exchange.get_leader(self.cur_view);
                 if view_leader_key != sender {
@@ -331,7 +356,7 @@ where
             SequencingHotShotEvent::DAVoteRecv(vote, sender) => {}
             SequencingHotShotEvent::ViewSyncMessage => {
                 // update the view in state to the one in the message
-                nll_todo();
+                nll_todo()
             }
             _ => {}
         }
@@ -340,7 +365,7 @@ where
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
     > TS for SequencingConsensusTaskState<TYPES, I, A>
 where
@@ -370,12 +395,27 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 
 pub async fn sequencing_consensus_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<TYPES>,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 >(
     event: SequencingHotShotEvent<TYPES, I>,
     state: SequencingConsensusTaskState<TYPES, I, A>,
-) {
+) -> (std::option::Option<HotShotTaskCompleted>, SequencingConsensusTaskState<TYPES, I, A>) where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
     if let SequencingHotShotEvent::Shutdown = event {
         (Some(HotShotTaskCompleted::ShutDown), state)
     } else {

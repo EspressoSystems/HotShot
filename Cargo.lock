@@ -3044,6 +3044,7 @@ dependencies = [
  "async-tungstenite 0.22.2",
  "atomic_enum",
  "bincode",
+ "commit 0.2.2",
  "custom_debug",
  "derivative",
  "either",
