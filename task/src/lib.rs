@@ -46,6 +46,8 @@ pub mod task_impls;
 
 pub mod consensus;
 
+pub mod events;
+
 // NOTE: yoinked /from async-std
 // except this is executor agnostic (doesn't rely on async-std streamext/fuse)
 // NOTE: usage of this is for combining streams into one main stream

@@ -1,11 +1,77 @@
-use crate::HandleEvent;
+use crate::event_stream::ChannelStream;
+use crate::events::SequencingHotShotEvent;
+use crate::task::{HandleEvent, HotShotTaskCompleted, TaskErr, HST, TS};
+use crate::task_impls::HSTWithEvent;
+use async_compatibility_layer::channel::UnboundedReceiver;
+use async_compatibility_layer::{
+    art::async_timeout,
+    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+};
+use async_lock::{Mutex, RwLock};
+use either::Either;
+use either::{Left, Right};
+use hotshot_consensus::utils::Terminator;
+use hotshot_consensus::Consensus;
+use hotshot_consensus::SequencingConsensusApi;
+use hotshot_types::message::Message;
+use hotshot_types::traits::consensus_type::ConsensusType;
+use hotshot_types::traits::election::CommitteeExchangeType;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
+};
+use hotshot_types::traits::state::State;
+use hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
+    message::{
+        CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
+        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        ProcessedSequencingMessage, Proposal, SequencingMessage,
+    },
+    traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::SignedCertificate,
+        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        signature_key::SignatureKey,
+        Block,
+    },
+    vote::{QuorumVote, VoteAccumulator},
+};
+use nll::nll_todo::nll_todo;
+use snafu::Snafu;
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::num::NonZeroU64;
+use std::{collections::HashSet, sync::Arc, time::Instant};
+use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
 
 #[derive(Debug)]
-pub struct SequencingConsensusTaskState {
+pub struct SequencingConsensusTaskState<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
+> where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
@@ -16,29 +82,86 @@ pub struct SequencingConsensusTaskState {
     pub cur_view: TYPES::Time,
     /// The High QC.
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-    /// HotShot consensus API.
-    pub api: A,
 
     /// the quorum exchange
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
 
+    pub api: A,
+
     /// needed to typecheck
     pub _pd: PhantomData<I>,
+
+    /// Current Vote collection task
+    pub vote_collectors: HST<ConsensusTaskTypes<TYPES, I, A>>,
+
+    /// timeout task
+    pub timeout_task: HST<ConsensusTaskTypes<TYPES, I, A>>,
+
+    /// Global events stream to publish events
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+}
+#[derive(Debug)]
+pub struct VoteCollectionTaskState<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<TYPES>,
+> {
+    /// the quorum exchange
+    pub vote_accumulator:
+        Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
 }
 
-impl SequencingConsensusTaskState {
-    pub fn handle_event(&self, event: SequencingHotShotEvent) {
+impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>> TS
+    for VoteCollectionTaskState<TYPES, I>
+{
+}
+
+fn vote_handle<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<TYPES>,
+>(
+    state: VoteCollectionTaskState<TYPES, I>,
+    event: SequencingHotShotEvent<TYPES, I>,
+) {
+    match event {
+        SequencingHotShotEvent::SequencingVoteRecv(vote, sender) => {}
+        SequencingHotShotEvent::Shutdown => {}
+        _ => {}
+    }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
+    > SequencingConsensusTaskState<TYPES, I, A>
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
+    pub async fn handle_event(&self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::Shutdown => {}
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                let consensus = self.consensus.upgradable_read().await;
                 let view_leader_key = self.quorum_exchange.get_leader(self.cur_view);
                 if view_leader_key != sender {
-                    continue;
+                    return;
                 }
 
                 let mut valid_leaf = None;
-                let vote_token =
-                    self.quorum_exchange.make_vote_token(self.cur_view);
+                let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
                 match vote_token {
                     Err(e) => {
                         error!(
@@ -61,7 +184,7 @@ impl SequencingConsensusTaskState {
                         let message;
 
                         // Construct the leaf.
-                        let justify_qc = p.data.justify_qc;
+                        let justify_qc = proposal.data.justify_qc;
                         let parent = if justify_qc.is_genesis() {
                             self.genesis_leaf().await
                         } else {
@@ -75,16 +198,15 @@ impl SequencingConsensusTaskState {
                             return;
                         };
                         let parent_commitment = parent.commit();
-                        let block_commitment = p.data.block_commitment;
-                        let leaf = SequencingLeaf {
+                        let block_commitment = proposal.data.block_commitment;
+                        let leaf: SequencingLeaf<_> = SequencingLeaf {
                             view_number: self.cur_view,
-                            height: p.data.height,
+                            height: proposal.data.height,
                             justify_qc: justify_qc.clone(),
                             parent_commitment,
-                            deltas: Right(p.data.block_commitment),
+                            deltas: Right(proposal.data.block_commitment),
                             rejected: Vec::new(),
-                            timestamp: time::OffsetDateTime::now_utc()
-                                .unix_timestamp_nanos(),
+                            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: sender.to_bytes(),
                         };
                         let justify_qc_commitment = justify_qc.commit();
@@ -95,7 +217,6 @@ impl SequencingConsensusTaskState {
                             .quorum_exchange
                             .is_valid_cert(&justify_qc, parent_commitment)
                         {
-                            invalid_qc = true;
                             warn!("Invalid justify_qc in proposal!.");
                             message = self.quorum_exchange.create_no_message(
                                 justify_qc_commitment,
@@ -106,7 +227,6 @@ impl SequencingConsensusTaskState {
                         }
                         // Validate the `height`.
                         else if leaf.height != parent.height + 1 {
-                            invalid_qc = true;
                             warn!(
                                 "Incorrect height in proposal (expected {}, got {})",
                                 parent.height + 1,
@@ -122,7 +242,7 @@ impl SequencingConsensusTaskState {
                         // Validate the DAC.
                         else if !self
                             .committee_exchange
-                            .is_valid_cert(&p.data.dac, block_commitment)
+                            .is_valid_cert(&proposal.data.dac, block_commitment)
                         {
                             warn!("Invalid DAC in proposal! Skipping proposal.");
                             message = self.quorum_exchange.create_no_message(
@@ -134,9 +254,9 @@ impl SequencingConsensusTaskState {
                         }
                         // Validate the signature.
                         else if !view_leader_key
-                            .validate(&p.signature, leaf_commitment.as_ref())
+                            .validate(&proposal.signature, leaf_commitment.as_ref())
                         {
-                            warn!(?p.signature, "Could not verify proposal.");
+                            warn!(?proposal.signature, "Could not verify proposal.");
                             message = self.quorum_exchange.create_no_message(
                                 justify_qc_commitment,
                                 leaf_commitment,
@@ -148,8 +268,7 @@ impl SequencingConsensusTaskState {
                         // passes.
                         else {
                             // Liveness check.
-                            let liveness_check =
-                                justify_qc.view_number > consensus.locked_view;
+                            let liveness_check = justify_qc.view_number > consensus.locked_view;
 
                             // Safety check.
                             // Check if proposal extends from the locked leaf.
@@ -165,9 +284,7 @@ impl SequencingConsensusTaskState {
                             );
                             let safety_check = outcome.is_ok();
                             if let Err(e) = outcome {
-                                self.api
-                                    .send_view_error(self.cur_view, Arc::new(e))
-                                    .await;
+                                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
                             }
 
                             // Skip if both saftey and liveness checks fail.
@@ -194,8 +311,7 @@ impl SequencingConsensusTaskState {
                         }
 
                         info!("Sending vote to next leader {:?}", message);
-                        let next_leader =
-                            self.quorum_exchange.get_leader(self.cur_view + 1);
+                        let next_leader = self.quorum_exchange.get_leader(self.cur_view + 1);
                         if self
                             .api
                             .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, SequencingMessage(Left(message)))
@@ -213,32 +329,57 @@ impl SequencingConsensusTaskState {
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {}
             SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {}
             SequencingHotShotEvent::DAVoteRecv(vote, sender) => {}
-            SequencingHotShotEvent::ViewSyncMessage => {}
-            SequencingHotShotEvent::QuorumProposalSend => {}
-            SequencingHotShotEvent::DAProposalSend => {}
-            SequencingHotShotEvent::VoteSend => {}
-            SequencingHotShotEvent::DAVoteSend => {}
-            SequencingHotShotEvent::ViewChange => {}
-            SequencingHotShotEvent::Timeout => {}
+            SequencingHotShotEvent::ViewSyncMessage => {
+                // update the view in state to the one in the message
+                nll_todo();
+            }
+            _ => {}
         }
     }
 }
 
-impl TS for ConsensusTaskState {}
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
+    > TS for SequencingConsensusTaskState<TYPES, I, A>
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
+}
 
+pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
+    ConsensusTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    SequencingConsensusTaskState<TYPES, I, A>,
+>;
 
-pub type ConsensusTaskTypes =
-    HSTWithEvent<ConsensusTaskError, SequencingHotShotEvent, ChannelStream<SequencingHotShotEvent>, ConsensusTaskState>;
-
-static event_handle: HandleEvent<HSTT = ConsensusTaskTypes> =
-    HandleEvent::<HSTT = ConsensusTaskTypes>(Arc::new(move |event, state| {
-        async move {
-            if let SequencingHotShotEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                state.handle_event(event);
-                (None, state)
-            }
-        }
-        .boxed()
-    }));
+pub async fn sequencing_consensus_handle<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<TYPES>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+>(
+    event: SequencingHotShotEvent<TYPES, I>,
+    state: SequencingConsensusTaskState<TYPES, I, A>,
+) {
+    if let SequencingHotShotEvent::Shutdown = event {
+        (Some(HotShotTaskCompleted::ShutDown), state)
+    } else {
+        state.handle_event(event).await;
+        (None, state)
+    }
+}

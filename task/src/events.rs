@@ -1,6 +1,10 @@
-use types::data::{DAProposal, ProposalType};
-use types::vote::{DAVote, QuorumVote};
-
+use crate::task::PassType;
+use hotshot_types::data::{DAProposal, ProposalType};
+use hotshot_types::message::Proposal;
+use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::QuorumProposalType;
+use hotshot_types::vote::{DAVote, QuorumVote};
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,
     QuorumProposalRecv((Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey)),
@@ -15,4 +19,4 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewChange,
     Timeout,
 }
-impl PassType for HotShotEvent {}
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

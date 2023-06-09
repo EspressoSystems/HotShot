@@ -15,11 +15,7 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-<<<<<<< HEAD
-use hotshot_types::message::{Message, SequencingMessage};
-=======
 use hotshot_types::message::Message;
->>>>>>> jr/launcher
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
