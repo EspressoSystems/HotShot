@@ -1,14 +1,18 @@
 use clap::Parser;
-use hotshot::demos::vdemo::VDemoTypes;
+use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 
 use crate::{
-    infra::{main_entry_point, ValidatorArgs},
-    types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun},
+    infraDA::{main_entry_point},
+    types::{NodeImpl, ThisMembership, DANetwork, QuorumNetwork, ThisRun, },
 };
+
+use crate::infra::{ValidatorArgs};
 
 pub mod types;
 
+#[path = "../infra/modDA.rs"]
+pub mod infraDA;
 #[path = "../infra/mod.rs"]
 pub mod infra;
 
@@ -20,5 +24,5 @@ pub mod infra;
 #[instrument]
 async fn main() {
     let args = ValidatorArgs::parse();
-    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl, ThisRun>(args).await;
+    main_entry_point::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, NodeImpl, ThisRun>(args).await;
 }
