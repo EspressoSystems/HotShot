@@ -10,7 +10,7 @@ use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
 #[cfg(feature = "async-std-executor")]
-use async_std::task::{yield_now, JoinHandle};
+use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
 use either::Either;
@@ -206,7 +206,7 @@ where
                     }
                 }
             }
-            QuorumVote::Timeout(vote) => {
+            QuorumVote::Timeout(_vote) => {
                 return (None, state);
             }
             QuorumVote::No(_) => {
@@ -443,7 +443,7 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {}
+            SequencingHotShotEvent::DAProposalRecv(_proposal, _sender) => {}
             SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -455,8 +455,8 @@ where
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event) }.boxed()
                         }));
-                        let (collection_view, collection_task) = &self.vote_collector;
-                        let mut acc = VoteAccumulator {
+                        let (collection_view, _collection_task) = &self.vote_collector;
+                        let acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
@@ -473,7 +473,7 @@ where
                             vote.current_view,
                             acc,
                         );
-                        if (vote.current_view > *collection_view) {
+                        if vote.current_view > *collection_view {
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -482,7 +482,7 @@ where
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent::default();
-                            let builder =
+                            let _builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
@@ -495,7 +495,7 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAVoteRecv(vote, sender) => {}
+            SequencingHotShotEvent::DAVoteRecv(_vote, _sender) => {}
             SequencingHotShotEvent::ViewSyncMessage => {
                 // update the view in state to the one in the message
                 nll_todo()

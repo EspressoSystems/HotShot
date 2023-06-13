@@ -1,6 +1,6 @@
 use crate::task::PassType;
 use hotshot_types::certificate::QuorumCertificate;
-use hotshot_types::data::{DAProposal, ProposalType};
+use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
