@@ -44,8 +44,10 @@ pub mod task_launcher;
 /// the task implementations with different features
 pub mod task_impls;
 
+/// the task which implements the main parts of consensus
 pub mod consensus;
 
+/// Defines the events passed between tasks
 pub mod events;
 
 // NOTE: yoinked /from async-std

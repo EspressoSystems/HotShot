@@ -6,7 +6,6 @@ use crate::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use crate::task_impls::HSTWithEvent;
 use crate::task_impls::TaskBuilder;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
 #[cfg(feature = "async-std-executor")]
@@ -27,16 +26,12 @@ use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{QuorumProposal, SequencingLeaf},
-    message::{
-        ConsensusMessageType, GeneralConsensusMessage, ProcessedSequencingMessage,
-        SequencingMessage,
-    },
+    message::{GeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
-        Block,
     },
     vote::{QuorumVote, VoteAccumulator},
 };
@@ -118,7 +113,7 @@ pub struct SequencingConsensusTaskState<
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
-// #[derive(Debug)]
+
 pub struct VoteCollectionTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -156,7 +151,7 @@ where
 {
 }
 
-fn vote_handle<
+async fn vote_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 >(
@@ -200,7 +195,8 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()));
+                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
+                            .await;
                         state.accumulator = Either::Right(qc);
                         return (Some(HotShotTaskCompleted::Success), state);
                     }
@@ -266,7 +262,6 @@ where
 
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
-            SequencingHotShotEvent::Shutdown => {}
             SequencingHotShotEvent::QuorumProposalRecv((proposal, sender)) => {
                 self.timeout_task = async_spawn({
                     // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -285,7 +280,6 @@ where
                     return;
                 }
 
-                let mut valid_leaf = None;
                 let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
                 match vote_token {
                     Err(e) => {
@@ -422,9 +416,6 @@ where
                                     vote_token,
                                 );
                             } else {
-                                // A valid leaf is found.
-                                valid_leaf = Some(leaf);
-
                                 // Generate a message with yes vote.
                                 message = self.quorum_exchange.create_yes_message(
                                     justify_qc_commitment,
@@ -443,7 +434,6 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAProposalRecv(_proposal, _sender) => {}
             SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -453,7 +443,7 @@ where
                             return;
                         }
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
-                            async move { vote_handle(state, event) }.boxed()
+                            async move { vote_handle(state, event).await }.boxed()
                         }));
                         let (collection_view, _collection_task) = &self.vote_collector;
                         let acc = VoteAccumulator {
@@ -495,7 +485,6 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAVoteRecv(_vote, _sender) => {}
             SequencingHotShotEvent::ViewSyncMessage => {
                 // update the view in state to the one in the message
                 nll_todo()
