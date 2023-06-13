@@ -49,6 +49,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 // use std::thread::JoinHandle;
+use crate::task::FilterEvent;
+use crate::task_impls::TaskBuilder;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -57,6 +59,7 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 #[cfg(feature = "tokio-executor")]
 use tokio::task::{yield_now, JoinHandle};
 use tracing::{error, info, instrument, warn};
+use futures::FutureExt;
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -118,8 +121,8 @@ pub struct SequencingConsensusTaskState<
     /// needed to typecheck
     pub _pd: PhantomData<I>,
 
-    /// Current Vote collection task id
-    pub vote_collectors_id: usize,
+    /// Current Vote collection task, with it's view.
+    pub vote_collector: (TYPES::Time, JoinHandle<()>),
 
     /// timeout task handle
     pub timeout_task: JoinHandle<()>,
@@ -449,7 +452,59 @@ where
                 }
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {}
-            SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {}
+            SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {
+                match vote {
+                    QuorumVote::Yes(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            return;
+                        }
+                        let handle_event = HandleEvent(Arc::new(move |event, state| {
+                            async move {
+                                vote_handle(state, event)
+                            }
+                            .boxed()
+                        }));
+                        let (collection_view, collection_task) = &self.vote_collector;
+                        let mut acc = VoteAccumulator {
+                            total_vote_outcomes: HashMap::new(),
+                            yes_vote_outcomes: HashMap::new(),
+                            no_vote_outcomes: HashMap::new(),
+                            success_threshold: self.quorum_exchange.success_threshold(),
+                            failure_threshold: self.quorum_exchange.failure_threshold(),
+                        };
+                        // Todo check if we are the leader
+                        let accumulator = self.quorum_exchange.accumulate_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.leaf_commitment,
+                            vote.vote_data,
+                            vote.vote_token.clone(),
+                            vote.current_view,
+                            acc,
+                        );
+                        if (vote.current_view > *collection_view) {
+                            let state = VoteCollectionTaskState {
+                                quorum_exchange: self.quorum_exchange.clone(),
+                                accumulator,
+                                cur_view: vote.current_view,
+                            };
+                            let name = "Quorum Vote Collection";
+                            let filter = FilterEvent::default();
+                            let builder =
+                                TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
+                                    .register_event_stream(self.event_stream.clone(), filter)
+                                    .await
+                                    .register_state(state)
+                                    .register_event_handler(handle_event);
+                        }
+                    }
+                    QuorumVote::Timeout(_) | QuorumVote::No(_) => {
+                        warn!("The next leader has received an unexpected vote!");
+                    }
+                }
+            }
             SequencingHotShotEvent::DAVoteRecv(vote, sender) => {}
             SequencingHotShotEvent::ViewSyncMessage => {
                 // update the view in state to the one in the message
@@ -486,6 +541,13 @@ where
     >,
 {
 }
+
+pub type VoteCollectionTypes<TYPES, I> = HSTWithEvent<
+    ConsensusTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    VoteCollectionTaskState<TYPES, I>,
+>;
 
 pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
