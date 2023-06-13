@@ -4,7 +4,7 @@ use crate::test_runner::{
     CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
 };
 use hotshot::types::{Message, SignatureKey};
-use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
+use hotshot::{traits::TestableNodeImplementation, SystemContext, HotShotType};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
@@ -251,7 +251,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,

@@ -10,7 +10,7 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, Message},
-    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
+    SystemContext, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -95,7 +95,7 @@ pub fn concise_leaf_and_node<
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestRunner<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
@@ -120,7 +120,7 @@ where
     /// run the test
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -153,7 +153,7 @@ where
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -212,7 +212,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -244,7 +244,7 @@ where
             private_key.clone(),
             ek.clone(),
         );
-        let handle = HotShot::init(
+        let handle = SystemContext::init(
             public_key,
             private_key,
             node_id,

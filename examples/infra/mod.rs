@@ -15,7 +15,7 @@ use hotshot::{
         NodeImplementation, Storage,
     },
     types::{HotShotHandle, SignatureKey},
-    HotShot, ViewRunner,
+    SystemContext, ViewRunner,
 };
 use hotshot_orchestrator::{
     self,
@@ -206,7 +206,7 @@ pub trait Run<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
-    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
     /// Initializes networking, returns self
@@ -258,7 +258,7 @@ pub trait Run<
             sk.clone(),
             ek.clone(),
         );
-        let hotshot = HotShot::init(
+        let hotshot = SystemContext::init(
             pk,
             sk,
             config.node_index,
@@ -477,7 +477,7 @@ where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
-    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
     async fn initialize_networking(
@@ -710,7 +710,7 @@ where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
-    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
     async fn initialize_networking(
@@ -897,7 +897,7 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
-    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
 {
     setup_logging();
     setup_backtrace();

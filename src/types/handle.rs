@@ -5,7 +5,7 @@ use crate::QuorumCertificate;
 use crate::{
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
-    HotShot,
+    SystemContext,
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
@@ -34,9 +34,9 @@ use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::signature_key::EncodedSignature;
 
-/// Event streaming handle for a [`HotShot`] instance running in the background
+/// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
-/// This type provides the means to message and interact with a background [`HotShot`] instance,
+/// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
 pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -46,10 +46,10 @@ pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers for cloning the handle.
     pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES, I::Leaf>>>,
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    pub(crate) hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<TYPES, I::Leaf>>,
-    /// Global to signify the `HotShot` should be closed after completing the next round
+    /// Global to signify the `SystemContext` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
@@ -72,7 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ///
     /// # Errors
     ///
-    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`SystemContext`] has been closed.
     pub async fn next_event(&mut self) -> Result<Event<TYPES, I::Leaf>, HotShotError<TYPES>> {
         let result = self.stream_output.recv_async().await;
         match result {
@@ -134,7 +134,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// # Errors
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
-    /// [`HotShot`] instance.
+    /// [`SystemContext`] instance.
     pub async fn submit_transaction(
         &self,
         tx: TYPES::Transaction,
@@ -142,7 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         self.hotshot.publish_transaction_async(tx).await
     }
 
-    /// Signals to the underlying [`HotShot`] to unpause
+    /// Signals to the underlying [`SystemContext`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
     pub async fn start(&self) {
@@ -170,9 +170,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         }
     }
 
-    /// Signals the underlying [`HotShot`] to run one round, if paused.
+    /// Signals the underlying [`SystemContext`] to run one round, if paused.
     ///
-    /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
+    /// Do not call this function if [`SystemContext`] has been unpaused by [`HotShotHandle::start`].
     pub async fn start_one_round(&self) {
         self.hotshot
             .inner
@@ -224,7 +224,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         }
     }
 
-    /// Provides a reference to the underlying storage for this [`HotShot`], allowing access to
+    /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
@@ -247,7 +247,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             .await;
     }
 
-    /// return the timeout for a view of the underlying `HotShot`
+    /// return the timeout for a view of the underlying `SystemContext`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.hotshot.get_next_view_timeout()
     }
@@ -274,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper to get this node's current view
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_current_view(&self) -> TYPES::Time {
-        self.hotshot.hotstuff.read().await.cur_view
+        self.hotshot.consensus.read().await.cur_view
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `sign_validating_or_commitment_proposal` function

@@ -146,7 +146,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
-pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<TYPES, I>>,
 
@@ -156,7 +156,8 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
         Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
 
     /// The hotstuff implementation
-    hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
+    consensus: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
+
 
     /// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
@@ -175,7 +176,7 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     _pd: PhantomData<CONSENSUS>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType, TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::ConsensusType, TYPES, I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
@@ -232,7 +233,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
 
         let start_view = anchored_leaf.get_view_number();
 
-        let hotstuff = Consensus {
+        let consensus = Consensus {
             state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
@@ -249,8 +250,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             )),
             invalid_qc: 0,
         };
-        let hotstuff = Arc::new(RwLock::new(hotstuff));
-        let txns = hotstuff.read().await.get_transactions();
+        let consensus = Arc::new(RwLock::new(consensus));
+        let txns = consensus.read().await.get_transactions();
 
         let (send_network_lookup, recv_network_lookup) = unbounded();
 
@@ -258,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             id: nonce,
             inner,
             transactions: txns,
-            hotstuff,
+            consensus,
             channel_maps: I::new_channel_maps(start_view),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
@@ -336,14 +337,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     ///
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_state(&self) -> <I::Leaf as LeafType>::MaybeState {
-        self.hotstuff.read().await.get_decided_leaf().get_state()
+        self.consensus.read().await.get_decided_leaf().get_state()
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_decided_leaf(&self) -> I::Leaf {
-        self.hotstuff.read().await.get_decided_leaf()
+        self.consensus.read().await.get_decided_leaf()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -370,8 +371,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -506,7 +507,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ) -> &Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>;
 
     /// Get the [`hotstuff`] field of [`HotShot`].
-    fn hotstuff(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>>;
+    fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>>;
 
     /// Spawn all tasks that operate on the given [`HotShot`].
     ///
@@ -571,7 +572,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
                 if new {
                     // If this is a new transaction, update metrics.
-                    let consensus = self.hotstuff().read().await;
+                    let consensus = self.consensus().read().await;
                     consensus.metrics.outstanding_transactions.update(1);
                     consensus
                         .metrics
@@ -610,7 +611,7 @@ impl<
             Leaf = ValidatingLeaf<TYPES>,
             ConsensusMessage = ValidatingMessage<TYPES, I>,
         >,
-    > HotShotType<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
+    > HotShotType<TYPES, I> for SystemContext<ValidatingConsensus, TYPES, I>
 where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -627,8 +628,8 @@ where
         &self.transactions
     }
 
-    fn hotstuff(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
-        &self.hotstuff
+    fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        &self.consensus
     }
 
     async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
@@ -818,7 +819,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > HotShotType<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+    > HotShotType<TYPES, I> for SystemContext<SequencingConsensus, TYPES, I>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -841,8 +842,8 @@ where
         &self.transactions
     }
 
-    fn hotstuff(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
-        &self.hotstuff
+    fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        &self.consensus
     }
 
     async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
@@ -1150,7 +1151,7 @@ where
 #[async_trait]
 pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Executes one view of consensus
-    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
+    async fn run_view(hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
 }
 
 #[async_trait]
@@ -1161,7 +1162,7 @@ impl<
             Leaf = ValidatingLeaf<TYPES>,
             ConsensusMessage = ValidatingMessage<TYPES, I>,
         >,
-    > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
+    > ViewRunner<TYPES, I> for SystemContext<ValidatingConsensus, TYPES, I>
 where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -1173,12 +1174,12 @@ where
     >,
 {
     #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
-    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
+    async fn run_view(hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotValidatingConsensusApi {
             inner: hotshot.inner.clone(),
         };
         let start = Instant::now();
-        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+        let metrics = Arc::clone(&hotshot.consensus.read().await.metrics);
 
         // do book keeping on channel map
         // TODO probably cleaner to separate this into a function
@@ -1193,7 +1194,7 @@ where
             sender_chan: send_replica,
             receiver_chan: recv_replica,
             has_received_proposal: _,
-        } = HotShot::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+        } = SystemContext::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
             replica_cur_view,
             send_to_replica,
         )
@@ -1213,7 +1214,7 @@ where
             .quorum_exchange()
             .is_leader(next_leader_cur_view + 1)
         {
-            let vq = HotShot::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            let vq = SystemContext::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 next_leader_cur_view,
                 send_to_next_leader,
             )
@@ -1227,7 +1228,7 @@ where
 
         let (cur_view, high_qc, txns) = {
             // OBTAIN write lock on consensus
-            let mut consensus = hotshot.hotstuff.write().await;
+            let mut consensus = hotshot.consensus.write().await;
             let cur_view = consensus.increment_view();
             // make sure consistent
             assert_eq!(cur_view, next_leader_cur_view);
@@ -1258,7 +1259,7 @@ where
         // replica always runs? TODO this will change once vrf integration is added
         let replica = Replica {
             id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            consensus: hotshot.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1274,7 +1275,7 @@ where
         if quorum_exchange.clone().is_leader(cur_view) {
             let leader = ValidatingLeader {
                 id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                consensus: hotshot.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -1312,7 +1313,7 @@ where
         async_spawn({
             let next_view_timeout = hotshot.inner.config.next_view_timeout;
             let next_view_timeout = next_view_timeout;
-            let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+            let hotshot: SystemContext<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
                 hotshot
@@ -1339,7 +1340,7 @@ where
         #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
         compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-        let mut consensus = hotshot.hotstuff.write().await;
+        let mut consensus = hotshot.consensus.write().await;
         consensus.high_qc = high_qc;
         consensus
             .metrics
@@ -1360,7 +1361,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+    > ViewRunner<TYPES, I> for SystemContext<SequencingConsensus, TYPES, I>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -1379,7 +1380,7 @@ where
 {
     // #[instrument]
     #[allow(clippy::too_many_lines)]
-    async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
+    async fn run_view(hotshot: SystemContext<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotSequencingConsensusApi {
             inner: hotshot.inner.clone(),
         };
@@ -1396,9 +1397,9 @@ where
         send_to_leader.channel_map.remove(&leader_last_view);
         send_to_leader.cur_view += 1;
         let (send_da_vote_chan, recv_da_vote, cur_view) = {
-            let mut consensus = hotshot.hotstuff.write().await;
+            let mut consensus = hotshot.consensus.write().await;
             let cur_view = consensus.increment_view();
-            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            let vq = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 cur_view,
                 send_to_leader,
             )
@@ -1412,7 +1413,7 @@ where
         send_to_next_leader.channel_map.remove(&leader_last_view);
         send_to_next_leader.cur_view += 1;
         let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
-            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            let vq = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 cur_view,
                 send_to_next_leader,
             )
@@ -1422,7 +1423,7 @@ where
 
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
-            let consensus = hotshot.hotstuff.read().await;
+            let consensus = hotshot.consensus.read().await;
             let high_qc = consensus.high_qc.clone();
             let txns = consensus.transactions.clone();
             (high_qc, txns)
@@ -1441,7 +1442,7 @@ where
             sender_chan: send_member,
             receiver_chan: recv_member,
             has_received_proposal: _,
-        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+        } = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
             send_to_member.cur_view,
             send_to_member,
         )
@@ -1454,7 +1455,7 @@ where
             sender_chan: send_replica,
             receiver_chan: recv_replica,
             has_received_proposal: _,
-        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+        } = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
             send_to_replica.cur_view,
             send_to_replica,
         )
@@ -1466,7 +1467,7 @@ where
         if quorum_exchange.clone().is_leader(cur_view) {
             let da_leader = DALeader {
                 id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                consensus: hotshot.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -1476,7 +1477,7 @@ where
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
-            let hotstuff = hotshot.hotstuff.clone();
+            let consensus = hotshot.consensus.clone();
             let qc = high_qc.clone();
             let api = c_api.clone();
             let leader_handle = async_spawn(async move {
@@ -1485,7 +1486,7 @@ where
                 };
                 let consensus_leader = ConsensusLeader {
                     id: hotshot.id,
-                    consensus: hotstuff,
+                    consensus,
                     high_qc: qc,
                     cert: da_cert,
                     block,
@@ -1504,7 +1505,7 @@ where
         if quorum_exchange.clone().is_leader(cur_view + 1) {
             let next_leader = ConsensusNextLeader {
                 id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                consensus: hotshot.consensus.clone(),
                 cur_view,
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
@@ -1517,7 +1518,7 @@ where
         }
         let da_member = DAMember {
             id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            consensus: hotshot.consensus.clone(),
             proposal_collection_chan: recv_member,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1529,7 +1530,7 @@ where
         task_handles.push(member_handle);
         let replica = SequencingReplica {
             id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            consensus: hotshot.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1545,7 +1546,7 @@ where
 
         async_spawn({
             let next_view_timeout = hotshot.inner.config.next_view_timeout;
-            let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+            let hotshot: SystemContext<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
                 hotshot
@@ -1572,7 +1573,7 @@ where
             .max_by_key(|qc| qc.view_number)
             .unwrap();
 
-        let mut consensus = hotshot.hotstuff.write().await;
+        let mut consensus = hotshot.consensus.write().await;
         consensus.high_qc = high_qc;
         c_api.send_view_finished(consensus.cur_view).await;
         Ok(())

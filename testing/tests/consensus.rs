@@ -15,7 +15,7 @@ use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
-    traits::TestableNodeImplementation, HotShot, HotShotType,
+    traits::TestableNodeImplementation, SystemContext, HotShotType,
 };
 
 use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
@@ -58,7 +58,7 @@ async fn is_upcoming_validating_leader<
     view_number: TYPES::Time,
 ) -> bool
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
 {
     let handle = runner.get_handle(node_id).unwrap();
     let leader = handle.get_leader(view_number).await;
@@ -74,7 +74,7 @@ async fn submit_validating_proposal<
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -114,7 +114,7 @@ async fn submit_validating_vote<
     view_number: TYPES::Time,
     recipient_node_id: u64,
 ) where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -172,7 +172,7 @@ fn test_validating_vote_queueing_post_safety_check<
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
@@ -221,7 +221,7 @@ fn test_validating_vote_queueing_round_setup<
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -257,7 +257,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -314,7 +314,7 @@ fn test_validating_proposal_queueing_round_setup<
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -348,7 +348,7 @@ fn test_bad_validating_proposal_round_setup<
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -385,7 +385,7 @@ fn test_bad_validating_proposal_post_safety_check<
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {

@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    HotShot, HotShotType,
+    SystemContext, HotShotType,
 };
 use hotshot_types::{
     data::LeafType,
@@ -67,7 +67,7 @@ impl RoundSetupBuilder {
         &self,
     ) -> RoundSetup<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -166,7 +166,7 @@ impl RoundSafetyCheckBuilder {
         self,
     ) -> RoundSafetyCheck<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
