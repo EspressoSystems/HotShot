@@ -16,7 +16,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewSyncMessage,
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     DAProposalSend(Proposal<DAProposal<TYPES>>),
-    VoteSend(QuorumVote<TYPES, I::Leaf>),
+    QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAVoteSend(DAVote<TYPES, I::Leaf>),
     ViewChange,
     Timeout,

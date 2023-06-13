@@ -329,6 +329,8 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
     /// Stream exists but missing handler
     MissingHandler,
+    /// Completed Successfully
+    Success,
 }
 
 impl std::fmt::Debug for HotShotTaskCompleted {
@@ -344,6 +346,7 @@ impl std::fmt::Debug for HotShotTaskCompleted {
             HotShotTaskCompleted::MissingHandler => {
                 f.write_str("HotShotTaskCompleted::MissingHandler")
             }
+            HotShotTaskCompleted::Success => f.write_str("HotShotTaskCompleted::Shutdown"),
         }
     }
 }
