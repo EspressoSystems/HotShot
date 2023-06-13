@@ -2978,6 +2978,7 @@ dependencies = [
  "atomic_enum",
  "either",
  "futures",
+ "hotshot-types",
  "nll",
  "pin-project",
  "serde",

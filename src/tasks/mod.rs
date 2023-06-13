@@ -1,37 +1,28 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShot, HotShotType, ViewRunner, events::SequencingHotShotEvent};
+use crate::{HotShot, HotShotType, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use either::Either::{Left, Right};
 use futures::FutureExt;
-use futures::Stream;
-use futures::StreamExt;
 use hotshot_task::{
-    event_stream::{self, ChannelStream, EventStream},
+    event_stream::{self, ChannelStream},
     task::{
         FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
+use hotshot_types::message::Message;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::{ProposalType, ViewNumber},
     traits::{
-        election::Membership,
-        network::{CommunicationChannel, NetworkMsg, TransmitType},
+        network::{CommunicationChannel, TransmitType},
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
     },
-    vote::VoteType,
-};
-use hotshot_types::{message::Message, traits::network::NetworkError};
-use hotshot_types::{
-    message::{CommitteeConsensusMessage, Proposal, SequencingMessage},
-    traits::election::ConsensusExchange,
 };
 use snafu::Snafu;
 use std::{
@@ -268,108 +259,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     // shut down all child tasks
     for (_, is_done) in completion_map {
         is_done.store(true, Ordering::Relaxed);
-    }
-}
-
-struct NetworkTask<
-    TYPES: NodeType,
-    MSG: NetworkMsg,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-    MEMBERSHIP: Membership<TYPES>,
-    COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
-    STREAM: Stream + Unpin,
-    ESTREAM: EventStream<EventType = SequencingHotShotEvent<TYPES, I>>,
-> {
-    channel: COMMCHANNEL,
-    events: STREAM,
-    global_stream: ESTREAM,
-    view: ViewNumber,
-    phantom: PhantomData<(TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP)>,
-}
-
-impl<
-        TYPES: NodeType,
-        MSG: NetworkMsg,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-        COMMCHANNEL: CommunicationChannel<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP>,
-        STREAM: Stream,
-        ESTREAM: EventStream<EventType = SequencingHotShotEvent<TYPES, I>>,
-    > NetworkTask<TYPES, MSG, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL, STREAM, ESTREAM>
-{
-    /// Handle the given event and return whether to keep running.
-    async fn handle_event(
-        &self,
-        event: SequencingHotShotEvent<TYPES, I>,
-        membership: MEMBERSHIP,
-    ) -> bool {
-        let consensus_message = match event {
-            SequencingHotShotEvent::QuorumProposalSend(proposal) => {
-                SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal)))
-            }
-            SequencingHotShotEvent::QuorumVoteSend(msg) => {
-                SequencingMessage(Left(GeneralConsensusMessage::Vote(proposal)))
-            }
-            SequencingHotShotEvent::DAProposalSend(msg) => {
-                SequencingMessage(Right(CommitteeConsensusMessage::Proposal(proposal)))
-            }
-            SequencingHotShotEvent::DAVoteSend(msg) => {
-                SequencingMessage(Right(CommitteeConsensusMessage::Vote(proposal)))
-            }
-            SequencingHotShotEvent::ViewChange(view) => {
-                self.view = view;
-                return true;
-            }
-            SequencingHotShotEvent::Shutdown => {
-                self.channel.shut_down();
-                return false;
-            }
-            _ => {
-                return true;
-            }
-        };
-        let message_kind =
-            MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(consensus_message);
-        self.channel
-            .broadcast_message(msg, &membership)
-            .await
-            .expect("Failed to broadcast message");
-        return true;
-    }
-
-    /// Filter network event.
-    fn filter(event: SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
-            SequencingHotShotEvent::SendMessage(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_) => true,
-            _ => false,
-        }
-    }
-
-    /// Subscribe to network evens.
-    async fn subscribe(&self, global_stream: ESTREAM) {
-        self.events = global_stream.subscribe(FilterEvent(Self::filter)).await
-    }
-
-    /// Run when spawning the network tasks.
-    async fn run(&self, transmit_type: TransmitType, membership: MEMBERSHIP) {
-        let messages = self
-            .channel
-            .recv_msgs(transmit_type)
-            .await
-            .expect("Failed to receive message");
-        for msg in messages {
-            self.global_stream
-                .publish(SequencingHotShotEvent::MessageReceived(msg));
-        }
-        let running = true;
-        while running {
-            let event = self.events.next();
-            running = self.handle_event(event, membership).await;
-        }
     }
 }
 

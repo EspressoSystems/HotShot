@@ -166,6 +166,15 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES>
     }
 }
 
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> QuorumVote<TYPES, LEAF> {
+    pub fn signature(&self) -> EncodedSignature {
+        match &self {
+            Self::Yes(vote) | Self::No(vote) => vote.signature.1.clone(),
+            Self::Timeout(vote) => vote.signature.1.clone(),
+        }
+    }
+}
+
 impl<TYPES: NodeType> VoteType<TYPES> for ViewSyncVote<TYPES> {
     fn current_view(&self) -> TYPES::Time {
         match self {
