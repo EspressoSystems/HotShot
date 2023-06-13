@@ -149,6 +149,7 @@ pub struct VoteCollectionTaskState<
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
     pub cur_view: TYPES::Time,
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
 impl<
@@ -209,6 +210,7 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
+                        state.event_stream.publish(SequencingHotShotEvent::QCFormed(qc.clone()));
                         state.accumulator = Either::Right(qc);
                         return (Some(HotShotTaskCompleted::Success), state);
                     }
@@ -489,6 +491,7 @@ where
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
                                 cur_view: vote.current_view,
+                                event_stream: self.event_stream.clone(),
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent::default();

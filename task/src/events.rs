@@ -1,4 +1,5 @@
 use crate::task::PassType;
+use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::{DAProposal, ProposalType};
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -18,6 +19,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAProposalSend(Proposal<DAProposal<TYPES>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAVoteSend(DAVote<TYPES, I::Leaf>),
+    QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange,
     Timeout,
 }
