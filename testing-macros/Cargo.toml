@@ -63,7 +63,7 @@ hotshot = { path = "../", default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-testing = { path = "../testing", default-features = false }
-hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives", branch = 'update_jellyfish_0.4.0_pre.0' }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
   "std",
 ] }

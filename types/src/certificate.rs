@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
+// NOTE Sishan: For signature aggregation
+// use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
+
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
@@ -50,6 +53,9 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// commitment to previous leaf
     #[debug(skip)]
     pub leaf_commitment: Commitment<LEAF>,
+
+    // TODO: NOTE Sishan: For signature aggregation
+    // pub bitvectorQuorumCertificate : PhantomData,
 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
