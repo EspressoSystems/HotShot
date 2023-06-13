@@ -103,7 +103,9 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .await
             .context(NetworkSnafu)?;
         info!("LISTEN ADDRESS IS {:?}", listen_addr);
-        let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
+        let (send_chan, recv_chan) = Box::pin(network.spawn_listeners())
+            .await
+            .context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = oneshot();
 
         let kill_switch = Mutex::new(Some(kill_switch));

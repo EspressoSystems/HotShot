@@ -1,38 +1,35 @@
 use crate::event_stream::ChannelStream;
 use crate::event_stream::EventStream;
 use crate::events::SequencingHotShotEvent;
-use crate::task::{HandleEvent, HotShotTaskCompleted, TaskErr, HST, TS};
+use crate::task::FilterEvent;
+use crate::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use crate::task_impls::HSTWithEvent;
+use crate::task_impls::TaskBuilder;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::channel::UnboundedReceiver;
-use async_compatibility_layer::{
-    art::async_timeout,
-    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
-};
 use async_lock::{Mutex, RwLock};
+#[cfg(feature = "async-std-executor")]
+use async_std::task::{yield_now, JoinHandle};
 use commit::Committable;
-use core::pin::Pin;
+use core::time::Duration;
 use either::Either;
-use either::{Left, Right};
+use either::Right;
+use futures::FutureExt;
 use hotshot_consensus::utils::Terminator;
 use hotshot_consensus::Consensus;
 use hotshot_consensus::SequencingConsensusApi;
 use hotshot_types::message::Message;
-use hotshot_types::traits::consensus_type::ConsensusType;
-use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
-};
+use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal, QuorumProposal, SequencingLeaf},
+    data::{QuorumProposal, SequencingLeaf},
     message::{
-        CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
-        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        ProcessedSequencingMessage, Proposal, SequencingMessage,
+        ConsensusMessageType, GeneralConsensusMessage, ProcessedSequencingMessage,
+        SequencingMessage,
     },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -47,19 +44,10 @@ use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::num::NonZeroU64;
-// use std::thread::JoinHandle;
-use crate::task::FilterEvent;
-use crate::task_impls::TaskBuilder;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-#[cfg(feature = "async-std-executor")]
-use async_std::task::{yield_now, JoinHandle};
-use core::time::Duration;
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
-use tokio::task::{yield_now, JoinHandle};
-use tracing::{error, info, instrument, warn};
-use futures::FutureExt;
+use tokio::task::JoinHandle;
+use tracing::{error, info, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -210,7 +198,9 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
-                        state.event_stream.publish(SequencingHotShotEvent::QCFormed(qc.clone()));
+                        state
+                            .event_stream
+                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()));
                         state.accumulator = Either::Right(qc);
                         return (Some(HotShotTaskCompleted::Success), state);
                     }
@@ -463,10 +453,7 @@ where
                             return;
                         }
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
-                            async move {
-                                vote_handle(state, event)
-                            }
-                            .boxed()
+                            async move { vote_handle(state, event) }.boxed()
                         }));
                         let (collection_view, collection_task) = &self.vote_collector;
                         let mut acc = VoteAccumulator {
