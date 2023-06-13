@@ -18,7 +18,7 @@ mod replica;
 mod sequencing_leader;
 mod sequencing_replica;
 mod traits;
-mod utils;
+pub mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use da_member::DAMember;

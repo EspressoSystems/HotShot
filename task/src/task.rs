@@ -21,7 +21,7 @@ pub trait PassType: Clone + std::fmt::Debug + Sync + Send + 'static {}
 impl PassType for () {}
 
 /// the task state
-pub trait TS: std::fmt::Debug + Sync + Send + 'static {}
+pub trait TS: Sync + Send + 'static {}
 
 /// a task error that has nice qualities
 #[allow(clippy::module_name_repetitions)]
@@ -329,6 +329,8 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
     /// Stream exists but missing handler
     MissingHandler,
+    /// Completed Successfully
+    Success,
 }
 
 impl std::fmt::Debug for HotShotTaskCompleted {
@@ -344,6 +346,7 @@ impl std::fmt::Debug for HotShotTaskCompleted {
             HotShotTaskCompleted::MissingHandler => {
                 f.write_str("HotShotTaskCompleted::MissingHandler")
             }
+            HotShotTaskCompleted::Success => f.write_str("HotShotTaskCompleted::Shutdown"),
         }
     }
 }
