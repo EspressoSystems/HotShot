@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
 
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, SystemContext, HotShotError, HotShotType};
+use hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
 use hotshot_types::{
     message::Message,
     traits::{

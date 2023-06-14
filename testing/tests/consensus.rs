@@ -15,7 +15,7 @@ use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
-    traits::TestableNodeImplementation, SystemContext, HotShotType,
+    traits::TestableNodeImplementation, HotShotType, SystemContext,
 };
 
 use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};

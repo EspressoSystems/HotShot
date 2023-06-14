@@ -115,7 +115,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -141,14 +141,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     background_task_handle: tasks::TaskHandle<TYPES>,
 
     /// a reference to the metrics that the implementor is using.
-    metrics: Box<dyn Metrics>,
-}
-
-/// Thread safe, shared view of a `HotShot`
-#[derive(Clone)]
-pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Handle to internal hotshot implementation
-    inner: Arc<HotShotInner<TYPES, I>>,
+    _metrics: Box<dyn Metrics>,
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
@@ -157,7 +150,6 @@ pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImple
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
-
 
     /// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
@@ -171,6 +163,13 @@ pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImple
 
     /// uid for instrumentation
     id: u64,
+}
+
+/// Thread safe, shared view of a `HotShot`
+#[derive(Clone)]
+pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Handle to internal hotshot implementation
+    inner: Arc<SystemContextInner<TYPES, I>>,
 
     /// Phantom data for consensus type
     _pd: PhantomData<CONSENSUS>,
@@ -192,23 +191,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
-        let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
-            public_key,
-            private_key,
-            config,
-            // networking,
-            storage,
-            exchanges: Arc::new(exchanges),
-            event_sender: RwLock::default(),
-            background_task_handle: tasks::TaskHandle::default(),
-            metrics,
-        });
+
+        let consensus_metrics = Arc::new(ConsensusMetrics::new(
+            &*metrics.subgroup("consensus".to_string()),
+        ));
 
         let anchored_leaf = initializer.inner;
 
         // insert to storage
-        inner
-            .storage
+        storage
             .append(vec![anchored_leaf.clone().into()])
             .await
             .context(StorageSnafu)?;
@@ -244,25 +235,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: anchored_leaf.get_justify_qc(),
-
-            metrics: Arc::new(ConsensusMetrics::new(
-                &*inner.metrics.subgroup("consensus".to_string()),
-            )),
+            metrics: consensus_metrics,
             invalid_qc: 0,
         };
         let consensus = Arc::new(RwLock::new(consensus));
         let txns = consensus.read().await.get_transactions();
 
         let (send_network_lookup, recv_network_lookup) = unbounded();
+        let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
+            send_network_lookup,
+            id: nonce,
+            channel_maps: I::new_channel_maps(start_view),
+            consensus,
+            transactions: txns,
+            public_key,
+            private_key,
+            config,
+            // networking,
+            storage,
+            exchanges: Arc::new(exchanges),
+            event_sender: RwLock::default(),
+            background_task_handle: tasks::TaskHandle::default(),
+            _metrics: metrics,
+        });
 
         Ok(Self {
-            id: nonce,
             inner,
-            transactions: txns,
-            consensus,
-            channel_maps: I::new_channel_maps(start_view),
-            send_network_lookup,
-            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
         })
     }
@@ -274,7 +273,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
     /// Panics if the current view is not in the channel map
     #[instrument(
         skip_all,
-        fields(id = self.id, view = *current_view),
+        fields(id = self.inner.id, view = *current_view),
         name = "Timeout consensus tasks",
         level = "warn"
     )]
@@ -337,14 +336,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
     ///
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_state(&self) -> <I::Leaf as LeafType>::MaybeState {
-        self.consensus.read().await.get_decided_leaf().get_state()
+        self.inner
+            .consensus
+            .read()
+            .await
+            .get_decided_leaf()
+            .get_state()
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_decided_leaf(&self) -> I::Leaf {
-        self.consensus.read().await.get_decided_leaf()
+        self.inner.consensus.read().await.get_decided_leaf()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -625,11 +629,11 @@ where
     fn transactions(
         &self,
     ) -> &Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>> {
-        &self.transactions
+        &self.inner.transactions
     }
 
     fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
-        &self.consensus
+        &self.inner.consensus
     }
 
     async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
@@ -721,7 +725,13 @@ where
         match msg.0 {
             // this is ONLY intended for replica
             GeneralConsensusMessage::Proposal(_) => {
-                let channel_map = self.channel_maps.0.vote_channel.upgradable_read().await;
+                let channel_map = self
+                    .inner
+                    .channel_maps
+                    .0
+                    .vote_channel
+                    .upgradable_read()
+                    .await;
 
                 // skip if the proposal is stale
                 if msg_time < channel_map.cur_view {
@@ -775,7 +785,13 @@ where
             c @ ValidatingMessage(GeneralConsensusMessage::Vote(_)) => {
                 let msg_time = c.view_number();
 
-                let channel_map = self.channel_maps.0.proposal_channel.upgradable_read().await;
+                let channel_map = self
+                    .inner
+                    .channel_maps
+                    .0
+                    .proposal_channel
+                    .upgradable_read()
+                    .await;
 
                 // check if
                 // - is in fact, actually is the next leader
@@ -839,11 +855,11 @@ where
     fn transactions(
         &self,
     ) -> &Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>> {
-        &self.transactions
+        &self.inner.transactions
     }
 
     fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
-        &self.consensus
+        &self.inner.consensus
     }
 
     async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
@@ -957,7 +973,13 @@ where
                 match general_message {
                     // this is ONLY intended for replica
                     GeneralConsensusMessage::Proposal(_) => {
-                        let channel_map = self.channel_maps.0.vote_channel.upgradable_read().await;
+                        let channel_map = self
+                            .inner
+                            .channel_maps
+                            .0
+                            .vote_channel
+                            .upgradable_read()
+                            .await;
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
@@ -1004,7 +1026,7 @@ where
                         );
                     }
                     CommitteeConsensusMessage::DAProposal(_) => {
-                        let channel_map = match &self.channel_maps.1 {
+                        let channel_map = match &self.inner.channel_maps.1 {
                             Some(committee_channels) => {
                                 committee_channels.vote_channel.upgradable_read().await
                             }
@@ -1063,7 +1085,13 @@ where
                 }
                 // this is ONLY intended for next leader
                 c @ GeneralConsensusMessage::Vote(_) => {
-                    let channel_map = self.channel_maps.0.proposal_channel.upgradable_read().await;
+                    let channel_map = self
+                        .inner
+                        .channel_maps
+                        .0
+                        .proposal_channel
+                        .upgradable_read()
+                        .await;
 
                     // check if
                     // - is in fact, actually is the next leader
@@ -1099,7 +1127,7 @@ where
             Right(committee_message) => {
                 match committee_message {
                     c @ CommitteeConsensusMessage::DAVote(_) => {
-                        let channel_map = match &self.channel_maps.1 {
+                        let channel_map = match &self.inner.channel_maps.1 {
                             Some(committee_channels) => {
                                 committee_channels.proposal_channel.upgradable_read().await
                             }
@@ -1173,18 +1201,18 @@ where
         Commitment = ValidatingLeaf<TYPES>,
     >,
 {
-    #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
+    #[instrument(skip(hotshot), fields(id = hotshot.inner.id), name = "Validating View Runner Task", level = "error")]
     async fn run_view(hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotValidatingConsensusApi {
             inner: hotshot.inner.clone(),
         };
         let start = Instant::now();
-        let metrics = Arc::clone(&hotshot.consensus.read().await.metrics);
+        let metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
 
         // do book keeping on channel map
         // TODO probably cleaner to separate this into a function
         // e.g. insert the view and remove the last view
-        let mut send_to_replica = hotshot.channel_maps.0.vote_channel.write().await;
+        let mut send_to_replica = hotshot.inner.channel_maps.0.vote_channel.write().await;
         let replica_last_view: TYPES::Time = send_to_replica.cur_view;
         // gc previous view's channel map
         send_to_replica.channel_map.remove(&replica_last_view);
@@ -1200,7 +1228,7 @@ where
         )
         .await;
 
-        let mut send_to_next_leader = hotshot.channel_maps.0.proposal_channel.write().await;
+        let mut send_to_next_leader = hotshot.inner.channel_maps.0.proposal_channel.write().await;
         let next_leader_last_view = send_to_next_leader.cur_view;
         // gc previous view's channel map
         send_to_next_leader
@@ -1214,11 +1242,12 @@ where
             .quorum_exchange()
             .is_leader(next_leader_cur_view + 1)
         {
-            let vq = SystemContext::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-                next_leader_cur_view,
-                send_to_next_leader,
-            )
-            .await;
+            let vq =
+                SystemContext::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                    next_leader_cur_view,
+                    send_to_next_leader,
+                )
+                .await;
             (Some(vq.sender_chan), Some(vq.receiver_chan))
         } else {
             (None, None)
@@ -1228,7 +1257,7 @@ where
 
         let (cur_view, high_qc, txns) = {
             // OBTAIN write lock on consensus
-            let mut consensus = hotshot.consensus.write().await;
+            let mut consensus = hotshot.inner.consensus.write().await;
             let cur_view = consensus.increment_view();
             // make sure consistent
             assert_eq!(cur_view, next_leader_cur_view);
@@ -1242,6 +1271,7 @@ where
 
         // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
         if hotshot
+            .inner
             .send_network_lookup
             .send(Some(cur_view))
             .await
@@ -1258,8 +1288,8 @@ where
 
         // replica always runs? TODO this will change once vrf integration is added
         let replica = Replica {
-            id: hotshot.id,
-            consensus: hotshot.consensus.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1274,8 +1304,8 @@ where
 
         if quorum_exchange.clone().is_leader(cur_view) {
             let leader = ValidatingLeader {
-                id: hotshot.id,
-                consensus: hotshot.consensus.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -1289,7 +1319,7 @@ where
 
         if quorum_exchange.clone().is_leader(cur_view + 1) {
             let next_leader = NextValidatingLeader {
-                id: hotshot.id,
+                id: hotshot.inner.id,
                 generic_qc: high_qc,
                 // should be fine to unwrap here since the view numbers must be the same
                 vote_collection_chan: recv_next_leader.unwrap(),
@@ -1340,7 +1370,7 @@ where
         #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
         compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-        let mut consensus = hotshot.consensus.write().await;
+        let mut consensus = hotshot.inner.consensus.write().await;
         consensus.high_qc = high_qc;
         consensus
             .metrics
@@ -1386,7 +1416,7 @@ where
         };
 
         // Setup channel for recieving DA votes
-        let mut send_to_leader = match &hotshot.channel_maps.1 {
+        let mut send_to_leader = match &hotshot.inner.channel_maps.1 {
             Some(committee_channels) => committee_channels.proposal_channel.write().await,
             None => {
                 warn!("Committee channels not found.");
@@ -1397,38 +1427,40 @@ where
         send_to_leader.channel_map.remove(&leader_last_view);
         send_to_leader.cur_view += 1;
         let (send_da_vote_chan, recv_da_vote, cur_view) = {
-            let mut consensus = hotshot.consensus.write().await;
+            let mut consensus = hotshot.inner.consensus.write().await;
             let cur_view = consensus.increment_view();
-            let vq = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-                cur_view,
-                send_to_leader,
-            )
-            .await;
+            let vq =
+                SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                    cur_view,
+                    send_to_leader,
+                )
+                .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
 
         // Set up vote collection channel for commitment proposals/votes
-        let mut send_to_next_leader = hotshot.channel_maps.0.proposal_channel.write().await;
+        let mut send_to_next_leader = hotshot.inner.channel_maps.0.proposal_channel.write().await;
         let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
         send_to_next_leader.channel_map.remove(&leader_last_view);
         send_to_next_leader.cur_view += 1;
         let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
-            let vq = SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-                cur_view,
-                send_to_next_leader,
-            )
-            .await;
+            let vq =
+                SystemContext::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                    cur_view,
+                    send_to_next_leader,
+                )
+                .await;
             (vq.sender_chan, vq.receiver_chan)
         };
 
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
-            let consensus = hotshot.consensus.read().await;
+            let consensus = hotshot.inner.consensus.read().await;
             let high_qc = consensus.high_qc.clone();
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        let mut send_to_member = match &hotshot.channel_maps.1 {
+        let mut send_to_member = match &hotshot.inner.channel_maps.1 {
             Some(committee_channels) => committee_channels.vote_channel.write().await,
             None => {
                 warn!("Committee channels not found.");
@@ -1447,7 +1479,7 @@ where
             send_to_member,
         )
         .await;
-        let mut send_to_replica = hotshot.channel_maps.0.vote_channel.write().await;
+        let mut send_to_replica = hotshot.inner.channel_maps.0.vote_channel.write().await;
         let replica_last_view: TYPES::Time = send_to_replica.cur_view;
         send_to_replica.channel_map.remove(&replica_last_view);
         send_to_replica.cur_view += 1;
@@ -1464,10 +1496,11 @@ where
         let mut task_handles = Vec::new();
         let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
         let quorum_exchange = c_api.inner.exchanges.quorum_exchange().clone();
+
         if quorum_exchange.clone().is_leader(cur_view) {
             let da_leader = DALeader {
-                id: hotshot.id,
-                consensus: hotshot.consensus.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -1477,35 +1510,38 @@ where
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
-            let consensus = hotshot.consensus.clone();
+            let consensus = hotshot.inner.consensus.clone();
             let qc = high_qc.clone();
             let api = c_api.clone();
-            let leader_handle = async_spawn(async move {
-                let Some((da_cert, block, parent)) = da_leader.run_view().await else {
+            let leader_handle = {
+                let id = hotshot.inner.id;
+                async_spawn(async move {
+                    let Some((da_cert, block, parent)) = da_leader.run_view().await else {
                     return qc;
                 };
-                let consensus_leader = ConsensusLeader {
-                    id: hotshot.id,
-                    consensus,
-                    high_qc: qc,
-                    cert: da_cert,
-                    block,
-                    parent,
-                    cur_view,
-                    api: api.clone(),
-                    quorum_exchange: quorum_exchange.clone().into(),
-                    _pd: PhantomData,
-                };
-                consensus_leader.run_view().await
-            });
+                    let consensus_leader = ConsensusLeader {
+                        id,
+                        consensus,
+                        high_qc: qc,
+                        cert: da_cert,
+                        block,
+                        parent,
+                        cur_view,
+                        api: api.clone(),
+                        quorum_exchange: quorum_exchange.clone().into(),
+                        _pd: PhantomData,
+                    };
+                    consensus_leader.run_view().await
+                })
+            };
             task_handles.push(leader_handle);
         }
 
         let quorum_exchange = c_api.inner.exchanges.quorum_exchange();
         if quorum_exchange.clone().is_leader(cur_view + 1) {
             let next_leader = ConsensusNextLeader {
-                id: hotshot.id,
-                consensus: hotshot.consensus.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 cur_view,
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
@@ -1517,8 +1553,8 @@ where
             task_handles.push(next_leader_handle);
         }
         let da_member = DAMember {
-            id: hotshot.id,
-            consensus: hotshot.consensus.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_member,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1529,8 +1565,8 @@ where
         let member_handle = async_spawn(async move { da_member.run_view().await });
         task_handles.push(member_handle);
         let replica = SequencingReplica {
-            id: hotshot.id,
-            consensus: hotshot.consensus.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -1573,7 +1609,7 @@ where
             .max_by_key(|qc| qc.view_number)
             .unwrap();
 
-        let mut consensus = hotshot.consensus.write().await;
+        let mut consensus = hotshot.inner.consensus.write().await;
         consensus.high_qc = high_qc;
         c_api.send_view_finished(consensus.cur_view).await;
         Ok(())
@@ -1584,7 +1620,7 @@ where
 #[derive(Clone)]
 struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<TYPES, I>>,
+    inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]
@@ -1723,7 +1759,7 @@ where
 #[derive(Clone)]
 struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<TYPES, I>>,
+    inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]

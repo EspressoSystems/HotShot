@@ -10,7 +10,7 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, Message},
-    SystemContext, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
+    HotShotError, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,

@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Deref, sync::Arc};
 use futures::future::LocalBoxFuture;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    SystemContext, HotShotError, HotShotType,
+    HotShotError, HotShotType, SystemContext,
 };
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::{

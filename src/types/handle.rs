@@ -243,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         self.hotshot
             .inner
             .background_task_handle
-            .wait_shutdown(self.hotshot.send_network_lookup)
+            .wait_shutdown(self.hotshot.inner.send_network_lookup.clone())
             .await;
     }
 
@@ -274,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper to get this node's current view
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_current_view(&self) -> TYPES::Time {
-        self.hotshot.consensus.read().await.cur_view
+        self.hotshot.inner.consensus.read().await.cur_view
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `sign_validating_or_commitment_proposal` function
@@ -345,7 +345,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ) -> Option<usize> {
         use async_compatibility_layer::channel::UnboundedReceiver;
 
-        let channel_map = self.hotshot.channel_maps.0.vote_channel.read().await;
+        let channel_map = self.hotshot.inner.channel_maps.0.vote_channel.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
         let receiver = chan.receiver_chan.lock().await;
         UnboundedReceiver::len(&*receiver)
@@ -359,7 +359,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ) -> Option<usize> {
         use async_compatibility_layer::channel::UnboundedReceiver;
 
-        let channel_map = self.hotshot.channel_maps.0.proposal_channel.read().await;
+        let channel_map = self
+            .hotshot
+            .inner
+            .channel_maps
+            .0
+            .proposal_channel
+            .read()
+            .await;
         let chan = channel_map.channel_map.get(&view_number)?;
 
         let receiver = chan.receiver_chan.lock().await;

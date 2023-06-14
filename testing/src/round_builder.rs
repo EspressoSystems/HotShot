@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    SystemContext, HotShotType,
+    HotShotType, SystemContext,
 };
 use hotshot_types::{
     data::LeafType,
