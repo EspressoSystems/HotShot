@@ -22,7 +22,7 @@ use hotshot_types::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-struct NetworkTask<
+pub struct NetworkTask<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -128,6 +128,10 @@ impl<
 
     /// Run when spawning the network tasks.
     async fn run(&mut self, transmit_type: TransmitType, membership: MEMBERSHIP) {
+        info!(
+            "Launching network processing task for {:?} messages and events",
+            transmit_type
+        );
         let messages = self
             .channel
             .recv_msgs(transmit_type)
@@ -166,11 +170,19 @@ impl<
                 MessageKind::_Unreachable(_) => unimplemented!(),
             };
             self.event_stream.publish(event).await;
+            trace!(
+                "Messages processed in network {:?} task, querying for more",
+                transmit_type
+            );
         }
         let mut running = true;
         while running {
             let event = self.events.next().await.expect("No event");
             running = self.handle_event(event, membership.clone()).await;
+            trace!(
+                "Events processed in network {:?} task, querying for more",
+                transmit_type
+            );
         }
     }
 }
