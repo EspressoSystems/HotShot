@@ -275,7 +275,7 @@
     CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
 };
 <span class="kw">use </span>hotshot::types::{Message, SignatureKey};
-<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 <span class="kw">use </span>hotshot_types::{
@@ -522,7 +522,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
     TestLauncher&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,

@@ -414,7 +414,7 @@
 <span class="kw">use </span>futures::{future::LocalBoxFuture, FutureExt};
 <span class="kw">use </span>hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    HotShot, HotShotType,
+    HotShotType, SystemContext,
 };
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
@@ -478,7 +478,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; RoundSetup&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,
@@ -577,7 +577,7 @@
         <span class="self">self</span>,
     ) -&gt; RoundSafetyCheck&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
         QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,

@@ -272,7 +272,7 @@
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
-<span class="kw">use </span>hotshot::{traits::NetworkReliability, HotShot, HotShotError, HotShotType};
+<span class="kw">use </span>hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
 <span class="kw">use </span>hotshot_types::{
     message::Message,
     traits::{
@@ -348,7 +348,7 @@
         metadata: <span class="kw-2">&amp;</span>TestMetadata,
     ) -&gt; Round&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,
@@ -455,7 +455,7 @@
 
 <span class="attr">#[derive(Debug, Snafu)]
 </span><span class="kw">enum </span>RoundError&lt;TYPES: NodeType&gt; {
-    HotShot { source: HotShotError&lt;TYPES&gt; },
+    SystemContext { source: HotShotError&lt;TYPES&gt; },
 }
 
 <span class="doccomment">/// data describing how a round should be timed.
@@ -492,7 +492,7 @@
         <span class="self">self</span>,
     ) -&gt; TestLauncher&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,

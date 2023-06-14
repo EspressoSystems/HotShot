@@ -302,7 +302,7 @@
 <a href="#302" id="302">302</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
-</span><span class="kw">use crate</span>::{HotShot, HotShotType, ViewRunner};
+</span><span class="kw">use crate</span>::{HotShotType, SystemContext, ViewRunner};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
@@ -467,12 +467,12 @@
 
 <span class="doccomment">/// main thread driving consensus
 </span><span class="kw">pub async fn </span>view_runner&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;,
+    hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
     started: Arc&lt;AtomicBool&gt;,
     shut_down: Arc&lt;AtomicBool&gt;,
     run_once: <span class="prelude-ty">Option</span>&lt;UnboundedReceiver&lt;()&gt;&gt;,
 ) <span class="kw">where
-    </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
 {
     <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) &amp;&amp; !started.load(Ordering::Relaxed) {
         yield_now().<span class="kw">await</span>;
@@ -483,13 +483,13 @@
             <span class="kw">let _</span>: <span class="prelude-ty">Result</span>&lt;(), <span class="kw">_</span>&gt; = recv.recv().<span class="kw">await</span>;
         }
         <span class="kw">let _</span>: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; =
-            HotShot::&lt;TYPES::ConsensusType, TYPES, I&gt;::run_view(hotshot.clone()).<span class="kw">await</span>;
+            SystemContext::&lt;TYPES::ConsensusType, TYPES, I&gt;::run_view(hotshot.clone()).<span class="kw">await</span>;
     }
 }
 
 <span class="doccomment">/// Task to look up a node in the future as needed
 </span><span class="kw">pub async fn </span>network_lookup_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;,
+    hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
     shut_down: Arc&lt;AtomicBool&gt;,
 ) {
     <span class="macro">info!</span>(<span class="string">&quot;Launching network lookup task&quot;</span>);
@@ -499,7 +499,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>completion_map: HashMap&lt;TYPES::Time, Arc&lt;AtomicBool&gt;&gt; = HashMap::default();
 
     <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) {
-        <span class="kw">let </span>lock = hotshot.recv_network_lookup.lock().<span class="kw">await</span>;
+        <span class="kw">let </span>lock = hotshot.inner.recv_network_lookup.lock().<span class="kw">await</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cur_view)) = lock.recv().<span class="kw">await </span>{
             <span class="comment">// Injecting consensus data into the networking implementation
@@ -560,12 +560,12 @@
     I: NodeImplementation&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
 &gt;(
-    hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;,
+    hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
     shut_down: Arc&lt;AtomicBool&gt;,
     transmit_type: TransmitType,
     exchange: Arc&lt;EXCHANGE&gt;,
 ) <span class="kw">where
-    </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
 {
     <span class="macro">info!</span>(
         <span class="string">&quot;Launching network processing task for {:?} messages&quot;</span>,
@@ -592,7 +592,7 @@
         <span class="comment">// Make sure to reset the backoff time
         </span>incremental_backoff_ms = <span class="number">10</span>;
         <span class="kw">for </span>item <span class="kw">in </span>queue {
-            <span class="kw">let </span>_metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.hotstuff.read().<span class="kw">await</span>.metrics);
+            <span class="kw">let </span>_metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.inner.consensus.read().<span class="kw">await</span>.metrics);
             <span class="macro">trace!</span>(<span class="question-mark">?</span>item, <span class="string">&quot;Processing item&quot;</span>);
             hotshot.handle_message(item, transmit_type).<span class="kw">await</span>;
         }

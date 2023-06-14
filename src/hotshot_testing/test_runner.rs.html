@@ -474,8 +474,8 @@
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{HotShotHandle, Message},
-    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
+    types::{Message, SystemContextHandle},
+    HotShotError, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
@@ -522,7 +522,7 @@
 
 <span class="kw">struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; {
     <span class="kw">pub </span>node_id: u64,
-    <span class="kw">pub </span>handle: HotShotHandle&lt;TYPES, I&gt;,
+    <span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// HACK we want a concise and a wordy way to print things
@@ -560,7 +560,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
     TestRunner&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
@@ -585,7 +585,7 @@
     <span class="doccomment">/// run the test
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusTestError&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,
@@ -618,7 +618,7 @@
     <span class="doccomment">/// Add `count` nodes to the network. These will be spawned with the default node config and state
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: usize) -&gt; Vec&lt;u64&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,
@@ -677,7 +677,7 @@
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     ) -&gt; u64
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
             TYPES::ConsensusType,
             TYPES,
@@ -709,7 +709,7 @@
             private_key.clone(),
             ek.clone(),
         );
-        <span class="kw">let </span>handle = HotShot::init(
+        <span class="kw">let </span>handle = SystemContext::init(
             public_key,
             private_key,
             node_id,
@@ -725,8 +725,8 @@
         node_id
     }
 
-    <span class="doccomment">/// Iterate over the [`HotShotHandle`] nodes in this runner.
-    </span><span class="kw">pub fn </span>nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>HotShotHandle&lt;TYPES, I&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+    <span class="doccomment">/// Iterate over the [`SystemContextHandle`] nodes in this runner.
+    </span><span class="kw">pub fn </span>nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;&gt; + <span class="lifetime">&#39;_ </span>{
         <span class="self">self</span>.nodes.iter().map(|node| <span class="kw-2">&amp;</span>node.handle)
     }
 
@@ -866,7 +866,7 @@
 
     <span class="doccomment">/// returns the requested handle specified by `id` if it exists
     /// else returns `None`
-    </span><span class="kw">pub fn </span>get_handle(<span class="kw-2">&amp;</span><span class="self">self</span>, id: u64) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotHandle&lt;TYPES, I&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_handle(<span class="kw-2">&amp;</span><span class="self">self</span>, id: u64) -&gt; <span class="prelude-ty">Option</span>&lt;SystemContextHandle&lt;TYPES, I&gt;&gt; {
         <span class="self">self</span>.nodes.iter().find_map(|node| {
             <span class="kw">if </span>node.node_id == id {
                 <span class="prelude-val">Some</span>(node.handle.clone())

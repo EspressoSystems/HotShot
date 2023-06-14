@@ -1936,6 +1936,43 @@
 <a href="#1936" id="1936">1936</a>
 <a href="#1937" id="1937">1937</a>
 <a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1974,7 +2011,7 @@
     certificate::QuorumCertificate,
     tasks::TaskHandleInner,
     traits::{NodeImplementation, Storage},
-    types::{Event, HotShotHandle},
+    types::{Event, SystemContextHandle},
 };
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -2053,7 +2090,7 @@
 </span><span class="kw">pub const </span>H_256: usize = <span class="number">32</span>;
 
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus
-</span><span class="kw">pub struct </span>HotShotInner&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>SystemContextInner&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The public key of this node
     </span>public_key: TYPES::SignatureKey,
 
@@ -2079,14 +2116,7 @@
     </span>background_task_handle: tasks::TaskHandle&lt;TYPES&gt;,
 
     <span class="doccomment">/// a reference to the metrics that the implementor is using.
-    </span>metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
-}
-
-<span class="doccomment">/// Thread safe, shared view of a `HotShot`
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>HotShot&lt;CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Handle to internal hotshot implementation
-    </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt;,
+    </span>_metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
 
     <span class="doccomment">/// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
@@ -2094,7 +2124,7 @@
         Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
 
     <span class="doccomment">/// The hotstuff implementation
-    </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
+    </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
 
     <span class="doccomment">/// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
@@ -2108,12 +2138,19 @@
 
     <span class="doccomment">/// uid for instrumentation
     </span>id: u64,
+}
+
+<span class="doccomment">/// Thread safe, shared view of a `HotShot`
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>SystemContext&lt;CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Handle to internal hotshot implementation
+    </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// Phantom data for consensus type
     </span>_pd: PhantomData&lt;CONSENSUS&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; HotShot&lt;TYPES::ConsensusType, TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt; {
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
@@ -2129,23 +2166,15 @@
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
-        <span class="kw">let </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt; = Arc::new(HotShotInner {
-            public_key,
-            private_key,
-            config,
-            <span class="comment">// networking,
-            </span>storage,
-            exchanges: Arc::new(exchanges),
-            event_sender: RwLock::default(),
-            background_task_handle: tasks::TaskHandle::default(),
-            metrics,
-        });
+
+        <span class="kw">let </span>consensus_metrics = Arc::new(ConsensusMetrics::new(
+            <span class="kw-2">&amp;*</span>metrics.subgroup(<span class="string">&quot;consensus&quot;</span>.to_string()),
+        ));
 
         <span class="kw">let </span>anchored_leaf = initializer.inner;
 
         <span class="comment">// insert to storage
-        </span>inner
-            .storage
+        </span>storage
             .append(<span class="macro">vec!</span>[anchored_leaf.clone().into()])
             .<span class="kw">await
             </span>.context(StorageSnafu)<span class="question-mark">?</span>;
@@ -2170,7 +2199,7 @@
 
         <span class="kw">let </span>start_view = anchored_leaf.get_view_number();
 
-        <span class="kw">let </span>hotstuff = Consensus {
+        <span class="kw">let </span>consensus = Consensus {
             state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
@@ -2181,25 +2210,33 @@
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>locked_view: anchored_leaf.get_view_number(),
             high_qc: anchored_leaf.get_justify_qc(),
-
-            metrics: Arc::new(ConsensusMetrics::new(
-                <span class="kw-2">&amp;*</span>inner.metrics.subgroup(<span class="string">&quot;consensus&quot;</span>.to_string()),
-            )),
+            metrics: consensus_metrics,
             invalid_qc: <span class="number">0</span>,
         };
-        <span class="kw">let </span>hotstuff = Arc::new(RwLock::new(hotstuff));
-        <span class="kw">let </span>txns = hotstuff.read().<span class="kw">await</span>.get_transactions();
+        <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
+        <span class="kw">let </span>txns = consensus.read().<span class="kw">await</span>.get_transactions();
 
         <span class="kw">let </span>(send_network_lookup, recv_network_lookup) = unbounded();
+        <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
+            send_network_lookup,
+            id: nonce,
+            channel_maps: I::new_channel_maps(start_view),
+            consensus,
+            transactions: txns,
+            public_key,
+            private_key,
+            config,
+            <span class="comment">// networking,
+            </span>storage,
+            exchanges: Arc::new(exchanges),
+            event_sender: RwLock::default(),
+            background_task_handle: tasks::TaskHandle::default(),
+            _metrics: metrics,
+        });
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            id: nonce,
             inner,
-            transactions: txns,
-            hotstuff,
-            channel_maps: I::new_channel_maps(start_view),
-            send_network_lookup,
-            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
         })
     }
@@ -2211,7 +2248,7 @@
     /// Panics if the current view is not in the channel map
     </span><span class="attr">#[instrument(
         skip_all,
-        fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>current_view),
+        fields(id = <span class="self">self</span>.inner.id, view = <span class="kw-2">*</span>current_view),
         name = <span class="string">&quot;Timeout consensus tasks&quot;</span>,
         level = <span class="string">&quot;warn&quot;
     </span>)]
@@ -2274,14 +2311,19 @@
     ///
     /// Panics if internal state for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::MaybeState {
-        <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf().get_state()
+        <span class="self">self</span>.inner
+            .consensus
+            .read()
+            .<span class="kw">await
+            </span>.get_decided_leaf()
+            .get_state()
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::Leaf {
-        <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf()
+        <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_decided_leaf()
     }
 
     <span class="doccomment">/// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -2306,10 +2348,10 @@
         exchanges: I::Exchanges,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;SystemContextHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt;
     <span class="kw">where
-        </span>HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
-        HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     {
         <span class="comment">// Save a clone of the storage for the handle
         </span><span class="kw">let </span>hotshot = <span class="self">Self</span>::new(
@@ -2444,12 +2486,12 @@
     ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;;
 
     <span class="doccomment">/// Get the [`hotstuff`] field of [`HotShot`].
-    </span><span class="kw">fn </span>hotstuff(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;;
+    </span><span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;;
 
     <span class="doccomment">/// Spawn all tasks that operate on the given [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module&#39;s documentation.
-    </span><span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HotShotHandle&lt;TYPES, I&gt;;
+    </span><span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt;;
 
     <span class="doccomment">/// decide which handler to call based on the message variant and `transmit_type`
     </span><span class="kw">async fn </span>handle_message(<span class="kw-2">&amp;</span><span class="self">self</span>, item: Message&lt;TYPES, I&gt;, transmit_type: TransmitType) {
@@ -2509,7 +2551,7 @@
 
                 <span class="kw">if </span>new {
                     <span class="comment">// If this is a new transaction, update metrics.
-                    </span><span class="kw">let </span>consensus = <span class="self">self</span>.hotstuff().read().<span class="kw">await</span>;
+                    </span><span class="kw">let </span>consensus = <span class="self">self</span>.consensus().read().<span class="kw">await</span>;
                     consensus.metrics.outstanding_transactions.update(<span class="number">1</span>);
                     consensus
                         .metrics
@@ -2548,7 +2590,7 @@
             Leaf = ValidatingLeaf&lt;TYPES&gt;,
             ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
         &gt;,
-    &gt; HotShotType&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;ValidatingConsensus, TYPES, I&gt;
+    &gt; HotShotType&lt;TYPES, I&gt; <span class="kw">for </span>SystemContext&lt;ValidatingConsensus, TYPES, I&gt;
 <span class="kw">where
     </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
     ValidatingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -2562,14 +2604,14 @@
     <span class="kw">fn </span>transactions(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.transactions
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.transactions
     }
 
-    <span class="kw">fn </span>hotstuff(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.hotstuff
+    <span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
     }
 
-    <span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HotShotHandle&lt;TYPES, I&gt; {
+    <span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="kw">let </span>shut_down = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
         <span class="kw">let </span>started = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
 
@@ -2619,7 +2661,7 @@
 
         <span class="kw">let </span>(broadcast_sender, broadcast_receiver) = channel();
 
-        <span class="kw">let </span>handle = HotShotHandle {
+        <span class="kw">let </span>handle = SystemContextHandle {
             sender_handle: Arc::new(broadcast_sender.clone()),
             hotshot: <span class="self">self</span>.clone(),
             stream_output: broadcast_receiver,
@@ -2658,7 +2700,13 @@
         <span class="kw">match </span>msg.<span class="number">0 </span>{
             <span class="comment">// this is ONLY intended for replica
             </span>GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.vote_channel.upgradable_read().<span class="kw">await</span>;
+                <span class="kw">let </span>channel_map = <span class="self">self
+                    </span>.inner
+                    .channel_maps
+                    .<span class="number">0
+                    </span>.vote_channel
+                    .upgradable_read()
+                    .<span class="kw">await</span>;
 
                 <span class="comment">// skip if the proposal is stale
                 </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
@@ -2712,7 +2760,13 @@
             </span>c @ ValidatingMessage(GeneralConsensusMessage::Vote(<span class="kw">_</span>)) =&gt; {
                 <span class="kw">let </span>msg_time = c.view_number();
 
-                <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.proposal_channel.upgradable_read().<span class="kw">await</span>;
+                <span class="kw">let </span>channel_map = <span class="self">self
+                    </span>.inner
+                    .channel_maps
+                    .<span class="number">0
+                    </span>.proposal_channel
+                    .upgradable_read()
+                    .<span class="kw">await</span>;
 
                 <span class="comment">// check if
                 // - is in fact, actually is the next leader
@@ -2756,7 +2810,7 @@
             Leaf = SequencingLeaf&lt;TYPES&gt;,
             ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
         &gt;,
-    &gt; HotShotType&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;SequencingConsensus, TYPES, I&gt;
+    &gt; HotShotType&lt;TYPES, I&gt; <span class="kw">for </span>SystemContext&lt;SequencingConsensus, TYPES, I&gt;
 <span class="kw">where
     </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
     SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -2776,14 +2830,14 @@
     <span class="kw">fn </span>transactions(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.transactions
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.transactions
     }
 
-    <span class="kw">fn </span>hotstuff(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.hotstuff
+    <span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
     }
 
-    <span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HotShotHandle&lt;TYPES, I&gt; {
+    <span class="kw">async fn </span>spawn_all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="kw">let </span>shut_down = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
         <span class="kw">let </span>started = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
 
@@ -2853,7 +2907,7 @@
 
         <span class="kw">let </span>(broadcast_sender, broadcast_receiver) = channel();
 
-        <span class="kw">let </span>handle = HotShotHandle {
+        <span class="kw">let </span>handle = SystemContextHandle {
             sender_handle: Arc::new(broadcast_sender.clone()),
             hotshot: <span class="self">self</span>.clone(),
             stream_output: broadcast_receiver,
@@ -2894,7 +2948,13 @@
                 <span class="kw">match </span>general_message {
                     <span class="comment">// this is ONLY intended for replica
                     </span>GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.vote_channel.upgradable_read().<span class="kw">await</span>;
+                        <span class="kw">let </span>channel_map = <span class="self">self
+                            </span>.inner
+                            .channel_maps
+                            .<span class="number">0
+                            </span>.vote_channel
+                            .upgradable_read()
+                            .<span class="kw">await</span>;
 
                         <span class="comment">// skip if the proposal is stale
                         </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
@@ -2941,7 +3001,7 @@
                         </span>);
                     }
                     CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.channel_maps.<span class="number">1 </span>{
+                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.channel_maps.<span class="number">1 </span>{
                             <span class="prelude-val">Some</span>(committee_channels) =&gt; {
                                 committee_channels.vote_channel.upgradable_read().<span class="kw">await
                             </span>}
@@ -3000,7 +3060,13 @@
                 }
                 <span class="comment">// this is ONLY intended for next leader
                 </span>c @ GeneralConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">let </span>channel_map = <span class="self">self</span>.channel_maps.<span class="number">0</span>.proposal_channel.upgradable_read().<span class="kw">await</span>;
+                    <span class="kw">let </span>channel_map = <span class="self">self
+                        </span>.inner
+                        .channel_maps
+                        .<span class="number">0
+                        </span>.proposal_channel
+                        .upgradable_read()
+                        .<span class="kw">await</span>;
 
                     <span class="comment">// check if
                     // - is in fact, actually is the next leader
@@ -3036,7 +3102,7 @@
             Right(committee_message) =&gt; {
                 <span class="kw">match </span>committee_message {
                     c @ CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.channel_maps.<span class="number">1 </span>{
+                        <span class="kw">let </span>channel_map = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.channel_maps.<span class="number">1 </span>{
                             <span class="prelude-val">Some</span>(committee_channels) =&gt; {
                                 committee_channels.proposal_channel.upgradable_read().<span class="kw">await
                             </span>}
@@ -3088,7 +3154,7 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>ViewRunner&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Executes one view of consensus
-    </span><span class="kw">async fn </span>run_view(hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
+    </span><span class="kw">async fn </span>run_view(hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -3099,7 +3165,7 @@
             Leaf = ValidatingLeaf&lt;TYPES&gt;,
             ConsensusMessage = ValidatingMessage&lt;TYPES, I&gt;,
         &gt;,
-    &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;ValidatingConsensus, TYPES, I&gt;
+    &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>SystemContext&lt;ValidatingConsensus, TYPES, I&gt;
 <span class="kw">where
     </span>I::Exchanges: ValidatingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
     ValidatingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -3110,18 +3176,18 @@
         Commitment = ValidatingLeaf&lt;TYPES&gt;,
     &gt;,
 {
-    <span class="attr">#[instrument(skip(hotshot), fields(id = hotshot.id), name = <span class="string">&quot;Validating View Runner Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-    </span><span class="kw">async fn </span>run_view(hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+    <span class="attr">#[instrument(skip(hotshot), fields(id = hotshot.inner.id), name = <span class="string">&quot;Validating View Runner Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    </span><span class="kw">async fn </span>run_view(hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
         <span class="kw">let </span>c_api = HotShotValidatingConsensusApi {
             inner: hotshot.inner.clone(),
         };
         <span class="kw">let </span>start = Instant::now();
-        <span class="kw">let </span>metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.hotstuff.read().<span class="kw">await</span>.metrics);
+        <span class="kw">let </span>metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.inner.consensus.read().<span class="kw">await</span>.metrics);
 
         <span class="comment">// do book keeping on channel map
         // TODO probably cleaner to separate this into a function
         // e.g. insert the view and remove the last view
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.inner.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>replica_last_view: TYPES::Time = send_to_replica.cur_view;
         <span class="comment">// gc previous view&#39;s channel map
         </span>send_to_replica.channel_map.remove(<span class="kw-2">&amp;</span>replica_last_view);
@@ -3131,13 +3197,13 @@
             sender_chan: send_replica,
             receiver_chan: recv_replica,
             has_received_proposal: <span class="kw">_</span>,
-        } = HotShot::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+        } = SystemContext::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
             replica_cur_view,
             send_to_replica,
         )
         .<span class="kw">await</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.inner.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>next_leader_last_view = send_to_next_leader.cur_view;
         <span class="comment">// gc previous view&#39;s channel map
         </span>send_to_next_leader
@@ -3151,11 +3217,12 @@
             .quorum_exchange()
             .is_leader(next_leader_cur_view + <span class="number">1</span>)
         {
-            <span class="kw">let </span>vq = HotShot::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
-                next_leader_cur_view,
-                send_to_next_leader,
-            )
-            .<span class="kw">await</span>;
+            <span class="kw">let </span>vq =
+                SystemContext::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+                    next_leader_cur_view,
+                    send_to_next_leader,
+                )
+                .<span class="kw">await</span>;
             (<span class="prelude-val">Some</span>(vq.sender_chan), <span class="prelude-val">Some</span>(vq.receiver_chan))
         } <span class="kw">else </span>{
             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
@@ -3165,7 +3232,7 @@
 
         </span><span class="kw">let </span>(cur_view, high_qc, txns) = {
             <span class="comment">// OBTAIN write lock on consensus
-            </span><span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.hotstuff.write().<span class="kw">await</span>;
+            </span><span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.inner.consensus.write().<span class="kw">await</span>;
             <span class="kw">let </span>cur_view = consensus.increment_view();
             <span class="comment">// make sure consistent
             </span><span class="macro">assert_eq!</span>(cur_view, next_leader_cur_view);
@@ -3179,6 +3246,7 @@
 
         <span class="comment">// notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
         </span><span class="kw">if </span>hotshot
+            .inner
             .send_network_lookup
             .send(<span class="prelude-val">Some</span>(cur_view))
             .<span class="kw">await
@@ -3195,8 +3263,8 @@
 
         <span class="comment">// replica always runs? TODO this will change once vrf integration is added
         </span><span class="kw">let </span>replica = Replica {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -3211,8 +3279,8 @@
 
         <span class="kw">if </span>quorum_exchange.clone().is_leader(cur_view) {
             <span class="kw">let </span>leader = ValidatingLeader {
-                id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -3226,7 +3294,7 @@
 
         <span class="kw">if </span>quorum_exchange.clone().is_leader(cur_view + <span class="number">1</span>) {
             <span class="kw">let </span>next_leader = NextValidatingLeader {
-                id: hotshot.id,
+                id: hotshot.inner.id,
                 generic_qc: high_qc,
                 <span class="comment">// should be fine to unwrap here since the view numbers must be the same
                 </span>vote_collection_chan: recv_next_leader.unwrap(),
@@ -3250,7 +3318,7 @@
         async_spawn({
             <span class="kw">let </span>next_view_timeout = hotshot.inner.config.next_view_timeout;
             <span class="kw">let </span>next_view_timeout = next_view_timeout;
-            <span class="kw">let </span>hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt; = hotshot.clone();
+            <span class="kw">let </span>hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt; = hotshot.clone();
             <span class="kw">async move </span>{
                 async_sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
                 hotshot
@@ -3277,7 +3345,7 @@
         <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
         </span><span class="macro">compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.hotstuff.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.inner.consensus.write().<span class="kw">await</span>;
         consensus.high_qc = high_qc;
         consensus
             .metrics
@@ -3298,7 +3366,7 @@
             Leaf = SequencingLeaf&lt;TYPES&gt;,
             ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
         &gt;,
-    &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;SequencingConsensus, TYPES, I&gt;
+    &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>SystemContext&lt;SequencingConsensus, TYPES, I&gt;
 <span class="kw">where
     </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
     SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -3317,13 +3385,13 @@
 {
     <span class="comment">// #[instrument]
     </span><span class="attr">#[allow(clippy::too_many_lines)]
-    </span><span class="kw">async fn </span>run_view(hotshot: HotShot&lt;SequencingConsensus, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+    </span><span class="kw">async fn </span>run_view(hotshot: SystemContext&lt;SequencingConsensus, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
         <span class="kw">let </span>c_api = HotShotSequencingConsensusApi {
             inner: hotshot.inner.clone(),
         };
 
         <span class="comment">// Setup channel for recieving DA votes
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_leader = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.channel_maps.<span class="number">1 </span>{
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_leader = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.inner.channel_maps.<span class="number">1 </span>{
             <span class="prelude-val">Some</span>(committee_channels) =&gt; committee_channels.proposal_channel.write().<span class="kw">await</span>,
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
@@ -3334,38 +3402,40 @@
         send_to_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
         send_to_leader.cur_view += <span class="number">1</span>;
         <span class="kw">let </span>(send_da_vote_chan, recv_da_vote, cur_view) = {
-            <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.hotstuff.write().<span class="kw">await</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.inner.consensus.write().<span class="kw">await</span>;
             <span class="kw">let </span>cur_view = consensus.increment_view();
-            <span class="kw">let </span>vq = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
-                cur_view,
-                send_to_leader,
-            )
-            .<span class="kw">await</span>;
+            <span class="kw">let </span>vq =
+                SystemContext::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+                    cur_view,
+                    send_to_leader,
+                )
+                .<span class="kw">await</span>;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
 
         <span class="comment">// Set up vote collection channel for commitment proposals/votes
-        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.inner.channel_maps.<span class="number">0</span>.proposal_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
         send_to_next_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
         send_to_next_leader.cur_view += <span class="number">1</span>;
         <span class="kw">let </span>(send_commitment_vote_chan, recv_commitment_vote_chan) = {
-            <span class="kw">let </span>vq = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
-                cur_view,
-                send_to_next_leader,
-            )
-            .<span class="kw">await</span>;
+            <span class="kw">let </span>vq =
+                SystemContext::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+                    cur_view,
+                    send_to_next_leader,
+                )
+                .<span class="kw">await</span>;
             (vq.sender_chan, vq.receiver_chan)
         };
 
         <span class="kw">let </span>(high_qc, txns) = {
             <span class="comment">// OBTAIN read lock on consensus
-            </span><span class="kw">let </span>consensus = hotshot.hotstuff.read().<span class="kw">await</span>;
+            </span><span class="kw">let </span>consensus = hotshot.inner.consensus.read().<span class="kw">await</span>;
             <span class="kw">let </span>high_qc = consensus.high_qc.clone();
             <span class="kw">let </span>txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.channel_maps.<span class="number">1 </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = <span class="kw">match </span><span class="kw-2">&amp;</span>hotshot.inner.channel_maps.<span class="number">1 </span>{
             <span class="prelude-val">Some</span>(committee_channels) =&gt; committee_channels.vote_channel.write().<span class="kw">await</span>,
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Committee channels not found.&quot;</span>);
@@ -3379,12 +3449,12 @@
             sender_chan: send_member,
             receiver_chan: recv_member,
             has_received_proposal: <span class="kw">_</span>,
-        } = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+        } = SystemContext::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
             send_to_member.cur_view,
             send_to_member,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.inner.channel_maps.<span class="number">0</span>.vote_channel.write().<span class="kw">await</span>;
         <span class="kw">let </span>replica_last_view: TYPES::Time = send_to_replica.cur_view;
         send_to_replica.channel_map.remove(<span class="kw-2">&amp;</span>replica_last_view);
         send_to_replica.cur_view += <span class="number">1</span>;
@@ -3392,7 +3462,7 @@
             sender_chan: send_replica,
             receiver_chan: recv_replica,
             has_received_proposal: <span class="kw">_</span>,
-        } = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+        } = SystemContext::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
             send_to_replica.cur_view,
             send_to_replica,
         )
@@ -3401,10 +3471,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>task_handles = Vec::new();
         <span class="kw">let </span>committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
         <span class="kw">let </span>quorum_exchange = c_api.inner.exchanges.quorum_exchange().clone();
+
         <span class="kw">if </span>quorum_exchange.clone().is_leader(cur_view) {
             <span class="kw">let </span>da_leader = DALeader {
-                id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 high_qc: high_qc.clone(),
                 cur_view,
                 transactions: txns,
@@ -3414,35 +3485,38 @@
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
-            <span class="kw">let </span>hotstuff = hotshot.hotstuff.clone();
+            <span class="kw">let </span>consensus = hotshot.inner.consensus.clone();
             <span class="kw">let </span>qc = high_qc.clone();
             <span class="kw">let </span>api = c_api.clone();
-            <span class="kw">let </span>leader_handle = async_spawn(<span class="kw">async move </span>{
-                <span class="kw">let </span><span class="prelude-val">Some</span>((da_cert, block, parent)) = da_leader.run_view().<span class="kw">await else </span>{
+            <span class="kw">let </span>leader_handle = {
+                <span class="kw">let </span>id = hotshot.inner.id;
+                async_spawn(<span class="kw">async move </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((da_cert, block, parent)) = da_leader.run_view().<span class="kw">await else </span>{
                     <span class="kw">return </span>qc;
                 };
-                <span class="kw">let </span>consensus_leader = ConsensusLeader {
-                    id: hotshot.id,
-                    consensus: hotstuff,
-                    high_qc: qc,
-                    cert: da_cert,
-                    block,
-                    parent,
-                    cur_view,
-                    api: api.clone(),
-                    quorum_exchange: quorum_exchange.clone().into(),
-                    _pd: PhantomData,
-                };
-                consensus_leader.run_view().<span class="kw">await
-            </span>});
+                    <span class="kw">let </span>consensus_leader = ConsensusLeader {
+                        id,
+                        consensus,
+                        high_qc: qc,
+                        cert: da_cert,
+                        block,
+                        parent,
+                        cur_view,
+                        api: api.clone(),
+                        quorum_exchange: quorum_exchange.clone().into(),
+                        _pd: PhantomData,
+                    };
+                    consensus_leader.run_view().<span class="kw">await
+                </span>})
+            };
             task_handles.push(leader_handle);
         }
 
         <span class="kw">let </span>quorum_exchange = c_api.inner.exchanges.quorum_exchange();
         <span class="kw">if </span>quorum_exchange.clone().is_leader(cur_view + <span class="number">1</span>) {
             <span class="kw">let </span>next_leader = ConsensusNextLeader {
-                id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
+                id: hotshot.inner.id,
+                consensus: hotshot.inner.consensus.clone(),
                 cur_view,
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
@@ -3454,8 +3528,8 @@
             task_handles.push(next_leader_handle);
         }
         <span class="kw">let </span>da_member = DAMember {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_member,
             cur_view,
             high_qc: high_qc.clone(),
@@ -3466,8 +3540,8 @@
         <span class="kw">let </span>member_handle = async_spawn(<span class="kw">async move </span>{ da_member.run_view().<span class="kw">await </span>});
         task_handles.push(member_handle);
         <span class="kw">let </span>replica = SequencingReplica {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
+            id: hotshot.inner.id,
+            consensus: hotshot.inner.consensus.clone(),
             proposal_collection_chan: recv_replica,
             cur_view,
             high_qc: high_qc.clone(),
@@ -3483,7 +3557,7 @@
 
         async_spawn({
             <span class="kw">let </span>next_view_timeout = hotshot.inner.config.next_view_timeout;
-            <span class="kw">let </span>hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt; = hotshot.clone();
+            <span class="kw">let </span>hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt; = hotshot.clone();
             <span class="kw">async move </span>{
                 async_sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
                 hotshot
@@ -3510,7 +3584,7 @@
             .max_by_key(|qc| qc.view_number)
             .unwrap();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.hotstuff.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.inner.consensus.write().<span class="kw">await</span>;
         consensus.high_qc = high_qc;
         c_api.send_view_finished(consensus.cur_view).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(())
@@ -3521,7 +3595,7 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>HotShotValidatingConsensusApi&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Reference to the [`HotShotInner`]
-    </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt;,
+    </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -3660,7 +3734,7 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>HotShotSequencingConsensusApi&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Reference to the [`HotShotInner`]
-    </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt;,
+    </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]

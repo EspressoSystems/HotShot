@@ -941,6 +941,8 @@
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
 <a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
 </pre><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::{
     art::async_sleep,
     logging::{setup_backtrace, setup_logging},
@@ -957,8 +959,8 @@
         },
         NodeImplementation, Storage,
     },
-    types::{HotShotHandle, SignatureKey},
-    HotShot, ViewRunner,
+    types::{SignatureKey, SystemContextHandle},
+    SystemContext, ViewRunner,
 };
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
@@ -1149,7 +1151,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     ValidatingLeaf&lt;TYPES&gt;: TestableLeaf,
-    HotShot&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
 {
     <span class="doccomment">/// Initializes networking, returns self
@@ -1160,7 +1162,9 @@
     <span class="doccomment">/// Initializes the genesis state and HotShot instance; does not start HotShot consensus
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
-    </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (TYPES::StateType, HotShotHandle&lt;TYPES, NODE&gt;) {
+    </span><span class="kw">async fn </span>initialize_state_and_hotshot(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; (TYPES::StateType, SystemContextHandle&lt;TYPES, NODE&gt;) {
         <span class="kw">let </span>genesis_block = TYPES::BlockType::genesis();
         <span class="kw">let </span>initializer =
             hotshot::HotShotInitializer::&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;::from_genesis(
@@ -1201,7 +1205,7 @@
             sk.clone(),
             ek.clone(),
         );
-        <span class="kw">let </span>hotshot = HotShot::init(
+        <span class="kw">let </span>hotshot = SystemContext::init(
             pk,
             sk,
             config.node_index,
@@ -1224,7 +1228,7 @@
     }
 
     <span class="doccomment">/// Starts HotShot consensus, returns when consensus has finished
-    </span><span class="kw">async fn </span>run_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>hotshot: HotShotHandle&lt;TYPES, NODE&gt;) {
+    </span><span class="kw">async fn </span>run_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>hotshot: SystemContextHandle&lt;TYPES, NODE&gt;) {
         <span class="kw">let </span>NetworkConfig {
             padding,
             rounds,
@@ -1420,7 +1424,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     ValidatingLeaf&lt;TYPES&gt;: TestableLeaf,
-    HotShot&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
@@ -1653,7 +1657,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     ValidatingLeaf&lt;TYPES&gt;: TestableLeaf,
-    HotShot&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
@@ -1840,7 +1844,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     ValidatingLeaf&lt;TYPES&gt;: TestableLeaf,
-    HotShot&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
 {
     setup_logging();
     setup_backtrace();
