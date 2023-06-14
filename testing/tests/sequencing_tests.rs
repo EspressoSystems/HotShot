@@ -1,4 +1,3 @@
-use ark_bls12_381::Parameters as Param381;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
@@ -47,7 +46,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
