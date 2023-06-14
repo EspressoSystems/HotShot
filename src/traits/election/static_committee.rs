@@ -1,5 +1,4 @@
 use super::vrf::JfPubKey;
-use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
@@ -29,8 +28,7 @@ pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: Signa
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T, LEAF> =
-    GeneralStaticCommittee<T, LEAF, JfPubKey<BLSSignatureScheme<Param381>>>;
+pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, JfPubKey<BLSSignatureScheme>>;
 
 impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
