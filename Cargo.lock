@@ -480,17 +480,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-pallas"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "760ecac12a00211188c9101b63bd284b80da5abcc5d97d9d2b3803bca1f63a52"
-dependencies = [
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-std 0.4.0",
-]
-
-[[package]]
 name = "ark-poly"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1149,7 +1138,6 @@ checksum = "1bc2832c24239b0141d5674bb9174f9d68a8b5b3f2753311927c172ca46f7e9c"
 dependencies = [
  "funty",
  "radium",
- "serde",
  "tap",
  "wyz",
 ]
@@ -1247,12 +1235,6 @@ name = "bumpalo"
 version = "3.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c6ed94e98ecff0c12dd1b04c15ec0d7d9458ca8fe806cea6f12954efe74c63b"
-
-[[package]]
-name = "byte-slice-cast"
-version = "1.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
 
 [[package]]
 name = "byteorder"
@@ -2388,33 +2370,6 @@ version = "0.4.1"
 source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.1#2e889e878866c2a5cce1daaab947f7c93d5811ae"
 
 [[package]]
-name = "ethbloom"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
-dependencies = [
- "crunchy",
- "fixed-hash",
- "impl-rlp",
- "impl-serde",
- "tiny-keccak",
-]
-
-[[package]]
-name = "ethereum-types"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
-dependencies = [
- "ethbloom",
- "fixed-hash",
- "impl-rlp",
- "impl-serde",
- "primitive-types",
- "uint",
-]
-
-[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2454,18 +2409,6 @@ name = "fiat-crypto"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e825f6987101665dea6ec934c09ec6d721de7bc1bf92248e1d5810c8cd636b77"
-
-[[package]]
-name = "fixed-hash"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
-dependencies = [
- "byteorder",
- "rand 0.8.5",
- "rustc-hex",
- "static_assertions",
-]
 
 [[package]]
 name = "flate2"
@@ -2977,12 +2920,11 @@ dependencies = [
  "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-orchestrator",
- "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
  "itertools 0.10.5",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives",
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
@@ -3075,36 +3017,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-primitives"
-version = "0.1.0"
-source = "git+ssh://git@github.com/EspressoSystems/hotshot-primitives.git?branch=update_jellyfish_0.4.0_pre.0#5ed62b79d1b45366154ff75ff555cbb996393292"
-dependencies = [
- "anyhow",
- "ark-bls12-381 0.4.0",
- "ark-bn254",
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-pallas",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "bincode",
- "bitvec",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "ethereum-types",
- "generic-array",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519)",
- "serde",
- "sha3",
- "tagged-base64 0.3.0",
- "thiserror",
- "typenum",
-]
-
-[[package]]
 name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
@@ -3138,10 +3050,9 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
- "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives",
  "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3167,10 +3078,9 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
- "hotshot-primitives",
  "hotshot-testing",
  "hotshot-types",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives",
  "nll",
  "proc-macro2",
  "quote",
@@ -3203,9 +3113,8 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "futures",
  "hex_fmt",
- "hotshot-primitives",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives",
  "libp2p-networking",
  "nll",
  "rand 0.8.5",
@@ -3237,10 +3146,9 @@ dependencies = [
  "bincode",
  "clap",
  "futures",
- "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives",
  "libp2p-core",
  "nll",
  "portpicker",
@@ -3475,44 +3383,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "impl-codec"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba6a270039626615617f3f36d15fc827041df3b78c439da2cadfa47455a77f2f"
-dependencies = [
- "parity-scale-codec",
-]
-
-[[package]]
-name = "impl-rlp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
-dependencies = [
- "rlp",
-]
-
-[[package]]
-name = "impl-serde"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "impl-trait-for-tuples"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11d7a9f6330b71fea57921c9b61c47ee6e84f72d394754eff6163ae67e7395eb"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "include_dir"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3728,48 +3598,6 @@ checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519#36dceb63aa5b452b9551c0139bc5512d17f780cf"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-381 0.4.0",
- "ark-bn254",
- "ark-bw6-761",
- "ark-crypto-primitives",
- "ark-ec 0.4.2",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-381",
- "ark-ed-on-bn254",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "blst",
- "chacha20poly1305 0.10.1",
- "crypto_kx",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "espresso-systems-common 0.4.0",
- "generic-array",
- "itertools 0.10.5",
- "jf-relation 0.4.0-pre.0 (git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519)",
- "merlin",
- "num-bigint",
- "num-traits",
- "rand_chacha 0.3.1",
- "rayon",
- "serde",
- "sha2 0.10.6",
- "sha3",
- "tagged-base64 0.3.0",
- "typenum",
- "zeroize",
-]
-
-[[package]]
-name = "jf-primitives"
-version = "0.4.0-pre.0"
 source = "git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6#36dceb63aa5b452b9551c0139bc5512d17f780cf"
 dependencies = [
  "ark-bls12-377",
@@ -3794,8 +3622,8 @@ dependencies = [
  "espresso-systems-common 0.4.0",
  "generic-array",
  "itertools 0.10.5",
- "jf-relation 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-relation",
+ "jf-utils",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -3807,32 +3635,6 @@ dependencies = [
  "tagged-base64 0.3.0",
  "typenum",
  "zeroize",
-]
-
-[[package]]
-name = "jf-relation"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519#36dceb63aa5b452b9551c0139bc5512d17f780cf"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-381 0.4.0",
- "ark-bn254",
- "ark-bw6-761",
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "derivative",
- "displaydoc",
- "downcast-rs",
- "dyn-clone",
- "hashbrown 0.13.2",
- "itertools 0.10.5",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519)",
- "num-bigint",
- "rand_chacha 0.3.1",
- "rayon",
 ]
 
 [[package]]
@@ -3855,26 +3657,10 @@ dependencies = [
  "dyn-clone",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-utils",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
-]
-
-[[package]]
-name = "jf-utils"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/espressosystems/jellyfish?branch=downgrade-curve25519#36dceb63aa5b452b9551c0139bc5512d17f780cf"
-dependencies = [
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "digest 0.10.7",
- "rayon",
- "serde",
- "sha2 0.10.6",
- "tagged-base64 0.3.0",
 ]
 
 [[package]]
@@ -5580,32 +5366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parity-scale-codec"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ddb756ca205bd108aee3c62c6d3c994e1df84a59b9d6d4a5ea42ee1fd5a9a28"
-dependencies = [
- "arrayvec",
- "bitvec",
- "byte-slice-cast",
- "impl-trait-for-tuples",
- "parity-scale-codec-derive",
- "serde",
-]
-
-[[package]]
-name = "parity-scale-codec-derive"
-version = "3.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b26a931f824dd4eca30b3e43bb4f31cd5f0d3a403c5f5ff27106b805bfde7b"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "parity-send-wrapper"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5898,19 +5658,6 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
-
-[[package]]
-name = "primitive-types"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f3486ccba82358b11a77516035647c34ba167dfa53312630de83b12bd4f3d66"
-dependencies = [
- "fixed-hash",
- "impl-codec",
- "impl-rlp",
- "impl-serde",
- "uint",
-]
 
 [[package]]
 name = "proc-macro-crate"
@@ -6376,16 +6123,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rlp"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb919243f34364b6bd2fc10ef797edbfa75f33c252e7998527479c6d6b47e1ec"
-dependencies = [
- "bytes 1.4.0",
- "rustc-hex",
-]
-
-[[package]]
 name = "ron"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6492,12 +6229,6 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
-
-[[package]]
-name = "rustc-hex"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustc_version"
@@ -7677,15 +7408,6 @@ dependencies = [
  "quote",
  "standback",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "tiny-keccak"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
-dependencies = [
- "crunchy",
 ]
 
 [[package]]
