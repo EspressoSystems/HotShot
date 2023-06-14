@@ -1,4 +1,3 @@
-use ark_bls12_381::Parameters as Param381;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
