@@ -159,10 +159,7 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::vrf::JfPubKey;
-<span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_types::{
@@ -192,8 +189,7 @@
 }
 
 <span class="doccomment">/// static committee using a vrf kp
-</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; =
-    GeneralStaticCommittee&lt;T, LEAF, JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;&gt;;
+</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; = GeneralStaticCommittee&lt;T, LEAF, JfPubKey&lt;BLSSignatureScheme&gt;&gt;;
 
 <span class="kw">impl</span>&lt;T, LEAF: LeafType&lt;NodeType = T&gt;, PUBKEY: SignatureKey&gt;
     GeneralStaticCommittee&lt;T, LEAF, PUBKEY&gt;

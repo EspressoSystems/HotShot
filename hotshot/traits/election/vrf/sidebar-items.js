@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["SORTITION_PARAMETER"],"fn":["calculate_threshold","calculate_threshold_from_cache","check_bin_idx","factorial","find_bin_idx","generate_view_seed"],"static":["CALLSITE","META"],"struct":["BinomialQuery","JfPubKey","VRFStakeTable","VRFStakeTableConfig","VRFVoteToken","VrfImpl"],"type":["BlsPubKey"]};
+window.SIDEBAR_ITEMS = {"constant":["SORTITION_PARAMETER"],"struct":["JfPubKey","VRFStakeTable"],"type":["BlsPubKey"]};

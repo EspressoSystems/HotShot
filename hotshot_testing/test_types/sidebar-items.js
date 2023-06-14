@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["StandardNodeImplType","StaticCommitteeTestTypes","StaticNodeImplType","VrfTestTypes"],"type":["AppliedTestRunner","StaticCommunication","StaticMembership","VrfCommunication","VrfMembership"]};
+window.SIDEBAR_ITEMS = {"struct":["StandardNodeImplType","StaticCommitteeTestTypes","StaticNodeImplType"],"type":["AppliedTestRunner","StaticCommunication","StaticMembership"]};

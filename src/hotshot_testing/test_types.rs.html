@@ -163,89 +163,60 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::test_runner::TestRunner;
-<span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
-<span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>hotshot::{
     demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction},
     traits::{
-        dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            vrf::JfPubKey,
         },
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
     },
 };
+<span class="kw">use </span>hotshot_types::traits::node_implementation::ChannelMaps;
 <span class="kw">use </span>hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
     traits::{
-        block_contents::dummy::{DummyBlock, DummyTransaction},
-        consensus_type::validating_consensus::ValidatingConsensus,
-        election::QuorumExchange,
-        node_implementation::{ChannelMaps, NodeType},
+        consensus_type::validating_consensus::ValidatingConsensus, election::QuorumExchange,
+        node_implementation::NodeType,
     },
     vote::QuorumVote,
 };
 <span class="kw">use </span>hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-<span class="kw">use </span>jf_primitives::{
-    signatures::{
-        bls::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-    },
-    vrf::blsvrf::BLSVRFScheme,
-};
+<span class="kw">use </span>jf_primitives::signatures::BLSSignatureScheme;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="attr">#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+<span class="comment">// #[derive(
+//     Copy,
+//     Clone,
+//     Debug,
+//     Default,
+//     Hash,
+//     PartialEq,
+//     Eq,
+//     PartialOrd,
+//     Ord,
+//     serde::Serialize,
+//     serde::Deserialize,
+// )]
 </span><span class="doccomment">/// vrf test types
-</span><span class="kw">pub struct </span>VrfTestTypes;
-<span class="kw">impl </span>NodeType <span class="kw">for </span>VrfTestTypes {
-    <span class="comment">// TODO (da) can this be SequencingConsensus?
-    </span><span class="kw">type </span>ConsensusType = ValidatingConsensus;
-    <span class="kw">type </span>Time = ViewNumber;
-    <span class="kw">type </span>BlockType = DummyBlock;
-    <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
-    <span class="kw">type </span>VoteTokenType = VRFVoteToken&lt;BLSVerKey&lt;Param381&gt;, BLSSignature&lt;Param381&gt;&gt;;
-    <span class="kw">type </span>Transaction = DummyTransaction;
-    <span class="kw">type </span>ElectionConfigType = VRFStakeTableConfig;
-    <span class="kw">type </span>StateType = DummyState;
-}
+</span><span class="comment">// pub struct VrfTestTypes;
+// impl NodeType for VrfTestTypes {
+//     // TODO (da) can this be SequencingConsensus?
+//     type ConsensusType = ValidatingConsensus;
+//     type Time = ViewNumber;
+//     type BlockType = DummyBlock;
+//     type SignatureKey = JfPubKey&lt;BLSSignatureScheme&gt;;
+//     type VoteTokenType = VRFVoteToken&lt;BLSVerKey&lt;Param381&gt;, BLSSignature&lt;Param381&gt;&gt;;
+//     type Transaction = DummyTransaction;
+//     type ElectionConfigType = VRFStakeTableConfig;
+//     type StateType = DummyState;
+// }
 
-<span class="attr">#[derive(
+</span><span class="attr">#[derive(
     Copy,
     Clone,
     Debug,
@@ -264,8 +235,8 @@
     <span class="kw">type </span>ConsensusType = ValidatingConsensus;
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockType = VDemoBlock;
-    <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
-    <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;&gt;;
+    <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&gt;;
+    <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;JfPubKey&lt;BLSSignatureScheme&gt;&gt;;
     <span class="kw">type </span>Transaction = VDemoTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
     <span class="kw">type </span>StateType = VDemoState;
@@ -275,26 +246,26 @@
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>StandardNodeImplType {}
 
-<span class="doccomment">/// type alias for membership using vrf types
-</span><span class="kw">pub type </span>VrfMembership = VrfImpl&lt;
-    VrfTestTypes,
-    ValidatingLeaf&lt;VrfTestTypes&gt;,
-    BLSSignatureScheme&lt;Param381&gt;,
-    BLSVRFScheme&lt;Param381&gt;,
-    Hasher,
-    Param381,
-&gt;;
+<span class="comment">// /// type alias for membership using vrf types
+// pub type VrfMembership = VrfImpl&lt;
+//     VrfTestTypes,
+//     ValidatingLeaf&lt;VrfTestTypes&gt;,
+//     BLSSignatureScheme,
+//     BLSVRFScheme&lt;Param381&gt;,
+//     Hasher,
+//     Param381,
+// &gt;;
 
-<span class="doccomment">/// type alias for comm channel using vrf
-</span><span class="kw">pub type </span>VrfCommunication = MemoryCommChannel&lt;
-    VrfTestTypes,
-    StandardNodeImplType,
-    ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
-    QuorumVote&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
-    VrfMembership,
-&gt;;
+// /// type alias for comm channel using vrf
+// pub type VrfCommunication = MemoryCommChannel&lt;
+//     VrfTestTypes,
+//     StandardNodeImplType,
+//     ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
+//     QuorumVote&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
+//     VrfMembership,
+// &gt;;
 
-<span class="doccomment">/// type alias for static committee node
+</span><span class="doccomment">/// type alias for static committee node
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>StaticNodeImplType {}
 
@@ -309,34 +280,25 @@
     StaticCommittee&lt;StaticCommitteeTestTypes, ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;&gt;,
 &gt;;
 
-<span class="kw">impl </span>NodeImplementation&lt;VrfTestTypes&gt; <span class="kw">for </span>StandardNodeImplType {
-    <span class="kw">type </span>Storage = MemoryStorage&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;;
-    <span class="kw">type </span>Leaf = ValidatingLeaf&lt;VrfTestTypes&gt;;
-    <span class="kw">type </span>Exchanges = ValidatingExchanges&lt;
-        VrfTestTypes,
-        Message&lt;VrfTestTypes, <span class="self">Self</span>&gt;,
-        QuorumExchange&lt;
-            VrfTestTypes,
-            ValidatingLeaf&lt;VrfTestTypes&gt;,
-            ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
-            VrfMembership,
-            VrfCommunication,
-            Message&lt;VrfTestTypes, <span class="self">Self</span>&gt;,
-        &gt;,
-    &gt;;
-    <span class="kw">type </span>ConsensusMessage = ValidatingMessage&lt;VrfTestTypes, <span class="self">Self</span>&gt;;
+<span class="comment">// impl NodeImplementation&lt;VrfTestTypes&gt; for StandardNodeImplType {
+//     type Storage = MemoryStorage&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;;
+//     type Leaf = ValidatingLeaf&lt;VrfTestTypes&gt;;
+//     type Exchanges = ValidatingExchanges&lt;
+//         VrfTestTypes,
+//         Message&lt;VrfTestTypes, Self&gt;,
+//         QuorumExchange&lt;
+//             VrfTestTypes,
+//             ValidatingLeaf&lt;VrfTestTypes&gt;,
+//             ValidatingProposal&lt;VrfTestTypes, ValidatingLeaf&lt;VrfTestTypes&gt;&gt;,
+//             VrfMembership,
+//             VrfCommunication,
+//             Message&lt;VrfTestTypes, Self&gt;,
+//         &gt;,
+//     &gt;;
+//     type ConsensusMessage = ValidatingMessage&lt;VrfTestTypes, Self&gt;;
+// }
 
-    <span class="kw">fn </span>new_channel_maps(
-        start_view: ViewNumber,
-    ) -&gt; (
-        ChannelMaps&lt;VrfTestTypes, <span class="self">Self</span>&gt;,
-        <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;VrfTestTypes, <span class="self">Self</span>&gt;&gt;,
-    ) {
-        (ChannelMaps::new(start_view), <span class="prelude-val">None</span>)
-    }
-}
-
-<span class="kw">impl </span>NodeImplementation&lt;StaticCommitteeTestTypes&gt; <span class="kw">for </span>StaticNodeImplType {
+</span><span class="kw">impl </span>NodeImplementation&lt;StaticCommitteeTestTypes&gt; <span class="kw">for </span>StaticNodeImplType {
     <span class="kw">type </span>Storage =
         MemoryStorage&lt;StaticCommitteeTestTypes, ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;&gt;;
     <span class="kw">type </span>Leaf = ValidatingLeaf&lt;StaticCommitteeTestTypes&gt;;
