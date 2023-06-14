@@ -50,6 +50,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
+use custom_debug::Debug;
 use either::{Left, Right};
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
@@ -1719,7 +1720,7 @@ where
 }
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<HotShotInner<TYPES, I>>,

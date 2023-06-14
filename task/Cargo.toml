@@ -58,3 +58,8 @@ async-lock = "2.7.0"
 tracing = "0.1.37"
 atomic_enum = "0.2.0"
 pin-project = "1.1.0"
+async-stream = "0.3.5"
+hotshot-consensus = { path = "../consensus", default-features = false }
+time = "0.3.21"
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+
