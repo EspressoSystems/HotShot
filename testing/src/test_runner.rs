@@ -9,7 +9,7 @@ use crate::{
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{HotShotHandle, Message},
+    types::{Message, SystemContextHandle},
     HotShotError, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_types::{
@@ -57,7 +57,7 @@ where
 
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
-    pub handle: HotShotHandle<TYPES, I>,
+    pub handle: SystemContextHandle<TYPES, I>,
 }
 
 /// HACK we want a concise and a wordy way to print things
@@ -260,8 +260,8 @@ where
         node_id
     }
 
-    /// Iterate over the [`HotShotHandle`] nodes in this runner.
-    pub fn nodes(&self) -> impl Iterator<Item = &HotShotHandle<TYPES, I>> + '_ {
+    /// Iterate over the [`SystemContextHandle`] nodes in this runner.
+    pub fn nodes(&self) -> impl Iterator<Item = &SystemContextHandle<TYPES, I>> + '_ {
         self.nodes.iter().map(|node| &node.handle)
     }
 
@@ -401,7 +401,7 @@ where
 
     /// returns the requested handle specified by `id` if it exists
     /// else returns `None`
-    pub fn get_handle(&self, id: u64) -> Option<HotShotHandle<TYPES, I>> {
+    pub fn get_handle(&self, id: u64) -> Option<SystemContextHandle<TYPES, I>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())

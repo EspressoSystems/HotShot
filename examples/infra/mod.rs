@@ -14,7 +14,7 @@ use hotshot::{
         },
         NodeImplementation, Storage,
     },
-    types::{HotShotHandle, SignatureKey},
+    types::{SignatureKey, SystemContextHandle},
     SystemContext, ViewRunner,
 };
 use hotshot_orchestrator::{
@@ -217,7 +217,9 @@ pub trait Run<
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
-    async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, HotShotHandle<TYPES, NODE>) {
+    async fn initialize_state_and_hotshot(
+        &self,
+    ) -> (TYPES::StateType, SystemContextHandle<TYPES, NODE>) {
         let genesis_block = TYPES::BlockType::genesis();
         let initializer =
             hotshot::HotShotInitializer::<TYPES, ValidatingLeaf<TYPES>>::from_genesis(
@@ -281,7 +283,7 @@ pub trait Run<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    async fn run_hotshot(&self, mut hotshot: HotShotHandle<TYPES, NODE>) {
+    async fn run_hotshot(&self, mut hotshot: SystemContextHandle<TYPES, NODE>) {
         let NetworkConfig {
             padding,
             rounds,

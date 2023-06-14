@@ -3,7 +3,7 @@ mod handle;
 
 pub use event::{Event, EventType};
 
-pub use handle::HotShotHandle;
+pub use handle::SystemContextHandle;
 
 pub(crate) use hotshot_types::error::HotShotError;
 pub use hotshot_types::{

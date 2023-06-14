@@ -39,7 +39,7 @@ use hotshot_types::traits::signature_key::EncodedSignature;
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
@@ -55,7 +55,9 @@ pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) storage: I::Storage,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone
+    for SystemContextHandle<TYPES, I>
+{
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -67,7 +69,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// Will return the next event in the queue
     ///
     /// # Errors
@@ -172,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
 
     /// Signals the underlying [`SystemContext`] to run one round, if paused.
     ///
-    /// Do not call this function if [`SystemContext`] has been unpaused by [`HotShotHandle::start`].
+    /// Do not call this function if [`SystemContext`] has been unpaused by [`SystemContextHandle::start`].
     pub async fn start_one_round(&self) {
         self.hotshot
             .inner

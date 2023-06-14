@@ -36,7 +36,7 @@ use crate::{
     certificate::QuorumCertificate,
     tasks::TaskHandleInner,
     traits::{NodeImplementation, Storage},
-    types::{Event, HotShotHandle},
+    types::{Event, SystemContextHandle},
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -373,7 +373,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
+    ) -> Result<SystemContextHandle<TYPES, I>, HotShotError<TYPES>>
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
@@ -516,7 +516,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Spawn all tasks that operate on the given [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    async fn spawn_all(&self) -> HotShotHandle<TYPES, I>;
+    async fn spawn_all(&self) -> SystemContextHandle<TYPES, I>;
 
     /// decide which handler to call based on the message variant and `transmit_type`
     async fn handle_message(&self, item: Message<TYPES, I>, transmit_type: TransmitType) {
@@ -636,7 +636,7 @@ where
         &self.inner.consensus
     }
 
-    async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
+    async fn spawn_all(&self) -> SystemContextHandle<TYPES, I> {
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
@@ -686,7 +686,7 @@ where
 
         let (broadcast_sender, broadcast_receiver) = channel();
 
-        let handle = HotShotHandle {
+        let handle = SystemContextHandle {
             sender_handle: Arc::new(broadcast_sender.clone()),
             hotshot: self.clone(),
             stream_output: broadcast_receiver,
@@ -862,7 +862,7 @@ where
         &self.inner.consensus
     }
 
-    async fn spawn_all(&self) -> HotShotHandle<TYPES, I> {
+    async fn spawn_all(&self) -> SystemContextHandle<TYPES, I> {
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
@@ -932,7 +932,7 @@ where
 
         let (broadcast_sender, broadcast_receiver) = channel();
 
-        let handle = HotShotHandle {
+        let handle = SystemContextHandle {
             sender_handle: Arc::new(broadcast_sender.clone()),
             hotshot: self.clone(),
             stream_output: broadcast_receiver,
