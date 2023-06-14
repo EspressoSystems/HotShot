@@ -1,6 +1,6 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShot, HotShotType, ViewRunner};
+use crate::{HotShotType, SystemContext, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
@@ -48,7 +48,7 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 #[derive(Default)]
 pub struct TaskHandle<TYPES: NodeType> {
     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
-    /// early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
+    /// early on in the [`SystemContext`] struct. It should be safe to `unwrap` this.
     pub(crate) inner: RwLock<Option<TaskHandleInner>>,
     /// Reference to the [`NodeType`] used in this configuration
     _types: PhantomData<TYPES>,
@@ -175,14 +175,14 @@ pub(crate) struct TaskHandleInner {
 }
 
 /// main thread driving consensus
-/// TODO run_view refactor: delete
+/// TODO `run_view` refactor: delete
 pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<UnboundedReceiver<()>>,
 ) where
-    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
 {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
         yield_now().await;
@@ -193,13 +193,13 @@ pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             let _: Result<(), _> = recv.recv().await;
         }
         let _: Result<_, _> =
-            HotShot::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
+            SystemContext::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
     }
 }
 
 /// Task to look up a node in the future as needed
 pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
@@ -209,7 +209,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
 
     while !shut_down.load(Ordering::Relaxed) {
-        let lock = hotshot.recv_network_lookup.lock().await;
+        let lock = hotshot.inner.recv_network_lookup.lock().await;
 
         if let Ok(Some(cur_view)) = lock.recv().await {
             // Injecting consensus data into the networking implementation
@@ -270,12 +270,12 @@ pub async fn network_task<
     I: NodeImplementation<TYPES>,
     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>>,
 >(
-    hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     shut_down: Arc<AtomicBool>,
     transmit_type: TransmitType,
     exchange: Arc<EXCHANGE>,
 ) where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
 {
     info!(
         "Launching network processing task for {:?} messages",
@@ -302,7 +302,7 @@ pub async fn network_task<
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
-            let _metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            let _metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
             trace!(?item, "Processing item");
             hotshot.handle_message(item, transmit_type).await;
         }
@@ -546,7 +546,7 @@ pub async fn add_view_sync_task(
 
 /// the view runner
 pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    _hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     _started: Arc<AtomicBool>,
     _shut_down: Arc<AtomicBool>,
     _run_once: Option<UnboundedReceiver<()>>,

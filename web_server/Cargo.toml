@@ -7,8 +7,8 @@ edition = "2021"
 
 [features]
 default = []
-full-ci = ["async-std-executor", "channel-async-std"]
-tokio-ci = ["tokio-executor", "channel-tokio"]
+full-ci = ["async-std-executor", "channel-async-std", "demo"]
+tokio-ci = ["tokio-executor", "channel-tokio", "demo"]
 demo = ["hotshot-types/demo"]
 async-std-executor = [
     "dep:async-std",
@@ -36,8 +36,6 @@ async-std = { version = "1.12", optional = true }
 async-trait = "0.1.68"
 bincode = "1.3.3"
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
-#ed25519-compact = { version = "2.0.4", optional = true }
 futures = "0.3.28"
 libp2p-core = { version = "0.39.2", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
@@ -69,8 +67,8 @@ tokio = { version = "1", optional = true, features = [
     "tracing",
 ] }
 toml = "0.5.9"
-
-[dev-dependencies]
 portpicker = "0.1"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
+
+[dev-dependencies]
 hotshot-types = { path = "../types", default-features = false }

@@ -21,7 +21,7 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
-        node_implementation::{NodeType, SequencingExchanges},
+        node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
     },
     vote::DAVote,
 };
@@ -97,6 +97,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the memory network with sequencing consensus.
@@ -107,7 +119,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_memory_network_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder: TestBuilder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingMemoryImpl>()
@@ -158,6 +170,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the libp2p network with sequencing consensus.
@@ -168,7 +192,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_libp2p_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingLibP2PImpl>()
@@ -219,6 +243,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the centralized server network with sequencing consensus.
@@ -229,7 +265,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_centralized_server_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingCentralImpl>()
