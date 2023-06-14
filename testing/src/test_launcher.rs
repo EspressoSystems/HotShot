@@ -4,7 +4,7 @@ use crate::test_runner::{
     CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
 };
 use hotshot::types::{Message, SignatureKey};
-use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
+use hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
@@ -30,14 +30,12 @@ pub struct ResourceGenerators<
     >,
 {
     /// generate the underlying quorum network used for each node
-    pub(super) quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
-    /// generate the underlying committee network used for each node
-    pub(super) committee_network_generator: Generator<I::CommitteeNetwork>,
+    pub(super) network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate a new quorum network for each node
     pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
     pub(super) committee_network:
-        CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
+        CommitteeNetworkGenerator<QuorumNetwork<TYPES, I>, I::CommitteeCommChannel>,
     /// generate a new storage for each node
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
@@ -90,14 +88,16 @@ where
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
+            da_committee_size,
             ..
         } = metadata;
-        let known_nodes = (0..total_nodes)
+        let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
             .map(|id| {
                 let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
+        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -105,6 +105,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
+            da_committee_nodes,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -139,14 +140,11 @@ where
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        let quorum_network_generator =
-            I::quorum_network_generator(total_nodes, num_bootstrap_nodes);
-        let committee_network_generator =
-            I::committee_network_generator(total_nodes, num_bootstrap_nodes);
+        let network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
         Self {
             generator: ResourceGenerators {
-                quorum_network_generator,
-                committee_network_generator,
+                network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
@@ -172,39 +170,6 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    /// Set a custom committee network generator
-    pub fn with_committee_network(
-        mut self,
-        committee_network: CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
-    ) -> Self {
-        self.generator.committee_network = committee_network;
-        self
-    }
-
-    /// Set a custom committee network generator
-    pub fn with_quorum_network(
-        mut self,
-        quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
-    ) -> Self
-    where
-        QuorumCommChannel<TYPES, I>: CommunicationChannel<
-            TYPES,
-            Message<TYPES, I>,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
-        >,
-    {
-        self.generator.quorum_network = quorum_network;
-        self
-    }
-
-    // /// Set a custom committee network generator
-    // pub fn with_network(mut self, network: Generator<NetworkType<TYPES, I>>) -> Self {
-    //     self.generator.network = network;
-    //     self
-    // }
-
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
         mut self,
@@ -286,7 +251,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,

@@ -1,18 +1,11 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
-use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::{LeafBlock, LeafType},
-    message::ConsensusMessageType,
-    traits::node_implementation::{NodeImplementation, NodeType},
+    traits::node_implementation::NodeType,
 };
-use std::{
-    collections::BTreeMap,
-    ops::Deref,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::ops::Deref;
 
 /// A view's state
 #[derive(Debug)]
@@ -62,56 +55,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Deref for View<TYPES, LE
 
     fn deref(&self) -> &Self::Target {
         &self.view_inner
-    }
-}
-
-/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
-type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;
-
-/// struct containing messages for a view to send to a replica or DA committee member.
-#[derive(Clone)]
-pub struct ViewQueue<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// to send networking events to a replica or DA committee member.
-    pub sender_chan: UnboundedSender<ProcessedConsensusMessageType<TYPES, I>>,
-
-    /// to recv networking events for a replica or DA committee member.
-    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessageType<TYPES, I>>>>,
-
-    /// `true` if this queue has already received a proposal
-    pub has_received_proposal: Arc<AtomicBool>,
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for ViewQueue<TYPES, I> {
-    /// create new view queue
-    fn default() -> Self {
-        let (s, r) = unbounded();
-        ViewQueue {
-            sender_chan: s,
-            receiver_chan: Arc::new(Mutex::new(r)),
-            has_received_proposal: Arc::new(AtomicBool::new(false)),
-        }
-    }
-}
-
-/// metadata for sending information to replica (and in the future, the leader)
-pub struct SendToTasks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// the current view number
-    /// this should always be in sync with `Consensus`
-    pub cur_view: TYPES::Time,
-
-    /// a map from view number to ViewQueue
-    /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
-    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES, I>>,
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SendToTasks<TYPES, I> {
-    /// create new sendtosasks
-    #[must_use]
-    pub fn new(view_num: TYPES::Time) -> Self {
-        SendToTasks {
-            cur_view: view_num,
-            channel_map: BTreeMap::default(),
-        }
     }
 }
 

@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
 
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, HotShot, HotShotError, HotShotType};
+use hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
 use hotshot_types::{
     message::Message,
     traits::{
@@ -46,6 +46,8 @@ pub struct TestMetadata {
     pub min_transactions: usize,
     /// timing data
     pub timing_data: TimingData,
+    /// Size of the DA committee for the test.  0 == no DA.
+    pub da_committee_size: usize,
 }
 
 impl Default for TestMetadata {
@@ -62,6 +64,7 @@ impl Default for TestMetadata {
             min_transactions: 0,
             timing_data: TimingData::default(),
             num_txns_per_round: 20,
+            da_committee_size: 0,
         }
     }
 }
@@ -75,7 +78,7 @@ impl TestMetadata {
         metadata: &TestMetadata,
     ) -> Round<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -139,6 +142,25 @@ impl TestBuilder {
         }
     }
 
+    /// Default Constructor for multiple rounds and a DA committee
+    pub fn default_multiple_rounds_da() -> Self {
+        TestBuilder {
+            metadata: TestMetadata {
+                total_nodes: 10,
+                start_nodes: 10,
+                num_succeeds: 20,
+                timing_data: TimingData {
+                    start_delay: 120000,
+                    round_start_delay: 25,
+                    ..TimingData::default()
+                },
+                da_committee_size: 5,
+                ..TestMetadata::default()
+            },
+            ..TestBuilder::default()
+        }
+    }
+
     /// Default constructor for stress testing.
     pub fn default_stress() -> Self {
         TestBuilder {
@@ -163,7 +185,7 @@ impl TestBuilder {
 
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeType> {
-    HotShot { source: HotShotError<TYPES> },
+    SystemContext { source: HotShotError<TYPES> },
 }
 
 /// data describing how a round should be timed.
@@ -200,7 +222,7 @@ impl TestBuilder {
         self,
     ) -> TestLauncher<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,

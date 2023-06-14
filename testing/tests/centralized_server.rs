@@ -12,10 +12,10 @@ use hotshot_testing::{
 use hotshot_types::message::{Message, ValidatingMessage};
 use hotshot_types::traits::{
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
@@ -58,6 +58,15 @@ impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<VrfTestTypes, Self>,
+        Option<ChannelMaps<VrfTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// Centralized server network test
@@ -110,6 +119,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<StaticCommitteeTestTypes, Self>,
+        Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// Centralized server network test
