@@ -44,6 +44,7 @@ async-std-executor = [
         "hotshot-consensus/async-std-executor",
         "hotshot-types/async-std-executor",
         "hotshot-task/async-std-executor",
+        "hotshot-task-impls/async-std-executor",
         "async-compatibility-layer/async-std-executor",
         "libp2p-networking/async-std-executor",
 ]
@@ -53,6 +54,7 @@ tokio-executor = [
         "hotshot-consensus/tokio-executor",
         "hotshot-types/tokio-executor",
         "hotshot-task/tokio-executor",
+        "hotshot-task-impls/tokio-executor",
         "async-compatibility-layer/tokio-executor",
         "libp2p-networking/tokio-executor",
 ]
@@ -63,8 +65,7 @@ channel-flume = [
         "hotshot-consensus/channel-flume",
         "hotshot-types/channel-flume",
         "hotshot-task/channel-flume",
-        # TODO is this correct? Seems like it shouldn't be here.
-        "async-compatibility-layer/tokio-executor",
+        "hotshot-task-impls/channel-flume",
         "async-compatibility-layer/channel-flume",
 ]
 channel-tokio = [
@@ -73,6 +74,7 @@ channel-tokio = [
         "hotshot-consensus/channel-tokio",
         "hotshot-types/channel-tokio",
         "hotshot-task/channel-tokio",
+        "hotshot-task-impls/channel-tokio",
         "async-compatibility-layer/channel-tokio",
 ]
 channel-async-std = [
@@ -81,6 +83,7 @@ channel-async-std = [
         "hotshot-consensus/channel-async-std",
         "hotshot-types/channel-async-std",
         "hotshot-task/channel-async-std",
+        "hotshot-task-impls/channel-async-std",
         "async-compatibility-layer/channel-async-std",
 ]
 
@@ -138,6 +141,7 @@ hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-featu
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
+hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-features = false }
 itertools = "0.10"
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
         "std",
@@ -256,4 +260,5 @@ members = [
         "utils",
         "testing-macros",
         "task",
+        "task-impls"
 ]

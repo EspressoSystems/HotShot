@@ -2866,6 +2866,7 @@ dependencies = [
  "hotshot-consensus",
  "hotshot-orchestrator",
  "hotshot-task",
+ "hotshot-task-impls",
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
@@ -2975,7 +2976,30 @@ dependencies = [
  "commit",
  "either",
  "futures",
+ "nll",
+ "pin-project",
+ "serde",
+ "snafu",
+ "time 0.3.22",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-task-impls"
+version = "0.1.0"
+dependencies = [
+ "async-compatibility-layer",
+ "async-lock",
+ "async-std",
+ "async-stream",
+ "async-trait",
+ "atomic_enum",
+ "commit",
+ "either",
+ "futures",
  "hotshot-consensus",
+ "hotshot-task",
  "hotshot-types",
  "nll",
  "pin-project",

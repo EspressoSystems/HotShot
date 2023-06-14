@@ -32,7 +32,6 @@ pub mod types;
 
 pub mod tasks;
 
-use nll::nll_todo::nll_todo;
 use crate::{
     certificate::QuorumCertificate,
     tasks::TaskHandleInner,
@@ -93,6 +92,7 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
