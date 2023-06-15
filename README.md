@@ -1,3 +1,7 @@
+# License
+## Copyright
+**(c) 2022 Espresso Systems**.
+`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.
 # HotShot Consensus Module
 
 HotShot is a BFT consensus protocol based off of HotStuff, with the addition of proof-of-stake and
@@ -244,8 +248,3 @@ NOTE: Do NOT configure dap at all with rust-tools. Do it manually.
 ## Vscode
 
 Install the extension and load the `launch.json` file. Then run the desired test target.
-
-# License
-
-## Copyright
-`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.
