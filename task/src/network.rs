@@ -1,7 +1,8 @@
 use crate::{
     event_stream::{ChannelStream, EventStream},
     events::SequencingHotShotEvent,
-    task::FilterEvent,
+    task::{FilterEvent, TaskErr, TS},
+    task_impls::HSTWithEvent,
 };
 use async_compatibility_layer::channel::UnboundedStream;
 use either::Either::{self, Left, Right};
@@ -39,6 +40,21 @@ pub struct NetworkTask<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     view: ViewNumber,
     phantom: PhantomData<(TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP)>,
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+    > TS for NetworkTask<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+{
 }
 
 impl<
@@ -186,3 +202,8 @@ impl<
         }
     }
 }
+pub struct NetworkTaskError {}
+impl TaskErr for NetworkTaskError {}
+
+pub type NetworkTaskTypes =
+    HSTWithEvent<NetworkTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkTaskState>;
