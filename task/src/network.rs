@@ -21,9 +21,11 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
+use tracing::{info, trace};
 
-pub struct NetworkTask<
+pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -53,7 +55,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > TS for NetworkTask<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > TS for NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
 }
 
@@ -68,7 +70,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > NetworkTask<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
     /// Handle the given event and return whether to keep running.
     async fn handle_event(
@@ -202,8 +204,14 @@ impl<
         }
     }
 }
+
+#[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
 impl TaskErr for NetworkTaskError {}
 
-pub type NetworkTaskTypes =
-    HSTWithEvent<NetworkTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkTaskState>;
+pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
+    NetworkTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
+>;

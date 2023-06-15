@@ -36,8 +36,6 @@ pub mod network;
 /// mpmc streamable to all subscribed tasks
 pub mod event_stream;
 
-pub mod events;
-
 /// The `HotShot` Task. The main point of this library. Uses all other abstractions
 /// to create an abstraction over tasks
 pub mod task;
