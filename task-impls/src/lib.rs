@@ -3,3 +3,6 @@ pub mod consensus;
 
 /// Defines the events passed between tasks
 pub mod events;
+
+/// The task which implements the network.
+pub mod network;

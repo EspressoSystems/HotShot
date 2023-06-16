@@ -1,12 +1,12 @@
-use crate::{
-    event_stream::{ChannelStream, EventStream},
-    events::SequencingHotShotEvent,
-    task::{FilterEvent, TaskErr, TS},
-    task_impls::HSTWithEvent,
-};
+use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::channel::UnboundedStream;
 use either::Either::{self, Left, Right};
 use futures::StreamExt;
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    task::{FilterEvent, TaskErr, TS},
+    task_impls::HSTWithEvent,
+};
 use hotshot_types::message::Message;
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{

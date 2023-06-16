@@ -31,8 +31,6 @@ pub mod task_state;
 /// as well as the abiliity to terminate them
 pub mod global_registry;
 
-pub mod network;
-
 /// mpmc streamable to all subscribed tasks
 pub mod event_stream;
 
