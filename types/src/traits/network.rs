@@ -15,8 +15,7 @@ use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::sync::Arc;
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -130,7 +129,7 @@ pub enum NetworkError {
 
 /// common traits we would like our network messages to implement
 pub trait NetworkMsg:
-    Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + std::fmt::Debug + 'static
+    Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
 {
 }
 
@@ -152,7 +151,7 @@ pub trait CommunicationChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
->: Clone + Send + Sync + 'static
+>: Clone + Debug + Send + Sync + 'static
 {
     /// Underlying Network implementation's type
     type NETWORK;
@@ -254,6 +253,7 @@ pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static>;
 
     /// Get the number of messages in-flight.
@@ -286,7 +286,7 @@ pub enum NetworkChange<P: SignatureKey> {
 }
 
 /// interface describing how reliable the network is
-pub trait NetworkReliability: std::fmt::Debug + Sync + std::marker::Send {
+pub trait NetworkReliability: Debug + Sync + std::marker::Send {
     /// Sample from bernoulli distribution to decide whether
     /// or not to keep a packet
     /// # Panics

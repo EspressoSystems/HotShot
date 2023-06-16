@@ -46,6 +46,8 @@ pub struct HotShotConfig<K, ELECTIONCONFIG> {
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
+    /// List of DA committee nodes for static DA committe
+    pub da_committee_nodes: Vec<K>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout

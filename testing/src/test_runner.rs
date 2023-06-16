@@ -9,8 +9,8 @@ use crate::{
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{HotShotHandle, Message},
-    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner,
+    types::{Message, SystemContextHandle},
+    HotShotError, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -57,7 +57,7 @@ where
 
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
-    pub handle: HotShotHandle<TYPES, I>,
+    pub handle: SystemContextHandle<TYPES, I>,
 }
 
 /// HACK we want a concise and a wordy way to print things
@@ -95,7 +95,7 @@ pub fn concise_leaf_and_node<
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestRunner<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
@@ -120,7 +120,7 @@ where
     /// run the test
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -153,7 +153,7 @@ where
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -164,16 +164,12 @@ where
     {
         let mut results = vec![];
         for _i in 0..count {
+            tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
-            let quorum_network_generator =
-                Arc::new((self.launcher.generator.quorum_network_generator)(node_id));
-            let committee_network_generator =
-                Arc::new((self.launcher.generator.committee_network_generator)(
-                    node_id,
-                ));
-            let quorum_network = (self.launcher.generator.quorum_network)(quorum_network_generator);
-            let committee_network =
-                (self.launcher.generator.committee_network)(committee_network_generator);
+            let network_generator = Arc::new((self.launcher.generator.network_generator)(node_id));
+            let quorum_network =
+                (self.launcher.generator.quorum_network)(network_generator.clone());
+            let committee_network = (self.launcher.generator.committee_network)(network_generator);
             let storage = (self.launcher.generator.storage)(node_id);
             let config = self.launcher.generator.config.clone();
             let initializer =
@@ -216,7 +212,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -248,7 +244,7 @@ where
             private_key.clone(),
             ek.clone(),
         );
-        let handle = HotShot::init(
+        let handle = SystemContext::init(
             public_key,
             private_key,
             node_id,
@@ -264,8 +260,8 @@ where
         node_id
     }
 
-    /// Iterate over the [`HotShotHandle`] nodes in this runner.
-    pub fn nodes(&self) -> impl Iterator<Item = &HotShotHandle<TYPES, I>> + '_ {
+    /// Iterate over the [`SystemContextHandle`] nodes in this runner.
+    pub fn nodes(&self) -> impl Iterator<Item = &SystemContextHandle<TYPES, I>> + '_ {
         self.nodes.iter().map(|node| &node.handle)
     }
 
@@ -405,7 +401,7 @@ where
 
     /// returns the requested handle specified by `id` if it exists
     /// else returns `None`
-    pub fn get_handle(&self, id: u64) -> Option<HotShotHandle<TYPES, I>> {
+    pub fn get_handle(&self, id: u64) -> Option<SystemContextHandle<TYPES, I>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())

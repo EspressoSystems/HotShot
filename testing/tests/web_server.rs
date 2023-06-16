@@ -13,10 +13,10 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::{
     consensus_type::validating_consensus::ValidatingConsensus,
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
     vote::QuorumVote,
 };
@@ -55,6 +55,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<StaticCommitteeTestTypes, Self>,
+        Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// Web server network test

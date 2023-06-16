@@ -167,6 +167,7 @@
 
         buildDeps = with pkgs;
           [
+            cargo-vet
             curl.out
             cargo-expand
             cargo-workspaces
@@ -202,7 +203,7 @@
             '';
             RUST_SRC_PATH = "${fenixNightly}/lib/rustlib/src/rust/library";
             RUST_LIB_SRC = "${fenixNightly}/lib/rustlib/src/rust/library";
-            buildInputs = [ careful pkgs.git fenixNightly ] ++ buildDeps;
+            buildInputs = [ careful pkgs.git fenixNightly pkgs.cargo-udeps ] ++ buildDeps;
 
           };
 

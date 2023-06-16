@@ -538,11 +538,11 @@ impl NodeType for VDemoTypes {
 #[derivative(Clone(bound = ""))]
 pub struct VDemoNode<MEMBERSHIP>(PhantomData<MEMBERSHIP>)
 where
-    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug;
+    MEMBERSHIP: Membership<VDemoTypes> + Debug;
 
 impl<MEMBERSHIP> VDemoNode<MEMBERSHIP>
 where
-    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
+    MEMBERSHIP: Membership<VDemoTypes> + Debug,
 {
     /// Create a new `VDemoNode`
     #[must_use]
@@ -553,7 +553,7 @@ where
 
 impl<MEMBERSHIP> Debug for VDemoNode<MEMBERSHIP>
 where
-    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
+    MEMBERSHIP: Membership<VDemoTypes> + Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VDemoNode")
@@ -564,7 +564,7 @@ where
 
 impl<MEMBERSHIP> Default for VDemoNode<MEMBERSHIP>
 where
-    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
+    MEMBERSHIP: Membership<VDemoTypes> + Debug,
 {
     fn default() -> Self {
         Self::new()
