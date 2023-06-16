@@ -45,7 +45,7 @@ async-trait = "0.1.68"
 ark-serialize = { version = "0.3", features = ["derive"] }
 ark-std = "0.4"
 bincode = "1.3.3"
-blake3 = "1.3.3"
+blake3 = "1.4.0"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 derivative = "2.2.0"
@@ -61,7 +61,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
-serde = { version = "1.0.163", features = ["derive"] }
+serde = { version = "1.0.164", features = ["derive"] }
 snafu = "0.7.4"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
 time = "0.3.22"

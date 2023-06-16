@@ -103,6 +103,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .await
             .context(NetworkSnafu)?;
         info!("LISTEN ADDRESS IS {:?}", listen_addr);
+        // pin here to force the future onto the heap since it can be large
+        // in the case of flume
         let (send_chan, recv_chan) = Box::pin(network.spawn_listeners())
             .await
             .context(NetworkSnafu)?;

@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Deref, sync::Arc};
 use futures::future::LocalBoxFuture;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    HotShot, HotShotError, HotShotType,
+    HotShotError, HotShotType, SystemContext,
 };
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::{
@@ -134,7 +134,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
     for Round<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
     I::Exchanges: ExchangesType<
         TYPES::ConsensusType,
         TYPES,

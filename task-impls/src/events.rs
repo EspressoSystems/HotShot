@@ -1,4 +1,4 @@
-use crate::task::PassType;
+use hotshot_task::task::PassType;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;

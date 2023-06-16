@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
 
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, HotShot, HotShotError, HotShotType};
+use hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
 use hotshot_types::{
     message::Message,
     traits::{
@@ -78,7 +78,7 @@ impl TestMetadata {
         metadata: &TestMetadata,
     ) -> Round<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
@@ -185,7 +185,7 @@ impl TestBuilder {
 
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeType> {
-    HotShot { source: HotShotError<TYPES> },
+    SystemContext { source: HotShotError<TYPES> },
 }
 
 /// data describing how a round should be timed.
@@ -222,7 +222,7 @@ impl TestBuilder {
         self,
     ) -> TestLauncher<TYPES, I>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES::ConsensusType,
             TYPES,
