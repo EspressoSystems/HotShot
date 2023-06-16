@@ -3088,6 +3088,7 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "futures",
  "hex_fmt",
+ "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
  "libp2p-networking",
