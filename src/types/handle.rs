@@ -130,7 +130,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     //     nll_todo()
     // }
 
-    /// obtains a straem to expose to the user
+    /// obtains a stream to expose to the user
     pub async fn get_event_stream(&mut self, filter: FilterEvent<Event<TYPES, I::Leaf>>) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
         self.output_event_stream.subscribe(filter).await
     }
@@ -189,6 +189,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             error!("Hotshot storage has no anchor leaf!");
         }
 
+    }
+
+    /// begin consensus by sending a genesis event
+    pub async fn start_consensus(&self) {
+        self.maybe_do_genesis_init().await;
     }
 
     /// iterate through all events on a [`NodeImplementation`] and determine if the node finished

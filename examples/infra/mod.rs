@@ -2,8 +2,11 @@ use async_compatibility_layer::{
     art::async_sleep,
     logging::{setup_backtrace, setup_logging},
 };
+use futures::StreamExt;
+use nll::nll_todo::nll_todo;
 use async_lock::RwLock;
 use async_trait::async_trait;
+use hotshot_task::task::FilterEvent;
 use clap::Parser;
 use futures::Future;
 use futures::FutureExt;
@@ -324,50 +327,68 @@ pub trait Run<
         let start = Instant::now();
 
         error!("Starting hotshot!");
-        hotshot.start().await;
-        while round <= rounds {
-            error!("Round {}:", round);
+        hotshot.start_consensus().await;
+        let (mut event_stream, _streamid) = hotshot.get_event_stream(FilterEvent::default()).await;
 
-            let num_submitted = if node_index == ((round % total_nodes) as u64) {
-                for _ in 0..transactions_per_round {
-                    let txn = txns.pop_front().unwrap();
-                    tracing::info!("Submitting txn on round {}", round);
-                    hotshot.submit_transaction(txn).await.unwrap();
-                }
-                transactions_per_round
-            } else {
-                0
-            };
-            error!("Submitting {} transactions", num_submitted);
+        loop {
+            match event_stream.next().await {
+                None => {
+                    panic!("Error! Event stream completed before consensus ended.");
+                },
+                Some(event) => {
+                    // TODO some processing of the event
 
-            // Start consensus
-            let view_results = hotshot.collect_round_events().await;
 
-            match view_results {
-                Ok((leaf_chain, _qc)) => {
-                    let blocks: Vec<TYPES::BlockType> = leaf_chain
-                        .into_iter()
-                        .map(|leaf| leaf.get_deltas())
-                        .collect();
-
-                    for block in blocks {
-                        total_transactions += block.txn_count();
-                    }
-                }
-                Err(e) => {
-                    timed_out_views += 1;
-                    error!("View: {:?}, failed with : {:?}", round, e);
                 }
             }
-
-            round += 1;
         }
 
-        let total_time_elapsed = start.elapsed();
-        let total_size = total_transactions * (padding as u64);
 
-        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+
+
+        // while round <= rounds {
+        //     error!("Round {}:", round);
+        //
+        //     let num_submitted = if node_index == ((round % total_nodes) as u64) {
+        //         for _ in 0..transactions_per_round {
+        //             let txn = txns.pop_front().unwrap();
+        //             tracing::info!("Submitting txn on round {}", round);
+        //             hotshot.submit_transaction(txn).await.unwrap();
+        //         }
+        //         transactions_per_round
+        //     } else {
+        //         0
+        //     };
+        //     error!("Submitting {} transactions", num_submitted);
+        //
+        //     // Start consensus
+        //     let view_results = nll_todo();
+        //
+        //     match view_results {
+        //         Ok((leaf_chain, _qc)) => {
+        //             let blocks: Vec<TYPES::BlockType> = leaf_chain
+        //                 .into_iter()
+        //                 .map(|leaf| leaf.get_deltas())
+        //                 .collect();
+        //
+        //             for block in blocks {
+        //                 total_transactions += block.txn_count();
+        //             }
+        //         }
+        //         Err(e) => {
+        //             timed_out_views += 1;
+        //             error!("View: {:?}, failed with : {:?}", round, e);
+        //         }
+        //     }
+        //
+        //     round += 1;
+        // }
+        //
+        // let total_time_elapsed = start.elapsed();
+        // let total_size = total_transactions * (padding as u64);
+        //
+        // // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
+        // error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
     }
 
     /// Returns the network for this run
