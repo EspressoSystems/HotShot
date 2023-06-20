@@ -262,7 +262,7 @@ where
 
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
-            SequencingHotShotEvent::QuorumProposalRecv((proposal, sender)) => {
+            SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 self.timeout_task = async_spawn({
                     // let next_view_timeout = hotshot.inner.config.next_view_timeout;
                     // let next_view_timeout = next_view_timeout;
