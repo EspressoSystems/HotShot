@@ -2981,7 +2981,6 @@ dependencies = [
  "commit",
  "either",
  "futures",
- "hotshot-types",
  "nll",
  "pin-project",
  "serde",
