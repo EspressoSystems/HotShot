@@ -164,6 +164,7 @@ where
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
+
         let mut results = vec![];
         for _i in 0..count {
             tracing::error!("running node{}", _i);

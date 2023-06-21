@@ -26,6 +26,8 @@ use hotshot_types::{
     vote::DAVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -47,7 +49,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;

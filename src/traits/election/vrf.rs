@@ -28,6 +28,11 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+
+// Sishan NOTE: for QC aggregation
+use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+
 /// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
@@ -73,7 +78,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
 }
 
 /// concrete type for bls public key
-pub type BlsPubKey = JfPubKey<BLSSignatureScheme>;
+pub type BlsPubKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
 
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
@@ -217,6 +222,7 @@ where
     }
 
     fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
+        println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
         let signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
             .expect("This signature shouldn't be able to fail");

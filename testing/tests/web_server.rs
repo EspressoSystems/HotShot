@@ -16,6 +16,9 @@ use hotshot_types::traits::node_implementation::SequencingExchanges;
 use hotshot_types::vote::DAVote;
 use jf_primitives::signatures::BLSSignatureScheme;
 
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot_types::data::ViewNumber;
 
@@ -37,6 +40,7 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+// use tracing::{error, info, instrument, warn};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct StaticCentralizedImp {}
@@ -108,7 +112,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>; // Sishan NOTE: for QC aggregation
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -168,6 +172,9 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebServerImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_web_server_test() {
+
+    println!("println: Inside sequencing_web_server_test().");
+
     let builder: TestBuilder = TestBuilder::default_multiple_rounds_da();
     builder
         .build::<SequencingTestTypes, SequencingWebServerImpl>()

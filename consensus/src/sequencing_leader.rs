@@ -361,6 +361,7 @@ where
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
+        println!("Inside run_view() of ConsensusLeader.");
         let block_commitment = self.block.commit();
         let leaf = SequencingLeaf {
             view_number: self.cur_view,
@@ -374,6 +375,7 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
+        println!("Inside run_view() of ConsensusLeader and prepare to call sign_validating_or_commitment_proposal().");
         let signature = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());

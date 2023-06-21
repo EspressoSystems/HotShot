@@ -769,6 +769,7 @@ impl<
     where
         I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>,
     {
+        println!("Inside create_yes_message() of QuorumExchangeType and prepare to call sign_yes_vote().");
         let signature = self.sign_yes_vote(leaf_commitment);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
@@ -784,6 +785,7 @@ impl<
         &self,
         leaf_commitment: &Commitment<LEAF>,
     ) -> EncodedSignature {
+        println!("Inside sign_validating_or_commitment_proposal() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(&self.private_key, leaf_commitment.as_ref());
         signature
     }
@@ -798,6 +800,7 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
+        println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes(),
@@ -814,6 +817,7 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
+        println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<LEAF>::No(leaf_commitment).as_bytes(),
@@ -829,6 +833,7 @@ impl<
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
+        println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes(),
@@ -846,6 +851,7 @@ impl<
     where
         I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>,
     {
+        println!("Inside create_no_message() of QuorumExchangeType and prepare to call sign_no_vote().");
         let signature = self.sign_no_vote(leaf_commitment);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
             justify_qc_commitment,

@@ -76,7 +76,6 @@ impl SignatureKey for Ed25519Pub {
 
     fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
         let signature = private_key.priv_key.sign(data, None);
-        // println!("sign message {:?} and get the signature {:?}", data, signature);
         // Convert the signature to bytes and return
         EncodedSignature(signature.to_vec())
     }

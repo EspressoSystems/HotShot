@@ -32,6 +32,8 @@ use jf_primitives::{
     },
     // vrf::blsvrf::BLSVRFScheme,
 };
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
 use serde::{Deserialize, Serialize};
 
 // #[derive(
@@ -80,8 +82,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme>>;
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSOverBN254CurveSignatureScheme>>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
