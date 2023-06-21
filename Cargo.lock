@@ -2928,7 +2928,7 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.33.0",
  "nll",
  "num",
  "rand 0.8.5",
@@ -4090,7 +4090,7 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "libp2p-noise",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.33.0",
  "netlink-packet-core 0.4.2 (git+https://github.com/espressosystems/netlink.git)",
  "netlink-packet-generic",
  "netlink-packet-route 0.11.0",
@@ -4281,7 +4281,7 @@ dependencies = [
  "instant",
  "libp2p-core",
  "libp2p-identity",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.32.0",
  "log",
  "rand 0.8.5",
  "smallvec",
@@ -4298,6 +4298,19 @@ dependencies = [
  "heck",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "libp2p-swarm-derive"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4d5ec2a3df00c7836d7696c136274c9c59705bac69133253696a6c932cd1d74"
+dependencies = [
+ "heck",
+ "proc-macro-warning",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
 ]
 
 [[package]]
@@ -5698,6 +5711,17 @@ name = "proc-macro-hack"
 version = "0.5.20+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
+
+[[package]]
+name = "proc-macro-warning"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70550716265d1ec349c41f70dd4f964b4fd88394efe4405f0c1da679c4799a07"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
+]
 
 [[package]]
 name = "proc-macro2"
