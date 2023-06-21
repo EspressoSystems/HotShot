@@ -774,7 +774,12 @@ impl OrchestratorClient {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
+        //KALEY TODO
+        setup_logging();
+        error!("connecting to client");
         assert!(client.connect(None).await);
+        error!("connected to client");
+
         OrchestratorClient { client }
     }
 

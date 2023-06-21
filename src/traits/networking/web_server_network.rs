@@ -33,6 +33,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use hotshot_web_server::{self, config};
 use serde::{Deserialize, Serialize};
 
@@ -415,6 +416,8 @@ impl<
     async fn run_background_receive(
         inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
     ) -> Result<(), ClientError> {
+        assert!(inner.client.connect(None).await);
+        error!("connected to webserver");
         let proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
@@ -735,7 +738,7 @@ where
         let sender = Arc::new(server_shutdown_sender);
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown),
+            Some(server_shutdown), DEFAULT_WEB_SERVER_PORT
         ));
 
         let known_nodes = (0..expected_node_count as u64)

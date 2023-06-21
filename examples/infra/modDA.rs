@@ -42,6 +42,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::Message, traits::election::{QuorumExchange, CommitteeExchange}};
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_DA_PORT;
 // use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -346,7 +347,7 @@ pub trait RunDA<
                     blocks.into_iter().map(
                         |b| b.either( |block|
                             total_transactions += block.txn_count()
-                        , |commit| total_commitments += 1)
+                        , |_|total_commitments += 1)
                     );
 
                 }
@@ -506,7 +507,7 @@ where
             DAVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), 9001, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), DEFAULT_WEB_SERVER_DA_PORT, wait_between_polls, pub_key).into(),
         );
         
         WebServerDARun { config, quorum_network, da_network }
@@ -722,7 +723,7 @@ pub async fn main_entry_point<
         .await;
 
     run_config.node_index = node_index.into();
-    run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
+    //run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
     error!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;

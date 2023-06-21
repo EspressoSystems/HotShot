@@ -24,6 +24,11 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
+//KALEY TODO
+use async_compatibility_layer::{
+    //art::async_sleep,
+    logging::{setup_backtrace, setup_logging},
+};
 
 /// yeesh maybe we should just implement SignatureKey for this...
 pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
@@ -237,6 +242,9 @@ where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
+    //KALEY TODO
+    setup_logging();
+    tracing::error!("running orchestrator");
     let api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
@@ -245,5 +253,6 @@ where
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
+    tracing::error!("lisening on {:?}:{:?}", host, port);
     app.serve(format!("http://{host}:{port}")).await
 }
