@@ -33,8 +33,8 @@ async-trait = "0.1.68"
 bincode = "1.3.3"
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
 futures = "0.3.28"
-libp2p-core = { version = "0.39.2", default-features = false }
-libp2p = { version = "0.51.3", default-features = false, features = [
+libp2p-core = { version = "0.40.0", default-features = false }
+libp2p = { version = "0.52.0", default-features = false, features = [
         "macros",
         "autonat",
         "deflate",
@@ -42,7 +42,6 @@ libp2p = { version = "0.51.3", default-features = false, features = [
         "identify",
         "kad",
         "gossipsub",
-        "mplex",
         "noise",
         "ping",
         "plaintext",

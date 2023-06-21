@@ -8,11 +8,11 @@ use std::{
 use futures::channel::oneshot::Sender;
 use libp2p::{
     kad::{
-        handler::KademliaHandlerIn, store::MemoryStore, BootstrapError, BootstrapOk,
+        /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapError, BootstrapOk,
         GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, ProgressStep,
         PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
-    swarm::{NetworkBehaviour, THandlerOutEvent, ToSwarm},
+    swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -508,7 +508,7 @@ pub enum DHTProgress {
 impl NetworkBehaviour for DHTBehaviour {
     type ConnectionHandler = <Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = DHTEvent;
+    type ToSwarm = DHTEvent;
 
     // fn new_handler(&mut self) -> Self::ConnectionHandler {
     //     self.kadem.new_handler()
@@ -518,7 +518,7 @@ impl NetworkBehaviour for DHTBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> Poll<ToSwarm<DHTEvent, KademliaHandlerIn<QueryId>>> {
+    ) -> Poll<ToSwarm<DHTEvent, THandlerInEvent<Self>>> {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
             && self.begin_bootstrap
@@ -592,9 +592,6 @@ impl NetworkBehaviour for DHTBehaviour {
                         event,
                     });
                 }
-                ToSwarm::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
-                }
                 ToSwarm::CloseConnection {
                     peer_id,
                     connection,
@@ -603,6 +600,21 @@ impl NetworkBehaviour for DHTBehaviour {
                         peer_id,
                         connection,
                     });
+                }
+                ToSwarm::ListenOn { opts } => {
+                    return Poll::Ready(ToSwarm::ListenOn { opts });
+                }
+                ToSwarm::RemoveListener { id } => {
+                    return Poll::Ready(ToSwarm::RemoveListener { id });
+                }
+                ToSwarm::NewExternalAddrCandidate(c) => {
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(c));
+                }
+                ToSwarm::ExternalAddrConfirmed(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(c));
+                }
+                ToSwarm::ExternalAddrExpired(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(c));
                 }
             }
         }
