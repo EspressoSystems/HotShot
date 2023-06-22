@@ -10,6 +10,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
+use hotshot_types::data::QuorumProposalOld;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
@@ -88,7 +89,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalOld<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -422,6 +423,9 @@ where
                             ProcessedCommitteeConsensusMessage::DAVote(_, _) => {
                                 // should only be for leader, never replica
                                 warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                                continue;
+                            }
+                            ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
                                 continue;
                             }
                         }

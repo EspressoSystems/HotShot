@@ -1,4 +1,5 @@
 use crate::task::PassType;
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
@@ -19,8 +20,11 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAProposalSend(Proposal<DAProposal<TYPES>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAVoteSend(DAVote<TYPES, I::Leaf>),
+    DACertificateSend(DACertificate<TYPES>),
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange,
-    Timeout,
+    /// A view has timeouted out locally or we received/formed a timeout cert
+    /// contains the view we are moving to
+    Timeout(TYPES::Time),
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

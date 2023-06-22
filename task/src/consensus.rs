@@ -112,6 +112,13 @@ pub struct SequencingConsensusTaskState<
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+
+    /// All the DA certs we've received for current and future views.
+    pub certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+
+    /// The most recent proposal we have, will correspond to the current view if Some()
+    /// Will be none if the view advanced through timeout/view_sync
+    pub current_proposal: Option<QuorumProposal<TYPES, I::Leaf>>,
 }
 
 pub struct VoteCollectionTaskState<
@@ -259,46 +266,76 @@ where
         };
         Some(leaf.clone())
     }
-
+    async fn vote_if_able(&mut self) {
+        if let Some(proposal) = self.proposal {
+            if let Some(cert) = self.certs.get(proposal.view()) {
+                let vote_token = self.quorum_exchange.make_vote_token(view);
+                // TODO: do some of this logic without the vote token check, only do that when voting.
+                match vote_token {
+                    Err(e) => {
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
+                    }
+                    Ok(None) => {
+                        info!("We were not chosen for consensus committee on {:?}", view);
+                    }
+                    Ok(Some(vote_token)) => {
+                        // Validate the DAC.
+                        if !self
+                            .committee_exchange
+                            .is_valid_cert(&cert, proposal.data.block_commitment)
+                        {
+                            warn!("Invalid DAC in proposal! Skipping proposal.");
+                            let message = self.quorum_exchange.create_no_message(
+                                justify_qc_commitment,
+                                leaf_commitment,
+                                cert.view_number,
+                                vote_token,
+                            );
+                        } else {
+                            let message = self.quorum_exchange.create_yes_message(
+                                justify_qc_commitment,
+                                leaf_commitment,
+                                cert.view_number,
+                                vote_token,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    async fn update_view(&mut self, new_view: TYPES::Time) {
+        // Remove old certs, we won't vote on past views
+        for view in self.cur_view..new_view - 1 {
+            self.certs.remover(view);
+        }
+        self.cur_view = new_view;
+        self.proposal = None;
+    }
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv((proposal, sender)) => {
-                self.timeout_task = async_spawn({
-                    // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-                    // let next_view_timeout = next_view_timeout;
-                    // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                    // TODO(bf): get the real timeout from the config.
-                    let stream = self.event_stream.clone();
-                    async move {
-                        async_sleep(Duration::from_millis(10000)).await;
-                        stream.publish(SequencingHotShotEvent::Timeout).await;
-                    }
-                });
+                let view = proposal.data.view_mumber();
+                if view < self.cur_view {
+                    return;
+                }
                 let consensus = self.consensus.upgradable_read().await;
-                let view_leader_key = self.quorum_exchange.get_leader(self.cur_view);
+                let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
                     return;
                 }
 
-                let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
+                let vote_token = self.quorum_exchange.make_vote_token(view);
+                // TODO: do some of this logic without the vote token check, only do that when voting.
                 match vote_token {
                     Err(e) => {
-                        error!(
-                            "Failed to generate vote token for {:?} {:?}",
-                            self.cur_view, e
-                        );
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!(
-                            "We were not chosen for consensus committee on {:?}",
-                            self.cur_view
-                        );
+                        info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        info!(
-                            "We were chosen for consensus committee on {:?}",
-                            self.cur_view
-                        );
+                        info!("We were chosen for consensus committee on {:?}", view);
 
                         let message;
 
@@ -319,7 +356,7 @@ where
                         let parent_commitment = parent.commit();
                         let block_commitment = proposal.data.block_commitment;
                         let leaf: SequencingLeaf<_> = SequencingLeaf {
-                            view_number: self.cur_view,
+                            view_number: view,
                             height: proposal.data.height,
                             justify_qc: justify_qc.clone(),
                             parent_commitment,
@@ -340,7 +377,7 @@ where
                             message = self.quorum_exchange.create_no_message::<I>(
                                 justify_qc_commitment,
                                 leaf_commitment,
-                                self.cur_view,
+                                view,
                                 vote_token,
                             );
                         }
@@ -354,20 +391,7 @@ where
                             message = self.quorum_exchange.create_no_message(
                                 justify_qc_commitment,
                                 leaf_commitment,
-                                self.cur_view,
-                                vote_token,
-                            );
-                        }
-                        // Validate the DAC.
-                        else if !self
-                            .committee_exchange
-                            .is_valid_cert(&proposal.data.dac, block_commitment)
-                        {
-                            warn!("Invalid DAC in proposal! Skipping proposal.");
-                            message = self.quorum_exchange.create_no_message(
-                                justify_qc_commitment,
-                                leaf_commitment,
-                                self.cur_view,
+                                view,
                                 vote_token,
                             );
                         }
@@ -379,7 +403,7 @@ where
                             message = self.quorum_exchange.create_no_message(
                                 justify_qc_commitment,
                                 leaf_commitment,
-                                self.cur_view,
+                                view,
                                 vote_token,
                             );
                         }
@@ -403,7 +427,7 @@ where
                             );
                             let safety_check = outcome.is_ok();
                             if let Err(e) = outcome {
-                                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+                                self.api.send_view_error(view, Arc::new(e)).await;
                             }
 
                             // Skip if both saftey and liveness checks fail.
@@ -424,6 +448,22 @@ where
                                     vote_token,
                                 );
                             }
+                            self.update_view(view);
+                            self.vote_if_able();
+
+                            self.timeout_task = async_spawn({
+                                // let next_view_timeout = hotshot.inner.config.next_view_timeout;
+                                // let next_view_timeout = next_view_timeout;
+                                // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+                                // TODO(bf): get the real timeout from the config.
+                                let stream = self.event_stream.clone();
+                                async move {
+                                    async_sleep(Duration::from_millis(10000)).await;
+                                    stream
+                                        .publish(SequencingHotShotEvent::Timeout(self.cur_view + 1))
+                                        .await;
+                                }
+                            });
                         }
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
@@ -485,8 +525,24 @@ where
                     }
                 }
             }
+            SequencingHotShotEvent::DACertificateRecv(cert, sender) => {
+                let view = cert.view_number;
+                let view_leader_key = self.quorum_exchange.get_leader(view);
+                if sender == view_leader_key {
+                    self.certs.insert(view, cert);
+                } else {
+                    warn!("Received a DA cert but not from the right leader");
+                }
+                if view == self.cur_view {
+                    vote_if_able();
+                }
+            }
             SequencingHotShotEvent::ViewSyncMessage => {
                 // update the view in state to the one in the message
+                nll_todo()
+            }
+            SequencingHotShotEvent::Timeout(view) => {
+                self.update_view(view);
                 nll_todo()
             }
             _ => {}

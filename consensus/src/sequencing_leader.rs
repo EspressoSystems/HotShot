@@ -12,6 +12,7 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
+use hotshot_types::data::QuorumProposalOld;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -163,6 +164,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {
                         warn!("The next leader has received an unexpected proposal!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }
@@ -349,7 +353,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalOld<TYPES, SequencingLeaf<TYPES>>,
     >,
 {
     /// Run one view of the DA leader task
@@ -372,7 +376,7 @@ where
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-        let proposal = QuorumProposal {
+        let proposal = QuorumProposalOld {
             block_commitment,
             view_number: leaf.view_number,
             height: leaf.height,
@@ -525,6 +529,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAVote(_, _sender) => {
                         warn!("The next leader has received an unexpected DA vote!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }
