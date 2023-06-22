@@ -544,21 +544,21 @@ pub async fn add_view_sync_task(
     )
 }
 
-/// the view runner
-pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
-    let task_runner = TaskRunner::new();
-    let registry = task_runner.registry.clone();
-    let event_stream = event_stream::ChannelStream::new();
-
-    // TODO it may make sense to move this up a level
-    let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-    async_spawn(async move {
-        task_runner.launch().await;
-    });
-    (registry, event_stream)
-}
+// the view runner
+// pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+//     _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+// ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
+//     let task_runner = TaskRunner::new();
+//     let registry = task_runner.registry.clone();
+//     let event_stream = event_stream::ChannelStream::new();
+//
+//     // TODO it may make sense to move this up a level
+//     let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+//     async_spawn(async move {
+//         task_runner.launch().await;
+//     });
+//     (registry, event_stream)
+// }
