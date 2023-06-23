@@ -19,6 +19,7 @@ use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::message::Message;
+use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -171,6 +172,7 @@ where
         Commitment = SequencingLeaf<TYPES>,
     >,
 {
+    // TODO ED Emit a view change event upon new proposal? 
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => match vote {
             QuorumVote::Yes(vote) => {
@@ -485,8 +487,9 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::ViewSyncMessage => {
+            SequencingHotShotEvent::ViewSyncMessage(_) => {
                 // update the view in state to the one in the message
+                // TODO ED This info should come in the form of a ViewChange message
                 nll_todo()
             }
             _ => {}

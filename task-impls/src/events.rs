@@ -6,6 +6,7 @@ use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
+use hotshot_types::message::ViewSyncMessageType;
 
 #[derive(Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -14,7 +15,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     QuorumVoteRecv(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     DAProposalRecv(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteRecv(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
-    ViewSyncMessage,
+    ViewSyncMessage(ViewSyncMessageType<TYPES>),
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAProposalSend(Proposal<DAProposal<TYPES>>),
