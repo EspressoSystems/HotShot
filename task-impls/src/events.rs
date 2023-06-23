@@ -2,11 +2,11 @@ use hotshot_task::task::PassType;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;
+use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
-use hotshot_types::message::ViewSyncMessageType;
 
 #[derive(Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {

@@ -21,6 +21,11 @@ use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
+#[derive(Snafu, Debug)]
+pub struct ViewSyncTaskError {}
+impl TaskErr for ViewSyncTaskError {}
+
+// TODO ED Implement TS trait and Error for this struct
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -39,7 +44,25 @@ pub struct ViewSyncTaskState<
     current_relay_task: Option<ViewNumber>,
 }
 
-pub struct ViewSyncReplicaTask<
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > TS for ViewSyncTaskState<TYPES, I>
+{
+}
+
+pub type ViewSyncTaskStateTypes<TYPES, I> = HSTWithEvent<
+    ViewSyncTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    ViewSyncTaskState<TYPES, I>,
+>;
+
+pub struct ViewSyncReplicaTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -47,36 +70,57 @@ pub struct ViewSyncReplicaTask<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
-    phantom: PhantomData<(TYPES, I)>
+    phantom: PhantomData<(TYPES, I)>,
 }
 
-impl <
-TYPES: NodeType<ConsensusType = SequencingConsensus>,
-I: NodeImplementation<
-    TYPES,
-    Leaf = SequencingLeaf<TYPES>,
-    ConsensusMessage = SequencingMessage<TYPES, I>,
->,
-> TS for ViewSyncReplicaTask<TYPES, I> {}
-
-#[derive(Snafu, Debug)]
-pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > TS for ViewSyncReplicaTaskState<TYPES, I>
 {
 }
 
-pub type ViewSyncReplicaTaskTypes<TYPES, I> = HSTWithEvent<
+pub type ViewSyncReplicaTaskStateTypes<TYPES, I> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    ViewSyncReplicaTask<TYPES, I>,
+    ViewSyncReplicaTaskState<TYPES, I>,
 >;
 
-// pub struct ViewSyncRelayTask {}
+pub struct ViewSyncRelayTaskState<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+> {
+    phantom: PhantomData<(TYPES, I)>,
+}
 
-// impl TS for ViewSyncRelayTask {
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > TS for ViewSyncRelayTaskState<TYPES, I>
+{
+}
 
-// }
+pub type ViewSyncRelayTaskStateTypes<TYPES, I> = HSTWithEvent<
+    ViewSyncTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    ViewSyncRelayTaskState<TYPES, I>,
+>;
+
+
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -97,24 +141,38 @@ impl<
                         // view sync certificates (1 for each phase) could trigger us to create this
                         // TODO ED Check which view it is for
                         // TODO ED Check if the cert is for an actual next view that is higher than we have now
+                        // TODO ED Don't spawn if none exists and it is a finalize? 
 
                         if self.current_replica_task.is_none() {
-                            let replica_state = ViewSyncReplicaTask { phantom: PhantomData };
+                            let replica_state = ViewSyncReplicaTaskState {
+                                phantom: PhantomData,
+                            };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
                             let filter = FilterEvent::default();
-                            let _builder = TaskBuilder::<ViewSyncReplicaTaskTypes<TYPES, I>>::new(name)
-                                .register_event_stream(self.event_stream.clone(), filter)
-                                .await
-                                .register_state(replica_state)
-                                .register_event_handler(todo!());
+                            let _builder =
+                                TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I>>::new(name)
+                                    .register_event_stream(self.event_stream.clone(), filter)
+                                    .await
+                                    .register_state(replica_state)
+                                    .register_event_handler(todo!() /* TODO ED Put actual handler in here */);
                         }
-
-                        todo!()
                     }
                     ViewSyncMessageType::Vote(vote) => {
                         // TODO ED If task doesn't exist, make it (and check that it is for this relay)
 
-                        todo!()
+                        if self.current_relay_task.is_none() {
+                            let relay_state = ViewSyncRelayTaskState {
+                                phantom: PhantomData,
+                            };
+                            let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+                            let filter = FilterEvent::default();
+                            let _builder =
+                                TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
+                                    .register_event_stream(self.event_stream.clone(), filter)
+                                    .await
+                                    .register_state(relay_state)
+                                    .register_event_handler(todo!() /* TODO ED Put actual handler in here */);
+                        }
                     }
                 }
             }

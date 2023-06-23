@@ -172,7 +172,7 @@ where
         Commitment = SequencingLeaf<TYPES>,
     >,
 {
-    // TODO ED Emit a view change event upon new proposal? 
+    // TODO ED Emit a view change event upon new proposal?
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => match vote {
             QuorumVote::Yes(vote) => {
