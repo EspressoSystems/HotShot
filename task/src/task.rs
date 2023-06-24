@@ -120,7 +120,9 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
 
 impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
     fn default() -> Self {
-        Self(Arc::new(|_event, state| async { (None, state) }.boxed()))
+        Self(Arc::new(|_event, state| {
+            async move { (None, state) }.boxed()
+        }))
     }
 }
 
@@ -304,6 +306,12 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
             tid: None,
         }
     }
+
+    // pub fn state(&self) -> Option<HSTT::State> {
+    //     let state = self.state.take();
+    //     *self.state = state;
+    //     state
+    // }
 
     /// launch the task
     /// NOTE: the only way to get a `HST` is by usage

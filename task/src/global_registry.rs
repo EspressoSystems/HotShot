@@ -60,6 +60,10 @@ impl GlobalRegistry {
         }
     }
 
+    pub fn state(&mut self, uid: HotShotTaskId) -> TaskState {
+        self.state_cache[uid].0.clone()
+    }
+
     /// register with the global registry
     /// return a function to the caller (task) that can be used to deregister
     /// returns a function to call to shut down the task

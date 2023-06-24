@@ -145,7 +145,7 @@ impl<
     }
 
     /// Run when spawning the network tasks.
-    async fn run(&mut self, transmit_type: TransmitType, membership: MEMBERSHIP) {
+    pub async fn run(&mut self, transmit_type: TransmitType, membership: MEMBERSHIP) {
         info!(
             "Launching network processing task for {:?} messages and events",
             transmit_type

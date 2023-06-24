@@ -32,6 +32,7 @@ pub mod types;
 
 pub mod tasks;
 
+use crate::tasks::{add_consensus_task, add_da_task, add_view_sync_task, GlobalEvent};
 use crate::{
     certificate::QuorumCertificate,
     tasks::TaskHandleInner,
@@ -57,6 +58,10 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_task::{
+    event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
+};
+use hotshot_task_impls::network::NetworkTaskState;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
@@ -83,7 +88,7 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx,
         },
-        signature_key::SignatureKey,
+        signature_key::{EncodedSignature, SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
         State,
@@ -515,6 +520,12 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Get the [`hotstuff`] field of [`HotShot`].
     fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>>;
 
+    /// The view runner.
+    async fn view_runner(
+        self,
+        run_once: Option<UnboundedReceiver<()>>,
+    ) -> (GlobalRegistry, ChannelStream<GlobalEvent>);
+
     /// Spawn all tasks that operate on the given [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
@@ -611,7 +622,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus, SignatureKey = EncodedSignature>,
         I: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
@@ -638,35 +649,43 @@ where
         &self.inner.consensus
     }
 
+    // TODO (run_view) move back to mod.rs to fix the threads safety errors?
+    async fn view_runner(
+        self,
+        _run_once: Option<UnboundedReceiver<()>>,
+    ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
+        let task_runner = TaskRunner::new();
+        let registry = task_runner.registry.clone();
+        let event_stream = ChannelStream::new();
+        let exchange = self.inner.exchanges.quorum_exchange();
+
+        // TODO (run_view) Restore the line below after enabling validating consensus for tasks and
+        // making all event types consistent, then update the return type to include task handles
+        // to be passed to `spawn_all`.
+        // let (task_runner, quorum_network_state) = add_network_task(task_runner, event_stream.clone(), exchange).await;
+        let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+        let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+        let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+        async_spawn(async move {
+            task_runner.launch().await;
+        });
+
+        // let network_broadcast_task_handle = async_spawn(
+        //     quorum_network_state.clone()
+        //         .run(TransmitType::Broadcast, exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Broadcast Task",)),
+        // );
+        // let network_direct_task_handle = async_spawn(
+        //     quorum_network_state.clone()
+        //         .run(TransmitType::Direct, exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Direct Task",)),
+        // );
+        (registry, event_stream)
+    }
+
     async fn spawn_all(&self) -> SystemContextHandle<TYPES, I> {
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
-
-        let exchange = self.inner.exchanges.quorum_exchange();
-
-        let network_broadcast_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Broadcast,
-                exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot Broadcast Task",)),
-        );
-        let network_direct_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Direct,
-                exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot Direct Task",)),
-        );
-
-        async_spawn(
-            tasks::network_lookup_task(self.clone(), shut_down.clone())
-                .instrument(info_span!("HotShot Network Lookup Task",)),
-        );
 
         let (handle_channels, task_channels) = match self.inner.config.execution_type {
             ExecutionType::Continuous => (None, None),
@@ -675,15 +694,11 @@ where
                 (Some(send_consensus_start), Some(recv_consensus_start))
             }
         };
+        let (registry, event_stream) = self.view_runner(task_channels).await;
 
-        let consensus_task_handle = async_spawn(
-            tasks::view_runner(
-                self.clone(),
-                started.clone(),
-                shut_down.clone(),
-                task_channels,
-            )
-            .instrument(info_span!("Consensus Task Handle",)),
+        async_spawn(
+            tasks::network_lookup_task(self.clone(), shut_down.clone())
+                .instrument(info_span!("HotShot Network Lookup Task",)),
         );
 
         let (broadcast_sender, broadcast_receiver) = channel();
@@ -699,8 +714,8 @@ where
 
         let mut background_task_handle = self.inner.background_task_handle.inner.write().await;
         *background_task_handle = Some(TaskHandleInner {
-            network_broadcast_task_handle,
-            network_direct_task_handle,
+            network_broadcast_task_handle: nll_todo(),
+            network_direct_task_handle: nll_todo(),
             committee_network_broadcast_task_handle: None,
             committee_network_direct_task_handle: None,
             consensus_task_handle: nll_todo(),
@@ -831,7 +846,7 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -864,50 +879,64 @@ where
         &self.inner.consensus
     }
 
+    async fn view_runner(
+        self,
+        _run_once: Option<UnboundedReceiver<()>>,
+    ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
+        let task_runner = TaskRunner::new();
+        let registry = task_runner.registry.clone();
+        let event_stream = ChannelStream::new();
+        let quorum_exchange = self.inner.exchanges.quorum_exchange();
+        let committee_exchange = self.inner.exchanges.committee_exchange();
+
+        // TODO (run_view) Restore the lines below after making all event types consistent, then update
+        // the return type to include task handles to be passed to `spawn_all`.
+        // let (task_runner, quorum_network_state) = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
+        // let (task_runner, committee_network_state) = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
+        let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+        let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+        let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+        async_spawn(async move {
+            task_runner.launch().await;
+        });
+
+        // let network_broadcast_task_handle = async_spawn(
+        //     quorum_network_state.clone()
+        //         .run(TransmitType::Broadcast, exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Broadcast Task",)),
+        // );
+        // let network_direct_task_handle = async_spawn(
+        //     quorum_network_state.clone()
+        //         .run(TransmitType::Direct, exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Direct Task",)),
+        // );
+        // let network_broadcast_task_handle = async_spawn(
+        //     committee_network_state.clone()
+        //         .run(TransmitType::Broadcast, committee_exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Broadcast Task",)),
+        // );
+        // let network_direct_task_handle = async_spawn(
+        //     committee_network_state.clone()
+        //         .run(TransmitType::Direct, committee_exchange.membership().clone())
+        //         .instrument(info_span!("HotShot Direct Task",)),
+        // );
+        (registry, event_stream)
+    }
+
     async fn spawn_all(&self) -> SystemContextHandle<TYPES, I> {
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
         let exchange = self.inner.exchanges.quorum_exchange();
         let committee_exchange = self.inner.exchanges.committee_exchange();
-
-        let network_broadcast_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Broadcast,
-                exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot Broadcast Task",)),
-        );
-        let network_direct_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Direct,
-                exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot Direct Task",)),
-        );
-
-        let committee_network_broadcast_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Broadcast,
-                committee_exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot DA Broadcast Task",)),
-        );
-        let committee_network_direct_task_handle = async_spawn(
-            tasks::network_task(
-                self.clone(),
-                shut_down.clone(),
-                TransmitType::Direct,
-                committee_exchange.clone().into(),
-            )
-            .instrument(info_span!("HotShot DA Direct Task",)),
-        );
+        let (handle_channels, task_channels) = match self.inner.config.execution_type {
+            ExecutionType::Continuous => (None, None),
+            ExecutionType::Incremental => {
+                let (send_consensus_start, recv_consensus_start) = unbounded();
+                (Some(send_consensus_start), Some(recv_consensus_start))
+            }
+        };
+        let (registry, event_stream) = self.view_runner(task_channels).await;
 
         async_spawn(
             tasks::network_lookup_task(self.clone(), shut_down.clone())
@@ -922,16 +951,6 @@ where
             }
         };
 
-        let consensus_task_handle = async_spawn(
-            tasks::view_runner(
-                self.clone(),
-                started.clone(),
-                shut_down.clone(),
-                task_channels,
-            )
-            .instrument(info_span!("Consensus Task Handle",)),
-        );
-
         let (broadcast_sender, broadcast_receiver) = channel();
 
         let handle = SystemContextHandle {
@@ -945,10 +964,10 @@ where
 
         let mut background_task_handle = self.inner.background_task_handle.inner.write().await;
         *background_task_handle = Some(TaskHandleInner {
-            network_broadcast_task_handle,
-            network_direct_task_handle,
-            committee_network_broadcast_task_handle: Some(committee_network_broadcast_task_handle),
-            committee_network_direct_task_handle: Some(committee_network_direct_task_handle),
+            network_broadcast_task_handle: nll_todo(),
+            network_direct_task_handle: nll_todo(),
+            committee_network_broadcast_task_handle: nll_todo(),
+            committee_network_direct_task_handle: nll_todo(),
             consensus_task_handle: nll_todo(),
             shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
             run_view_channels: handle_channels,
@@ -1621,7 +1640,7 @@ where
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
 struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`HotShotInner`]
+    /// Reference to the [`SystemContextInner`]
     inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
@@ -1730,7 +1749,7 @@ where
         Ok(())
     }
 
-    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
@@ -1760,7 +1779,7 @@ where
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
 struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`HotShotInner`]
+    /// Reference to the [`SystemContextInner`]
     inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
@@ -1893,7 +1912,7 @@ where
         Ok(())
     }
 
-    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
