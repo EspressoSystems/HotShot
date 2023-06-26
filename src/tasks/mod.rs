@@ -45,134 +45,136 @@ use tokio::task::{yield_now, JoinHandle};
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// A handle with senders to send events to the background runners.
-#[derive(Default)]
-pub struct TaskHandle<TYPES: NodeType> {
-    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
-    /// early on in the [`SystemContext`] struct. It should be safe to `unwrap` this.
-    pub(crate) inner: RwLock<Option<TaskHandleInner>>,
-    /// Reference to the [`NodeType`] used in this configuration
-    _types: PhantomData<TYPES>,
-}
-impl<TYPES: NodeType> TaskHandle<TYPES> {
-    /// Start the round runner. This will make it run until `pause` is called
-    ///
-    /// # Panics
-    ///
-    /// If the [`TaskHandle`] has not been properly initialized.
-    pub async fn start(&self) {
-        let handle = self.inner.read().await;
-        if handle.is_some() {
-            let handle = handle.as_ref().unwrap();
-            handle.started.store(true, Ordering::Relaxed);
-        }
-    }
+// #[derive(Default)]
+// pub struct TaskHandle<TYPES: NodeType> {
+//     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
+//     /// early on in the [`SystemContext`] struct. It should be safe to `unwrap` this.
+//     pub(crate) inner: RwLock<Option<TaskHandleInner>>,
+//     /// Reference to the [`NodeType`] used in this configuration
+//     _types: PhantomData<TYPES>,
+// }
+//
+// impl<TYPES: NodeType> TaskHandle<TYPES> {
+//     /// Start the round runner. This will make it run until `pause` is called
+//     ///
+//     /// # Panics
+//     ///
+//     /// If the [`TaskHandle`] has not been properly initialized.
+//     pub async fn start(&self) {
+//         let handle = self.inner.read().await;
+//         if handle.is_some() {
+//             let handle = handle.as_ref().unwrap();
+//             handle.started.store(true, Ordering::Relaxed);
+//         }
+//     }
+//
+//     /// Make the round runner run 1 round.
+//     /// Does/should not block.
+//     ///
+//     /// # Panics
+//     ///
+//     /// If the [`TaskHandle`] has not been properly initialized.
+//     pub async fn start_one_round(&self) {
+//         let handle = self.inner.read().await;
+//         if handle.is_some() {
+//             let handle = handle.as_ref().unwrap();
+//             if let Some(s) = &handle.run_view_channels {
+//                 handle.started.store(true, Ordering::Relaxed);
+//                 let _: Result<_, _> = s.send(()).await;
+//             } else {
+//                 error!("Run one view channel not configured for this hotshot instance");
+//             }
+//         }
+//     }
+//
+//     /// Wait until all underlying handles are shut down
+//     ///
+//     /// # Panics
+//     ///
+//     /// If the [`TaskHandle`] has not been properly initialized.
+//     pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
+//         let inner = self.inner.write().await.take().unwrap();
+//
+//         // this shuts down the networking task
+//         if send_network_lookup.send(None).await.is_err() {
+//             error!("network lookup task already shut down!");
+//         }
+//
+//         // shutdown_timeout == the hotshot's view timeout
+//         // in case the round_runner task is running for `view_timeout`
+//         // (exponential timeout maxed out)
+//         // then this needs to be slightly longer such that it ends up being checked
+//         let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
+//
+//         for (handle, name) in [
+//             (
+//                 inner.network_broadcast_task_handle,
+//                 "network_broadcast_task_handle",
+//             ),
+//             (
+//                 inner.network_direct_task_handle,
+//                 "network_direct_task_handle",
+//             ),
+//             (inner.consensus_task_handle, "network_change_task_handle"),
+//         ] {
+//             assert!(
+//                 async_timeout(long_timeout, handle).await.is_ok(),
+//                 "{name} did not shut down within a second",
+//             );
+//         }
+//
+//         if let Some(committee_network_broadcast_task_handle) =
+//             inner.committee_network_broadcast_task_handle
+//         {
+//             assert!(
+//                 async_timeout(long_timeout, committee_network_broadcast_task_handle)
+//                     .await
+//                     .is_ok(),
+//                 "committee_network_broadcast_task_handle did not shut down within a second",
+//             );
+//             if let Some(committee_network_direct_task_handle) =
+//                 inner.committee_network_direct_task_handle
+//             {
+//                 assert!(
+//                     async_timeout(long_timeout, committee_network_direct_task_handle)
+//                         .await
+//                         .is_ok(),
+//                     "committee_network_direct_task_handle did not shut down within a second",
+//                 );
+//             }
+//         }
+//     }
+// }
 
-    /// Make the round runner run 1 round.
-    /// Does/should not block.
-    ///
-    /// # Panics
-    ///
-    /// If the [`TaskHandle`] has not been properly initialized.
-    pub async fn start_one_round(&self) {
-        let handle = self.inner.read().await;
-        if handle.is_some() {
-            let handle = handle.as_ref().unwrap();
-            if let Some(s) = &handle.run_view_channels {
-                handle.started.store(true, Ordering::Relaxed);
-                let _: Result<_, _> = s.send(()).await;
-            } else {
-                error!("Run one view channel not configured for this hotshot instance");
-            }
-        }
-    }
-
-    /// Wait until all underlying handles are shut down
-    ///
-    /// # Panics
-    ///
-    /// If the [`TaskHandle`] has not been properly initialized.
-    pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
-        let inner = self.inner.write().await.take().unwrap();
-
-        // this shuts down the networking task
-        if send_network_lookup.send(None).await.is_err() {
-            error!("network lookup task already shut down!");
-        }
-
-        // shutdown_timeout == the hotshot's view timeout
-        // in case the round_runner task is running for `view_timeout`
-        // (exponential timeout maxed out)
-        // then this needs to be slightly longer such that it ends up being checked
-        let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
-
-        for (handle, name) in [
-            (
-                inner.network_broadcast_task_handle,
-                "network_broadcast_task_handle",
-            ),
-            (
-                inner.network_direct_task_handle,
-                "network_direct_task_handle",
-            ),
-            (inner.consensus_task_handle, "network_change_task_handle"),
-        ] {
-            assert!(
-                async_timeout(long_timeout, handle).await.is_ok(),
-                "{name} did not shut down within a second",
-            );
-        }
-
-        if let Some(committee_network_broadcast_task_handle) =
-            inner.committee_network_broadcast_task_handle
-        {
-            assert!(
-                async_timeout(long_timeout, committee_network_broadcast_task_handle)
-                    .await
-                    .is_ok(),
-                "committee_network_broadcast_task_handle did not shut down within a second",
-            );
-            if let Some(committee_network_direct_task_handle) =
-                inner.committee_network_direct_task_handle
-            {
-                assert!(
-                    async_timeout(long_timeout, committee_network_direct_task_handle)
-                        .await
-                        .is_ok(),
-                    "committee_network_direct_task_handle did not shut down within a second",
-                );
-            }
-        }
-    }
-}
 /// Inner struct of the [`TaskHandle`]
-pub(crate) struct TaskHandleInner {
-    /// for the client to indicate "increment a view"
-    /// only Some in Incremental exeuction mode
-    /// otherwise None
-    pub run_view_channels: Option<UnboundedSender<()>>,
-
-    /// Join handle for `network_broadcast_task`
-    pub network_broadcast_task_handle: JoinHandle<()>,
-
-    /// Join handle for `network_direct_task`
-    pub network_direct_task_handle: JoinHandle<()>,
-
-    /// Join Handle for committee broadcast network task
-    pub committee_network_broadcast_task_handle: Option<JoinHandle<()>>,
-
-    /// Join Handle for committee direct network task
-    pub committee_network_direct_task_handle: Option<JoinHandle<()>>,
-
-    /// Join handle for `consensus_task`
-    pub consensus_task_handle: JoinHandle<()>,
-
-    /// Global to signify the `HotShot` should be started
-    pub(crate) started: Arc<AtomicBool>,
-
-    /// same as hotshot's view_timeout such that
-    /// there is not an accidental race between the two
-    pub(crate) shutdown_timeout: Duration,
-}
+// pub(crate) struct TaskHandleInner {
+//     /// for the client to indicate "increment a view"
+//     /// only Some in Incremental exeuction mode
+//     /// otherwise None
+//     pub run_view_channels: Option<UnboundedSender<()>>,
+//
+//     /// Join handle for `network_broadcast_task`
+//     pub network_broadcast_task_handle: JoinHandle<()>,
+//
+//     /// Join handle for `network_direct_task`
+//     pub network_direct_task_handle: JoinHandle<()>,
+//
+//     /// Join Handle for committee broadcast network task
+//     pub committee_network_broadcast_task_handle: Option<JoinHandle<()>>,
+//
+//     /// Join Handle for committee direct network task
+//     pub committee_network_direct_task_handle: Option<JoinHandle<()>>,
+//
+//     /// Join handle for `consensus_task`
+//     pub consensus_task_handle: JoinHandle<()>,
+//
+//     /// Global to signify the `HotShot` should be started
+//     pub(crate) started: Arc<AtomicBool>,
+//
+//     /// same as hotshot's view_timeout such that
+//     /// there is not an accidental race between the two
+//     pub(crate) shutdown_timeout: Duration,
+// }
 
 /// main thread driving consensus
 /// TODO `run_view` refactor: delete

@@ -34,7 +34,7 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    tasks::TaskHandleInner,
+    // tasks::TaskHandleInner,
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
@@ -142,9 +142,6 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
-
-    /// Senders to the background tasks.
-    background_task_handle: tasks::TaskHandle<TYPES>,
 
     /// a reference to the metrics that the implementor is using.
     _metrics: Box<dyn Metrics>,
@@ -267,7 +264,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             storage,
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
-            background_task_handle: tasks::TaskHandle::default(),
             _metrics: metrics,
             global_registry: nll_todo(),
             event_stream: nll_todo()
