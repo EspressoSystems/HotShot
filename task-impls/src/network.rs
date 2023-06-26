@@ -168,34 +168,38 @@ impl<
         }
     }
 
-    // /// Run when spawning the network tasks.
-    // pub async fn run(&mut self, transmit_type: TransmitType, membership: MEMBERSHIP) {
-    //     info!(
-    //         "Launching network processing task for {:?} messages and events",
-    //         transmit_type
-    //     );
-    //     let messages = self
-    //         .channel
-    //         .recv_msgs(transmit_type)
-    //         .await
-    //         .expect("Failed to receive message");
-    //     for m in messages {
-    //         self.handle_message(m).await;
-    //         trace!(
-    //             "Messages processed in network {:?} task, querying for more",
-    //             transmit_type
-    //         );
-    //     }
-    //     let mut running = true;
-    //     while running {
-    //         let event = self.events.next().await.expect("No event");
-    //         running = self.handle_event(event, membership.clone()).await;
-    //         trace!(
-    //             "Events processed in network {:?} task, querying for more",
-    //             transmit_type
-    //         );
-    //     }
-    // }
+    /// Run when spawning the network tasks.
+    // TODO (run_view) is this function needed? Should we handle messages and events for all tasks
+    // together, e.g., in task.rs?
+    pub async fn run(&mut self, membership: &MEMBERSHIP) {
+        // TODO (run_view) should we call `run` twice for different `TransmitType`?
+        let mut broadcast_messages = self
+            .channel
+            .recv_msgs(TransmitType::Broadcast)
+            .await
+            .expect("Failed to receive broadcast message");
+        let mut messages = self
+            .channel
+            .recv_msgs(TransmitType::Direct)
+            .await
+            .expect("Failed to receive direct message");
+        messages.append(&mut broadcast_messages);
+        for m in messages {
+            self.handle_message(m).await;
+            trace!("Messages processed in network task, querying for more");
+        }
+        let mut running = true;
+        let mut events = self
+            .event_stream
+            .subscribe(FilterEvent(Arc::new(Self::filter)))
+            .await
+            .0;
+        while running {
+            let event = events.next().await.expect("No event");
+            running = self.handle_event(event, membership).await;
+            trace!("Events processed in network task, querying for more");
+        }
+    }
 }
 
 #[derive(Snafu, Debug)]

@@ -21,7 +21,10 @@ use hotshot_task_impls::{
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
-use hotshot_types::traits::election::{ConsensusExchange, Membership};
+use hotshot_types::traits::{
+    election::{ConsensusExchange, Membership},
+    node_implementation::SequencingExchangesType,
+};
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
@@ -355,19 +358,13 @@ pub async fn add_network_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
 ) -> TaskRunner
-// ) -> (TaskRunner, JoinHandle<()>, JoinHandle<()>)
-// ) -> (
-//     TaskRunner,
-//     NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, EXCHANGE::Networking>,
-// )
 where
     EXCHANGE::Networking:
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
     let channel = exchange.network().clone();
-    // let membership = exchange.membership();
     let message_stream = unbounded().1.into_stream();
-    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+    let mut network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
         event_stream: event_stream.clone(),
         view: ViewNumber::genesis(),
@@ -386,7 +383,6 @@ where
         >| {
             async move {
                 state.handle_message(message).await;
-                // TODO (run_view) `None` vs. `Success`?
                 (None, state)
             }
             .boxed()
@@ -399,7 +395,6 @@ where
                     (Some(HotShotTaskCompleted::ShutDown), state)
                 } else {
                     state.handle_event(event, exchange.membership()).await;
-                    // TODO (run_view) `None` vs. `Success`?
                     (None, state)
                 }
             }
@@ -411,7 +406,6 @@ where
         NetworkTaskState::<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, EXCHANGE::Networking>::filter,
     ));
 
-    // TODO (run_view) should a message stream be registered here?
     let networking_task_builder =
         TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
             .register_message_stream(message_stream)
@@ -426,8 +420,6 @@ where
     // impossible for unwraps to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
-    // let network_task_types = NetworkTaskTypes::build(networking_task_builder);
-    // let network_state = network_task_types.state().unwrap();
     let networking_task = NetworkTaskTypes::build(networking_task_builder).launch();
 
     let task_runner = task_runner.add_task(
@@ -436,11 +428,6 @@ where
         networking_task,
     );
 
-    // (
-    //     task_runner,
-    //     network_broadcast_task_handle,
-    //     network_direct_task_handle,
-    // )
     task_runner
 }
 
@@ -566,46 +553,39 @@ pub async fn add_view_sync_task(
     )
 }
 
-pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn view_runner<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
     hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    // _run_once: Option<UnboundedReceiver<()>>,
-) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+) -> (
+    GlobalRegistry,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+)
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: ConsensusExchange<TYPES, Message<TYPES, I>> + Copy + 'static,
+{
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
-    let event_stream = ChannelStream::new();
-    let quorum_exchange = hotshot.inner.exchanges.quorum_exchange();
-    // let committee_exchange = hotshot.inner.exchanges.committee_exchange();
 
-    // TODO (run_view) Restore the lines below after making all event types consistent, then update
-    // the return type to include task handles to be passed to `spawn_all`.
-    // let (task_runner, quorum_network_state) = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
-    // let (task_runner, committee_network_state) = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
-    let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+    let quorum_exchange = hotshot.inner.exchanges.quorum_exchange();
+    let committee_exchange = hotshot.inner.exchanges.committee_exchange();
+
+    // TODO (run_view) Restore the lines below after making all event types consistent.
+    // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
+    // let task_runner = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
+    // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+    // let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+    // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
     async_spawn(async move {
         task_runner.launch().await;
     });
 
-    // let network_broadcast_task_handle = async_spawn(
-    //     quorum_network_state.clone()
-    //         .run(TransmitType::Broadcast, exchange.membership().clone())
-    //         .instrument(info_span!("HotShot Broadcast Task",)),
-    // );
-    // let network_direct_task_handle = async_spawn(
-    //     quorum_network_state.clone()
-    //         .run(TransmitType::Direct, exchange.membership().clone())
-    //         .instrument(info_span!("HotShot Direct Task",)),
-    // );
-    // let network_broadcast_task_handle = async_spawn(
-    //     committee_network_state.clone()
-    //         .run(TransmitType::Broadcast, committee_exchange.membership().clone())
-    //         .instrument(info_span!("HotShot Broadcast Task",)),
-    // );
-    // let network_direct_task_handle = async_spawn(
-    //     committee_network_state.clone()
-    //         .run(TransmitType::Direct, committee_exchange.membership().clone())
-    //         .instrument(info_span!("HotShot Direct Task",)),
-    // );
     (registry, event_stream)
 }

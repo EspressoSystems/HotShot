@@ -312,12 +312,6 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         }
     }
 
-    // pub fn state(&self) -> Option<HSTT::State> {
-    //     let state = self.state.take();
-    //     *self.state = state;
-    //     state
-    // }
-
     /// launch the task
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
@@ -342,8 +336,6 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
     /// Stream exists but missing handler
     MissingHandler,
-    /// Completed Successfully
-    Success,
 }
 
 impl std::fmt::Debug for HotShotTaskCompleted {
@@ -359,7 +351,6 @@ impl std::fmt::Debug for HotShotTaskCompleted {
             HotShotTaskCompleted::MissingHandler => {
                 f.write_str("HotShotTaskCompleted::MissingHandler")
             }
-            HotShotTaskCompleted::Success => f.write_str("HotShotTaskCompleted::Shutdown"),
         }
     }
 }

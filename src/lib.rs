@@ -62,8 +62,8 @@ use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
 use hotshot_task_impls::network::NetworkTaskState;
-use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
+use hotshot_types::data::{QuorumProposal, ViewNumber};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
@@ -661,7 +661,7 @@ where
         };
 
         // TODO (run_view) `view_runner` doesn't work for the validating consensus yet.
-        async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runner Handle",)));
+        // async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runner Handle",)));
 
         let (broadcast_sender, broadcast_receiver) = channel();
 
@@ -845,9 +845,6 @@ where
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
-        let exchange = self.inner.exchanges.quorum_exchange();
-        let committee_exchange = self.inner.exchanges.committee_exchange();
-
         async_spawn(
             tasks::network_lookup_task(self.clone(), shut_down.clone())
                 .instrument(info_span!("HotShot Network Lookup Task",)),
@@ -861,7 +858,37 @@ where
             }
         };
 
-        async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runer Handle",)));
+        let event_stream = ChannelStream::new();
+        async_spawn(
+            tasks::view_runner(self.clone(), event_stream.clone())
+                .instrument(info_span!("View Runer Handle",)),
+        );
+
+        // TODO (run_view) is this the right place to call `run` for network tasks?
+        // let quorum_exchange = self.inner.exchanges.quorum_exchange();
+        // let committee_exchange = self.inner.exchanges.committee_exchange();
+        // let quorum_network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+        //     channel: quorum_exchange.network(),
+        //     event_stream,
+        //     view: ViewNumber::genesis(),
+        //     phantom: PhantomData,
+        // };
+        // let quorum_network_task_handle = async_spawn(
+        //     quorum_network_state
+        //         .run(quorum_exchange.membership())
+        //         .instrument(info_span!("HotShot Task",)),
+        // );
+        // let committee_network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+        //     channel: committee_exchange.network(),
+        //     event_stream,
+        //     view: ViewNumber::genesis(),
+        //     phantom: PhantomData,
+        // };
+        // let committee_network_task_handle = async_spawn(
+        //     committee_network_state
+        //         .run(committee_exchange.membership())
+        //         .instrument(info_span!("HotShot Task",)),
+        // );
 
         let (broadcast_sender, broadcast_receiver) = channel();
 
