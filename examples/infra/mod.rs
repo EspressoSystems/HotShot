@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use futures::Future;
 use futures::FutureExt;
+use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
@@ -21,7 +22,11 @@ use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
+use hotshot_task::task::FilterEvent;
+use hotshot_types::data::ViewNumber;
+use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
@@ -47,6 +52,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
@@ -283,7 +289,7 @@ pub trait Run<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    async fn run_hotshot(&self, mut hotshot: SystemContextHandle<TYPES, NODE>) {
+    async fn run_hotshot(&self, mut context: SystemContextHandle<TYPES, NODE>) {
         let NetworkConfig {
             padding,
             rounds,
@@ -296,7 +302,7 @@ pub trait Run<
         let size = mem::size_of::<TYPES::Transaction>();
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
-        let state = hotshot.get_state().await;
+        let state = context.get_state().await;
 
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
@@ -324,49 +330,110 @@ pub trait Run<
         let start = Instant::now();
 
         error!("Starting hotshot!");
-        hotshot.start().await;
-        while round <= rounds {
-            error!("Round {}:", round);
+        context.start_consensus().await;
+        let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
+        let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
+        let mut num_successful_commits = 0;
 
-            let num_submitted = if node_index == ((round % total_nodes) as u64) {
+        let total_nodes_u64 = total_nodes.get() as u64;
+
+        let mut should_submit_txns = node_index == (*anchor_view % total_nodes_u64);
+
+        loop {
+            if should_submit_txns {
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
-                    hotshot.submit_transaction(txn).await.unwrap();
+                    context.submit_transaction(txn).await.unwrap();
                 }
-                transactions_per_round
-            } else {
-                0
-            };
-            error!("Submitting {} transactions", num_submitted);
-
-            // Start consensus
-            let view_results = hotshot.collect_round_events().await;
-
-            match view_results {
-                Ok((leaf_chain, _qc)) => {
-                    let blocks: Vec<TYPES::BlockType> = leaf_chain
-                        .into_iter()
-                        .map(|leaf| leaf.get_deltas())
-                        .collect();
-
-                    for block in blocks {
-                        total_transactions += block.txn_count();
-                    }
-                }
-                Err(e) => {
-                    timed_out_views += 1;
-                    error!("View: {:?}, failed with : {:?}", round, e);
-                }
+                should_submit_txns = false;
             }
 
-            round += 1;
+            match event_stream.next().await {
+                None => {
+                    panic!("Error! Event stream completed before consensus ended.");
+                }
+                Some(Event { view_number, event }) => {
+                    match event {
+                        EventType::Error { error } => {
+                            error!("Error in consensus: {:?}", error);
+                            // TODO what to do here
+                        }
+                        EventType::Decide { leaf_chain, qc } => {
+                            // this might be a obob
+                            if let Some(leaf) = leaf_chain.get(0) {
+                                let new_anchor = leaf.view_number;
+                                if new_anchor >= anchor_view {
+                                    anchor_view = leaf.view_number;
+                                }
+                                if (*anchor_view % total_nodes_u64) == node_index {
+                                    should_submit_txns = true;
+                                }
+                            }
+                            num_successful_commits += leaf_chain.len();
+                            if num_successful_commits >= rounds {
+                                break;
+                            }
+                            // when we make progress, submit new events
+                        }
+                        EventType::ReplicaViewTimeout { view_number } => {
+                            error!("Timed out as a replicas in view {:?}", view_number);
+                        }
+                        EventType::NextLeaderViewTimeout { view_number } => {
+                            error!("Timed out as the next leader in view {:?}", view_number);
+                        }
+                        EventType::ViewFinished { view_number } => {
+                            tracing::info!("view finished: {:?}", view_number);
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
+            }
         }
 
+        // while round <= rounds {
+        //     error!("Round {}:", round);
+        //
+        //     let num_submitted =
+        //     if node_index == ((round % total_nodes) as u64) {
+        //         for _ in 0..transactions_per_round {
+        //             let txn = txns.pop_front().unwrap();
+        //             tracing::info!("Submitting txn on round {}", round);
+        //             hotshot.submit_transaction(txn).await.unwrap();
+        //         }
+        //         transactions_per_round
+        //     } else {
+        //         0
+        //     };
+        //     error!("Submitting {} transactions", num_submitted);
+        //
+        //     // Start consensus
+        //     let view_results = nll_todo();
+        //
+        //     match view_results {
+        //         Ok((leaf_chain, _qc)) => {
+        //             let blocks: Vec<TYPES::BlockType> = leaf_chain
+        //                 .into_iter()
+        //                 .map(|leaf| leaf.get_deltas())
+        //                 .collect();
+        //
+        //             for block in blocks {
+        //                 total_transactions += block.txn_count();
+        //             }
+        //         }
+        //         Err(e) => {
+        //             timed_out_views += 1;
+        //             error!("View: {:?}, failed with : {:?}", round, e);
+        //         }
+        //     }
+        //
+        //     round += 1;
+        // }
+        //
         let total_time_elapsed = start.elapsed();
         let total_size = total_transactions * (padding as u64);
-
-        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
+        //
+        // // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
     }
 
