@@ -15,24 +15,29 @@ profiling = ["async-compatibility-layer/profiling"]
 async-std-executor = [
     "dep:async-std",
     "async-compatibility-layer/async-std-executor",
+    "hotshot-task/async-std-executor",
     "libp2p-networking/async-std-executor",
 ]
 tokio-executor = [
     "dep:tokio",
     "async-compatibility-layer/tokio-executor",
+    "hotshot-task/tokio-executor",
     "libp2p-networking/tokio-executor",
 ]
 demo = ["ed25519-compact"]
 channel-flume = [
     "async-compatibility-layer/channel-flume",
+    "hotshot-task/channel-flume",
     "libp2p-networking/channel-flume",
 ]
 channel-tokio = [
     "async-compatibility-layer/channel-tokio",
+    "hotshot-task/channel-tokio",
     "libp2p-networking/channel-tokio",
 ]
 channel-async-std = [
     "async-compatibility-layer/channel-async-std",
+    "hotshot-task/channel-async-std",
     "libp2p-networking/channel-async-std",
 ]
 
@@ -55,6 +60,7 @@ espresso-systems-common = { git = "https://github.com/espressosystems/espresso-s
 futures = "0.3.28"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
+hotshot-task = { path = "../task", default-features = false }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
   "std",
 ] }
