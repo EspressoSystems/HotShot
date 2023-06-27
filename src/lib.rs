@@ -648,32 +648,8 @@ where
     }
 
     async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
-        let task_runner = TaskRunner::new();
-        let registry = task_runner.registry.clone();
-        let internal_event_stream = ChannelStream::new();
-        // TODO this will need to go in the consensus task state
-        let output_event_stream = ChannelStream::new();
-
-        let exchange = self.inner.exchanges.quorum_exchange();
-
         // TODO (run_view) the refactored task adding functions don't work for the validating consensus yet.
-        // let task_runner = add_network_task(task_runner, event_stream.clone(), exchange).await;
-        // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-        // let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-        // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-        async_spawn(async move {
-            task_runner.launch().await;
-        });
-
-        let handle = SystemContextHandle {
-            registry,
-            output_event_stream,
-            internal_event_stream,
-            hotshot: self.clone(),
-            storage: self.inner.storage.clone(),
-        };
-
-        handle
+        unimplemented!()
     }
 
     // #[instrument(
