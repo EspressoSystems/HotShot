@@ -20,6 +20,7 @@ use crate::{
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
+use hotshot_task::task::PassType;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -51,6 +52,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
         self.kind.purpose()
     }
 }
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Message<TYPES, I> {}
 
 /// A message type agnostic description of a messages purpose
 pub enum MessagePurpose {

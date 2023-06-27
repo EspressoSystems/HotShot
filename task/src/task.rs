@@ -6,10 +6,6 @@ use std::task::{Context, Poll};
 use either::Either::{self, Left, Right};
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
-use hotshot_types::{
-    message::Message,
-    traits::node_implementation::{NodeImplementation, NodeType},
-};
 use pin_project::pin_project;
 use std::sync::Arc;
 
@@ -23,7 +19,6 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 /// Includes messages and events
 pub trait PassType: Clone + Debug + Sync + Send + 'static {}
 impl PassType for () {}
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Message<TYPES, I> {}
 
 /// the task state
 pub trait TS: Sync + Send + 'static {}

@@ -93,6 +93,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
@@ -647,27 +648,30 @@ where
     }
 
     async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
-        let shut_down = Arc::new(AtomicBool::new(false));
-        let started = Arc::new(AtomicBool::new(false));
+        let task_runner = TaskRunner::new();
+        let registry = task_runner.registry.clone();
+        let internal_event_stream = ChannelStream::new();
+        // TODO this will need to go in the consensus task state
+        let output_event_stream = ChannelStream::new();
 
-        async_spawn(
-            tasks::network_lookup_task(self.clone(), shut_down.clone())
-                .instrument(info_span!("HotShot Network Lookup Task",)),
-        );
+        let exchange = self.inner.exchanges.quorum_exchange();
 
-        // TODO (run_view) `view_runner` doesn't work for the validating consensus yet.
-        // async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runner Handle",)));
-
-        let (broadcast_sender, broadcast_receiver) = channel();
+        // TODO (run_view) the refactored task adding functions don't work for the validating consensus yet.
+        // let task_runner = add_network_task(task_runner, event_stream.clone(), exchange).await;
+        // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+        // let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+        // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+        async_spawn(async move {
+            task_runner.launch().await;
+        });
 
         let handle = SystemContextHandle {
-            sender_handle: Arc::new(broadcast_sender.clone()),
+            registry,
+            output_event_stream,
+            internal_event_stream,
             hotshot: self.clone(),
-            stream_output: broadcast_receiver,
             storage: self.inner.storage.clone(),
-            shut_down,
         };
-        *self.inner.event_sender.write().await = Some(broadcast_sender);
 
         handle
     }
@@ -831,8 +835,8 @@ where
         // TODO this will need to go in the consensus task state
         let output_event_stream = ChannelStream::new();
 
-        let quorum_exchange = hotshot.inner.exchanges.quorum_exchange();
-        let committee_exchange = hotshot.inner.exchanges.committee_exchange();
+        let quorum_exchange = self.inner.exchanges.quorum_exchange();
+        let committee_exchange = self.inner.exchanges.committee_exchange();
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
         // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
