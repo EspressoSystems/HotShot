@@ -14,6 +14,7 @@ use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
 use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::TaskState};
+use std::hash::Hash;
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events

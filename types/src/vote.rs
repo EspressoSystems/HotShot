@@ -28,7 +28,7 @@ pub trait VoteType<TYPES: NodeType>:
 }
 
 /// A vote on DA proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
@@ -49,7 +49,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// A positive or negative vote on validating or commitment proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
@@ -70,7 +70,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// A timeout vote.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
@@ -89,7 +89,7 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// The internals of a view sync vote
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     /// The relay this vote is intended for
@@ -105,7 +105,7 @@ pub struct ViewSyncVoteInternal<TYPES: NodeType> {
 }
 
 /// The data View Sync votes are signed over
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncData<TYPES: NodeType> {
     /// The relay this vote is intended for
@@ -126,7 +126,7 @@ impl<TYPES: NodeType> Committable for ViewSyncData<TYPES> {
 }
 
 /// Votes to synchronize the network on a single view
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum ViewSyncVote<TYPES: NodeType> {
     /// PreCommit vote
@@ -138,7 +138,7 @@ pub enum ViewSyncVote<TYPES: NodeType> {
 }
 
 /// Votes on validating or commitment proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum QuorumVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Posivite vote.

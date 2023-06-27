@@ -86,6 +86,13 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
+impl std::ops::Sub<u64> for ViewNumber {
+    type Output = ViewNumber;
+    fn sub(self, rhs: u64) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
 /// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -131,7 +138,7 @@ where
 }
 
 /// A proposal to start providing data availability for a block.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -140,7 +147,7 @@ pub struct DAProposal<TYPES: NodeType> {
 }
 
 /// A proposal to append a new block commitment to the log.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumProposalOld<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The commitment to append.
@@ -162,7 +169,7 @@ pub struct QuorumProposalOld<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub proposer_id: EncodedPublicKey,
 }
 
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The commitment to append.
@@ -216,7 +223,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
 
 /// A proposal to a network of voting nodes.
 pub trait ProposalType:
-    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq + Hash
 {
     /// Type of nodes that can vote on this proposal.
     type NodeType: NodeType;

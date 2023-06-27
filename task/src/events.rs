@@ -7,14 +7,16 @@ use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
-
-#[derive(Debug, Clone)]
+use std::hash::Hash;
+// #[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,
     QuorumProposalRecv((Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey)),
     QuorumVoteRecv(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     DAProposalRecv(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteRecv(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
+    DACertificateRecv(DACertificate<TYPES>, TYPES::SignatureKey),
     ViewSyncMessage,
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     DAProposalSend(Proposal<DAProposal<TYPES>>),

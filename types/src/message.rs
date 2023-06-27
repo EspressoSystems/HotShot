@@ -516,7 +516,7 @@ pub enum DataMessage<TYPES: NodeType> {
     SubmitTransaction(TYPES::Transaction, TYPES::Time),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
 pub struct Proposal<PROPOSAL: ProposalType> {

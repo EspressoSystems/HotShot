@@ -50,6 +50,9 @@ pub mod consensus;
 /// Defines the events passed between tasks
 pub mod events;
 
+/// Defines the types to run unit tests for a task.
+pub mod harness;
+
 // NOTE: yoinked /from async-std
 // except this is executor agnostic (doesn't rely on async-std streamext/fuse)
 // NOTE: usage of this is for combining streams into one main stream
