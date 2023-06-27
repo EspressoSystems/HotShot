@@ -1,3 +1,4 @@
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
@@ -331,13 +332,17 @@ where
         info!("EXECUTOR: running one round");
         for handle in self.nodes() {
             info!("STARTING ONE ROUND");
-            handle.start_one_round().await;
+            // TODO (justin) fix this. we need long running tasks
+            let _ : () = nll_todo();
+            // handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
             info!("EXECUTOR: COLLECTING NODE {:?}", node.node_id.clone());
-            let result = node.handle.collect_round_events().await;
+            // let result = node.handle.collect_round_events().await;
+            // TODO (justin) fix this. we need long running tasks
+            let result = nll_todo();
             info!(
                 "EXECUTOR: collected node {:?} results: {}",
                 node.node_id.clone(),

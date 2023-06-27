@@ -265,53 +265,53 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to their relevant handler
-pub async fn network_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>>,
->(
-    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    shut_down: Arc<AtomicBool>,
-    transmit_type: TransmitType,
-    exchange: Arc<EXCHANGE>,
-) where
-    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-{
-    info!(
-        "Launching network processing task for {:?} messages",
-        transmit_type
-    );
-    let networking = &exchange.network();
-    let mut incremental_backoff_ms = 10;
-    while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.recv_msgs(transmit_type).await {
-            Ok(queue) => queue,
-            Err(e) => {
-                if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
-                }
-                return;
-            }
-        };
-        if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-            continue;
-        }
-        // Make sure to reset the backoff time
-        incremental_backoff_ms = 10;
-        for item in queue {
-            let _metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
-            trace!(?item, "Processing item");
-            hotshot.handle_message(item, transmit_type).await;
-        }
-        trace!(
-            "Items processed in network {:?} task, querying for more",
-            transmit_type
-        );
-    }
-}
+// pub async fn network_task<
+//     TYPES: NodeType,
+//     I: NodeImplementation<TYPES>,
+//     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>>,
+// >(
+//     hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+//     shut_down: Arc<AtomicBool>,
+//     transmit_type: TransmitType,
+//     exchange: Arc<EXCHANGE>,
+// ) where
+//     SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+// {
+//     info!(
+//         "Launching network processing task for {:?} messages",
+//         transmit_type
+//     );
+//     let networking = &exchange.network();
+//     let mut incremental_backoff_ms = 10;
+//     while !shut_down.load(Ordering::Relaxed) {
+//         let queue = match networking.recv_msgs(transmit_type).await {
+//             Ok(queue) => queue,
+//             Err(e) => {
+//                 if !shut_down.load(Ordering::Relaxed) {
+//                     error!(?e, "did not shut down gracefully.");
+//                 }
+//                 return;
+//             }
+//         };
+//         if queue.is_empty() {
+//             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+//             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
+//             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
+//             continue;
+//         }
+//         // Make sure to reset the backoff time
+//         incremental_backoff_ms = 10;
+//         for item in queue {
+//             let _metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
+//             trace!(?item, "Processing item");
+//             hotshot.handle_message(item, transmit_type).await;
+//         }
+//         trace!(
+//             "Items processed in network {:?} task, querying for more",
+//             transmit_type
+//         );
+//     }
+// }
 
 /// networking task error type
 #[derive(Snafu, Debug)]
@@ -544,23 +544,21 @@ pub async fn add_view_sync_task(
     )
 }
 
-/// the view runner
-pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    _started: Arc<AtomicBool>,
-    _shut_down: Arc<AtomicBool>,
-    _run_once: Option<UnboundedReceiver<()>>,
-) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
-    let task_runner = TaskRunner::new();
-    let registry = task_runner.registry.clone();
-    let event_stream = event_stream::ChannelStream::new();
-
-    let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-    let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-    async_spawn(async move {
-        task_runner.launch().await;
-    });
-    (registry, event_stream)
-}
+// the view runner
+// pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+//     _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+// ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
+//     let task_runner = TaskRunner::new();
+//     let registry = task_runner.registry.clone();
+//     let event_stream = event_stream::ChannelStream::new();
+//
+//     // TODO it may make sense to move this up a level
+//     let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+//     let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
+//     async_spawn(async move {
+//         task_runner.launch().await;
+//     });
+//     (registry, event_stream)
+// }

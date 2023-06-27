@@ -66,6 +66,8 @@ pub trait EventStream: Clone + 'static + Sync + Send {
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
+    /// TODO (justin) rethink API, we might be able just to use `StreamExt::filter` and `Filter`
+    /// That would certainly be cleaner
     async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
         -> (Self::StreamType, StreamId);
 

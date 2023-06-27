@@ -2,6 +2,7 @@
 
 use crate::Message;
 use crate::QuorumCertificate;
+use crate::tasks::GlobalEvent;
 use crate::{
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
@@ -9,6 +10,15 @@ use crate::{
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
+use futures::FutureExt;
+use futures::Stream;
+use futures::StreamExt;
+use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::event_stream::EventStream;
+use hotshot_task::event_stream::SendableStream;
+use hotshot_task::event_stream::StreamId;
+use hotshot_task::global_registry::GlobalRegistry;
+use hotshot_task::task::FilterEvent;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
@@ -23,6 +33,7 @@ use hotshot_types::{
         storage::Storage,
     },
 };
+use nll::nll_todo::nll_todo;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -43,14 +54,15 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
-    /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES, I::Leaf>>>,
+    /// method is needed to generate new receivers to expose to the user
+    pub(crate) output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
+    /// access to the internal ev ent stream, in case we need to, say, shut something down
+    pub(crate) internal_event_stream: ChannelStream<GlobalEvent>,
+    /// registry for controlling tasks
+    pub(crate) registry: GlobalRegistry,
+
     /// Internal reference to the underlying [`HotShot`]
     pub(crate) hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<TYPES, I::Leaf>>,
-    /// Global to signify the `SystemContext` should be closed after completing the next round
-    pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
@@ -60,37 +72,38 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone
 {
     fn clone(&self) -> Self {
         Self {
-            sender_handle: self.sender_handle.clone(),
-            stream_output: self.sender_handle.handle_sync(),
+            registry: self.registry.clone(),
+            output_event_stream: self.output_event_stream.clone(),
+            internal_event_stream: self.internal_event_stream.clone(),
             hotshot: self.hotshot.clone(),
-            shut_down: self.shut_down.clone(),
             storage: self.storage.clone(),
         }
     }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
-    /// Will return the next event in the queue
-    ///
-    /// # Errors
-    ///
-    /// Will return [`HotShotError::NetworkFault`] if the underlying [`SystemContext`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<TYPES, I::Leaf>, HotShotError<TYPES>> {
-        let result = self.stream_output.recv_async().await;
-        match result {
-            Ok(result) => Ok(result),
-            Err(_) => Err(NetworkFault { source: ShutDown }),
-        }
-    }
-    /// Will attempt to immediately pull an event out of the queue
-    ///
-    /// # Errors
-    ///
-    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
-        let result = self.stream_output.try_recv();
-        Ok(result)
-    }
+    // /// Will return the next event in the queue
+    // ///
+    // /// # Errors
+    // ///
+    // /// Will return [`HotShotError::NetworkFault`] if the underlying [`SystemContext`] has been closed.
+    // pub async fn next_event(&mut self) -> Result<Event<TYPES, I::Leaf>, HotShotError<TYPES>> {
+    //     let result = self.stream_output.recv_async().await;
+    //     match result {
+    //         Ok(result) => Ok(result),
+    //         Err(_) => Err(NetworkFault { source: ShutDown }),
+    //     }
+    // }
+    // /// Will attempt to immediately pull an event out of the queue
+    // ///
+    // /// # Errors
+    // ///
+    // /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
+    // pub fn try_next_event(&mut self) -> Result<Option<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
+    //     self.stream.await
+    //     // let result = self.stream_output.try_recv();
+    //     // Ok(result)
+    // }
 
     /// Will pull all the currently available events out of the event queue.
     ///
@@ -98,18 +111,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(&mut self) -> Result<Vec<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
-        let mut output = vec![];
+    // pub async fn available_events(&mut self) -> Result<Vec<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
+        // let mut stream = self.output_stream;
+        // let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(&mut *stream);
+        // let mut output = vec![];
         // Loop to pull out all the outputs
-        loop {
-            match self.try_next_event() {
-                Ok(Some(x)) => output.push(x),
-                Ok(None) => break,
+        // loop {
+        //     let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(stream);
+            // let _ = FutureExt::<Output = Self::Event>::next(*self.output_stream).await;
+            // match FutureExt<Output = {
+                // Ok(Some(x)) => output.push(x),
+                // Ok(None) => break,
                 // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
-                Err(x) => return Err(x),
-            }
-        }
-        Ok(output)
+                // Err(x) => return Err(x),
+            // }
+        // }
+        // Ok(output)
+    //     nll_todo()
+    // }
+
+    /// obtains a stream to expose to the user
+    pub async fn get_event_stream(&mut self, filter: FilterEvent<Event<TYPES, I::Leaf>>) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
+        self.output_event_stream.subscribe(filter).await
     }
 
     /// Gets the current committed state of the [`HotShot`] instance
@@ -144,12 +167,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.publish_transaction_async(tx).await
     }
 
-    /// Signals to the underlying [`SystemContext`] to unpause
-    ///
-    /// This will cause the background task to start running consensus again.
-    pub async fn start(&self) {
-        self.hotshot.inner.background_task_handle.start().await;
-        // if is genesis
+    /// performs the genesis initializaiton
+    pub async fn maybe_do_genesis_init(&self){
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
@@ -163,24 +182,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                         qc: Arc::new(qc),
                     },
                 };
-                if self.sender_handle.send_async(event).await.is_err() {
-                    error!("Error sending genesis storage event upstream!");
-                }
+                self.output_event_stream.publish(event).await;
             }
         } else {
+            // TODO (justin) this seems bad. I think we should hard error in this case??
             error!("Hotshot storage has no anchor leaf!");
         }
+
     }
 
-    /// Signals the underlying [`SystemContext`] to run one round, if paused.
-    ///
-    /// Do not call this function if [`SystemContext`] has been unpaused by [`SystemContextHandle::start`].
-    pub async fn start_one_round(&self) {
-        self.hotshot
-            .inner
-            .background_task_handle
-            .start_one_round()
-            .await;
+    /// begin consensus by sending a genesis event
+    pub async fn start_consensus(&self) {
+        self.maybe_do_genesis_init().await;
     }
 
     /// iterate through all events on a [`NodeImplementation`] and determine if the node finished
@@ -189,42 +202,42 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Errors if unable to obtain storage
     /// # Panics
     /// Panics if the event stream is shut down while this is running
-    pub async fn collect_round_events(
-        &mut self,
-    ) -> Result<
-        (
-            Vec<<I as NodeImplementation<TYPES>>::Leaf>,
-            QuorumCertificate<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-        ),
-        HotShotError<TYPES>,
-    > {
-        // TODO we should probably do a view check
-        // but we can do that later. It's non-obvious how to get the view number out
-        // to check against
-
-        // drain all events from this node
-        let mut results = Ok((vec![], QuorumCertificate::genesis()));
-        loop {
-            // unwrap is fine here since the thing hasn't been shut down
-            let event = self.next_event().await.unwrap();
-            match event.event {
-                EventType::ReplicaViewTimeout { view_number: time } => {
-                    error!(?event, "Replica timed out!");
-                    results = Err(HotShotError::ViewTimeoutError {
-                        view_number: time,
-                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                    });
-                }
-                EventType::Decide { leaf_chain, qc } => {
-                    results = Ok((leaf_chain.to_vec(), (*qc).clone()));
-                }
-                EventType::ViewFinished { view_number: _ } => return results,
-                event => {
-                    debug!("recv-ed event {:?}", event);
-                }
-            }
-        }
-    }
+    // pub async fn collect_round_events(
+    //     &mut self,
+    // ) -> Result<
+    //     (
+    //         Vec<<I as NodeImplementation<TYPES>>::Leaf>,
+    //         QuorumCertificate<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    //     ),
+    //     HotShotError<TYPES>,
+    // > {
+    //     // TODO we should probably do a view check
+    //     // but we can do that later. It's non-obvious how to get the view number out
+    //     // to check against
+    //
+    //     // drain all events from this node
+    //     let mut results = Ok((vec![], QuorumCertificate::genesis()));
+    //     loop {
+    //         // unwrap is fine here since the thing hasn't been shut down
+    //         let event = self.next_event().await.unwrap();
+    //         match event.event {
+    //             EventType::ReplicaViewTimeout { view_number: time } => {
+    //                 error!(?event, "Replica timed out!");
+    //                 results = Err(HotShotError::ViewTimeoutError {
+    //                     view_number: time,
+    //                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+    //                 });
+    //             }
+    //             EventType::Decide { leaf_chain, qc } => {
+    //                 results = Ok((leaf_chain.to_vec(), (*qc).clone()));
+    //             }
+    //             EventType::ViewFinished { view_number: _ } => return results,
+    //             event => {
+    //                 debug!("recv-ed event {:?}", event);
+    //             }
+    //         }
+    //     }
+    // }
 
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
@@ -240,13 +253,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
-        self.shut_down.store(true, Ordering::Relaxed);
-        self.hotshot.inner.exchanges.shut_down_networks().await;
-        self.hotshot
-            .inner
-            .background_task_handle
-            .wait_shutdown(self.hotshot.inner.send_network_lookup.clone())
-            .await;
+
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

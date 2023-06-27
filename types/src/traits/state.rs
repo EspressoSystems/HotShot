@@ -7,7 +7,7 @@ use crate::traits::Block;
 use commit::Committable;
 use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
+use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::{Deref, Add, Div, Rem}};
 
 /// Abstraction over the state that blocks modify
 ///

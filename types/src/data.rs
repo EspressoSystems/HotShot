@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::Hash, ops::{Add, Rem, Div},
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -40,6 +40,9 @@ use std::{
     Ord,
     Hash,
     Serialize,
+    // std::ops::Add,
+    // std::ops::Div,
+    // std::ops::Rem,
     Deserialize,
     CanonicalSerialize,
     CanonicalDeserialize,
