@@ -281,13 +281,12 @@ pub mod test {
     pub type AppliedHSTWithEvent = HSTWithEvent<Error, Event, ChannelStream<Event>, State>;
     pub type AppliedHSTWithMessage =
         HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
-    // TODO (run_view) are the 2nd to 5th generics in the correct ordder?
     pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<
         Error,
-        Message,
-        UnboundedStream<Message>,
         Event,
         ChannelStream<Event>,
+        Message,
+        UnboundedStream<Message>,
         State,
     >;
 

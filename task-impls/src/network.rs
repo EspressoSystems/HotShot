@@ -22,6 +22,7 @@ use hotshot_types::{
 };
 use snafu::Snafu;
 use std::marker::PhantomData;
+use tracing::warn;
 
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -38,7 +39,7 @@ pub struct NetworkTaskState<
     pub channel: COMMCHANNEL,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub view: ViewNumber,
-    pub phantom: PhantomData<(TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP)>,
+    pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
 }
 
 impl<
@@ -83,7 +84,10 @@ impl<
                     GeneralConsensusMessage::Vote(vote) => {
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
                     }
-                    _ => panic!("Got unexpected message type in network task!"),
+                    _ => {
+                        warn!("Got unexpected message type in network task!");
+                        return;
+                    }
                 },
                 Either::Right(committee_message) => match committee_message {
                     CommitteeConsensusMessage::DAProposal(proposal) => {
@@ -95,19 +99,20 @@ impl<
                 },
             },
             MessageKind::Data(_) => {
-                panic!("Got unexpected message type in network task!");
+                warn!("Got unexpected message type in network task!");
+                return;
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
         };
         self.event_stream.publish(event).await;
     }
 
-    /// Handle the given event and return whether to keep running.
+    /// Handle the given event.
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
-    ) -> bool {
+    ) {
         let (consensus_message, signature) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
@@ -129,14 +134,14 @@ impl<
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
-                return true;
+                return;
             }
             SequencingHotShotEvent::Shutdown => {
                 self.channel.shut_down().await;
-                return false;
+                return;
             }
             _ => {
-                return true;
+                return;
             }
         };
         let message_kind =
@@ -150,7 +155,6 @@ impl<
             .broadcast_message(message, membership)
             .await
             .expect("Failed to broadcast message");
-        return true;
     }
 
     /// Filter network event.
