@@ -44,7 +44,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 /// store or keep a reference to any value implementing this trait.
 
 pub trait NodeImplementation<TYPES: NodeType>:
-    Send + Sync + Debug + Clone + 'static + Serialize + for<'de> Deserialize<'de>
+    Send + Sync + Debug + Clone + Eq + Hash + 'static + Serialize + for<'de> Deserialize<'de>
 {
     /// Leaf type for this consensus implementation
     type Leaf: LeafType<NodeType = TYPES>;

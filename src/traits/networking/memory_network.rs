@@ -638,7 +638,7 @@ mod tests {
         serde::Deserialize,
     )]
     struct Test {}
-    #[derive(Clone, Debug, Deserialize, Serialize)]
+    #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
     struct TestImpl {}
 
     // impl NetworkMsg for Test {}

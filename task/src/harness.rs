@@ -142,7 +142,7 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
     state.expected_output.remove(&event);
 
-    if state.expected_output.empty() {
+    if state.expected_output.is_empty() {
         return (Some(HotShotTaskCompleted::ShutDown), state);
     }
     (None, state)

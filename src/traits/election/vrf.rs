@@ -395,6 +395,12 @@ where
     }
 }
 
+impl<PUBKEY, PROOF> Eq for VRFVoteToken<PUBKEY, PROOF>
+where
+    PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{}
+
 impl<PUBKEY, PROOF> VoteToken for VRFVoteToken<PUBKEY, PROOF>
 where
     PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,

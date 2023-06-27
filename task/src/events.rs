@@ -7,8 +7,7 @@ use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
-use std::hash::Hash;
-// #[derive(Debug, Clone, Eq, Hash, PartialEq)]
+
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,

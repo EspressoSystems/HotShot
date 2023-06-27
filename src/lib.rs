@@ -57,7 +57,7 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks,
     SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::QuorumProposal;
+use hotshot_types::data::QuorumProposalOld;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
@@ -91,6 +91,7 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
