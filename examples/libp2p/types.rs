@@ -9,17 +9,17 @@ use hotshot::{
 use hotshot_types::message::{Message, ValidatingMessage};
 use hotshot_types::traits::{
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct NodeImpl {}
 
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
@@ -47,5 +47,14 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<VDemoTypes, Self>,
+        Option<ChannelMaps<VDemoTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 pub type ThisRun = Libp2pRun<VDemoTypes, NodeImpl, ThisMembership>;

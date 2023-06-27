@@ -106,7 +106,7 @@ where
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: Block + std::fmt::Debug {
+pub trait TestableBlock: Block + Debug {
     /// generate a genesis block
     fn genesis() -> Self;
 

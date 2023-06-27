@@ -12,17 +12,17 @@ use hotshot_testing::{
 use hotshot_types::message::{Message, ValidatingMessage};
 use hotshot_types::traits::{
     election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
+    node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct VrfCentralizedImp {}
 
 type VrfMembership = VrfImpl<
@@ -58,6 +58,15 @@ impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<VrfTestTypes, Self>,
+        Option<ChannelMaps<VrfTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// Centralized server network test
@@ -79,7 +88,7 @@ async fn centralized_server_network_vrf() {
     shutdown_logging();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct StaticCentralizedImp {}
 
 type StaticMembership =
@@ -110,6 +119,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<StaticCommitteeTestTypes, Self>,
+        Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// Centralized server network test

@@ -8,16 +8,18 @@ use hotshot::{
 use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
 use hotshot_types::traits::election::QuorumExchange;
 
-use hotshot_types::traits::node_implementation::{NodeImplementation, ValidatingExchanges};
+use hotshot_types::traits::node_implementation::{
+    ChannelMaps, NodeImplementation, ValidatingExchanges,
+};
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
     vote::QuorumVote,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct Libp2pImpl {}
 
 type StaticMembership =
@@ -48,6 +50,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<StaticCommitteeTestTypes, Self>,
+        Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// libp2p network test

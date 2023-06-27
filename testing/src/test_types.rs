@@ -20,7 +20,7 @@ use hotshot_types::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         consensus_type::validating_consensus::ValidatingConsensus,
         election::QuorumExchange,
-        node_implementation::NodeType,
+        node_implementation::{ChannelMaps, NodeType},
     },
     vote::QuorumVote,
 };
@@ -88,7 +88,7 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 /// type alias for a "usable" node impl type
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StandardNodeImplType {}
 
 /// type alias for membership using vrf types
@@ -111,7 +111,7 @@ pub type VrfCommunication = MemoryCommChannel<
 >;
 
 /// type alias for static committee node
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticNodeImplType {}
 
 type StaticMembership =
@@ -141,6 +141,15 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<VrfTestTypes, Self>,
+        Option<ChannelMaps<VrfTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
@@ -160,6 +169,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
         >,
     >;
     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<StaticCommitteeTestTypes, Self>,
+        Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
+    ) {
+        (ChannelMaps::new(start_view), None)
+    }
 }
 
 /// type alias for the test runner type

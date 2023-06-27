@@ -13,7 +13,7 @@ use hotshot::{
     },
 };
 use hotshot_testing::test_builder::TestBuilder;
-use hotshot_types::data::QuorumProposal;
+use hotshot_types::data::QuorumProposalOld;
 use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
@@ -21,7 +21,7 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
-        node_implementation::{NodeType, SequencingExchanges},
+        node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
     },
     vote::DAVote,
 };
@@ -54,7 +54,7 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingMemoryImpl {}
 
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
@@ -70,7 +70,7 @@ type StaticDAComm = MemoryCommChannel<
 type StaticQuroumComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
-    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -84,7 +84,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumComm,
             Message<SequencingTestTypes, Self>,
@@ -97,6 +97,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the memory network with sequencing consensus.
@@ -107,7 +119,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_memory_network_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder: TestBuilder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingMemoryImpl>()
@@ -117,7 +129,7 @@ async fn sequencing_memory_network_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingLibP2PImpl {}
 
 type StaticDACommP2p = Libp2pCommChannel<
@@ -131,7 +143,7 @@ type StaticDACommP2p = Libp2pCommChannel<
 type StaticQuroumCommP2p = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibP2PImpl,
-    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -145,7 +157,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumCommP2p,
             Message<SequencingTestTypes, Self>,
@@ -158,6 +170,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the libp2p network with sequencing consensus.
@@ -168,7 +192,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_libp2p_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingLibP2PImpl>()
@@ -178,7 +202,7 @@ async fn sequencing_libp2p_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingCentralImpl {}
 
 type StaticDACommCentral = CentralizedCommChannel<
@@ -192,7 +216,7 @@ type StaticDACommCentral = CentralizedCommChannel<
 type StaticQuroumCommCentral = CentralizedCommChannel<
     SequencingTestTypes,
     SequencingCentralImpl,
-    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
 >;
@@ -206,7 +230,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumCommCentral,
             Message<SequencingTestTypes, Self>,
@@ -219,6 +243,18 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         >,
     >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // Test the centralized server network with sequencing consensus.
@@ -229,7 +265,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_centralized_server_test() {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds_da();
 
     builder
         .build::<SequencingTestTypes, SequencingCentralImpl>()

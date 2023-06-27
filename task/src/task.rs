@@ -1,4 +1,4 @@
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -18,7 +18,7 @@ use std::hash::Hash;
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
-pub trait PassType: Clone + std::fmt::Debug + Sync + Send + 'static {}
+pub trait PassType: Clone + Debug + Sync + Send + 'static {}
 impl PassType for () {}
 
 /// the task state
