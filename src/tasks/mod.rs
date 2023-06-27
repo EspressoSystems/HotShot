@@ -1,14 +1,14 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShotType, SystemContext, ViewRunner};
+use crate::{SystemContext, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
+    art::{async_spawn, async_spawn_local, async_timeout},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_task::{
-    event_stream::{self, ChannelStream},
+    event_stream::ChannelStream,
     global_registry::GlobalRegistry,
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
@@ -21,6 +21,7 @@ use hotshot_task_impls::{
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::{
     election::{ConsensusExchange, Membership},
     node_implementation::SequencingExchangesType,
@@ -30,16 +31,12 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        network::{CommunicationChannel, TransmitType},
+        network::CommunicationChannel,
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
         signature_key::EncodedSignature,
         state::ConsensusTime,
     },
     vote::VoteType,
-};
-use hotshot_types::{
-    message::{Message, SequencingMessage},
-    traits::election::QuorumExchange,
 };
 use snafu::Snafu;
 use std::{
@@ -51,7 +48,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -364,7 +361,7 @@ where
 {
     let channel = exchange.network().clone();
     let message_stream = unbounded().1.into_stream();
-    let mut network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
         event_stream: event_stream.clone(),
         view: ViewNumber::genesis(),
@@ -553,8 +550,9 @@ pub async fn add_view_sync_task(
     )
 }
 
+/// the view runner
 pub async fn view_runner<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -562,16 +560,15 @@ pub async fn view_runner<
     >,
 >(
     hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 ) -> (
     GlobalRegistry,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 )
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    I::Exchanges: ConsensusExchange<TYPES, Message<TYPES, I>> + Copy + 'static,
 {
     let task_runner = TaskRunner::new();
+    let event_stream = ChannelStream::new();
     let registry = task_runner.registry.clone();
 
     let quorum_exchange = hotshot.inner.exchanges.quorum_exchange();

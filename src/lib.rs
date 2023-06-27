@@ -32,10 +32,8 @@ pub mod types;
 
 pub mod tasks;
 
-use crate::tasks::{add_consensus_task, add_da_task, add_view_sync_task, GlobalEvent};
 use crate::{
     certificate::QuorumCertificate,
-    tasks::TaskHandleInner,
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
@@ -58,17 +56,12 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_task::{
-    event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
-};
-use hotshot_task_impls::network::NetworkTaskState;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
-use hotshot_types::data::{QuorumProposal, ViewNumber};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
-    data::{DAProposal, LeafType, ValidatingLeaf, ValidatingProposal},
+    data::{DAProposal, LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, DataMessage, InternalTrigger, Message,
@@ -88,16 +81,15 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx,
         },
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
         State,
     },
     vote::{DAVote, QuorumVote, VoteType},
-    ExecutionType, HotShotConfig,
+    HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
-use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::sync::atomic::AtomicBool;
 use std::{
@@ -652,14 +644,6 @@ where
                 .instrument(info_span!("HotShot Network Lookup Task",)),
         );
 
-        let (handle_channels, task_channels) = match self.inner.config.execution_type {
-            ExecutionType::Continuous => (None, None),
-            ExecutionType::Incremental => {
-                let (send_consensus_start, recv_consensus_start) = unbounded();
-                (Some(send_consensus_start), Some(recv_consensus_start))
-            }
-        };
-
         // TODO (run_view) `view_runner` doesn't work for the validating consensus yet.
         // async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runner Handle",)));
 
@@ -673,18 +657,6 @@ where
             shut_down,
         };
         *self.inner.event_sender.write().await = Some(broadcast_sender);
-
-        let mut background_task_handle = self.inner.background_task_handle.inner.write().await;
-        *background_task_handle = Some(TaskHandleInner {
-            network_broadcast_task_handle: nll_todo(),
-            network_direct_task_handle: nll_todo(),
-            committee_network_broadcast_task_handle: None,
-            committee_network_direct_task_handle: None,
-            consensus_task_handle: nll_todo(),
-            shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
-            run_view_channels: handle_channels,
-            started,
-        });
 
         handle
     }
@@ -850,45 +822,7 @@ where
                 .instrument(info_span!("HotShot Network Lookup Task",)),
         );
 
-        let (handle_channels, task_channels) = match self.inner.config.execution_type {
-            ExecutionType::Continuous => (None, None),
-            ExecutionType::Incremental => {
-                let (send_consensus_start, recv_consensus_start) = unbounded();
-                (Some(send_consensus_start), Some(recv_consensus_start))
-            }
-        };
-
-        let event_stream = ChannelStream::new();
-        async_spawn(
-            tasks::view_runner(self.clone(), event_stream.clone())
-                .instrument(info_span!("View Runer Handle",)),
-        );
-
-        // TODO (run_view) is this the right place to call `run` for network tasks?
-        // let quorum_exchange = self.inner.exchanges.quorum_exchange();
-        // let committee_exchange = self.inner.exchanges.committee_exchange();
-        // let quorum_network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
-        //     channel: quorum_exchange.network(),
-        //     event_stream,
-        //     view: ViewNumber::genesis(),
-        //     phantom: PhantomData,
-        // };
-        // let quorum_network_task_handle = async_spawn(
-        //     quorum_network_state
-        //         .run(quorum_exchange.membership())
-        //         .instrument(info_span!("HotShot Task",)),
-        // );
-        // let committee_network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
-        //     channel: committee_exchange.network(),
-        //     event_stream,
-        //     view: ViewNumber::genesis(),
-        //     phantom: PhantomData,
-        // };
-        // let committee_network_task_handle = async_spawn(
-        //     committee_network_state
-        //         .run(committee_exchange.membership())
-        //         .instrument(info_span!("HotShot Task",)),
-        // );
+        async_spawn(tasks::view_runner(self.clone()).instrument(info_span!("View Runer Handle",)));
 
         let (broadcast_sender, broadcast_receiver) = channel();
 
@@ -900,18 +834,6 @@ where
             shut_down,
         };
         *self.inner.event_sender.write().await = Some(broadcast_sender);
-
-        let mut background_task_handle = self.inner.background_task_handle.inner.write().await;
-        *background_task_handle = Some(TaskHandleInner {
-            network_broadcast_task_handle: nll_todo(),
-            network_direct_task_handle: nll_todo(),
-            committee_network_broadcast_task_handle: nll_todo(),
-            committee_network_direct_task_handle: nll_todo(),
-            consensus_task_handle: nll_todo(),
-            shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
-            run_view_channels: handle_channels,
-            started,
-        });
 
         handle
     }

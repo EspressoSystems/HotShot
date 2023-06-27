@@ -81,10 +81,6 @@ impl<HSTT: HotShotTaskTypes> TaskBuilder<HSTT> {
         self.0.tid
     }
 
-    // pub fn state(&self) -> Option<HSTT::State> {
-    //     self.0.state()
-    // }
-
     /// create a new task builder
     #[must_use]
     pub fn new(name: String) -> Self {

@@ -1,11 +1,10 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::channel::UnboundedStream;
 use either::Either::{self, Left, Right};
-use futures::StreamExt;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TaskErr, TS},
-    task_impls::{HSTWithEvent, HSTWithEventAndMessage},
+    task::{TaskErr, TS},
+    task_impls::HSTWithEventAndMessage,
 };
 use hotshot_types::message::Message;
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
@@ -15,15 +14,14 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
-        network::{CommunicationChannel, TransmitType},
+        network::CommunicationChannel,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::EncodedSignature,
     },
     vote::VoteType,
 };
 use snafu::Snafu;
-use std::{marker::PhantomData, sync::Arc};
-use tracing::{info, trace};
+use std::marker::PhantomData;
 
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -165,39 +163,6 @@ impl<
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
-        }
-    }
-
-    /// Run when spawning the network tasks.
-    // TODO (run_view) is this function needed? Should we handle messages and events for all tasks
-    // together, e.g., in task.rs?
-    pub async fn run(&mut self, membership: &MEMBERSHIP) {
-        // TODO (run_view) should we call `run` twice for different `TransmitType`?
-        let mut broadcast_messages = self
-            .channel
-            .recv_msgs(TransmitType::Broadcast)
-            .await
-            .expect("Failed to receive broadcast message");
-        let mut messages = self
-            .channel
-            .recv_msgs(TransmitType::Direct)
-            .await
-            .expect("Failed to receive direct message");
-        messages.append(&mut broadcast_messages);
-        for m in messages {
-            self.handle_message(m).await;
-            trace!("Messages processed in network task, querying for more");
-        }
-        let mut running = true;
-        let mut events = self
-            .event_stream
-            .subscribe(FilterEvent(Arc::new(Self::filter)))
-            .await
-            .0;
-        while running {
-            let event = events.next().await.expect("No event");
-            running = self.handle_event(event, membership).await;
-            trace!("Events processed in network task, querying for more");
         }
     }
 }
