@@ -1,5 +1,5 @@
 use hotshot_task::task::PassType;
-use hotshot_types::certificate::QuorumCertificate;
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -20,6 +20,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAProposalSend(Proposal<DAProposal<TYPES>>),
     DAVoteSend(DAVote<TYPES, I::Leaf>),
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
+    DACFormed(DACertificate<TYPES>),
     ViewChange(ViewNumber),
     Timeout,
 }
