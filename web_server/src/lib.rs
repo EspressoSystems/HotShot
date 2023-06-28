@@ -3,7 +3,6 @@ pub mod config;
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
-use config::DEFAULT_WEB_SERVER_PORT;
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
@@ -373,16 +372,22 @@ where
 }
 
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
-    shutdown_listener: Option<OneShotReceiver<()>>, port: u16,
+    shutdown_listener: Option<OneShotReceiver<()>>,
+    port: u16,
 ) -> io::Result<()> {
     let options = Options::default();
+
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{port}"))
-        .await
+
+    let app_future = app.serve(format!("http://0.0.0.0:{port}"));
+
+    error!("Web server started on port {port}");
+
+    app_future.await
 }
 
 #[cfg(test)]

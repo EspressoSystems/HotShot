@@ -53,6 +53,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
 }
 
 /// A message type agnostic description of a messages purpose
+#[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
     /// Message contains a proposal
     Proposal,
