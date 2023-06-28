@@ -288,6 +288,13 @@ where
         }
         .boxed()
     })?
+    api.get("getcertificate", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            state.get_da_certificate(view_number)
+        }
+        .boxed()
+    })?
     .get("getvotes", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;

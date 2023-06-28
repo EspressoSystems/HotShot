@@ -25,7 +25,7 @@ use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingE
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, SequencingLeaf},
+    data::{QuorumProposalNew, SequencingLeaf},
     message::{GeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -71,7 +71,7 @@ pub struct SequencingConsensusTaskState<
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -122,7 +122,7 @@ pub struct VoteCollectionTaskState<
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -144,7 +144,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -166,7 +166,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -229,7 +229,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -508,7 +508,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -555,7 +555,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposalNew<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,

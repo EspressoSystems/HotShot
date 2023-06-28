@@ -162,6 +162,24 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub proposer_id: EncodedPublicKey,
 }
 
+/// A proposal to append a new block commitment to the log.
+pub struct QuorumProposalNew<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+    /// The commitment to append.
+    pub block_commitment: Commitment<TYPES::BlockType>,
+
+    /// CurView from leader when proposing leaf
+    pub view_number: TYPES::Time,
+
+    /// Height from leader when proposing leaf
+    pub height: u64,
+
+    /// Per spec, justification
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
+
+    /// the propser id
+    pub proposer_id: EncodedPublicKey,
+}
+
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     for ValidatingProposal<TYPES, LEAF>
 {
