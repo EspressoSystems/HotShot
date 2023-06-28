@@ -11,11 +11,13 @@
 
 use Poll::{Pending, Ready};
 
+use event_stream::SendableStream;
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use futures::{stream::Fuse, Stream, StreamExt};
+use futures::{stream::Fuse, Stream, StreamExt, Future, future::BoxFuture};
+use nll::nll_todo::nll_todo;
 use std::{
     pin::Pin,
-    task::{Context, Poll},
+    task::{Context, Poll}, marker::PhantomData, sync::Arc,
 };
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
@@ -141,3 +143,138 @@ where
         Pending
     }
 }
+
+/// gotta make the futures sync
+pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
+
+#[pin_project(project = ProjectedStreamableThing)]
+pub struct GeneratedStream<O>  {
+    // todo maybe type wrapper is in order
+    generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,
+    in_progress_fut: Option<BoxSyncFuture<'static, O>>,
+}
+
+impl<O> GeneratedStream<O> {
+    pub fn new(generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,) -> Self{
+        GeneratedStream { generator, in_progress_fut: None }
+    }
+}
+
+impl<O> Stream for GeneratedStream<O> {
+    type Item = O;
+
+    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+        let projection = self.project();
+        match projection.in_progress_fut {
+            Some(fut) => {
+                // NOTE: this is entirely safe.
+                // We will ONLY poll if we've been awakened.
+                // otherwise, we won't poll.
+                match fut.as_mut().poll(cx) {
+                    Ready(val) => {
+                        *projection.in_progress_fut = None;
+                        return Poll::Ready(Some(val));
+                    },
+                    Pending => {
+                        return Poll::Pending;
+                    },
+                }
+            },
+            None => {
+                let mut fut = (*projection.generator)();
+                match fut.as_mut().poll(cx) {
+                    Ready(val) => {
+                        *projection.in_progress_fut = None;
+                        return Poll::Ready(Some(val));
+                    },
+                    Pending => {
+                        *projection.in_progress_fut = Some(fut);
+                        return Poll::Pending;
+                    },
+                }
+            },
+        }
+    }
+}
+
+/// yoinked from futures crate
+pub fn assert_future<T, F>(future: F) -> F
+where
+    F: Future<Output = T>,
+{
+    future
+}
+
+/// yoinked from futures crate, adds sync bound that we need
+fn boxed_sync<'a, F>(fut: F) -> BoxSyncFuture<'a, F::Output>
+where
+F: Future + Sized + Send + 'a + Sync,
+{
+    assert_future::<F::Output, _>(Box::pin(fut))
+}
+
+impl<O : Sync + Send + 'static> SendableStream for GeneratedStream<O> {
+
+}
+
+#[cfg(test)]
+pub mod test {
+    use crate::*;
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_stream_basic() {
+        let mut stream = GeneratedStream::<u32>{
+            generator: Arc::new(move || {
+               let closure = async move {
+                   5
+
+               };
+               boxed_sync(closure)
+            }
+            ),
+            in_progress_fut: None
+        };
+        assert!(stream.next().await == Some(5));
+        assert!(stream.next().await == Some(5));
+        assert!(stream.next().await == Some(5));
+        assert!(stream.next().await == Some(5));
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_stream_fancy() {
+        use std::sync::atomic::Ordering;
+        use async_compatibility_layer::art::async_sleep;
+        use std::time::Duration;
+
+        let value = Arc::<std::sync::atomic::AtomicU8>::default();
+        let mut stream = GeneratedStream::<u32>{
+            generator: Arc::new(move || {
+               let value = value.clone();
+               let closure = async move {
+                   let actual_value = value.load(Ordering::Relaxed);
+                   value.store(actual_value + 1, Ordering::Relaxed);
+                   async_sleep(Duration::new(0, 500)).await;
+                   actual_value as u32
+               };
+               boxed_sync(closure)
+            }
+            ),
+            in_progress_fut: None
+        };
+        assert!(stream.next().await == Some(0));
+        assert!(stream.next().await == Some(1));
+        assert!(stream.next().await == Some(2));
+        assert!(stream.next().await == Some(3));
+    }
+}
+
