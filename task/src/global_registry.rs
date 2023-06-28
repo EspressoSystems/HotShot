@@ -175,5 +175,4 @@ impl GlobalRegistry {
         }
         true
     }
-
 }

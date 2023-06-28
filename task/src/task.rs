@@ -120,7 +120,9 @@ pub struct HandleEvent<HSTT: HotShotTaskTypes>(
 
 impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
     fn default() -> Self {
-        Self(Arc::new(|_event, state| async { (None, state) }.boxed()))
+        Self(Arc::new(|_event, state| {
+            async move { (None, state) }.boxed()
+        }))
     }
 }
 
@@ -329,8 +331,6 @@ pub enum HotShotTaskCompleted {
     LostReturnValue,
     /// Stream exists but missing handler
     MissingHandler,
-    /// Completed Successfully
-    Success,
 }
 
 impl std::fmt::Debug for HotShotTaskCompleted {
@@ -346,7 +346,6 @@ impl std::fmt::Debug for HotShotTaskCompleted {
             HotShotTaskCompleted::MissingHandler => {
                 f.write_str("HotShotTaskCompleted::MissingHandler")
             }
-            HotShotTaskCompleted::Success => f.write_str("HotShotTaskCompleted::Shutdown"),
         }
     }
 }

@@ -198,7 +198,7 @@ where
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
-                        return (Some(HotShotTaskCompleted::Success), state);
+                        return (None, state);
                     }
                 }
             }

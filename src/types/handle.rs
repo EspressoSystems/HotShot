@@ -1,8 +1,8 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
+use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
-use crate::tasks::GlobalEvent;
 use crate::{
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
@@ -112,26 +112,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
     // pub async fn available_events(&mut self) -> Result<Vec<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
-        // let mut stream = self.output_stream;
-        // let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(&mut *stream);
-        // let mut output = vec![];
-        // Loop to pull out all the outputs
-        // loop {
-        //     let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(stream);
-            // let _ = FutureExt::<Output = Self::Event>::next(*self.output_stream).await;
-            // match FutureExt<Output = {
-                // Ok(Some(x)) => output.push(x),
-                // Ok(None) => break,
-                // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
-                // Err(x) => return Err(x),
-            // }
-        // }
-        // Ok(output)
+    // let mut stream = self.output_stream;
+    // let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(&mut *stream);
+    // let mut output = vec![];
+    // Loop to pull out all the outputs
+    // loop {
+    //     let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(stream);
+    // let _ = FutureExt::<Output = Self::Event>::next(*self.output_stream).await;
+    // match FutureExt<Output = {
+    // Ok(Some(x)) => output.push(x),
+    // Ok(None) => break,
+    // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
+    // Err(x) => return Err(x),
+    // }
+    // }
+    // Ok(output)
     //     nll_todo()
     // }
 
     /// obtains a stream to expose to the user
-    pub async fn get_event_stream(&mut self, filter: FilterEvent<Event<TYPES, I::Leaf>>) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
+    pub async fn get_event_stream(
+        &mut self,
+        filter: FilterEvent<Event<TYPES, I::Leaf>>,
+    ) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
         self.output_event_stream.subscribe(filter).await
     }
 
@@ -168,7 +171,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// performs the genesis initializaiton
-    pub async fn maybe_do_genesis_init(&self){
+    pub async fn maybe_do_genesis_init(&self) {
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
@@ -188,7 +191,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             // TODO (justin) this seems bad. I think we should hard error in this case??
             error!("Hotshot storage has no anchor leaf!");
         }
-
     }
 
     /// begin consensus by sending a genesis event
@@ -252,9 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    pub async fn shut_down(self) {
-
-    }
+    pub async fn shut_down(self) {}
 
     /// return the timeout for a view of the underlying `SystemContext`
     pub fn get_next_view_timeout(&self) -> u64 {

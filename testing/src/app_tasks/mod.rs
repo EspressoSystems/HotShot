@@ -5,4 +5,4 @@ pub mod soundness_task;
 pub mod timeout_task;
 
 /// task determining when to submit transactions
- pub mod txn_task;
+pub mod txn_task;

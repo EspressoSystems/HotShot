@@ -1,29 +1,42 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShotType, SystemContext, ViewRunner};
+use crate::{SystemContext, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    channel::{UnboundedReceiver, UnboundedSender},
+    art::{async_spawn, async_spawn_local, async_timeout},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_task::{
-    event_stream::{self, ChannelStream},
+    event_stream::ChannelStream,
     global_registry::GlobalRegistry,
     task::{
-        FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
+        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
+        TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_task_impls::{
+    events::SequencingHotShotEvent,
+    network::{NetworkTaskState, NetworkTaskTypes},
+};
+use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::traits::{
+    election::{ConsensusExchange, Membership},
+    node_implementation::SequencingExchangesType,
+};
 use hotshot_types::{
     constants::LOOK_AHEAD,
+    data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
-        network::{CommunicationChannel, TransmitType},
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        network::CommunicationChannel,
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
+        signature_key::EncodedSignature,
+        state::ConsensusTime,
     },
+    vote::VoteType,
 };
 use snafu::Snafu;
 use std::{
@@ -35,7 +48,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -264,65 +277,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
 }
 
-/// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to their relevant handler
-// pub async fn network_task<
-//     TYPES: NodeType,
-//     I: NodeImplementation<TYPES>,
-//     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>>,
-// >(
-//     hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-//     shut_down: Arc<AtomicBool>,
-//     transmit_type: TransmitType,
-//     exchange: Arc<EXCHANGE>,
-// ) where
-//     SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-// {
-//     info!(
-//         "Launching network processing task for {:?} messages",
-//         transmit_type
-//     );
-//     let networking = &exchange.network();
-//     let mut incremental_backoff_ms = 10;
-//     while !shut_down.load(Ordering::Relaxed) {
-//         let queue = match networking.recv_msgs(transmit_type).await {
-//             Ok(queue) => queue,
-//             Err(e) => {
-//                 if !shut_down.load(Ordering::Relaxed) {
-//                     error!(?e, "did not shut down gracefully.");
-//                 }
-//                 return;
-//             }
-//         };
-//         if queue.is_empty() {
-//             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-//             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-//             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-//             continue;
-//         }
-//         // Make sure to reset the backoff time
-//         incremental_backoff_ms = 10;
-//         for item in queue {
-//             let _metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
-//             trace!(?item, "Processing item");
-//             hotshot.handle_message(item, transmit_type).await;
-//         }
-//         trace!(
-//             "Items processed in network {:?} task, querying for more",
-//             transmit_type
-//         );
-//     }
-// }
-
-/// networking task error type
-#[derive(Snafu, Debug)]
-pub struct NetworkingTaskError {}
-impl TaskErr for NetworkingTaskError {}
-
-/// networking task's state
-#[derive(Debug)]
-pub struct NetworkingTaskState {}
-impl TS for NetworkingTaskState {}
-
 /// event for global event stream
 #[derive(Clone, Debug)]
 pub enum GlobalEvent {
@@ -332,10 +286,6 @@ pub enum GlobalEvent {
     Dummy,
 }
 impl PassType for GlobalEvent {}
-
-/// Networking task types
-pub type NetworkingTaskTypes =
-    HSTWithEvent<NetworkingTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkingTaskState>;
 
 /// Consensus Task Error
 #[derive(Snafu, Debug)]
@@ -382,44 +332,100 @@ pub type ViewSyncTaskTypes =
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_networking_task(
+pub async fn add_network_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    EXCHANGE: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = PROPOSAL,
+            Vote = VOTE,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
-    let networking_state = NetworkingTaskState {};
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    exchange: EXCHANGE,
+) -> TaskRunner
+where
+    EXCHANGE::Networking:
+        CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+{
+    let channel = exchange.network().clone();
+    let message_stream = unbounded().1.into_stream();
+    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+        channel,
+        event_stream: event_stream.clone(),
+        view: ViewNumber::genesis(),
+        phantom: PhantomData,
+    };
     let registry = task_runner.registry.clone();
-    let networking_event_handler = HandleEvent(Arc::new(move |event, state| {
-        async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
+    let network_message_handler = HandleMessage(Arc::new(
+        move |message,
+              mut state: NetworkTaskState<
+            TYPES,
+            I,
+            PROPOSAL,
+            VOTE,
+            MEMBERSHIP,
+            EXCHANGE::Networking,
+        >| {
+            async move {
+                state.handle_message(message).await;
                 (None, state)
             }
-        }
-        .boxed()
-    }));
+            .boxed()
+        },
+    ));
+    let network_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event, exchange.membership()).await;
+                    (None, state)
+                }
+            }
+            .boxed()
+        },
+    ));
     let networking_name = "Networking Task";
-    let networking_event_filter = FilterEvent::default();
+    let networking_event_filter = FilterEvent(Arc::new(
+        NetworkTaskState::<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, EXCHANGE::Networking>::filter,
+    ));
 
     let networking_task_builder =
-        TaskBuilder::<NetworkingTaskTypes>::new(networking_name.to_string())
+        TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
+            .register_message_stream(message_stream)
             .register_event_stream(event_stream.clone(), networking_event_filter)
             .await
             .register_registry(&mut registry.clone())
             .await
-            .register_state(networking_state)
-            .register_event_handler(networking_event_handler);
-    // impossible for unwrap to fail
+            .register_state(network_state)
+            .register_message_handler(network_message_handler)
+            .register_event_handler(network_event_handler);
+
+    // impossible for unwraps to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
+    let networking_task = NetworkTaskTypes::build(networking_task_builder).launch();
 
-    let networking_task = NetworkingTaskTypes::build(networking_task_builder).launch();
-
-    task_runner.add_task(
+    let task_runner = task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    )
+    );
+
+    task_runner
 }
 
 /// add the consensus task
@@ -543,22 +549,3 @@ pub async fn add_view_sync_task(
         view_sync_task,
     )
 }
-
-// the view runner
-// pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-//     _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-// ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
-//     let task_runner = TaskRunner::new();
-//     let registry = task_runner.registry.clone();
-//     let event_stream = event_stream::ChannelStream::new();
-//
-//     // TODO it may make sense to move this up a level
-//     let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-//     async_spawn(async move {
-//         task_runner.launch().await;
-//     });
-//     (registry, event_stream)
-// }

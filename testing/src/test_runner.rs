@@ -333,7 +333,7 @@ where
         for handle in self.nodes() {
             info!("STARTING ONE ROUND");
             // TODO (justin) fix this. we need long running tasks
-            let _ : () = nll_todo();
+            let _: () = nll_todo();
             // handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");

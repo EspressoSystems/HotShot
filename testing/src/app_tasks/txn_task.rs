@@ -1,6 +1,6 @@
 use hotshot::tasks::DATaskState;
-use snafu::Snafu;
 use hotshot_task::task::{TaskErr, TS};
+use snafu::Snafu;
 
 /// Data Availability task error
 #[derive(Snafu, Debug)]
