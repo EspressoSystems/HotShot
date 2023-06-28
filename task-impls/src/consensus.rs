@@ -44,7 +44,6 @@ use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
-
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}

@@ -37,8 +37,12 @@ const MAX_TXNS: usize = 10;
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: HashMap<u64, (String, Vec<u8>)>,
+    /// view number -> (secret, da_certificates)
+    da_certificates: HashMap<u64, (String, Vec<u8>)>,
     /// view for oldest proposals in memory
     oldest_proposal: u64,
+    /// view for teh oldest DA certificate
+    oldest_certificate: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> highest vote index for that view number
@@ -61,10 +65,12 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
             proposals: HashMap::new(),
+            da_certificates: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
             oldest_vote: 0,
             oldest_proposal: 0,
+            oldest_certificate: 0,
             shutdown: None,
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
@@ -86,8 +92,10 @@ pub trait WebServerDataSource<KEY> {
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
+    fn post_da_certificate(&mut self, view_number: u64, cert: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
     fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
@@ -152,6 +160,27 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
+
+    /// Return the da certificate the server has received for a particular view
+    fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        match self.da_certificates.get(&index) {
+            Some(cert) => {
+                if cert.1.is_empty() {
+                    Err(ServerError {
+                        status: StatusCode::NotImplemented,
+                        message: format!("DA Certificate not found for view {index}"),
+                    })
+                } else {
+                    Ok(Some(vec![cert.1.clone()]))
+                }
+            }
+            None => Err(ServerError {
+                status: StatusCode::NotImplemented,
+                message: format!("Proposal not found for view {index}"),
+            }),
+        }
+    }
+
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
         // Only keep vote history for MAX_VIEWS number of views
@@ -186,6 +215,24 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .entry(view_number)
             .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
             .or_insert_with(|| (String::new(), proposal));
+        Ok(())
+    }
+
+    /// Stores a received DA certificate in the `WebServerState`
+    fn post_da_certificate(&mut self, view_number: u64, mut cert: Vec<u8>) -> Result<(), Error> {
+        error!("Received DA Certificate for view {}", view_number);
+
+        // Only keep proposal history for MAX_VIEWS number of view
+        if self.da_certificates.len() >= MAX_VIEWS {
+            self.da_certificates.remove(&self.oldest_certificate);
+            while !self.da_certificates.contains_key(&self.oldest_certificate) {
+                self.oldest_certificate += 1;
+            }
+        }
+        self.da_certificates
+            .entry(view_number)
+            .and_modify(|(_, empty_cert)| empty_cert.append(&mut cert))
+            .or_insert_with(|| (String::new(), cert));
         Ok(())
     }
     /// Stores a received group of transactions in the `WebServerState`
@@ -288,6 +335,13 @@ where
         }
         .boxed()
     })?
+    .get("getcertificate", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            state.get_da_certificate(view_number)
+        }
+        .boxed()
+    })?
     .get("getvotes", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -317,6 +371,14 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
+        }
+        .boxed()
+    })?
+    .post("postcertificate", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let cert = req.body_bytes();
+            state.post_da_certificate(view_number, cert)
         }
         .boxed()
     })?
