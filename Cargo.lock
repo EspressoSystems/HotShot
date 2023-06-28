@@ -2938,7 +2938,7 @@ dependencies = [
  "itertools 0.11.0",
  "jf-primitives",
  "libp2p",
- "libp2p-identity",
+ "libp2p-identity 0.2.1",
  "libp2p-networking",
  "libp2p-swarm-derive",
  "nll",
@@ -2969,7 +2969,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.2.1",
  "serde",
  "serde_json",
  "snafu",
@@ -3796,7 +3796,7 @@ dependencies = [
  "libp2p-floodsub",
  "libp2p-gossipsub",
  "libp2p-identify",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-kad",
  "libp2p-mdns",
  "libp2p-metrics",
@@ -3827,7 +3827,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "510daa05efbc25184458db837f6f9a5143888f1caa742426d92e1833ddd38a50"
 dependencies = [
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "void",
 ]
@@ -3843,7 +3843,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-request-response",
  "libp2p-swarm",
  "log",
@@ -3858,7 +3858,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4caa33f1d26ed664c4fe2cca81a08c8e07d4c1c04f2f4ac7655c2dd85467fda0"
 dependencies = [
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "void",
 ]
@@ -3874,7 +3874,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "instant",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "log",
  "multiaddr",
  "multihash",
@@ -3929,7 +3929,7 @@ dependencies = [
  "fnv",
  "futures",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "quick-protobuf",
@@ -3955,7 +3955,7 @@ dependencies = [
  "hex_fmt",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "prometheus-client",
@@ -3983,7 +3983,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "lru",
@@ -4017,6 +4017,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-identity"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2874d9c6575f1d7a151022af5c42bb0ffdcdfbafe0a6fd039de870b384835a2"
+dependencies = [
+ "log",
+ "quick-protobuf",
+]
+
+[[package]]
 name = "libp2p-kad"
 version = "0.43.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4031,7 +4041,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "quick-protobuf",
@@ -4056,7 +4066,7 @@ dependencies = [
  "futures",
  "if-watch",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "rand 0.8.5",
@@ -4119,7 +4129,7 @@ dependencies = [
  "futures",
  "hotshot-utils",
  "libp2p",
- "libp2p-identity",
+ "libp2p-identity 0.2.1",
  "libp2p-noise",
  "libp2p-swarm-derive",
  "netlink-packet-core 0.4.2 (git+https://github.com/espressosystems/netlink.git)",
@@ -4152,7 +4162,7 @@ dependencies = [
  "curve25519-dalek 3.2.0",
  "futures",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "log",
  "once_cell",
  "quick-protobuf",
@@ -4192,7 +4202,7 @@ dependencies = [
  "bytes 1.4.0",
  "futures",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "log",
  "quick-protobuf",
  "unsigned-varint",
@@ -4225,7 +4235,7 @@ dependencies = [
  "futures-timer",
  "if-watch",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-tls",
  "log",
  "parking_lot 0.12.1",
@@ -4249,7 +4259,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "quick-protobuf",
@@ -4272,7 +4282,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "log",
  "quick-protobuf",
@@ -4292,7 +4302,7 @@ dependencies = [
  "futures",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm",
  "rand 0.8.5",
  "smallvec",
@@ -4311,7 +4321,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-swarm-derive",
  "log",
  "rand 0.8.5",
@@ -4357,7 +4367,7 @@ dependencies = [
  "futures",
  "futures-rustls",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "rcgen 0.10.0",
  "ring",
  "rustls 0.20.8",
@@ -4406,7 +4416,7 @@ dependencies = [
  "hex",
  "if-watch",
  "libp2p-core",
- "libp2p-identity",
+ "libp2p-identity 0.1.2",
  "libp2p-noise",
  "log",
  "multihash",
