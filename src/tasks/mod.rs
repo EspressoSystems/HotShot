@@ -368,7 +368,6 @@ where
         Arc::new(move || {
             let network = channel.clone();
             let closure = async move {
-                let sdf: Messages<TYPES, I> = await_data().await;
                 let msgs = Messages(
                     network
                         .recv_msgs(TransmitType::Broadcast)
@@ -376,8 +375,7 @@ where
                         .expect("Failed to receive broadcast messages"),
                 );
                 async_sleep(Duration::new(0, 500)).await;
-                // msgs
-                Messages(vec![])
+                msgs
             };
             boxed_sync(closure)
         }));
@@ -386,15 +384,14 @@ where
         Arc::new(move || {
             let network = channel.clone();
             let closure = async move {
-                nll_todo()
-                // let msgs = Messages(
-                //     network
-                //         .recv_msgs(TransmitType::Direct)
-                //         .await
-                //         .expect("Failed to receive direct messages"),
-                // );
-                // async_sleep(Duration::new(0, 500)).await;
-                // msgs
+                let msgs = Messages(
+                    network
+                        .recv_msgs(TransmitType::Direct)
+                        .await
+                        .expect("Failed to receive direct messages"),
+                );
+                async_sleep(Duration::new(0, 500)).await;
+                msgs
             };
             boxed_sync(closure)
         }));
