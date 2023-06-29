@@ -309,7 +309,6 @@ where
 //Testing
 
 #[cfg(test)]
-#[cfg(feature = "demo")]
 mod test {
     use crate::config::{
         post_statistics_route, get_statistics_result
