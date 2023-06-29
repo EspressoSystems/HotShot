@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
+use hotshot_task::{BoxSyncFuture, boxed_sync};
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -29,6 +30,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo::nll_todo;
 
 use crate::NodeImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -398,39 +400,45 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        match transmit_type {
-            TransmitType::Direct => {
-                let ret = self
-                    .inner
-                    .direct_output
-                    .lock()
-                    .await
-                    .drain_at_least_one()
-                    .await
-                    .map_err(|_x| NetworkError::ShutDown)?;
-                self.inner
-                    .in_flight_message_count
-                    .fetch_sub(ret.len(), Ordering::Relaxed);
-                self.inner.metrics.incoming_message_count.add(ret.len());
-                Ok(ret)
+    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+        where 'a : 'b, Self: 'b
+    {
+        let closure = async move {
+            match transmit_type {
+                TransmitType::Direct => {
+                    let ret = self
+                        .inner
+                        .direct_output
+                        .lock()
+                        .await
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner
+                        .in_flight_message_count
+                        .fetch_sub(ret.len(), Ordering::Relaxed);
+                    self.inner.metrics.incoming_message_count.add(ret.len());
+                    Ok(ret)
+                }
+                TransmitType::Broadcast => {
+                    let ret = self
+                        .inner
+                        .broadcast_output
+                        .lock()
+                        .await
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner
+                        .in_flight_message_count
+                        .fetch_sub(ret.len(), Ordering::Relaxed);
+                    self.inner.metrics.incoming_message_count.add(ret.len());
+                    Ok(ret)
+                }
             }
-            TransmitType::Broadcast => {
-                let ret = self
-                    .inner
-                    .broadcast_output
-                    .lock()
-                    .await
-                    .drain_at_least_one()
-                    .await
-                    .map_err(|_x| NetworkError::ShutDown)?;
-                self.inner
-                    .in_flight_message_count
-                    .fetch_sub(ret.len(), Ordering::Relaxed);
-                self.inner.metrics.incoming_message_count.add(ret.len());
-                Ok(ret)
-            }
-        }
+
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "MemoryNetwork::lookup_node", skip_all)]
@@ -554,11 +562,16 @@ where
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        self.0.recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+        where 'a : 'b, Self: 'b
+    {
+        let closure = async move {
+            self.0.recv_msgs(transmit_type).await
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {

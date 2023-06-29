@@ -9,6 +9,7 @@ use async_trait::async_trait;
 
 use futures::join;
 
+use hotshot_task::{BoxSyncFuture, boxed_sync};
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -269,20 +270,25 @@ impl<
         }
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        match self.network().recv_msgs(transmit_type).await {
-            Ok(msgs) => Ok(msgs),
-            Err(e) => {
-                error!(
-                    "Falling back on recv message, error on primary network: {}",
-                    e
-                );
-                self.fallback().recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+        where 'a : 'b, Self: 'b
+    {
+        let closure = async move {
+            match self.network().recv_msgs(transmit_type).await {
+                Ok(msgs) => Ok(msgs),
+                Err(e) => {
+                    error!(
+                        "Falling back on recv message, error on primary network: {}",
+                        e
+                    );
+                    self.fallback().recv_msgs(transmit_type).await
+                }
             }
-        }
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {

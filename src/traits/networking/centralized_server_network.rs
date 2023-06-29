@@ -4,6 +4,8 @@
 //!
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
+use hotshot_task::{BoxSyncFuture, boxed_sync};
+use nll::nll_todo::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -802,23 +804,28 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::recv_msgs", skip_all)]
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        match transmit_type {
-            TransmitType::Direct => self
-                .inner
-                .get_direct_messages()
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .context(FailedToDeserializeSnafu),
-            TransmitType::Broadcast => self
-                .inner
-                .get_broadcasts()
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .context(FailedToDeserializeSnafu),
-        }
+    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+        where 'a : 'b, Self: 'b
+    {
+        let closure = async move {
+            match transmit_type {
+                TransmitType::Direct => self
+                    .inner
+                    .get_direct_messages()
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .context(FailedToDeserializeSnafu),
+                TransmitType::Broadcast => self
+                    .inner
+                    .get_broadcasts()
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .context(FailedToDeserializeSnafu),
+            }
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
@@ -928,11 +935,16 @@ where
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        self.0.recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+        where 'a : 'b, Self: 'b
+    {
+        let closure = async move {
+            self.0.recv_msgs(transmit_type).await
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {

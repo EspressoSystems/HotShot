@@ -4,6 +4,8 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
+use futures::future::BoxFuture;
+use hotshot_task::BoxSyncFuture;
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
@@ -188,7 +190,8 @@ pub trait CommunicationChannel<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+        where 'a : 'b, Self: 'b;
 
     /// look up a node
     /// blocking
@@ -234,7 +237,8 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+        where 'a : 'b, Self: 'b;
 
     /// look up a node
     /// blocking
