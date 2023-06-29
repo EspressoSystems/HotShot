@@ -254,7 +254,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    pub async fn shut_down(self) {}
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+    }
 
     /// return the timeout for a view of the underlying `SystemContext`
     pub fn get_next_view_timeout(&self) -> u64 {

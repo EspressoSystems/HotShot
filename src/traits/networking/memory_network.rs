@@ -328,7 +328,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::shut_down")]
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
@@ -549,12 +549,15 @@ where
         self.0.is_ready().await
     }
 
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
     {
-        self.0.shut_down().await;
+        let closure = async move {
+            self.0.shut_down().await;
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(

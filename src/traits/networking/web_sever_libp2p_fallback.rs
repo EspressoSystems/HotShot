@@ -214,8 +214,15 @@ impl<
         self.network().is_ready().await && self.fallback().is_ready().await
     }
 
-    async fn shut_down(&self) -> () {
-        join!(self.network().shut_down(), self.fallback().shut_down());
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            join!(self.network().shut_down(), self.fallback().shut_down());
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(

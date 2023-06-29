@@ -769,7 +769,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::shut_down", skip_all)]
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
@@ -921,16 +921,19 @@ where
         .await
     }
 
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
     {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::shut_down(&self.0)
-        .await;
+        let closure = async move {
+            <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+            >>::shut_down(&self.0)
+            .await;
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(

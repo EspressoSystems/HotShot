@@ -537,16 +537,19 @@ impl<
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
     {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::shut_down(&self.0)
-        .await;
+        let closure = async move {
+            <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+            >>::shut_down(&self.0)
+            .await;
+        };
+        boxed_sync(closure)
     }
 
     /// broadcast message to those listening on the communication channel
@@ -631,7 +634,7 @@ impl<
 
     /// Blocks until the network is shut down
     /// then returns true
-    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
