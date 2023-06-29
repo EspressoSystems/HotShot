@@ -504,14 +504,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         'a: 'b,
         Self: 'b,
     {
-        if self.inner.handle.is_killed() {
-            error!("Called shut down when already shut down! Noop.");
-        } else {
-            let closure = async move {
+        let closure = async move {
+            if self.inner.handle.is_killed() {
+                error!("Called shut down when already shut down! Noop.");
+            } else {
                 self.inner.handle.shutdown().await.unwrap();
-            };
-            boxed_sync(closure)
-        }
+            }
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]

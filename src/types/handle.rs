@@ -18,7 +18,7 @@ use hotshot_task::event_stream::EventStream;
 use hotshot_task::event_stream::SendableStream;
 use hotshot_task::event_stream::StreamId;
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
+use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
@@ -259,6 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         'a: 'b,
         Self: 'b,
     {
+        boxed_sync(async move {})
     }
 
     /// return the timeout for a view of the underlying `SystemContext`
