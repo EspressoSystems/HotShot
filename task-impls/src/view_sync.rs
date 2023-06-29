@@ -21,6 +21,7 @@ use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConse
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
+use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
@@ -176,6 +177,12 @@ impl<
                                 phantom: PhantomData,
                             };
                             let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+
+                            let relay_handle_event =
+                                HandleEvent(Arc::new(move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
+                                    async move { state.handle_event(event).await }.boxed()
+                                }));
+
                             let filter = FilterEvent::default();
                             let _builder =
                                 TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
@@ -183,7 +190,7 @@ impl<
                                     .await
                                     .register_state(relay_state)
                                     .register_event_handler(
-                                        todo!(), /* TODO ED Put actual handler in here */
+                                        relay_handle_event, 
                                     );
                         }
                     }
@@ -236,7 +243,7 @@ impl<
     > ViewSyncReplicaTaskState<TYPES, I>
 {
     pub async fn handle_event(
-        &mut self,
+        mut self,
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> (
         std::option::Option<HotShotTaskCompleted>,
@@ -252,7 +259,8 @@ impl<
                 }
             },
             _ => todo!(),
-        };
+        }
+        return (None, self)
     }
 }
 
@@ -265,7 +273,24 @@ impl<
         >,
     > ViewSyncRelayTaskState<TYPES, I>
 {
-    pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
-        todo!()
+    pub async fn handle_event(
+        mut self,
+        event: SequencingHotShotEvent<TYPES, I>,
+    ) -> (
+        std::option::Option<HotShotTaskCompleted>,
+        ViewSyncRelayTaskState<TYPES, I>,
+    ) {
+        match event {
+            SequencingHotShotEvent::ViewSyncMessage(message) => match message {
+                ViewSyncMessageType::Certificate(certificate) => {
+                    todo!()
+                }
+                ViewSyncMessageType::Vote(vote) => {
+                    todo!()
+                }
+            },
+            _ => todo!(),
+        }
+        return (None, self)
     }
 }
