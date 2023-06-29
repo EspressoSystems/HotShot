@@ -28,6 +28,9 @@ use hotshot_types::{
 };
 use tracing::{debug, info, warn};
 
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
@@ -245,6 +248,8 @@ where
         let known_nodes = config.known_nodes.clone();
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
+        // Sishan Note: For QC Aggregation
+        let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
@@ -265,6 +270,7 @@ where
             ),
             (quorum_network, committee_network),
             public_key.clone(),
+            key_pair_test.clone(),
             private_key.clone(),
             ek.clone(),
         );

@@ -14,10 +14,12 @@ use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
+use std::marker::PhantomData;
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 // NOTE Sishan: For signature aggregation
-// use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
+use jf_primitives::signatures::AggregateableSignatureSchemes;
+use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -31,6 +33,9 @@ pub struct DACertificate<TYPES: NodeType> {
 
     /// committment to the block
     pub block_commitment: Commitment<TYPES::BlockType>,
+
+    /// Sishan NOTE: for QC aggregation
+    // pub agg_signatures: AggregateableSignatureSchemes::Signature,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -59,6 +64,8 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
+    /// Sishan NOTE: for QC aggregation
+    // pub agg_signatures: AggregateableSignatureSchemes::Signature,
     /// Threshold Signature
     pub signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
     /// If this QC is for the genesis block
@@ -119,13 +126,14 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
+        // agg_signatures: AggregateableSignatureSchemes::Signature,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
-
         commit: Commitment<LEAF>,
     ) -> Self {
         QuorumCertificate {
             leaf_commitment: commit,
             view_number,
+            // agg_signatures,
             signatures,
             is_genesis: false,
         }
@@ -207,11 +215,13 @@ impl<TYPES: NodeType>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
+        // agg_signatures: AggregateableSignatureSchemes::Signature,
         signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>,
         commit: Commitment<TYPES::BlockType>,
     ) -> Self {
         DACertificate {
             view_number,
+            // agg_signatures,
             signatures,
             block_commitment: commit,
         }
@@ -253,6 +263,7 @@ impl<TYPES: NodeType>
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         _view_number: TYPES::Time,
+        // _agg_signatures: AggregateableSignatureSchemes::Signature,
         _signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
         _commit: Commitment<ViewSyncData<TYPES>>,
     ) -> Self {

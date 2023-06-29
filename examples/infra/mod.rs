@@ -65,6 +65,9 @@ use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
 
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+
 // ORCHESTRATOR
 
 #[derive(Parser, Debug, Clone)]
@@ -229,6 +232,8 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        // Sishan Note: For QC Aggregation
+        let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
@@ -255,6 +260,7 @@ pub trait Run<
             election_config.clone(),
             (network.clone(), ()),
             pk.clone(),
+            key_pair_test.clone(),
             sk.clone(),
             ek.clone(),
         );

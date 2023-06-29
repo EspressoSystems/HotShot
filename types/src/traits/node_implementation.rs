@@ -35,7 +35,8 @@ use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
-
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 /// Node implementation aggregate trait
 ///
 /// This trait exists to collect multiple behavior implementations into one type, to allow
@@ -93,6 +94,7 @@ pub trait ExchangesType<
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair_test: QCKeyPair,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self;
@@ -170,11 +172,12 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair_test: QCKeyPair,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, configs.0, networks.0, pk, sk, ek),
+            quorum_exchange: QUORUMEXCHANGE::create(keys, configs.0, networks.0, pk, key_pair_test.clone(), sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -244,6 +247,7 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair_test: QCKeyPair,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
@@ -252,10 +256,11 @@ where
             configs.0,
             networks.0,
             pk.clone(),
+            key_pair_test.clone(),
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.1, pk, sk, ek);
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys,  configs.1, networks.1, pk, key_pair_test.clone(), sk, ek);
         Self {
             quorum_exchange,
             committee_exchange,

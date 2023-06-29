@@ -4,6 +4,8 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 
 #[cfg(feature = "demo")]
 pub mod ed25519;
@@ -57,7 +59,7 @@ pub trait SignatureKey:
     /// Validate a signature
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature;
+    fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature;
     /// Produce a public key from a private key
     fn from_private(private_key: &Self::PrivateKey) -> Self;
     /// Serialize a public key to bytes

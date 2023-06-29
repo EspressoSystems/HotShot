@@ -5,11 +5,15 @@ use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
+// Sishan NOTE: for QC aggregation
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 
 /// Public key type for an ed25519 [`SignatureKey`] pair
 ///
 /// This type makes use of noise for non-determinisitc signatures.
 #[derive(Clone, PartialEq, Eq, Hash, Copy)]
+
+
 pub struct Ed25519Pub {
     /// The public key for this keypair
     pub_key: PublicKey,
@@ -74,7 +78,7 @@ impl SignatureKey for Ed25519Pub {
         }
     }
 
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
+    fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
         let signature = private_key.priv_key.sign(data, None);
         // Convert the signature to bytes and return
         EncodedSignature(signature.to_vec())

@@ -24,15 +24,17 @@ use jf_primitives::{
     // hash_to_group::TEHashToGroup,
     signatures::{
         // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme, SignatureScheme,
+        BLSSignatureScheme, SignatureScheme, //AggregateableSignatureSchemes,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 
 // Sishan NOTE: for QC aggregation
-use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::AggregateableSignatureSchemes;
 
+use libp2p::core::PublicKey;
 /// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
@@ -221,15 +223,31 @@ where
         }
     }
 
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
+    fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
         println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
-        let signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
+        /* Sishan NOTE: for QC Aggregation, 
+         now the msg is a test message, partial_sign only support msg with [u8] in length 32, cannot support general `data`.*/
+        //<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature
+        // let msg_test: [u8; data.len()] = data.clone();
+        let msg_test = [72u8; 32]; // Sishan TODO: change to `data` after hotshot-primitives is updated
+        // msg_test[..data.len()].clone_from_slice(&data); 
+        println!("msg_test = {:?}", msg_test);
+        println!("data = {:?}", data);
+        let agg_signature_test =
+            BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
+                &(),
+                &msg_test.into(),
+                key_pair_test.sign_key_ref(),
+                &mut rand::thread_rng());
+        let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
             .expect("This signature shouldn't be able to fail");
         // Encode it
         let bytes = bincode_opts()
             .serialize(&signature)
             .expect("This serialization shouldn't be able to fail");
+        // let print_bytes = String::from_utf8_lossy(&bytes);
+        // println!("Inside sign(), after encode into bytes, bytes = {}", print_bytes);
         EncodedSignature(bytes)
     }
 

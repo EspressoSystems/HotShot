@@ -12,7 +12,7 @@ use hotshot_types::{
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 // Sishan NOTE: for QC aggregation
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -119,6 +119,7 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &<PUBKEY as SignatureKey>::PrivateKey,
+        key_pair_test: QCKeyPair,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
@@ -127,7 +128,7 @@ where
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
-        let signature = PUBKEY::sign(private_key, &message);
+        let signature = PUBKEY::sign(private_key, key_pair_test.clone(), &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 
