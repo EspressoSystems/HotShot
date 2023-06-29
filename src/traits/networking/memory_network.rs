@@ -328,9 +328,16 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::shut_down")]
-    async fn shut_down(&self) {
-        *self.inner.broadcast_input.write().await = None;
-        *self.inner.direct_input.write().await = None;
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            *self.inner.broadcast_input.write().await = None;
+            *self.inner.direct_input.write().await = None;
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_message")]
@@ -442,7 +449,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 }
             }
         };
-        let _ = <MemoryNetwork<M, K> as ConnectedNetwork<M, K>>::shut_down::<'_, '_>(self);
         boxed_sync(closure)
     }
 
@@ -543,7 +549,11 @@ where
         self.0.is_ready().await
     }
 
-    async fn shut_down(&self) -> () {
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         self.0.shut_down().await;
     }
 

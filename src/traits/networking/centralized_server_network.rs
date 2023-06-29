@@ -769,9 +769,16 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::shut_down", skip_all)]
-    async fn shut_down(&self) {
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         error!("SHUTTING DOWN CENTRALIZED SERVER");
-        self.inner.running.store(false, Ordering::Relaxed);
+        let closure = async move {
+            self.inner.running.store(false, Ordering::Relaxed);
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
@@ -830,8 +837,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
                     .context(FailedToDeserializeSnafu),
             }
         };
-        let _ =
-            <CentralizedServerNetwork<K, E> as ConnectedNetwork<M, K>>::shut_down::<'_, '_>(self);
         boxed_sync(closure)
     }
 
@@ -916,7 +921,11 @@ where
         .await
     }
 
-    async fn shut_down(&self) -> () {
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,

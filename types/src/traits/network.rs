@@ -168,7 +168,10 @@ pub trait CommunicationChannel<
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    async fn shut_down(&self) -> ();
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// broadcast message to those listening on the communication channel
     /// blocking

@@ -499,11 +499,18 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
-    async fn shut_down(&self) {
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         if self.inner.handle.is_killed() {
             error!("Called shut down when already shut down! Noop.");
         } else {
-            self.inner.handle.shutdown().await.unwrap();
+            let closure = async move {
+                self.inner.handle.shutdown().await.unwrap();
+            };
+            boxed_sync(closure)
         }
     }
 
@@ -653,7 +660,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 }
             }
         };
-        let _ = <Libp2pNetwork<M, K> as ConnectedNetwork<M, K>>::shut_down::<'_, '_>(self);
         boxed_sync(closure)
     }
 
@@ -796,7 +802,11 @@ where
         self.0.is_ready().await
     }
 
-    async fn shut_down(&self) -> () {
+    async fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         self.0.shut_down().await;
     }
 
