@@ -254,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    pub fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
