@@ -16,7 +16,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_task::{BoxSyncFuture, boxed_sync};
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::message::{Message, MessagePurpose};
 use hotshot_types::traits::consensus_type::ConsensusType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -573,14 +573,16 @@ impl<
         &'a self,
         transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    where
+        'a: 'b,
+        Self: 'b,
     {
         let closure = async move {
             <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
                 Message<TYPES, I>,
                 TYPES::SignatureKey,
-                >>::recv_msgs(&self.0, transmit_type)
-                    .await
+            >>::recv_msgs(&self.0, transmit_type)
+            .await
         };
         boxed_sync(closure)
     }
@@ -661,32 +663,41 @@ impl<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
     {
         let closure = async move {
             match transmit_type {
                 TransmitType::Direct => {
                     let mut queue = self.inner.direct_poll_queue.write().await;
                     Ok(queue
-                       .drain(..)
-                       .collect::<Vec<_>>()
-                       .iter()
-                       .map(|x| x.get_message().unwrap())
-                       .collect())
+                        .drain(..)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .map(|x| x.get_message().unwrap())
+                        .collect())
                 }
                 TransmitType::Broadcast => {
                     let mut queue = self.inner.broadcast_poll_queue.write().await;
                     Ok(queue
-                       .drain(..)
-                       .collect::<Vec<_>>()
-                       .iter()
-                       .map(|x| x.get_message().unwrap())
-                       .collect())
+                        .drain(..)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .map(|x| x.get_message().unwrap())
+                        .collect())
                 }
             }
-
         };
+        let _ =
+            <WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE> as ConnectedNetwork<M, K>>::shut_down::<
+                '_,
+                '_,
+            >(self);
         boxed_sync(closure)
     }
 

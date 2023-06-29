@@ -190,8 +190,13 @@ pub trait CommunicationChannel<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-        where 'a : 'b, Self: 'b;
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// look up a node
     /// blocking
@@ -237,8 +242,13 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-        where 'a : 'b, Self: 'b;
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// look up a node
     /// blocking

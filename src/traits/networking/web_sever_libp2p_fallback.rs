@@ -9,7 +9,7 @@ use async_trait::async_trait;
 
 use futures::join;
 
-use hotshot_task::{BoxSyncFuture, boxed_sync};
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -274,7 +274,9 @@ impl<
         &'a self,
         transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    where
+        'a: 'b,
+        Self: 'b,
     {
         let closure = async move {
             match self.network().recv_msgs(transmit_type).await {

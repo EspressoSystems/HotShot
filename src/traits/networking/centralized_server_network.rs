@@ -4,7 +4,7 @@
 //!
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
-use hotshot_task::{BoxSyncFuture, boxed_sync};
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use nll::nll_todo::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
@@ -804,8 +804,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::recv_msgs", skip_all)]
-    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
     {
         let closure = async move {
             match transmit_type {
@@ -825,6 +830,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
                     .context(FailedToDeserializeSnafu),
             }
         };
+        let _ =
+            <CentralizedServerNetwork<K, E> as ConnectedNetwork<M, K>>::shut_down::<'_, '_>(self);
         boxed_sync(closure)
     }
 
@@ -939,11 +946,11 @@ where
         &'a self,
         transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    where
+        'a: 'b,
+        Self: 'b,
     {
-        let closure = async move {
-            self.0.recv_msgs(transmit_type).await
-        };
+        let closure = async move { self.0.recv_msgs(transmit_type).await };
         boxed_sync(closure)
     }
 

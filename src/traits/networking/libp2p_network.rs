@@ -12,7 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_task::{BoxSyncFuture, boxed_sync};
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
@@ -617,8 +617,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
-    fn recv_msgs<'a, 'b>(&'a self, transmit_type: TransmitType) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
     {
         let closure = async move {
             if self.inner.handle.is_killed() {
@@ -648,6 +653,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 }
             }
         };
+        let _ = <Libp2pNetwork<M, K> as ConnectedNetwork<M, K>>::shut_down::<'_, '_>(self);
         boxed_sync(closure)
     }
 
@@ -818,11 +824,11 @@ where
         &'a self,
         transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
-        where 'a : 'b, Self: 'b
+    where
+        'a: 'b,
+        Self: 'b,
     {
-        let closure = async move {
-            self.0.recv_msgs(transmit_type).await
-        };
+        let closure = async move { self.0.recv_msgs(transmit_type).await };
         boxed_sync(closure)
     }
 

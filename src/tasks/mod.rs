@@ -328,10 +328,6 @@ impl TS for ViewSyncTaskState {}
 pub type ViewSyncTaskTypes =
     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
-pub async fn await_data<D>() -> D {
-    nll_todo()
-}
-
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
@@ -363,38 +359,35 @@ where
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
     let channel = exchange.network().clone();
-    // let network = Arc::new(channel);
-    let mut broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(
-        Arc::new(move || {
-            let network = channel.clone();
-            let closure = async move {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Broadcast)
-                        .await
-                        .expect("Failed to receive broadcast messages"),
-                );
-                async_sleep(Duration::new(0, 500)).await;
-                msgs
-            };
-            boxed_sync(closure)
-        }));
+    let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Broadcast)
+                    .await
+                    .expect("Failed to receive broadcast messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
     let channel = exchange.network().clone();
-    let mut direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(
-        Arc::new(move || {
-            let network = channel.clone();
-            let closure = async move {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Direct)
-                        .await
-                        .expect("Failed to receive direct messages"),
-                );
-                async_sleep(Duration::new(0, 500)).await;
-                msgs
-            };
-            boxed_sync(closure)
-        }));
+    let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Direct)
+                    .await
+                    .expect("Failed to receive direct messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
     let channel = exchange.network().clone();
     let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
