@@ -3,7 +3,10 @@ use async_compatibility_layer::channel::UnboundedStream;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use either::Either::{self, Left, Right};
+use futures::FutureExt;
 use futures::StreamExt;
+use hotshot_task::task::HandleEvent;
+use hotshot_task::task::HotShotTaskCompleted;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -120,8 +123,6 @@ pub type ViewSyncRelayTaskStateTypes<TYPES, I> = HSTWithEvent<
     ViewSyncRelayTaskState<TYPES, I>,
 >;
 
-
-
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<
@@ -141,20 +142,30 @@ impl<
                         // view sync certificates (1 for each phase) could trigger us to create this
                         // TODO ED Check which view it is for
                         // TODO ED Check if the cert is for an actual next view that is higher than we have now
-                        // TODO ED Don't spawn if none exists and it is a finalize? 
+                        // TODO ED Don't spawn if none exists and it is a finalize?
+                        // TODO ED Peek on stream?  Doesn't seem like it will work here
 
                         if self.current_replica_task.is_none() {
                             let replica_state = ViewSyncReplicaTaskState {
                                 phantom: PhantomData,
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+
+                            // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state? 
+                            let replica_handle_event =
+                                HandleEvent(Arc::new(move |event, mut state: ViewSyncReplicaTaskState<TYPES, I>| {
+                                    async move { state.handle_event(event).await }.boxed()
+                                }));
+
                             let filter = FilterEvent::default();
                             let _builder =
                                 TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I>>::new(name)
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
                                     .register_state(replica_state)
-                                    .register_event_handler(todo!() /* TODO ED Put actual handler in here */);
+                                    .register_event_handler(
+                                        replica_handle_event 
+                                    );
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -164,14 +175,16 @@ impl<
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
                             };
-                            let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+                            let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
                             let filter = FilterEvent::default();
                             let _builder =
                                 TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
                                     .register_state(relay_state)
-                                    .register_event_handler(todo!() /* TODO ED Put actual handler in here */);
+                                    .register_event_handler(
+                                        todo!(), /* TODO ED Put actual handler in here */
+                                    );
                         }
                     }
                 }
@@ -181,6 +194,8 @@ impl<
                     self.current_view = new_view
                 }
             }
+            // TODO ED Spawn task to start NK20 protocol
+            SequencingHotShotEvent::Timeout => todo!(),
             _ => todo!(),
         };
         return;
@@ -208,5 +223,49 @@ impl<
             .subscribe(FilterEvent(Arc::new(Self::filter)))
             .await
             .0
+    }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > ViewSyncReplicaTaskState<TYPES, I>
+{
+    pub async fn handle_event(
+        &mut self,
+        event: SequencingHotShotEvent<TYPES, I>,
+    ) -> (
+        std::option::Option<HotShotTaskCompleted>,
+        ViewSyncReplicaTaskState<TYPES, I>,
+    ) {
+        match event {
+            SequencingHotShotEvent::ViewSyncMessage(message) => match message {
+                ViewSyncMessageType::Certificate(certificate) => {
+                    todo!()
+                }
+                ViewSyncMessageType::Vote(vote) => {
+                    todo!()
+                }
+            },
+            _ => todo!(),
+        };
+    }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > ViewSyncRelayTaskState<TYPES, I>
+{
+    pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
+        todo!()
     }
 }
