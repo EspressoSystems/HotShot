@@ -75,6 +75,6 @@ jobs:
           file: ./deploy/web-server.Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.multi-machine-libp2p.outputs.tags }}
-          labels: ${{ steps.multi-machine-libp2p.outputs.labels }}
+          tags: ${{ steps.web-server.outputs.tags }}
+          labels: ${{ steps.web-server.outputs.labels }}
 
