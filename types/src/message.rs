@@ -53,7 +53,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Message<TYPES, I> {}
+/// A wrapper type for implementing `PassType` on a vector of `Message`.
+#[derive(Clone, Debug)]
+pub struct Messages<TYPES: NodeType, I: NodeImplementation<TYPES>>(pub Vec<Message<TYPES, I>>);
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Messages<TYPES, I> {}
 
 /// A message type agnostic description of a messages purpose
 pub enum MessagePurpose {
