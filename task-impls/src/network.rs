@@ -1,16 +1,16 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::channel::UnboundedStream;
 use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{TaskErr, TS},
     task_impls::HSTWithEventAndMessage,
+    GeneratedStream, Merge,
 };
 use hotshot_types::message::Message;
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{GeneralConsensusMessage, MessageKind},
+    message::{GeneralConsensusMessage, MessageKind, Messages},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
@@ -180,7 +180,8 @@ pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
         NetworkTaskError,
         SequencingHotShotEvent<TYPES, I>,
         ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-        Message<TYPES, I>,
-        UnboundedStream<Message<TYPES, I>>,
+        Messages<TYPES, I>,
+        // A combination of broadcast and direct streams.
+        Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
         NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
     >;

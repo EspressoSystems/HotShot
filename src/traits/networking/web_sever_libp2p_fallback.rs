@@ -9,6 +9,7 @@ use async_trait::async_trait;
 
 use futures::join;
 
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -213,8 +214,15 @@ impl<
         self.network().is_ready().await && self.fallback().is_ready().await
     }
 
-    async fn shut_down(&self) -> () {
-        join!(self.network().shut_down(), self.fallback().shut_down());
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            join!(self.network().shut_down(), self.fallback().shut_down());
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(
@@ -269,20 +277,27 @@ impl<
         }
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        match self.network().recv_msgs(transmit_type).await {
-            Ok(msgs) => Ok(msgs),
-            Err(e) => {
-                error!(
-                    "Falling back on recv message, error on primary network: {}",
-                    e
-                );
-                self.fallback().recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            match self.network().recv_msgs(transmit_type).await {
+                Ok(msgs) => Ok(msgs),
+                Err(e) => {
+                    error!(
+                        "Falling back on recv message, error on primary network: {}",
+                        e
+                    );
+                    self.fallback().recv_msgs(transmit_type).await
+                }
             }
-        }
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {

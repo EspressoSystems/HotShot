@@ -2,42 +2,41 @@
 
 use crate::{SystemContext, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_spawn, async_spawn_local, async_timeout},
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn_local, async_timeout},
+    channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_task::{
+    boxed_sync,
     event_stream::ChannelStream,
-    global_registry::GlobalRegistry,
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
         TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
+    GeneratedStream, Merge,
 };
 use hotshot_task_impls::{
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
-use hotshot_types::message::{Message, SequencingMessage};
-use hotshot_types::traits::{
-    election::{ConsensusExchange, Membership},
-    node_implementation::SequencingExchangesType,
-};
+use hotshot_types::message::{Message, Messages, SequencingMessage};
+use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        network::CommunicationChannel,
+        network::{CommunicationChannel, TransmitType},
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
         signature_key::EncodedSignature,
         state::ConsensusTime,
     },
     vote::VoteType,
 };
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -360,7 +359,39 @@ where
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
     let channel = exchange.network().clone();
-    let message_stream = unbounded().1.into_stream();
+    let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Broadcast)
+                    .await
+                    .expect("Failed to receive broadcast messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let channel = exchange.network().clone();
+    let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Direct)
+                    .await
+                    .expect("Failed to receive direct messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let message_stream = Merge::new(broadcast_stream, direct_stream);
+    let channel = exchange.network().clone();
     let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
         event_stream: event_stream.clone(),
@@ -369,7 +400,7 @@ where
     };
     let registry = task_runner.registry.clone();
     let network_message_handler = HandleMessage(Arc::new(
-        move |message,
+        move |messages: Messages<TYPES, I>,
               mut state: NetworkTaskState<
             TYPES,
             I,
@@ -379,7 +410,9 @@ where
             EXCHANGE::Networking,
         >| {
             async move {
-                state.handle_message(message).await;
+                for message in messages.0 {
+                    state.handle_message(message).await;
+                }
                 (None, state)
             }
             .boxed()
