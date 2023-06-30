@@ -534,7 +534,12 @@ impl<
         &self,
         block_commitment: &Commitment<TYPES::BlockType>,
     ) -> EncodedSignature {
-        let signature = TYPES::SignatureKey::sign(&self.private_key, self.key_pair_test.clone(), block_commitment.as_ref());
+        println!("Inside sign_da_proposal() of QuorumExchangeType and prepare to call sign(). block_commitment.as_ref()");
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key, 
+            self.key_pair_test.clone(), 
+            block_commitment.as_ref()
+        );
         signature
     }
     /// Sign a vote on DA proposal.
@@ -545,6 +550,8 @@ impl<
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature) {
+        println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign(). 
+            &VoteData::<TYPES::BlockType>::DA(block_commitment).as_bytes()");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
@@ -793,7 +800,6 @@ impl<
     where
         I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>,
     {
-        println!("Inside create_yes_message() of QuorumExchangeType and prepare to call sign_yes_vote().");
         let signature = self.sign_yes_vote(leaf_commitment);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
@@ -809,8 +815,13 @@ impl<
         &self,
         leaf_commitment: &Commitment<LEAF>,
     ) -> EncodedSignature {
-        println!("Inside sign_validating_or_commitment_proposal() of QuorumExchangeType and prepare to call sign().");
-        let signature = TYPES::SignatureKey::sign(&self.private_key, self.key_pair_test.clone(), leaf_commitment.as_ref());
+        println!("Inside sign_validating_or_commitment_proposal() of QuorumExchangeType and prepare to call sign(). 
+            leaf_commitment.as_ref()");
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key, 
+            self.key_pair_test.clone(), 
+            leaf_commitment.as_ref()
+        );
         signature
     }
 
@@ -824,7 +835,8 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().");
+        println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().
+        &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes()");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
@@ -842,7 +854,8 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().");
+        println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().
+        &VoteData::<LEAF>::No(leaf_commitment).as_bytes()");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
@@ -859,7 +872,8 @@ impl<
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().");
+        println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().
+        &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes()");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),

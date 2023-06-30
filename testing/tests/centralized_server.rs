@@ -2,7 +2,7 @@ use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
 use hotshot::traits::{
-    election::{static_committee::StaticCommittee, vrf::VrfImpl},
+    election::{static_committee::StaticCommittee, vrf}, //vrf::VrfImpl
     implementations::{CentralizedCommChannel, MemoryStorage},
 };
 use hotshot_testing::{
