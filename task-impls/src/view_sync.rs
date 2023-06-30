@@ -21,11 +21,11 @@ use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::ViewSyncEx;
 use snafu::Snafu;
 use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
-
 
 /// Represents the latest certificate we have seen
 /// i.e. if we have seen a Commit certificate we are in the commit stage
@@ -56,10 +56,11 @@ pub struct ViewSyncTaskState<
     pub current_view: ViewNumber,
     pub next_view: ViewNumber,
 
+    // TODO ED Should also have stream to send shutdown
     current_replica_task: Option<ViewNumber>,
     current_relay_task: Option<ViewNumber>,
 
-    // pub exchange: Arc<SequencingQuorumEx<TYPES, I>>,
+    pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 }
 
 impl<
@@ -92,6 +93,8 @@ pub struct ViewSyncReplicaTaskState<
     pub current_view: ViewNumber,
     pub next_view: ViewNumber,
     pub phase: ViewSyncNK20Stage,
+
+    pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 }
 
 impl<
@@ -121,7 +124,7 @@ pub struct ViewSyncRelayTaskState<
     >,
 > {
     phantom: PhantomData<(TYPES, I)>,
-
+    pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 }
 
 impl<
@@ -165,7 +168,6 @@ impl<
                         // TODO ED Peek on stream?  Doesn't seem like it will work here
 
                         if self.current_replica_task.is_none() {
-
                             // TODO ED Validate certificate/update certificate so it can be matched based on stage
                             // let phase = match certificate {
 
@@ -177,14 +179,16 @@ impl<
                                 next_view: self.next_view,
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
+                                exchange: self.exchange.clone()
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
-                            // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state? 
-                            let replica_handle_event =
-                                HandleEvent(Arc::new(move |event, mut state: ViewSyncReplicaTaskState<TYPES, I>| {
+                            // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
+                            let replica_handle_event = HandleEvent(Arc::new(
+                                move |event, mut state: ViewSyncReplicaTaskState<TYPES, I>| {
                                     async move { state.handle_event(event).await }.boxed()
-                                }));
+                                },
+                            ));
 
                             let filter = FilterEvent::default();
                             let _builder =
@@ -192,9 +196,7 @@ impl<
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
                                     .register_state(replica_state)
-                                    .register_event_handler(
-                                        replica_handle_event 
-                                    );
+                                    .register_event_handler(replica_handle_event);
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -203,13 +205,15 @@ impl<
                         if self.current_relay_task.is_none() {
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
+                                exchange: self.exchange.clone(),
                             };
                             let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
-                            let relay_handle_event =
-                                HandleEvent(Arc::new(move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
+                            let relay_handle_event = HandleEvent(Arc::new(
+                                move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
                                     async move { state.handle_event(event).await }.boxed()
-                                }));
+                                },
+                            ));
 
                             let filter = FilterEvent::default();
                             let _builder =
@@ -217,9 +221,7 @@ impl<
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
                                     .register_state(relay_state)
-                                    .register_event_handler(
-                                        relay_handle_event, 
-                                    );
+                                    .register_event_handler(relay_handle_event);
                         }
                     }
                 }
@@ -285,9 +287,13 @@ impl<
                             // Check cert for validity
                             // send vote
                             todo!()
-                        },
-                        ViewSyncCertificate::Commit(certificate_internal) => {todo!()},
-                        ViewSyncCertificate::Finalize(certificate_internal) => {todo!()},
+                        }
+                        ViewSyncCertificate::Commit(certificate_internal) => {
+                            todo!()
+                        }
+                        ViewSyncCertificate::Finalize(certificate_internal) => {
+                            todo!()
+                        }
                     }
                     // if certificate.stage > self.phase { // Also check relay TODO ED
                     //     self.phase = certificate.stage
@@ -298,10 +304,10 @@ impl<
                     todo!()
                 }
             },
-            // TODO ED Add view sync timeout event 
+            // TODO ED Add view sync timeout event
             _ => todo!(),
         }
-        return (None, self)
+        return (None, self);
     }
 }
 
@@ -332,12 +338,9 @@ impl<
             },
             _ => todo!(),
         }
-        return (None, self)
+        return (None, self);
     }
 }
-
-
-
 
 // self.timeout_task = async_spawn({
 //     // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -347,7 +350,7 @@ impl<
 //     let stream = self.event_stream.clone();
 //     async move {
 //         async_sleep(Duration::from_millis(10000)).await;
-//         // TODO ED Needs to know which view number we are timing out? 
+//         // TODO ED Needs to know which view number we are timing out?
 //         stream.publish(SequencingHotShotEvent::Timeout).await;
 //     }
 // });
