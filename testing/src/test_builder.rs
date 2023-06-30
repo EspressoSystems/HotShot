@@ -228,7 +228,7 @@ impl TestBuilder {
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (QuorumCommChannel<TYPES, I>, I::ViewSyncCommChannel, I::CommitteeCommChannel),
         >,
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,

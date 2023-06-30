@@ -15,7 +15,9 @@ use hotshot::{
 use hotshot_testing::test_builder::TestBuilder;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::QuorumVote;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
@@ -75,6 +77,14 @@ type StaticQuroumComm = MemoryCommChannel<
     StaticMembership,
 >;
 
+type StaticViewSyncComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
+    StaticMembership,
+>;
+
 impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
@@ -93,6 +103,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncComm,
             Message<SequencingTestTypes, Self>,
         >,
     >;
@@ -148,6 +165,14 @@ type StaticQuroumCommP2p = Libp2pCommChannel<
     StaticMembership,
 >;
 
+type StaticViewSyncCommP2P = Libp2pCommChannel<
+    SequencingTestTypes,
+    SequencingLibP2PImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
+    StaticMembership,
+>;
+
 impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
@@ -166,6 +191,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDACommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncCommP2P,
             Message<SequencingTestTypes, Self>,
         >,
     >;
@@ -221,6 +253,14 @@ type StaticQuroumCommCentral = CentralizedCommChannel<
     StaticMembership,
 >;
 
+type StaticViewSyncCommCentral = CentralizedCommChannel<
+    SequencingTestTypes,
+    SequencingCentralImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
+    StaticMembership,
+>;
+
 impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
@@ -239,6 +279,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDACommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncCommCentral,
             Message<SequencingTestTypes, Self>,
         >,
     >;

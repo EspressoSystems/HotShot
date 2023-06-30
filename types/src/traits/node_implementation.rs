@@ -223,7 +223,6 @@ pub struct ValidatingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE>,
     VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
-
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -256,7 +255,7 @@ where
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type ViewSyncExchange = VIEWSYNCEXCHANGE;
-    type Networks = (QUORUMEXCHANGE::Networking, ());
+    type Networks = (QUORUMEXCHANGE::Networking, VIEWSYNCEXCHANGE::Networking, ());
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -267,8 +266,8 @@ where
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
-            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
+            quorum_exchange: QUORUMEXCHANGE::create(keys.clone(), config.clone(), networks.0, pk.clone(), sk.clone(), ek.clone()),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, config, networks.1, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -307,7 +306,8 @@ pub struct SequencingExchanges<
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> SequencingExchangesType<TYPES, MESSAGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
+    SequencingExchangesType<TYPES, MESSAGE>
     for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -336,7 +336,11 @@ where
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type ViewSyncExchange = VIEWSYNCEXCHANGE;
-    type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
+    type Networks = (
+        QUORUMEXCHANGE::Networking,
+        VIEWSYNCEXCHANGE::Networking,
+        COMMITTEEEXCHANGE::Networking,
+    );
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -354,8 +358,15 @@ where
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk, ek);
-        let view_sync_exchange = VIEWSYNCEXCHANGE::create(keys, config, networks.0, pk, sk, ek);
+        let view_sync_exchange = VIEWSYNCEXCHANGE::create(
+            keys.clone(),
+            config.clone(),
+            networks.1,
+            pk.clone(),
+            sk.clone(),
+            ek.clone(),
+        );
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.2, pk, sk, ek);
 
         Self {
             quorum_exchange,
@@ -435,6 +446,10 @@ pub trait TestableNodeImplementation<
     /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
 
+
+    type ViewSyncCommChannel; 
+    type ViewSyncNetwork; 
+
     /// Generate a quorum network given an expected node count.
     fn network_generator(
         expected_node_count: usize,
@@ -465,6 +480,9 @@ pub trait TestableNodeImplementation<
     /// Generate a committee communication channel given the network.
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static>;
+
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::ViewSyncCommChannel + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -519,6 +537,14 @@ where
         QuorumMembership<TYPES, I>,
         QuorumNetwork<TYPES, I>,
     >,
+    ViewSyncCommChannel<TYPES, I>: TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposalType<TYPES, I>,
+        ViewSyncVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
+    >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
@@ -527,6 +553,9 @@ where
 {
     type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
+
+    type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>; 
+    type ViewSyncNetwork = QuorumNetwork<TYPES, I>;
 
     fn network_generator(
         expected_node_count: usize,
@@ -549,6 +578,11 @@ where
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static> {
         Box::new(|_| ())
+    }
+
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::ViewSyncCommChannel + 'static> {
+        < ViewSyncCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
@@ -643,6 +677,11 @@ where
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::CommitteeCommChannel + 'static> {
         < CommitteeCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    }
+
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::ViewSyncCommChannel + 'static> {
+        < ViewSyncCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
