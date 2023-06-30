@@ -18,6 +18,7 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
+use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::ProposalType;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -44,6 +45,8 @@ use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+use hotshot_types::traits::node_implementation::QuorumEx;
+use hotshot_types::traits::metrics::NoMetrics;
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
@@ -84,10 +87,6 @@ pub struct SequencingConsensusTaskState<
 {
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
-    /// Channel for accepting leader proposals and timeouts messages.
-    #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -638,4 +637,124 @@ where
         state.handle_event(event).await;
         (None, state)
     }
+}
+
+// #[cfg_attr(
+//     feature = "tokio-executor",
+//     tokio::test(flavor = "multi_thread", worker_threads = 2)
+// )]
+// #[cfg_attr(feature = "async-std-executor", async_std::test)]
+// #[instrument]
+// pub fn test_basic() {}
+
+fn build_consensus_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+) -> TaskRunner {
+    let builder = TestBuilder::default_multiple_rounds();
+
+    let launcher = builder
+        .build::<StaticCommitteeTestTypes, SequencingMemoryImpl>()
+        .launch();
+    let node_id = 1;
+    let network_generator = Arc::new((launcher.generator.network_generator)(node_id));
+    let quorum_network = (launcher.generator.quorum_network)(network_generator.clone());
+    let committee_network = (launcher.generator.committee_network)(network_generator);
+    let storage = (launcher.generator.storage)(node_id);
+    let config = launcher.generator.config.clone();
+    let initializer =
+        HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
+
+    let node_id = self.next_node_id;
+    self.next_node_id += 1;
+
+    let known_nodes = config.known_nodes.clone();
+    let private_key = I::generate_test_key(node_id);
+    let public_key = TYPES::SignatureKey::from_private(&private_key);
+    let ek =
+        jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
+    let election_config = config.election_config.clone().unwrap_or_else(|| {
+        <QuorumEx<TYPES,I> as ConsensusExchange<
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
+    });
+    let exchanges = I::Exchanges::create(
+        known_nodes.clone(),
+        election_config.clone(),
+        (quorum_network, committee_network),
+        public_key.clone(),
+        private_key.clone(),
+        ek.clone(),
+    );
+    let handle = SystemContext::init(
+        public_key,
+        private_key,
+        node_id,
+        config,
+        storage,
+        exchanges,
+        initializer,
+        NoMetrics::boxed(),
+    )
+    .await
+    .expect("Could not init hotshot");
+
+    let consensus = handle.get_consensus();
+    let c_api = HotShotSequencingConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
+
+    let consensus_state = SequencingConsensusTaskState {
+        consensus,
+        cur_view: 0,
+        high_qc: (),
+        quorum_exchange: exchanges.quorum_exchange().clone().into(),
+        api: c_api.clone(),
+        committee_exchange: committee_exchange.clone().into(),
+        _pd: PhantomData,
+        vote_collector: (0, JoinHandle::<()>::new()),
+        timeout_task: JoinHandle::<()>::new(),
+        event_stream: event_stream.clone(),
+        certs: HashMap::new(),
+        current_proposal: None,
+    };
+    let registry = task_runner.registry.clone();
+    let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
+        async move {
+            if let SequencingHotShotEvent::Shutdown = event {
+                (Some(HotShotTaskCompleted::ShutDown), state)
+            } else {
+                (None, state)
+            }
+        }
+        .boxed()
+    }));
+    let consensus_name = "Consensus Task";
+    let consensus_event_filter = FilterEvent::default();
+
+    let consensus_task_builder = TaskBuilder::<ConsensusTaskTypes>::new(consensus_name.to_string())
+        .register_event_stream(event_stream.clone(), consensus_event_filter)
+        .await
+        .register_registry(&mut registry.clone())
+        .await
+        .register_state(consensus_state)
+        .register_event_handler(consensus_event_handler);
+    // impossible for unwrap to fail
+    // we *just* registered
+    let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
+    let consensus_task = ConsensusTaskTypes::build(consensus_task_builder).launch();
+
+    task_runner.add_task(
+        consensus_task_id,
+        consensus_name.to_string(),
+        consensus_task,
+    )
 }

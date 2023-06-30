@@ -16,7 +16,6 @@ pub fn post_da_certificate_route(view_number: u64) -> String {
     format!("api/certificate/{view_number}")
 }
 
-
 pub fn get_vote_route(view_number: u64, index: u64) -> String {
     format!("api/votes/{view_number}/{index}")
 }

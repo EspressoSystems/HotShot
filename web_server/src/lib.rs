@@ -160,7 +160,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
-
     /// Return the da certificate the server has received for a particular view
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.da_certificates.get(&index) {

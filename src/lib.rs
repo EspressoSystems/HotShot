@@ -346,6 +346,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             .get_state()
     }
 
+    /// Returns a copy of the consensus struct
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.innner.conensus
+    }
+
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent

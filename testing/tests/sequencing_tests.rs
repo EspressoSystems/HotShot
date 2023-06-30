@@ -55,7 +55,7 @@ impl NodeType for SequencingTestTypes {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-struct SequencingMemoryImpl {}
+pub struct SequencingMemoryImpl {}
 
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 

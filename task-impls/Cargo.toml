@@ -78,3 +78,8 @@ hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-task = { path = "../task", default-features = false }
 time = "0.3.21"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
+  "std",
+] }
+rand_chacha = "0.3.1"
+
