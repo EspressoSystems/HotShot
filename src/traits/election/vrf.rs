@@ -9,22 +9,17 @@ use bincode::Options;
 // use commit::{Commitment, Committable, RawCommitmentBuilder};
 // use derivative::Derivative;
 // use espresso_systems_common::hotshot::tag;
-use hotshot_types::{
-    // data::LeafType,
-    traits::{
-        election::{
-            // Checked, ElectionConfig, ElectionError, Membership, TestableElection, VoteToken,
-        },
-        // node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-    },
+use hotshot_types::traits::{
+    // node_implementation::NodeType,
+    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     // hash_to_group::TEHashToGroup,
     signatures::{
         // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme, SignatureScheme,
+        BLSSignatureScheme,
+        SignatureScheme,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
@@ -35,7 +30,7 @@ use rand::SeedableRng;
 // use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, /* HashMap */ },
+    collections::BTreeMap,
     fmt::Debug,
     hash::Hash,
     marker::PhantomData,

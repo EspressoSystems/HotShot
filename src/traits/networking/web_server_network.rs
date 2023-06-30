@@ -394,11 +394,11 @@ impl<
 
     /// Launches background tasks for polling the web server
     async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
+        inner: Arc<Inner<M, K, E, TYPES>>,
     ) -> Result<(), ClientError> {
         assert!(inner.client.connect(None).await);
         error!("connected to webserver");
-        let proposal_handle = async_spawn({
+        let quorum_proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
                 // Exit task if we are not on committee

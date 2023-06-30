@@ -26,7 +26,6 @@ pub type ThisLeaf = SequencingLeaf<SDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<SDemoTypes, ThisLeaf, <SDemoTypes as NodeType>::SignatureKey>;
 pub type DANetwork = WebCommChannel<
-    SequencingConsensus,
     SDemoTypes,
     NodeImpl,
     ThisDAProposal,
@@ -34,7 +33,6 @@ pub type DANetwork = WebCommChannel<
     ThisMembership,
 >;
 pub type QuorumNetwork = WebCommChannel<
-    SequencingConsensus,
     SDemoTypes,
     NodeImpl,
     ThisQuorumProposal,

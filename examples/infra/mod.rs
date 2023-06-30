@@ -253,7 +253,7 @@ pub trait Run<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (election_config.clone(), ()),
             (network.clone(), ()),
             pk.clone(),
             sk.clone(),
@@ -646,7 +646,6 @@ where
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
 type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
     TYPES,
     I,
     Proposal<TYPES>,
@@ -680,7 +679,6 @@ impl<
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
                     WebCommChannel<
-                        ValidatingConsensus,
                         TYPES,
                         NODE,
                         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -698,7 +696,6 @@ impl<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -731,16 +728,19 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
+        let known_nodes = config.config.known_nodes.clone();
+
+        let mut committee_nodes = known_nodes.clone();
+
         // Create the network
         let network: WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, committee_nodes).into(),
         );
         WebServerRun { config, network }
     }
@@ -748,7 +748,6 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
-        ValidatingConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,

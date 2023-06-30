@@ -26,7 +26,7 @@ use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
 };
-use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::{election::ConsensusExchange, node_implementation::{QuorumEx, CommitteeEx}};
 use hotshot_types::{
     data::{LeafType, TestableLeaf, SequencingLeaf, DAProposal, QuorumProposal},
     message::SequencingMessage,
@@ -199,6 +199,7 @@ pub trait RunDA<
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    //NODE: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     Self: Sync,
 {
     /// Initializes networking, returns self
@@ -231,22 +232,36 @@ pub trait RunDA<
         let quorum_network = self.get_quorum_network();
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
-        let election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            <QuorumExchange<
+        let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
+            <QuorumEx<TYPES,NODE> as ConsensusExchange<
                 TYPES,
-                SequencingLeaf<TYPES>,
-                QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-                MEMBERSHIP,
-                QUORUMNETWORK,
                 Message<TYPES, NODE>,
-            > as ConsensusExchange<TYPES, Message<TYPES, NODE>>>::Membership::default_election_config(
-                config.config.total_nodes.get() as u64
-            )
-        });
+            >>::Membership::default_election_config(config.config.total_nodes.get() as u64)});
+
+        let committee_election_config = <CommitteeEx<TYPES,NODE> as ConsensusExchange<
+            TYPES,
+            Message<TYPES, NODE>,
+        >>::Membership::default_election_config(config.config.total_nodes.get() as u64);
+
+        // let election_config = config.config.election_config.clone().unwrap_or_else(|| {
+        //     <QuorumExchange<
+        //         TYPES,
+        //         SequencingLeaf<TYPES>,
+        //         QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        //         MEMBERSHIP,
+        //         QUORUMNETWORK,
+        //         Message<TYPES, NODE>,
+        //     > as ConsensusExchange<TYPES, Message<TYPES, NODE>>>::Membership::default_election_config(
+        //         config.config.total_nodes.get() as u64
+        //     )
+        // });
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (
+                quorum_election_config,
+                committee_election_config,
+            ),
             (quorum_network.clone(), da_network.clone()),
             pk.clone(),
             sk.clone(),
@@ -384,7 +399,6 @@ pub trait RunDA<
 
 /// Alias for the [`WebCommChannel`] for sequencing consensus.
 type StaticDAComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
     TYPES,
     I,
     DAProposal<TYPES>,
@@ -394,7 +408,6 @@ type StaticDAComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
 
 /// Alias for the ['WebCommChannel'] for validating consensus
 type StaticQuorumComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
     TYPES,
     I,
     QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
@@ -429,7 +442,6 @@ impl<
                     QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
                     MEMBERSHIP,
                     WebCommChannel<
-                        SequencingConsensus,
                         TYPES,
                         NODE,
                         QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
@@ -442,7 +454,6 @@ impl<
                     TYPES,
                     MEMBERSHIP,
                     WebCommChannel<
-                        SequencingConsensus,
                         TYPES,
                         NODE,
                         DAProposal<TYPES>,
@@ -487,27 +498,36 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
+        let known_nodes = config.config.known_nodes.clone();
+
+        let mut committee_nodes = known_nodes.clone();
+        committee_nodes.truncate(config.config.da_committee_size.into());
+        //will not be da here
+        // if is_da {
+        //     committee_nodes.truncate(da_committee_size);
+        // }
+
         // Create the network
         let quorum_network: WebCommChannel<
-            SequencingConsensus,
             TYPES,
             NODE,
             QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key.clone()).into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key.clone(), known_nodes).into(),
         );
+
+
         //KALEY TODO initialize second network with correct port/pubkey?
         let da_network: WebCommChannel<
-            SequencingConsensus,
             TYPES,
             NODE,
             DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), DEFAULT_WEB_SERVER_DA_PORT, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), DEFAULT_WEB_SERVER_DA_PORT, wait_between_polls, pub_key, committee_nodes).into(),
         );
         
         WebServerDARun { config, quorum_network, da_network }
@@ -516,7 +536,6 @@ where
     fn get_da_network(
         &self,
     ) -> WebCommChannel<
-        SequencingConsensus,
         TYPES,
         NODE,
         DAProposal<TYPES>,
@@ -529,7 +548,6 @@ where
     fn get_quorum_network(
         &self,
     ) -> WebCommChannel<
-        SequencingConsensus,
         TYPES,
         NODE,
         QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
