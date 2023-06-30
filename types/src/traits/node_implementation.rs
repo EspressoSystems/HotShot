@@ -183,6 +183,8 @@ pub trait ExchangesType<
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
+    // fn view_sync_exchange(&self) -> &ViewSyncExchangeType<TYPES, MESSAGE>;
+
     // TODO ED Add view sync exchange here
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
@@ -220,33 +222,40 @@ pub struct ValidatingExchanges<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE>,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
+
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
+
+    view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE> ValidatingExchangesType<TYPES, MESSAGE>
-    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE> ValidatingExchangesType<TYPES, MESSAGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 {
 }
 
 #[async_trait]
-impl<TYPES, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
     ExchangesType<ValidatingConsensus, TYPES, ValidatingLeaf<TYPES>, MESSAGE>
-    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
+    type ViewSyncExchange = VIEWSYNCEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, ());
 
     fn create(
@@ -259,6 +268,7 @@ where
     ) -> Self {
         Self {
             quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -283,9 +293,12 @@ pub struct SequencingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE>,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE>,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
+
+    view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
@@ -294,13 +307,14 @@ pub struct SequencingExchanges<
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE> SequencingExchangesType<TYPES, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> SequencingExchangesType<TYPES, MESSAGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 
@@ -310,16 +324,18 @@ where
 }
 
 #[async_trait]
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
     ExchangesType<SequencingConsensus, TYPES, SequencingLeaf<TYPES>, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
+    type ViewSyncExchange = VIEWSYNCEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
 
     fn create(
@@ -339,9 +355,12 @@ where
             ek.clone(),
         );
         let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk, ek);
+        let view_sync_exchange = VIEWSYNCEXCHANGE::create(keys, config, networks.0, pk, sk, ek);
+
         Self {
             quorum_exchange,
             committee_exchange,
+            view_sync_exchange,
             _phantom: PhantomData,
         }
     }
