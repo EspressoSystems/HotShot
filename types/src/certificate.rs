@@ -69,10 +69,18 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewSyncCertificate<TYPES: NodeType> {
+    PreCommit(ViewSyncCertificateInternal<TYPES>),
+    Commit(ViewSyncCertificateInternal<TYPES>),
+    Finalize(ViewSyncCertificateInternal<TYPES>),
+}
+
 /// A view sync certificate representing a quorum of votes for a particular view sync phase
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct ViewSyncCertificate<TYPES: NodeType> {
+pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// Relay the votes are intended for
     pub relay: EncodedPublicKey,
     /// View number the network is attempting to synchronize on

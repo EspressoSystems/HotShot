@@ -7,7 +7,8 @@ use super::{
     block_contents::Transaction,
     consensus_type::ConsensusType,
     election::{
-        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
+        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType,
+        ViewSyncExchange, ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -163,6 +164,8 @@ pub trait ExchangesType<
     /// Protocol for exchanging quorum proposals and votes.
     type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
+    type ViewSyncExchange: ViewSyncExchangeType<TYPES, MESSAGE>;
+
     /// Networking implementations for quorum and committee exchanges, the latter of which is only
     /// applicable for sequencing consensus.
     type Networks;
@@ -179,6 +182,8 @@ pub trait ExchangesType<
 
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
+
+    // TODO ED Add view sync exchange here
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
     /// networks.
@@ -388,6 +393,14 @@ pub type CommitteeEx<TYPES, I> =
         TYPES,
         Message<TYPES, I>,
     >>::CommitteeExchange;
+
+// TODO ED Add type alias here
+pub type ViewSyncEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+    SequencingConsensus,
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::ViewSyncExchange;
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]
