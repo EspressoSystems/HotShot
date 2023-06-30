@@ -2,6 +2,7 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::channel::UnboundedStream;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
+use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
 use futures::StreamExt;
@@ -14,14 +15,20 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::certificate::ViewSyncCertificate;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::ViewSyncVoteData;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
+use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::vote::ViewSyncData;
 use snafu::Snafu;
 use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc};
@@ -49,12 +56,21 @@ pub struct ViewSyncTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> {
+> where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
+{
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
-    pub current_view: ViewNumber,
-    pub next_view: ViewNumber,
+    pub current_view: TYPES::Time,
+    pub next_view: TYPES::Time,
 
     // TODO ED Should also have stream to send shutdown
     current_replica_task: Option<ViewNumber>,
@@ -71,6 +87,15 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > TS for ViewSyncTaskState<TYPES, I>
+where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
 {
 }
 
@@ -88,10 +113,19 @@ pub struct ViewSyncReplicaTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> {
+> where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
+{
     phantom: PhantomData<(TYPES, I)>,
-    pub current_view: ViewNumber,
-    pub next_view: ViewNumber,
+    pub current_view: TYPES::Time,
+    pub next_view: TYPES::Time,
     pub phase: ViewSyncNK20Stage,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
@@ -105,6 +139,15 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > TS for ViewSyncReplicaTaskState<TYPES, I>
+where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
 {
 }
 
@@ -152,7 +195,15 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > ViewSyncTaskState<TYPES, I>
+    > ViewSyncTaskState<TYPES, I> where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
@@ -179,7 +230,7 @@ impl<
                                 next_view: self.next_view,
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
-                                exchange: self.exchange.clone()
+                                exchange: self.exchange.clone(),
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -227,9 +278,10 @@ impl<
                 }
             }
             SequencingHotShotEvent::ViewChange(new_view) => {
-                if self.current_view < new_view {
-                    self.current_view = new_view
-                }
+                // if self.current_view < new_view {
+                //     self.current_view = new_view
+                // }
+                todo!()
             }
             // TODO ED Spawn task to start NK20 protocol
             SequencingHotShotEvent::Timeout => todo!(),
@@ -271,6 +323,15 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > ViewSyncReplicaTaskState<TYPES, I>
+where
+    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
 {
     pub async fn handle_event(
         mut self,
@@ -289,6 +350,18 @@ impl<
                             todo!()
                         }
                         ViewSyncCertificate::Commit(certificate_internal) => {
+                            let is_valid_cert = self.exchange.is_valid_cert(
+                                &ViewSyncCertificate::Commit(certificate_internal),
+                                // ViewSyncVoteData::Commit(ViewSyncData {
+                                //     round: self.next_view,
+                                //     relay: self.exchange.get_leader(self.next_view).to_bytes(),
+                                // }.commit()),
+                                ViewSyncData {
+                                    round: self.next_view,
+                                    relay: self.exchange.get_leader(self.next_view).to_bytes(),
+                                }
+                                .commit(),
+                            );
                             todo!()
                         }
                         ViewSyncCertificate::Finalize(certificate_internal) => {
