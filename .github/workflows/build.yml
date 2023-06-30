@@ -69,7 +69,7 @@ jobs:
           images: ghcr.io/espressosystems/hotshot/web-server
 
       - name: Build and push web-server docker
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: ./
           file: ./deploy/web-server.Dockerfile
