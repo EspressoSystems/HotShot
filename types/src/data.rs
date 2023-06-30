@@ -146,29 +146,6 @@ pub struct DAProposal<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 }
 
-/// A proposal to append a new block commitment to the log.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub struct QuorumProposalOld<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The commitment to append.
-    pub block_commitment: Commitment<TYPES::BlockType>,
-
-    /// CurView from leader when proposing leaf
-    pub view_number: TYPES::Time,
-
-    /// Height from leader when proposing leaf
-    pub height: u64,
-
-    /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
-
-    /// Data availibity certificate
-    pub dac: DACertificate<TYPES>,
-
-    /// the propser id
-    pub proposer_id: EncodedPublicKey,
-}
-
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
@@ -186,6 +163,9 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
+
+    /// Data availibity certificate
+    pub dac: Option<DACertificate<TYPES>>,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
@@ -206,14 +186,6 @@ impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     for QuorumProposal<TYPES, LEAF>
-{
-    type NodeType = TYPES;
-    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
-        self.view_number
-    }
-}
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
-    for QuorumProposalOld<TYPES, LEAF>
 {
     type NodeType = TYPES;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {

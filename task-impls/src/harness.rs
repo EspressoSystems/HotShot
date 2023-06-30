@@ -1,41 +1,19 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    channel::{UnboundedReceiver, UnboundedSender},
-};
-use async_lock::RwLock;
+use async_compatibility_layer::art::async_spawn;
+
 use futures::FutureExt;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::{
     event_stream::{self, ChannelStream},
-    global_registry::GlobalRegistry,
-    task::{
-        FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
-    },
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::{
-    constants::LOOK_AHEAD,
-    traits::{
-        network::{CommunicationChannel, TransmitType},
-        node_implementation::{ExchangesType, NodeImplementation, NodeType},
-    },
-};
+
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
 use std::collections::HashSet;
-use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-use tracing::{error, info, trace};
+use std::sync::Arc;
 
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
@@ -80,7 +58,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for TestHarnessState<TYPE
 pub struct TestHarnessTaskError {}
 impl TaskErr for TestHarnessTaskError {}
 
-pub type TestHarnessTaskTypes<TYPES: NodeType, I: NodeImplementation<TYPES>> = HSTWithEvent<
+pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,

@@ -1,7 +1,7 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::channel::UnboundedReceiver;
-use async_lock::{Mutex, RwLock};
+
+use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
@@ -18,7 +18,7 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-use hotshot_task::task_launcher::TaskRunner;
+
 use hotshot_types::data::ProposalType;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -28,7 +28,7 @@ use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{QuorumProposal, SequencingLeaf},
-    message::{GeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage},
+    message::{GeneralConsensusMessage, SequencingMessage},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
@@ -45,8 +45,7 @@ use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
-use hotshot_types::traits::node_implementation::QuorumEx;
-use hotshot_types::traits::metrics::NoMetrics;
+
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
@@ -285,7 +284,7 @@ where
                             .is_valid_cert(&cert, proposal.block_commitment)
                         {
                             warn!("Invalid DAC in proposal! Skipping proposal.");
-                            let message: GeneralConsensusMessage<TYPES, I> =
+                            let _message: GeneralConsensusMessage<TYPES, I> =
                                 self.quorum_exchange.create_no_message(
                                     proposal.justify_qc.commit(),
                                     proposal.justify_qc.leaf_commitment,
@@ -293,7 +292,7 @@ where
                                     vote_token,
                                 );
                         } else {
-                            let message: GeneralConsensusMessage<TYPES, I> =
+                            let _message: GeneralConsensusMessage<TYPES, I> =
                                 self.quorum_exchange.create_yes_message(
                                     proposal.justify_qc.commit(),
                                     proposal.justify_qc.leaf_commitment,
@@ -357,7 +356,7 @@ where
                             return;
                         };
                         let parent_commitment = parent.commit();
-                        let block_commitment = proposal.data.block_commitment;
+                        let _block_commitment = proposal.data.block_commitment;
                         let leaf: SequencingLeaf<_> = SequencingLeaf {
                             view_number: view,
                             height: proposal.data.height,

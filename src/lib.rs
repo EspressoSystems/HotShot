@@ -57,7 +57,7 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::QuorumProposalOld;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
@@ -681,7 +681,7 @@ where
             }
         };
 
-        let consensus_task_handle = async_spawn(
+        let _consensus_task_handle = async_spawn(
             tasks::view_runner(
                 self.clone(),
                 started.clone(),
@@ -848,7 +848,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposalOld<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -927,7 +927,7 @@ where
             }
         };
 
-        let consensus_task_handle = async_spawn(
+        let _consensus_task_handle = async_spawn(
             tasks::view_runner(
                 self.clone(),
                 started.clone(),
@@ -1406,7 +1406,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposalOld<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -1766,7 +1766,7 @@ where
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<SystemContextInner<TYPES, I>>,
 }

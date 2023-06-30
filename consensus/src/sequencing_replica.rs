@@ -10,7 +10,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
-use hotshot_types::data::QuorumProposalOld;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
@@ -21,7 +21,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, QuorumProposal, SequencingLeaf},
+    data::{LeafType, SequencingLeaf},
     message::{
         ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
@@ -89,7 +89,7 @@ where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposalOld<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,
@@ -209,6 +209,16 @@ where
                                         };
                                         let justify_qc_commitment = justify_qc.commit();
                                         let leaf_commitment = leaf.commit();
+                                        let Some(dac) = p.data.dac else {
+                                            warn!("No DAC in proposal! Skipping proposal.");
+                                            message = self.quorum_exchange.create_no_message(
+                                                justify_qc_commitment,
+                                                leaf_commitment,
+                                                self.cur_view,
+                                                vote_token,
+                                            );
+                                            continue;
+                                        };
 
                                         // Validate the `justify_qc`.
                                         if !self
@@ -242,7 +252,7 @@ where
                                         // Validate the DAC.
                                         else if !self
                                             .committee_exchange
-                                            .is_valid_cert(&p.data.dac, block_commitment)
+                                            .is_valid_cert(&dac, block_commitment)
                                         {
                                             warn!("Invalid DAC in proposal! Skipping proposal.");
                                             message = self.quorum_exchange.create_no_message(

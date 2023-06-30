@@ -5,10 +5,7 @@ use hotshot_testing::{
     round_builder::RoundSafetyCheckBuilder,
     test_builder::{TestBuilder, TestMetadata, TimingData},
     test_errors::ConsensusTestError,
-    test_types::{
-        AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
-        VrfTestTypes,
-    },
+    test_types::{AppliedTestRunner, StandardNodeImplType, StaticNodeImplType, VrfTestTypes},
 };
 
 use commit::Committable;
@@ -18,7 +15,54 @@ use hotshot::{
     traits::TestableNodeImplementation, HotShotType, SystemContext,
 };
 
+use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::art::async_spawn;
+use hotshot::demos::sdemo::SDemoBlock;
+use hotshot::demos::sdemo::SDemoState;
+use hotshot::demos::sdemo::SDemoTransaction;
+use hotshot::rand::SeedableRng;
+use hotshot::traits::election::static_committee::GeneralStaticCommittee;
+use hotshot::traits::election::static_committee::StaticCommittee;
+use hotshot::traits::election::static_committee::StaticElectionConfig;
+use hotshot::traits::election::static_committee::StaticVoteToken;
+use hotshot::traits::election::vrf::JfPubKey;
+use hotshot::traits::implementations::CentralizedCommChannel;
+use hotshot::traits::implementations::MemoryCommChannel;
+use hotshot::traits::implementations::MemoryStorage;
+use hotshot::types::SignatureKey;
+use hotshot::HotShotInitializer;
+use hotshot::HotShotSequencingConsensusApi;
+use hotshot_consensus::SequencingConsensusApi;
+use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::task::FilterEvent;
+use hotshot_task::task::HotShotTaskTypes;
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task_impls::TaskBuilder;
+use hotshot_task::task_launcher::TaskRunner;
+use hotshot_task_impls::consensus::ConsensusTaskTypes;
+use hotshot_task_impls::consensus::SequencingConsensusTaskState;
+use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_types::certificate::DACertificate;
+use hotshot_types::data::DAProposal;
+use hotshot_types::data::QuorumProposal;
+use hotshot_types::data::SequencingLeaf;
+use hotshot_types::data::ViewNumber;
+use hotshot_types::message::SequencingMessage;
 use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
+use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+use hotshot_types::traits::election::CommitteeExchange;
+use hotshot_types::traits::election::Membership;
+use hotshot_types::traits::election::QuorumExchange;
+use hotshot_types::traits::metrics::NoMetrics;
+use hotshot_types::traits::node_implementation::ChannelMaps;
+use hotshot_types::traits::node_implementation::CommitteeEx;
+use hotshot_types::traits::node_implementation::ExchangesType;
+use hotshot_types::traits::node_implementation::QuorumEx;
+use hotshot_types::traits::node_implementation::SequencingExchanges;
+use hotshot_types::traits::node_implementation::SequencingExchangesType;
+use hotshot_types::traits::node_implementation::SequencingQuorumEx;
+use hotshot_types::vote::DAVote;
+use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     message::Proposal,
@@ -31,30 +75,29 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use hotshot_types::data::ViewNumber;
+use jf_primitives::signatures::BLSSignatureScheme;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::{iter::once, sync::atomic::AtomicU8};
 use tracing::{instrument, warn};
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
-use hotshot_types::data::SequencingLeaf;
-use hotshot_types::message::SequencingMessage;
-use hotshot::HotShotInitializer;
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
-use hotshot_types::traits::node_implementation::QuorumEx;
-use hotshot_types::traits::metrics::NoMetrics;
-use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot::demos::sdemo::SDemoBlock;
-use hotshot::traits::election::vrf::JfPubKey;
-use serde::{Deserialize, Serialize};
-use jf_primitives::signatures::BLSSignatureScheme;
-use hotshot::traits::election::static_committee::StaticVoteToken;
-use hotshot::demos::sdemo::SDemoTransaction;
-use hotshot::traits::election::static_committee::StaticElectionConfig;
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
@@ -67,6 +110,21 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
+type StaticDAComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+type StaticQuroumComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
 // #[cfg_attr(
 //     feature = "tokio-executor",
 //     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -75,6 +133,7 @@ impl NodeType for SequencingTestTypes {
 // #[instrument]
 // pub fn test_basic() {}
 
+type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct SequencingMemoryImpl {}
 
@@ -87,7 +146,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         QuorumExchange<
             SequencingTestTypes,
             Self::Leaf,
-            QuorumProposalOld<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticQuroumComm,
             Message<SequencingTestTypes, Self>,
@@ -115,21 +174,25 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 }
 
 async fn build_consensus_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: TestableNodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
+    TYPES: NodeType<
+        ConsensusType = SequencingConsensus,
+        ElectionConfigType = StaticElectionConfig,
+        SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
     >,
+    I: TestableNodeImplementation<
+        TYPES::ConsensusType,
+        TYPES,
+        Leaf = SequencingLeaf<SequencingTestTypes>,
+        // ConsensusMessage = SequencingMessage<SequencingTestTypes, I>,
+    >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 ) -> TaskRunner {
     let builder = TestBuilder::default_multiple_rounds();
 
-    let launcher = builder
-        .build::<StaticCommitteeTestTypes, SequencingMemoryImpl>()
-        .launch();
+    let launcher = builder.build::<SequencingTestTypes, SequencingMemoryImpl>();
     let node_id = 1;
     let network_generator = Arc::new((launcher.generator.network_generator)(node_id));
     let quorum_network = (launcher.generator.quorum_network)(network_generator.clone());
@@ -139,8 +202,7 @@ async fn build_consensus_task<
     let initializer =
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 
-    let node_id = self.next_node_id;
-    self.next_node_id += 1;
+    let node_id = 1;
 
     let known_nodes = config.known_nodes.clone();
     let private_key = I::generate_test_key(node_id);
@@ -176,8 +238,10 @@ async fn build_consensus_task<
 
     let consensus = handle.get_consensus();
     let c_api = HotShotSequencingConsensusApi {
-        inner: hotshot.inner.clone(),
+        inner: handle.inner.clone(),
     };
+
+    let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
     let consensus_state = SequencingConsensusTaskState {
         consensus,
@@ -187,8 +251,8 @@ async fn build_consensus_task<
         api: c_api.clone(),
         committee_exchange: committee_exchange.clone().into(),
         _pd: PhantomData,
-        vote_collector: (0, JoinHandle::<()>::new()),
-        timeout_task: JoinHandle::<()>::new(),
+        vote_collector: (0, async_spawn({})),
+        timeout_task: async_spawn({}),
         event_stream: event_stream.clone(),
         certs: HashMap::new(),
         current_proposal: None,
