@@ -982,6 +982,8 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
+#[derive(Derivative)]
+#[derivative(Clone, Debug)]
 pub struct ViewSyncExchange<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
@@ -996,6 +998,7 @@ pub struct ViewSyncExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
+    #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key.
     _encryption_key: jf_primitives::aead::KeyPair,
