@@ -348,7 +348,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
 
     /// Returns a copy of the consensus struct
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
-        self.innner.conensus
+        self.inner.consensus.clone()
     }
 
     /// Returns a copy of the last decided leaf

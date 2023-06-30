@@ -3033,6 +3033,8 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
+ "hotshot-task",
+ "hotshot-task-impls",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
