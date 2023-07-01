@@ -1,10 +1,13 @@
 use crate::events::SequencingHotShotEvent;
+use async_compatibility_layer::art::async_sleep;
+use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::channel::UnboundedStream;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
+use std::collections::HashMap;
 use futures::StreamExt;
 use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::task::HandleEvent;
@@ -15,9 +18,6 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
-use std::time::Duration;
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::art::async_sleep;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -40,8 +40,10 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::ViewSyncData;
 use hotshot_types::vote::ViewSyncVote;
+use hotshot_types::vote::VoteAccumulator;
 use snafu::Snafu;
 use std::ops::Deref;
+use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
@@ -95,6 +97,8 @@ pub struct ViewSyncTaskState<
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
     pub api: A,
+    // pub accumulator:
+    //     Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, ViewSyncCertificate<TYPES>>
 }
 
 impl<
@@ -197,6 +201,8 @@ pub struct ViewSyncRelayTaskState<
 > {
     phantom: PhantomData<(TYPES, I)>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    pub accumulator:
+        Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, ViewSyncCertificate<TYPES>>,
 }
 
 impl<
@@ -293,9 +299,44 @@ where
                         // TODO ED If task doesn't exist, make it (and check that it is for this relay)
 
                         if self.current_relay_task.is_none() {
+                            // TODO Need to destructure vote so we can accumulate it
+                            let vote_internal = match vote {
+                                ViewSyncVote::PreCommit(vote_internal) => vote_internal,
+                                // TODO ED Should only ever receive PreCommit votes when receiving a vote for the first time (?) Except if first relay, then could potentially happen
+                                ViewSyncVote::Commit(_) => todo!(),
+                                ViewSyncVote::Finalize(_) => todo!(),
+                            };
+
+                            let view_sync_data = ViewSyncData::<TYPES> {
+                                round: vote_internal.round,
+                                relay: self
+                                    .exchange
+                                    // TODO ED Add relay to below
+                                    .get_leader(vote_internal.round)
+                                    .to_bytes(),
+                            }
+                            .commit();
+
+                            // let accumulator = self.exchange.accumulate_vote(
+                            //     &vote_internal.signature.0,
+                            //     &vote_internal.signature.1,
+                            //     vote_internal.vote_data,
+                            //     view_sync_data,
+                            //     vote_internal.vote_token.clone(),
+                            //     vote_internal.round,
+                            //     acc,
+                            // );
+                            let mut accumulator = VoteAccumulator {
+                                total_vote_outcomes: HashMap::new(),
+                                yes_vote_outcomes: HashMap::new(),
+                                no_vote_outcomes: HashMap::new(),
+                                success_threshold: self.exchange.success_threshold(),
+                                failure_threshold: self.exchange.failure_threshold(),
+                            };
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
                                 exchange: self.exchange.clone(),
+                                accumulator: either::Left(accumulator),
                             };
                             let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -404,6 +445,11 @@ where
                                     }
                                     .commit(),
                                 ) {
+                                    // Update relay index if needed
+                                    if certificate_internal.relay > self.relay {
+                                        self.relay = certificate_internal.relay;
+                                    }
+
                                     let vote = self.exchange.create_finalize_message::<I>();
                                     self.api
                                         .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
@@ -430,9 +476,12 @@ where
                                     async move {
                                         async_sleep(Duration::from_millis(10000)).await;
                                         // TODO ED Needs to know which view number we are timing out?
-                                        stream.publish(SequencingHotShotEvent::ViewSyncTimeout(ViewNumber::new(
-                                            *self.next_view,
-                                        ), self.relay)).await;
+                                        stream
+                                            .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                                                ViewNumber::new(*self.next_view),
+                                                self.relay,
+                                            ))
+                                            .await;
                                     }
                                 });
 
@@ -478,6 +527,7 @@ impl<
                     todo!()
                 }
                 ViewSyncMessageType::Vote(vote) => {
+                    // TODO ED Check if valid vote
                     todo!()
                 }
             },
