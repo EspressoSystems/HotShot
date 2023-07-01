@@ -8,6 +8,8 @@ use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::vote::{DAVote, QuorumVote};
 
+use crate::view_sync::LastSeenViewSyncCeritificate;
+
 #[derive(Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,
@@ -22,7 +24,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAVoteSend(DAVote<TYPES, I::Leaf>),
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange(ViewNumber),
-    ViewSyncTimeout(ViewNumber, u64),
+    ViewSyncTimeout(ViewNumber, u64, LastSeenViewSyncCeritificate),
     ViewSyncMessageSend(ViewSyncMessageType<TYPES>),
     Timeout,
 }
