@@ -202,8 +202,10 @@ pub struct ViewSyncRelayTaskState<
 > {
     phantom: PhantomData<(TYPES, I)>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
-    pub accumulator:
-        Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, ViewSyncCertificate<TYPES>>,
+    pub accumulator: Either<
+        VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+        ViewSyncCertificate<TYPES>,
+    >,
 }
 
 impl<
@@ -339,7 +341,7 @@ where
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
                                 exchange: self.exchange.clone(),
-                                accumulator
+                                accumulator,
                             };
                             let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -367,7 +369,7 @@ where
                 // TODO ED Above ^
                 todo!()
             }
-            // TODO ED Spawn task to start NK20 protocol
+            // TODO ED Spawn task to start NK20 protocol (if two timeouts have happened)
             SequencingHotShotEvent::Timeout => todo!(),
             _ => todo!(),
         };

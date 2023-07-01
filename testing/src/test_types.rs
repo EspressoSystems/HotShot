@@ -1,7 +1,6 @@
 use crate::test_runner::TestRunner;
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
-use hotshot_types::vote::ViewSyncVote;
 use hotshot::{
     demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction},
     traits::{
@@ -15,6 +14,7 @@ use hotshot::{
     },
 };
 use hotshot_types::traits::election::ViewSyncExchange;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,

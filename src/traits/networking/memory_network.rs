@@ -674,13 +674,7 @@ mod tests {
                 TestNetwork,
                 Message<Test, Self>,
             >,
-            ViewSyncExchange<
-                Test,
-                TestProposal,
-                TestMembership,
-                TestNetwork,
-                Message<Test, Self>,
-            >,
+            ViewSyncExchange<Test, TestProposal, TestMembership, TestNetwork, Message<Test, Self>>,
         >;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;

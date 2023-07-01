@@ -126,7 +126,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::ViewSyncCommChannel, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         setup_logging();
@@ -159,7 +163,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::ViewSyncCommChannel, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         let mut results = vec![];
@@ -218,7 +226,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::ViewSyncCommChannel, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         let node_id = self.next_node_id;

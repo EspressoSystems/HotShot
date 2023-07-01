@@ -273,7 +273,7 @@ where
                     let stream = self.event_stream.clone();
                     async move {
                         async_sleep(Duration::from_millis(10000)).await;
-                        // TODO ED Needs to know which view number we are timing out? 
+                        // TODO ED Needs to know which view number we are timing out?
                         stream.publish(SequencingHotShotEvent::Timeout).await;
                     }
                 });
