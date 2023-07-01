@@ -506,6 +506,7 @@ where
                                         self.relay = certificate_internal.relay;
                                     }
 
+                                    // TODO ED Double check relay logic, want to make sure we send it to the correct relay
                                     let vote = self.exchange.create_finalize_message::<I>();
                                     self.api
                                         .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
@@ -555,6 +556,10 @@ where
                 }
             },
             // TODO ED Add view sync timeout event
+            SequencingHotShotEvent::ViewSyncTimeout(round, relay) => {
+
+                todo!()
+            }
             _ => todo!(),
         }
         return (None, self);
