@@ -7,7 +7,6 @@ use async_std::task::JoinHandle;
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
-use std::collections::HashMap;
 use futures::StreamExt;
 use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::task::HandleEvent;
@@ -42,6 +41,7 @@ use hotshot_types::vote::ViewSyncData;
 use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::vote::VoteAccumulator;
 use snafu::Snafu;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
@@ -155,6 +155,7 @@ pub struct ViewSyncReplicaTaskState<
     pub next_view: TYPES::Time,
     pub phase: ViewSyncNK20Stage,
     pub relay: u64,
+    pub finalized: bool,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
@@ -202,7 +203,7 @@ pub struct ViewSyncRelayTaskState<
     phantom: PhantomData<(TYPES, I)>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub accumulator:
-        Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, ViewSyncCertificate<TYPES>>,
+        Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, ViewSyncCertificate<TYPES>>,
 }
 
 impl<
@@ -269,6 +270,7 @@ where
                                 current_view: self.current_view,
                                 next_view: self.next_view,
                                 relay: 0,
+                                finalized: false,
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
                                 exchange: self.exchange.clone(),
@@ -317,15 +319,6 @@ where
                             }
                             .commit();
 
-                            // let accumulator = self.exchange.accumulate_vote(
-                            //     &vote_internal.signature.0,
-                            //     &vote_internal.signature.1,
-                            //     vote_internal.vote_data,
-                            //     view_sync_data,
-                            //     vote_internal.vote_token.clone(),
-                            //     vote_internal.round,
-                            //     acc,
-                            // );
                             let mut accumulator = VoteAccumulator {
                                 total_vote_outcomes: HashMap::new(),
                                 yes_vote_outcomes: HashMap::new(),
@@ -333,10 +326,20 @@ where
                                 success_threshold: self.exchange.success_threshold(),
                                 failure_threshold: self.exchange.failure_threshold(),
                             };
+
+                            let accumulator = self.exchange.accumulate_vote(
+                                &vote_internal.signature.0,
+                                &vote_internal.signature.1,
+                                view_sync_data,
+                                vote_internal.vote_data,
+                                vote_internal.vote_token.clone(),
+                                vote_internal.round,
+                                accumulator,
+                            );
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
                                 exchange: self.exchange.clone(),
-                                accumulator: either::Left(accumulator),
+                                accumulator
                             };
                             let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
