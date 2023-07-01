@@ -15,6 +15,7 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -150,6 +151,9 @@ pub struct ViewSyncReplicaTaskState<
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
     pub api: A,
+
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+
 }
 
 impl<
@@ -259,6 +263,8 @@ where
                                 phase: ViewSyncNK20Stage::PreCommit,
                                 exchange: self.exchange.clone(),
                                 api: self.api.clone(),
+                                event_stream: self.event_stream.clone(),
+
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -404,6 +410,11 @@ where
                                         )
                                         .await;
                                 }
+
+                                // Send ViewChange event to event stream
+                                self.event_stream
+                                .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*self.next_view)))
+                                .await;
 
                                 todo!()
                             }
