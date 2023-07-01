@@ -22,6 +22,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAVoteSend(DAVote<TYPES, I::Leaf>),
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange(ViewNumber),
+    ViewSyncTimeout(ViewNumber, u64),
     Timeout,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

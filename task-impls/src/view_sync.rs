@@ -15,7 +15,9 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
-use hotshot_types::traits::state::ConsensusTime;
+use std::time::Duration;
+use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::async_sleep;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -35,6 +37,7 @@ use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::ViewSyncData;
 use hotshot_types::vote::ViewSyncVote;
 use snafu::Snafu;
@@ -154,7 +157,6 @@ pub struct ViewSyncReplicaTaskState<
     pub api: A,
 
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-
 }
 
 impl<
@@ -266,7 +268,6 @@ where
                                 exchange: self.exchange.clone(),
                                 api: self.api.clone(),
                                 event_stream: self.event_stream.clone(),
-
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -319,7 +320,7 @@ where
                 // if self.current_view < new_view {
                 //     self.current_view = new_view
                 // }
-                // TODO ED Above ^ 
+                // TODO ED Above ^
                 todo!()
             }
             // TODO ED Spawn task to start NK20 protocol
@@ -418,8 +419,22 @@ where
 
                                 // Send ViewChange event to event stream
                                 self.event_stream
-                                .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*self.next_view)))
-                                .await;
+                                    .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                                        *self.next_view,
+                                    )))
+                                    .await;
+
+                                async_spawn({
+                                    // TODO ED Get actual timeout
+                                    let stream = self.event_stream.clone();
+                                    async move {
+                                        async_sleep(Duration::from_millis(10000)).await;
+                                        // TODO ED Needs to know which view number we are timing out?
+                                        stream.publish(SequencingHotShotEvent::ViewSyncTimeout(ViewNumber::new(
+                                            *self.next_view,
+                                        ), self.relay)).await;
+                                    }
+                                });
 
                                 todo!()
                             }
@@ -471,16 +486,3 @@ impl<
         return (None, self);
     }
 }
-
-// self.timeout_task = async_spawn({
-//     // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-//     // let next_view_timeout = next_view_timeout;
-//     // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-//     // TODO(bf): get the real timeout from the config.
-//     let stream = self.event_stream.clone();
-//     async move {
-//         async_sleep(Duration::from_millis(10000)).await;
-//         // TODO ED Needs to know which view number we are timing out?
-//         stream.publish(SequencingHotShotEvent::Timeout).await;
-//     }
-// });
