@@ -147,6 +147,7 @@ pub struct ViewSyncReplicaTaskState<
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
     pub phase: ViewSyncNK20Stage,
+    pub relay: u64,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
@@ -259,6 +260,7 @@ where
                                 phantom: PhantomData,
                                 current_view: self.current_view,
                                 next_view: self.next_view,
+                                relay: 0,
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
                                 exchange: self.exchange.clone(),
@@ -317,6 +319,7 @@ where
                 // if self.current_view < new_view {
                 //     self.current_view = new_view
                 // }
+                // TODO ED Above ^ 
                 todo!()
             }
             // TODO ED Spawn task to start NK20 protocol
@@ -409,6 +412,8 @@ where
                                             vote,
                                         )
                                         .await;
+
+                                    // TODO ED Also send to first relay
                                 }
 
                                 // Send ViewChange event to event stream
