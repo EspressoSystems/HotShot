@@ -6,6 +6,7 @@ use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
 use futures::StreamExt;
+use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::task::HandleEvent;
 use hotshot_task::task::HotShotTaskCompleted;
 use hotshot_task::task_impls::TaskBuilder;
@@ -28,6 +29,7 @@ use hotshot_types::traits::election::ViewSyncVoteData;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::vote::ViewSyncData;
@@ -59,8 +61,9 @@ pub struct ViewSyncTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
 > where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -80,6 +83,8 @@ pub struct ViewSyncTaskState<
     current_relay_task: Option<ViewNumber>,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+
+    pub api: A,
 }
 
 impl<
@@ -89,9 +94,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > TS for ViewSyncTaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
+    > TS for ViewSyncTaskState<TYPES, I, A>
 where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -102,11 +108,11 @@ where
 {
 }
 
-pub type ViewSyncTaskStateTypes<TYPES, I> = HSTWithEvent<
+pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    ViewSyncTaskState<TYPES, I>,
+    ViewSyncTaskState<TYPES, I, A>,
 >;
 
 pub struct ViewSyncReplicaTaskState<
@@ -116,8 +122,9 @@ pub struct ViewSyncReplicaTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 > where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -132,6 +139,8 @@ pub struct ViewSyncReplicaTaskState<
     pub phase: ViewSyncNK20Stage,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+
+    pub api: A,
 }
 
 impl<
@@ -141,9 +150,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > TS for ViewSyncReplicaTaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+    > TS for ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -154,11 +164,11 @@ where
 {
 }
 
-pub type ViewSyncReplicaTaskStateTypes<TYPES, I> = HSTWithEvent<
+pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    ViewSyncReplicaTaskState<TYPES, I>,
+    ViewSyncReplicaTaskState<TYPES, I, A>,
 >;
 
 pub struct ViewSyncRelayTaskState<
@@ -198,9 +208,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > ViewSyncTaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
+    > ViewSyncTaskState<TYPES, I, A>
 where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -235,19 +246,20 @@ where
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
                                 exchange: self.exchange.clone(),
+                                api: self.api.clone()
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
                             // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
                             let replica_handle_event = HandleEvent(Arc::new(
-                                move |event, mut state: ViewSyncReplicaTaskState<TYPES, I>| {
+                                move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
                                     async move { state.handle_event(event).await }.boxed()
                                 },
                             ));
 
                             let filter = FilterEvent::default();
                             let _builder =
-                                TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I>>::new(name)
+                                TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
                                     .register_state(replica_state)
@@ -326,9 +338,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > ViewSyncReplicaTaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+    > ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -342,7 +355,7 @@ where
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> (
         std::option::Option<HotShotTaskCompleted>,
-        ViewSyncReplicaTaskState<TYPES, I>,
+        ViewSyncReplicaTaskState<TYPES, I, A>,
     ) {
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => match message {
@@ -354,7 +367,7 @@ where
                             todo!()
                         }
                         ViewSyncCertificate::Commit(certificate_internal) => {
-                            if self.phase >= ViewSyncNK20Stage::PreCommit {
+                            if self.phase == ViewSyncNK20Stage::PreCommit {
                                 // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
                                 if self.exchange.is_valid_cert(
                                     &ViewSyncCertificate::Commit(certificate_internal),
@@ -392,9 +405,6 @@ where
                             todo!()
                         }
                     }
-                    // if certificate.stage > self.phase { // Also check relay TODO ED
-                    //     self.phase = certificate.stage
-                    // }
                     todo!()
                 }
                 ViewSyncMessageType::Vote(vote) => {
