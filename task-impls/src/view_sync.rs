@@ -424,7 +424,7 @@ where
             }
             // TODO ED Spawn task to start NK20 protocol (if two timeouts have happened)
             // TODO ED Need to add view number to timeout event
-            SequencingHotShotEvent::Timeout => todo!(),
+            SequencingHotShotEvent::Timeout(view_number) => todo!(),
             _ => todo!(),
         };
         return;
@@ -567,10 +567,10 @@ where
                         let message = match self.phase {
                             LastSeenViewSyncCeritificate::None => unimplemented!(),
                             LastSeenViewSyncCeritificate::PreCommit => {
-                                self.exchange.create_commit_message::<I>()
+                                self.exchange.create_precommit_message::<I>()
                             }
                             LastSeenViewSyncCeritificate::Commit => {
-                                self.exchange.create_finalize_message::<I>()
+                                self.exchange.create_commit_message::<I>()
                             }
                             LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
                         };
@@ -605,6 +605,10 @@ where
                     return (None, self);
                 }
             },
+
+            SequencingHotShotEvent::Timeout(view_number) => {
+                todo!()
+            }, 
 
             SequencingHotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) => {
                 // Shouldn't ever receive a timeout for a relay higher than ours

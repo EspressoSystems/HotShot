@@ -2,6 +2,7 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
+use hotshot_types::data::ViewNumber;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
@@ -271,10 +272,11 @@ where
                     // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
                     // TODO(bf): get the real timeout from the config.
                     let stream = self.event_stream.clone();
+                    let view_number = self.cur_view.clone(); 
                     async move {
                         async_sleep(Duration::from_millis(10000)).await;
                         // TODO ED Needs to know which view number we are timing out?
-                        stream.publish(SequencingHotShotEvent::Timeout).await;
+                        stream.publish(SequencingHotShotEvent::Timeout(ViewNumber::new(*view_number))).await;
                     }
                 });
                 let consensus = self.consensus.upgradable_read().await;

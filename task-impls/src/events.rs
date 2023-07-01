@@ -26,6 +26,6 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, LastSeenViewSyncCeritificate),
     ViewSyncMessageSend(ViewSyncMessageType<TYPES>),
-    Timeout,
+    Timeout(ViewNumber),
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}
