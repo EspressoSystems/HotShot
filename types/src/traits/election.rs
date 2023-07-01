@@ -969,7 +969,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a commit vote
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a commit vote
     fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -1022,7 +1022,8 @@ impl<
         todo!()
     }
 
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
+    // TODO ED Check this return type, do we want this? 
+    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I> {
         todo!()
     }
 

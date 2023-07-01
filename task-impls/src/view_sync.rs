@@ -23,7 +23,9 @@ use hotshot_types::message::SequencingMessage;
 use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::ViewSyncExchangeType;
 use hotshot_types::traits::election::ViewSyncVoteData;
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
@@ -36,6 +38,7 @@ use tracing::{error, info, warn};
 
 /// Represents the latest certificate we have seen
 /// i.e. if we have seen a Commit certificate we are in the commit stage
+#[derive(PartialEq, PartialOrd)]
 pub enum ViewSyncNK20Stage {
     None,
     PreCommit,
@@ -195,7 +198,8 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > ViewSyncTaskState<TYPES, I> where
+    > ViewSyncTaskState<TYPES, I>
+where
     // I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -350,19 +354,39 @@ where
                             todo!()
                         }
                         ViewSyncCertificate::Commit(certificate_internal) => {
-                            let is_valid_cert = self.exchange.is_valid_cert(
-                                &ViewSyncCertificate::Commit(certificate_internal),
-                                // ViewSyncVoteData::Commit(ViewSyncData {
-                                //     round: self.next_view,
-                                //     relay: self.exchange.get_leader(self.next_view).to_bytes(),
-                                // }.commit()),
-                                ViewSyncData {
-                                    round: self.next_view,
-                                    relay: self.exchange.get_leader(self.next_view).to_bytes(),
+                            if self.phase >= ViewSyncNK20Stage::PreCommit {
+                                // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
+                                if self.exchange.is_valid_cert(
+                                    &ViewSyncCertificate::Commit(certificate_internal),
+                                    ViewSyncData {
+                                        round: self.next_view,
+                                        relay: self.exchange.get_leader(self.next_view).to_bytes(),
+                                    }
+                                    .commit(),
+                                ) {
+                                    let vote = self.exchange.create_finalize_message::<I>();
+                                    // TODO ED Add API in so we can call send_direct_message function instead of constructing it ourselves
+                                    // self.exchange
+                                    //     .network()
+                                    //     .direct_message(
+                                    //         Message {
+                                    //             sender: self.exchange.membership().
+                                    //         vote,
+                                    //         self.exchange.get_leader(self.next_view),
+                                    //         }
+                                    //     )
+                                    //     .await;
                                 }
-                                .commit(),
-                            );
-                            todo!()
+
+                                // Message {
+                                //     sender: inner.public_key.clone(),
+                                //     kind: MessageKind::from_consensus_message(message),
+                                //     _phantom: PhantomData,
+                                // },
+                                // recipient,
+
+                                todo!()
+                            }
                         }
                         ViewSyncCertificate::Finalize(certificate_internal) => {
                             todo!()
