@@ -143,7 +143,7 @@ pub struct ViewSyncReplicaTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-    phantom: PhantomData<(TYPES, I)>,
+    pub phantom: PhantomData<(TYPES, I)>,
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
     pub phase: LastSeenViewSyncCeritificate,
@@ -242,6 +242,7 @@ where
     >,
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
+        let event2 = event.clone();
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => {
                 match message {
@@ -264,6 +265,8 @@ where
                         // TODO ED This unwrap will fail? Does Rust only execute the first one?
                         // Start a new view sync replica task
 
+                        // TODO ED Could make replica.next_view static and immutable
+
                         // This certificate is old, we can throw it away
                         // If next view = cert round, then that means we should already have a task running for it
                         if self.next_view >= certificate_internal.round {
@@ -285,7 +288,7 @@ where
                             self.current_replica_task = Some(self.next_view);
                             // TODO ED When we receive view sync finished event set this to None
 
-                            let replica_state = ViewSyncReplicaTaskState {
+                            let mut replica_state = ViewSyncReplicaTaskState {
                                 phantom: PhantomData,
                                 current_view: self.current_view,
                                 next_view: certificate_internal.round,
@@ -296,6 +299,12 @@ where
                                 api: self.api.clone(),
                                 event_stream: self.event_stream.clone(),
                             };
+
+                            // TODO ED Make sure this works correctly
+                            // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
+                            replica_state = replica_state.handle_event(event2).await.1;
+                            // TODO ED Do we want to have a separate event for this? Or handle it here?
+
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
                             // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
@@ -310,22 +319,23 @@ where
                                 TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(
                                     name,
                                 )
-                                .register_event_stream(self.event_stream.clone(), filter)
+                                .register_event_stream(replica_state.event_stream.clone(), filter)
                                 .await
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
 
                             // Send vote for the cert we just received
                             // TODO ED Change to correct vote message being created below
-                            let vote = self.exchange.create_finalize_message::<I>();
-                            self.api
-                                    .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
-                                        self.exchange.get_leader(
-                                            self.next_view + certificate_internal.relay,
-                                        ),
-                                        vote,
-                                    )
-                                    .await;
+                            // TODO ED Don't need below because it is already handled above^
+                            // let vote = self.exchange.create_finalize_message::<I>();
+                            // self.api
+                            //         .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
+                            //             self.exchange.get_leader(
+                            //                 self.next_view + certificate_internal.relay,
+                            //             ),
+                            //             vote,
+                            //         )
+                            //         .await;
 
                             // TODO ED Pass along send error from above somewhere
                             // TODO ED Also send to first relay
@@ -341,13 +351,16 @@ where
                         };
 
                         // TODO ED Make another function for this that we can change later
-                        if !self.exchange.is_leader(vote_internal.round /* + vote.relay */ ) {
-                            return
+                        if !self
+                            .exchange
+                            .is_leader(vote_internal.round /* + vote.relay */)
+                        {
+                            return;
                         }
-                        
 
-                        if self.current_relay_task.is_none() || self.current_relay_task.unwrap() < vote_internal.round{
-
+                        if self.current_relay_task.is_none()
+                            || self.current_relay_task.unwrap() < vote_internal.round
+                        {
                             self.current_relay_task = Some(vote_internal.round);
 
                             let view_sync_data = ViewSyncData::<TYPES> {
@@ -385,7 +398,7 @@ where
                                 }
                                 Either::Right(qc) => {
                                     // TODO ED Need to send out next certificate
-                                    return ;
+                                    return;
                                 }
                             }
 
@@ -481,75 +494,135 @@ where
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => {
-                    match certificate {
-                        ViewSyncCertificate::PreCommit(certificate_internal) => {
-                            // Check cert for validity
-                            // send vote
-                            todo!()
-                        }
+                    let (certificate_internal, last_seen_certificate) = match certificate {
+                        ViewSyncCertificate::PreCommit(certificate_internal) => (
+                            certificate_internal,
+                            LastSeenViewSyncCeritificate::PreCommit,
+                        ),
                         ViewSyncCertificate::Commit(certificate_internal) => {
-                            if self.phase == LastSeenViewSyncCeritificate::PreCommit {
-                                // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
-                                if self.exchange.is_valid_cert(
-                                    &ViewSyncCertificate::Commit(certificate_internal.clone()),
-                                    ViewSyncData {
-                                        round: self.next_view,
-                                        relay: self
-                                            .exchange
-                                            .get_leader(self.next_view + certificate_internal.relay)
-                                            .to_bytes(),
-                                    }
-                                    .commit(),
-                                ) {
-                                    // Update relay index if needed
-                                    if certificate_internal.relay > self.relay {
-                                        self.relay = certificate_internal.relay;
-                                    }
-
-                                    // TODO ED Double check relay logic, want to make sure we send it to the correct relay
-                                    let vote = self.exchange.create_finalize_message::<I>();
-                                    self.api
-                                        .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
-                                            self.exchange.get_leader(
-                                                self.next_view + certificate_internal.relay,
-                                            ),
-                                            vote,
-                                        )
-                                        .await;
-
-                                    // TODO ED Also send to first relay
-                                }
-
-                                // Send ViewChange event to event stream
-                                self.event_stream
-                                    .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
-                                        *self.next_view,
-                                    )))
-                                    .await;
-
-                                async_spawn({
-                                    // TODO ED Get actual timeout
-                                    let stream = self.event_stream.clone();
-                                    async move {
-                                        async_sleep(Duration::from_millis(10000)).await;
-                                        // TODO ED Needs to know which view number we are timing out?
-                                        stream
-                                            .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                                ViewNumber::new(*self.next_view),
-                                                self.relay,
-                                            ))
-                                            .await;
-                                    }
-                                });
-
-                                todo!()
-                            }
+                            (certificate_internal, LastSeenViewSyncCeritificate::Commit)
                         }
                         ViewSyncCertificate::Finalize(certificate_internal) => {
-                            todo!()
+                            (certificate_internal, LastSeenViewSyncCeritificate::Finalize)
                         }
+                    };
+
+                    // Ignore certificate if it is for an older round
+                    if certificate_internal.round < self.next_view {
+                        return (None, self);
                     }
-                    todo!()
+
+                    // If certificate is not valid, return current state
+                    if !self.exchange.is_valid_view_sync_cert() {
+                        return (None, self);
+                    }
+
+                    // If certificate is for a higher round shutdown this task
+                    // since another task should have been started for the higher round
+                    // TODO ED Perhaps in the future this should return an error giving more
+                    // context
+                    if certificate_internal.round > self.next_view {
+                        return (Some(HotShotTaskCompleted::Success), self);
+                    }
+
+                    // Ignore if the certificate is for an already seen phase
+                    // TODO ED Change 'phase' to last_seen_certificate for better clarity
+                    if last_seen_certificate <= self.phase {
+                        return (None, self)
+                    }
+
+                    self.phase = last_seen_certificate; 
+
+                    // The protocol has ended
+                    if self.phase == LastSeenViewSyncCeritificate::Finalize {
+                        return((Some(HotShotTaskCompleted::Success)), self)
+                    }
+
+                    if certificate_internal.relay > self.relay {
+                        self.relay = certificate_internal.relay
+                    }
+
+                    let vote = match self.phase {
+                        LastSeenViewSyncCeritificate::None => todo!(),
+                        LastSeenViewSyncCeritificate::PreCommit => {self.exchange.create_commit_message::<I>()},
+                        LastSeenViewSyncCeritificate::Commit => {self.exchange.create_finalize_message::<I>()},
+                        LastSeenViewSyncCeritificate::Finalize => todo!(),
+                    };
+
+                    
+
+                    // TODO ED Send to first relay 
+                    // TODO ED If receive a finalize cert and haven't seen a commit cert, then need to send view change event, so need to keep track of whether we have done that or not
+
+                    // match certificate {
+                    //         ViewSyncCertificate::PreCommit(certificate_internal) => {
+                    //             // Check cert for validity
+                    //             // send vote
+                    //             todo!()
+                    //         }
+                    //         ViewSyncCertificate::Commit(certificate_internal) => {
+                    //             if self.phase == LastSeenViewSyncCeritificate::PreCommit {
+                    //                 // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
+                    //                 if self.exchange.is_valid_cert(
+                    //                     &ViewSyncCertificate::Commit(certificate_internal.clone()),
+                    //                     ViewSyncData {
+                    //                         round: self.next_view,
+                    //                         relay: self
+                    //                             .exchange
+                    //                             .get_leader(self.next_view + certificate_internal.relay)
+                    //                             .to_bytes(),
+                    //                     }
+                    //                     .commit(),
+                    //                 ) {
+                    //                     // Update relay index if needed
+                    //                     if certificate_internal.relay > self.relay {
+                    //                         self.relay = certificate_internal.relay;
+                    //                     }
+
+                    //                     // TODO ED Double check relay logic, want to make sure we send it to the correct relay
+                    //                     let vote = self.exchange.create_finalize_message::<I>();
+                    //                     self.api
+                    //                         .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
+                    //                             self.exchange.get_leader(
+                    //                                 self.next_view + certificate_internal.relay,
+                    //                             ),
+                    //                             vote,
+                    //                         )
+                    //                         .await;
+
+                    //                     // TODO ED Also send to first relay
+                    //                 }
+
+                    //                 // Send ViewChange event to event stream
+                    //                 self.event_stream
+                    //                     .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                    //                         *self.next_view,
+                    //                     )))
+                    //                     .await;
+
+                    //                 async_spawn({
+                    //                     // TODO ED Get actual timeout
+                    //                     let stream = self.event_stream.clone();
+                    //                     async move {
+                    //                         async_sleep(Duration::from_millis(10000)).await;
+                    //                         // TODO ED Needs to know which view number we are timing out?
+                    //                         stream
+                    //                             .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                    //                                 ViewNumber::new(*self.next_view),
+                    //                                 self.relay,
+                    //                             ))
+                    //                             .await;
+                    //                     }
+                    //                 });
+
+                    //                 todo!()
+                    //             }
+                    //         }
+                    //         ViewSyncCertificate::Finalize(certificate_internal) => {
+                    //             todo!()
+                    //         }
+                    //     }
+                    //     todo!()
                 }
                 ViewSyncMessageType::Vote(vote) => {
                     todo!()
@@ -557,7 +630,6 @@ where
             },
             // TODO ED Add view sync timeout event
             SequencingHotShotEvent::ViewSyncTimeout(round, relay) => {
-
                 todo!()
             }
             _ => todo!(),
