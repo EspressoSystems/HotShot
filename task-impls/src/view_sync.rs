@@ -94,6 +94,12 @@ pub struct ViewSyncTaskState<
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
     pub api: A,
+
+    // How many timeouts we've seen in a row; is reset upon a successful view change
+    pub num_timeouts_tracked: u64,
+
+    // Represents if replica task is running, if relay task is running
+    pub task_map: HashMap<TYPES::Time, (bool, bool)>,
 }
 
 impl<
@@ -272,31 +278,39 @@ where
 
                         // This certificate is old, we can throw it away
                         // If next view = cert round, then that means we should already have a task running for it
-                        if self.next_view >= certificate_internal.round {
-                            if self.current_replica_task.is_none() {
-                                // If this panics then we need to double check the logic above, should never panic
-                                panic!()
-                            }
+                        if self.current_view > certificate_internal.round {
+                            // if self.current_replica_task.is_none() {
+                            //     // If this panics then we need to double check the logic above, should never panic
+                            //     panic!()
+                            // }
                             return;
                         }
 
-                        if self.current_replica_task.is_none()
-                            || self.current_replica_task.unwrap() < certificate_internal.round
+                        // If we do not already have a task for this view
+                        if self.task_map.get(&certificate_internal.round).is_none()
+                        // TODO Also need to account for if entry already exists from a relay bound message 
+                            // || self.current_replica_task.unwrap() < certificate_internal.round
                         {
-                            if !self.exchange.is_valid_view_sync_cert() {
-                                return;
-                            }
+                            // TODO ED Need to check cert is valid to avoid attack of someone sending an invalid cert and messing up everyone's view sync
+                            // TODO Or can use current view to let multiple tasks runs
+                            // TODO ED I think we can delete this:
+                            // if !self.exchange.is_valid_view_sync_cert() {
+                            //     return;
+                            // }
 
-                            self.next_view = certificate_internal.round;
-                            self.current_replica_task = Some(self.next_view);
+                                // TODO ED Don't know if the certificate is valid or not yet...
+
+                            self.task_map.insert(certificate_internal.round, (true, false));
+                       
+                            // self.current_replica_task = Some(certificate_internal.round);
                             // TODO ED When we receive view sync finished event set this to None
 
                             // TODO ED I think this can just be default, make a function
                             // TODO ED Probably don't need current view really
                             let mut replica_state = ViewSyncReplicaTaskState {
                                 phantom: PhantomData,
-                                current_view: self.current_view,
-                                next_view: self.next_view,
+                                current_view: certificate_internal.round,
+                                next_view: certificate_internal.round,
                                 relay: 0,
                                 finalized: false,
                                 sent_view_change_event: false,
@@ -421,10 +435,54 @@ where
                 if self.current_view < TYPES::Time::new(*new_view) {
                     self.current_view = TYPES::Time::new(*new_view)
                 }
+                return
             }
             // TODO ED Spawn task to start NK20 protocol (if two timeouts have happened)
             // TODO ED Need to add view number to timeout event
-            SequencingHotShotEvent::Timeout(view_number) => todo!(),
+            SequencingHotShotEvent::Timeout(view_number) => {
+
+
+                // TODO ED Clean up this code, pull it out so it isn't repeated from above
+                // TODO ED Double check we don't have a task already running?  We shouldn't ever have one
+                // TODO ED Only trigger if second timeout
+                let mut replica_state = ViewSyncReplicaTaskState {
+                    phantom: PhantomData,
+                    current_view: self.current_view,
+                    next_view: TYPES::Time::new(*view_number),
+                    relay: 0,
+                    finalized: false,
+                    sent_view_change_event: false,
+                    phase: LastSeenViewSyncCeritificate::None,
+                    exchange: self.exchange.clone(),
+                    api: self.api.clone(),
+                    event_stream: self.event_stream.clone(),
+                };
+
+                // TODO ED Make sure this works correctly
+                // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
+                replica_state = replica_state.handle_event(event2).await.1;
+                // TODO ED Do we want to have a separate event for this? Or handle it here?
+
+                let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+
+                // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
+                let replica_handle_event = HandleEvent(Arc::new(
+                    move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
+                        async move { state.handle_event(event).await }.boxed()
+                    },
+                ));
+
+                let filter = FilterEvent::default();
+                let _builder =
+                    TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(
+                        name,
+                    )
+                    .register_event_stream(replica_state.event_stream.clone(), filter)
+                    .await
+                    .register_state(replica_state)
+                    .register_event_handler(replica_handle_event);
+            },
+
             _ => todo!(),
         };
         return;
