@@ -20,6 +20,7 @@ use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
+use hotshot_types::message::Proposal;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
@@ -29,10 +30,12 @@ use hotshot_types::traits::election::ViewSyncVoteData;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::vote::ViewSyncData;
+use hotshot_types::vote::ViewSyncVote;
 use snafu::Snafu;
 use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc};
@@ -61,7 +64,10 @@ pub struct ViewSyncTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
+        + std::fmt::Debug
+        + 'static
+        + std::clone::Clone,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -94,7 +100,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
+            + std::fmt::Debug
+            + 'static
+            + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -208,7 +217,10 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
+            + std::fmt::Debug
+            + 'static
+            + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -246,7 +258,7 @@ where
                                 // TODO ED Actually put the correct stage
                                 phase: ViewSyncNK20Stage::PreCommit,
                                 exchange: self.exchange.clone(),
-                                api: self.api.clone()
+                                api: self.api.clone(),
                             };
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -259,11 +271,13 @@ where
 
                             let filter = FilterEvent::default();
                             let _builder =
-                                TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
-                                    .register_event_stream(self.event_stream.clone(), filter)
-                                    .await
-                                    .register_state(replica_state)
-                                    .register_event_handler(replica_handle_event);
+                                TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(
+                                    name,
+                                )
+                                .register_event_stream(self.event_stream.clone(), filter)
+                                .await
+                                .register_state(replica_state)
+                                .register_event_handler(replica_handle_event);
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -370,33 +384,26 @@ where
                             if self.phase == ViewSyncNK20Stage::PreCommit {
                                 // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
                                 if self.exchange.is_valid_cert(
-                                    &ViewSyncCertificate::Commit(certificate_internal),
+                                    &ViewSyncCertificate::Commit(certificate_internal.clone()),
                                     ViewSyncData {
                                         round: self.next_view,
-                                        relay: self.exchange.get_leader(self.next_view).to_bytes(),
+                                        relay: self
+                                            .exchange
+                                            .get_leader(self.next_view + certificate_internal.relay)
+                                            .to_bytes(),
                                     }
                                     .commit(),
                                 ) {
                                     let vote = self.exchange.create_finalize_message::<I>();
-                                    // TODO ED Add API in so we can call send_direct_message function instead of constructing it ourselves
-                                    // self.exchange
-                                    //     .network()
-                                    //     .direct_message(
-                                    //         Message {
-                                    //             sender: self.exchange.membership().
-                                    //         vote,
-                                    //         self.exchange.get_leader(self.next_view),
-                                    //         }
-                                    //     )
-                                    //     .await;
+                                    self.api
+                                        .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
+                                            self.exchange.get_leader(
+                                                self.next_view + certificate_internal.relay,
+                                            ),
+                                            vote,
+                                        )
+                                        .await;
                                 }
-
-                                // Message {
-                                //     sender: inner.public_key.clone(),
-                                //     kind: MessageKind::from_consensus_message(message),
-                                //     _phantom: PhantomData,
-                                // },
-                                // recipient,
 
                                 todo!()
                             }

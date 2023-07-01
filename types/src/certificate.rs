@@ -82,7 +82,7 @@ pub enum ViewSyncCertificate<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// Relay the votes are intended for
-    pub relay: EncodedPublicKey,
+    pub relay: u64,
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Threshold Signature
