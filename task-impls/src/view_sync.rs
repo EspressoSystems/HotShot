@@ -17,10 +17,12 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
+
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::message::GeneralConsensusMessage;
 use hotshot_types::message::Message;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::SequencingMessage;
@@ -149,6 +151,7 @@ pub struct ViewSyncReplicaTaskState<
     pub phase: LastSeenViewSyncCeritificate,
     pub relay: u64,
     pub finalized: bool,
+    pub sent_view_change_event: bool,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
@@ -294,6 +297,7 @@ where
                                 next_view: certificate_internal.round,
                                 relay: certificate_internal.relay,
                                 finalized: false,
+                                sent_view_change_event: false, 
                                 phase: last_seen_certificate,
                                 exchange: self.exchange.clone(),
                                 api: self.api.clone(),
@@ -528,30 +532,68 @@ where
                     // Ignore if the certificate is for an already seen phase
                     // TODO ED Change 'phase' to last_seen_certificate for better clarity
                     if last_seen_certificate <= self.phase {
-                        return (None, self)
+                        return (None, self);
                     }
 
-                    self.phase = last_seen_certificate; 
+                    self.phase = last_seen_certificate;
 
                     // The protocol has ended
                     if self.phase == LastSeenViewSyncCeritificate::Finalize {
-                        return((Some(HotShotTaskCompleted::Success)), self)
+                        return ((Some(HotShotTaskCompleted::Success)), self);
+                    }
+
+                    // Send ViewChange event if necessary
+                    if self.phase >= LastSeenViewSyncCeritificate::Commit && !self.sent_view_change_event {
+                        self.event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*self.next_view))).await;
+                        self.sent_view_change_event = true; 
                     }
 
                     if certificate_internal.relay > self.relay {
                         self.relay = certificate_internal.relay
                     }
 
-                    let vote = match self.phase {
-                        LastSeenViewSyncCeritificate::None => todo!(),
-                        LastSeenViewSyncCeritificate::PreCommit => {self.exchange.create_commit_message::<I>()},
-                        LastSeenViewSyncCeritificate::Commit => {self.exchange.create_finalize_message::<I>()},
-                        LastSeenViewSyncCeritificate::Finalize => todo!(),
+                    let message = match self.phase {
+                        LastSeenViewSyncCeritificate::None => unimplemented!(),
+                        LastSeenViewSyncCeritificate::PreCommit => {
+                            self.exchange.create_commit_message::<I>()
+                        }
+                        LastSeenViewSyncCeritificate::Commit => {
+                            self.exchange.create_finalize_message::<I>()
+                        }
+                        LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
                     };
 
-                    
+                    // TODO ED Perhaps should change the return type of create_x_message functions
+                    if let GeneralConsensusMessage::ViewSync(vote) = message {
+                        self.event_stream
+                            .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                            .await;
+                    }
 
-                    // TODO ED Send to first relay 
+                    // TODO ED Insert relay logic once create message functions are finished
+                    if self.relay > 0 {
+                        let message = match self.phase {
+                            LastSeenViewSyncCeritificate::None => unimplemented!(),
+                            LastSeenViewSyncCeritificate::PreCommit => {
+                                self.exchange.create_commit_message::<I>()
+                            }
+                            LastSeenViewSyncCeritificate::Commit => {
+                                self.exchange.create_finalize_message::<I>()
+                            }
+                            LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
+                        };
+                        if let GeneralConsensusMessage::ViewSync(vote) = message {
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                .await;
+                        }
+                    }
+
+
+
+                    return (None, self)
+
+                    // TODO ED Send to first relay
                     // TODO ED If receive a finalize cert and haven't seen a commit cert, then need to send view change event, so need to keep track of whether we have done that or not
 
                     // match certificate {

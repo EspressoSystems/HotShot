@@ -23,6 +23,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64),
+    ViewSyncMessageSend(ViewSyncMessageType<TYPES>),
     Timeout,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

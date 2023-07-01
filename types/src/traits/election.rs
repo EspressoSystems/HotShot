@@ -963,7 +963,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
     /// Creates a precommit vote
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a precommit vote
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -971,13 +971,13 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// Creates a commit vote
     fn create_commit_message<I: NodeImplementation<TYPES>>(
         &self,
-    ) -> I::ConsensusMessage;
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a commit vote
     fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Sings a finalize vote
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -1018,7 +1018,7 @@ impl<
         M: NetworkMsg,
     > ViewSyncExchangeType<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I> {
         todo!()
     }
 
@@ -1029,7 +1029,7 @@ impl<
     // TODO ED Check this return type, do we want this?
     fn create_commit_message<I: NodeImplementation<TYPES>>(
         &self,
-    ) -> I::ConsensusMessage {
+    ) -> GeneralConsensusMessage<TYPES, I> {
         todo!()
     }
 
@@ -1037,7 +1037,7 @@ impl<
         todo!()
     }
 
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I> {
         todo!()
     }
 
