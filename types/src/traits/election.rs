@@ -981,6 +981,8 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
 
     /// Sings a finalize vote
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
+
+    fn is_valid_view_sync_cert(&self) -> bool;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1040,6 +1042,10 @@ impl<
     }
 
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature) {
+        todo!()
+    }
+
+    fn is_valid_view_sync_cert(&self) -> bool {
         todo!()
     }
 }

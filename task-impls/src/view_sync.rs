@@ -47,10 +47,8 @@ use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
-/// Represents the latest certificate we have seen
-/// i.e. if we have seen a Commit certificate we are in the commit stage
 #[derive(PartialEq, PartialOrd)]
-pub enum ViewSyncNK20Stage {
+pub enum LastSeenViewSyncCeritificate {
     None,
     PreCommit,
     Commit,
@@ -62,7 +60,6 @@ pub enum ViewSyncNK20Stage {
 pub struct ViewSyncTaskError {}
 impl TaskErr for ViewSyncTaskError {}
 
-// TODO ED Implement TS trait and Error for this struct
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -90,15 +87,11 @@ pub struct ViewSyncTaskState<
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
 
-    // TODO ED Should also have stream to send shutdown
-    current_replica_task: Option<ViewNumber>,
-    current_relay_task: Option<ViewNumber>,
-
+    current_replica_task: Option<TYPES::Time>,
+    current_relay_task: Option<TYPES::Time>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
 
     pub api: A,
-    // pub accumulator:
-    //     Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, ViewSyncCertificate<TYPES>>
 }
 
 impl<
@@ -153,7 +146,7 @@ pub struct ViewSyncReplicaTaskState<
     phantom: PhantomData<(TYPES, I)>,
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
-    pub phase: ViewSyncNK20Stage,
+    pub phase: LastSeenViewSyncCeritificate,
     pub relay: u64,
     pub finalized: bool,
 
@@ -253,28 +246,52 @@ where
             SequencingHotShotEvent::ViewSyncMessage(message) => {
                 match message {
                     ViewSyncMessageType::Certificate(certificate) => {
-                        // TODO ED If task doesn't already exist, make it
-                        // Don't want to create a new task if one is already running, and several different
-                        // view sync certificates (1 for each phase) could trigger us to create this
-                        // TODO ED Check which view it is for
-                        // TODO ED Check if the cert is for an actual next view that is higher than we have now
-                        // TODO ED Don't spawn if none exists and it is a finalize?
-                        // TODO ED Peek on stream?  Doesn't seem like it will work here
+                        let (certificate_internal, last_seen_certificate) = match certificate {
+                            ViewSyncCertificate::PreCommit(certificate_internal) => (
+                                certificate_internal,
+                                LastSeenViewSyncCeritificate::PreCommit,
+                            ),
+                            ViewSyncCertificate::Commit(certificate_internal) => {
+                                (certificate_internal, LastSeenViewSyncCeritificate::Commit)
+                            }
+                            ViewSyncCertificate::Finalize(certificate_internal) => {
+                                (certificate_internal, LastSeenViewSyncCeritificate::Finalize)
+                            }
+                        };
 
-                        if self.current_replica_task.is_none() {
-                            // TODO ED Validate certificate/update certificate so it can be matched based on stage
-                            // let phase = match certificate {
+                        // TODO ED Perhaps should keep a map of replica task to view number? But seems wasteful.
+                        // Either way, seems like there is perhaps a better way to structure this part
+                        // TODO ED This unwrap will fail? Does Rust only execute the first one?
+                        // Start a new view sync replica task
 
-                            // };
+                        // This certificate is old, we can throw it away
+                        // If next view = cert round, then that means we should already have a task running for it
+                        if self.next_view >= certificate_internal.round {
+                            if self.current_replica_task.is_none() {
+                                // If this panics then we need to double check the logic above, should never panic
+                                panic!()
+                            }
+                            return;
+                        }
+
+                        if self.current_replica_task.is_none()
+                            || self.current_replica_task.unwrap() < certificate_internal.round
+                        {
+                            if !self.exchange.is_valid_view_sync_cert() {
+                                return;
+                            }
+
+                            self.next_view = certificate_internal.round;
+                            self.current_replica_task = Some(self.next_view);
+                            // TODO ED When we receive view sync finished event set this to None
 
                             let replica_state = ViewSyncReplicaTaskState {
                                 phantom: PhantomData,
                                 current_view: self.current_view,
-                                next_view: self.next_view,
-                                relay: 0,
+                                next_view: certificate_internal.round,
+                                relay: certificate_internal.relay,
                                 finalized: false,
-                                // TODO ED Actually put the correct stage
-                                phase: ViewSyncNK20Stage::PreCommit,
+                                phase: last_seen_certificate,
                                 exchange: self.exchange.clone(),
                                 api: self.api.clone(),
                                 event_stream: self.event_stream.clone(),
@@ -297,25 +314,47 @@ where
                                 .await
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
+
+                            // Send vote for the cert we just received
+                            // TODO ED Change to correct vote message being created below
+                            let vote = self.exchange.create_finalize_message::<I>();
+                            self.api
+                                    .send_direct_message::<QuorumProposalType<TYPES, I>, ViewSyncVote<TYPES>>(
+                                        self.exchange.get_leader(
+                                            self.next_view + certificate_internal.relay,
+                                        ),
+                                        vote,
+                                    )
+                                    .await;
+
+                            // TODO ED Pass along send error from above somewhere
+                            // TODO ED Also send to first relay
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
                         // TODO ED If task doesn't exist, make it (and check that it is for this relay)
 
-                        if self.current_relay_task.is_none() {
-                            // TODO Need to destructure vote so we can accumulate it
-                            let vote_internal = match vote {
-                                ViewSyncVote::PreCommit(vote_internal) => vote_internal,
-                                // TODO ED Should only ever receive PreCommit votes when receiving a vote for the first time (?) Except if first relay, then could potentially happen
-                                ViewSyncVote::Commit(_) => todo!(),
-                                ViewSyncVote::Finalize(_) => todo!(),
-                            };
+                        let vote_internal = match vote {
+                            ViewSyncVote::PreCommit(vote_internal) => vote_internal,
+                            ViewSyncVote::Commit(vote_internal) => todo!(),
+                            ViewSyncVote::Finalize(vote_internal) => todo!(),
+                        };
+
+                        // TODO ED Make another function for this that we can change later
+                        if !self.exchange.is_leader(vote_internal.round /* + vote.relay */ ) {
+                            return
+                        }
+                        
+
+                        if self.current_relay_task.is_none() || self.current_relay_task.unwrap() < vote_internal.round{
+
+                            self.current_relay_task = Some(vote_internal.round);
 
                             let view_sync_data = ViewSyncData::<TYPES> {
                                 round: vote_internal.round,
                                 relay: self
                                     .exchange
-                                    // TODO ED Add relay to below
+                                    // TODO ED Add relay to below, just use our own public key instead of get leader function
                                     .get_leader(vote_internal.round)
                                     .to_bytes(),
                             }
@@ -329,7 +368,7 @@ where
                                 failure_threshold: self.exchange.failure_threshold(),
                             };
 
-                            let accumulator = self.exchange.accumulate_vote(
+                            let mut accumulator = self.exchange.accumulate_vote(
                                 &vote_internal.signature.0,
                                 &vote_internal.signature.1,
                                 view_sync_data,
@@ -338,6 +377,18 @@ where
                                 vote_internal.round,
                                 accumulator,
                             );
+
+                            // TODO ED There is a better way to structure this code above and below, put into own function
+                            match accumulator {
+                                Either::Left(acc) => {
+                                    accumulator = Either::Left(acc);
+                                }
+                                Either::Right(qc) => {
+                                    // TODO ED Need to send out next certificate
+                                    return ;
+                                }
+                            }
+
                             let relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
                                 exchange: self.exchange.clone(),
@@ -363,13 +414,13 @@ where
                 }
             }
             SequencingHotShotEvent::ViewChange(new_view) => {
-                // if self.current_view < new_view {
-                //     self.current_view = new_view
-                // }
-                // TODO ED Above ^
-                todo!()
+                // TODO ED Don't call new twice
+                if self.current_view < TYPES::Time::new(*new_view) {
+                    self.current_view = TYPES::Time::new(*new_view)
+                }
             }
             // TODO ED Spawn task to start NK20 protocol (if two timeouts have happened)
+            // TODO ED Need to add view number to timeout event
             SequencingHotShotEvent::Timeout => todo!(),
             _ => todo!(),
         };
@@ -437,7 +488,7 @@ where
                             todo!()
                         }
                         ViewSyncCertificate::Commit(certificate_internal) => {
-                            if self.phase == ViewSyncNK20Stage::PreCommit {
+                            if self.phase == LastSeenViewSyncCeritificate::PreCommit {
                                 // TODO ED This check will fail because we have an extra wrapping of an enum, should maybe add diff certificate types without enum wrapping, also will fail on precommit cert since that only needs f+1 votes, could maybe just make separate is_valid_vs_cert function
                                 if self.exchange.is_valid_cert(
                                     &ViewSyncCertificate::Commit(certificate_internal.clone()),
