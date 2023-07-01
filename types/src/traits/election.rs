@@ -91,6 +91,35 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSync(ViewSyncVoteData<COMMITTABLE>),
 }
 
+impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMMITTABLE> {
+    fn commit(&self) -> Commitment<Self> {
+        match self {
+            VoteData::DA(block_commitment) => 
+                commit::RawCommitmentBuilder::new("DA Block Commit")
+                    .field("block_commitment", block_commitment.clone())
+                    .finalize(),
+            VoteData::Yes(leaf_commitment) => 
+                commit::RawCommitmentBuilder::new("Yes Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::No(leaf_commitment) =>
+                commit::RawCommitmentBuilder::new("No Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::Timeout(view_number_commitment) =>
+                commit::RawCommitmentBuilder::new("Timeout View Number Commit")
+                    .field("view_number_commitment", view_number_commitment.clone())
+                    .finalize(),
+            VoteData::ViewSync(commitment) =>
+                unimplemented!(),
+        }
+    }
+
+    fn tag() -> String {
+            ("VOTE_DATA_COMMIT").to_string()
+    }
+}
+
 /// Data which `ViewSyncVotes` are signed over
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
