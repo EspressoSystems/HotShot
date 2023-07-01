@@ -2,7 +2,7 @@ use crate::events::SequencingHotShotEvent;
 use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{TaskErr, TS},
+    task::{HotShotTaskCompleted, TaskErr, TS},
     task_impls::HSTWithEventAndMessage,
     GeneratedStream, Merge,
 };
@@ -108,11 +108,13 @@ impl<
     }
 
     /// Handle the given event.
+    ///
+    /// Returns the completion status.
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
-    ) {
+    ) -> Option<HotShotTaskCompleted> {
         let (consensus_message, signature) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
@@ -134,14 +136,14 @@ impl<
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
-                return;
+                return None;
             }
             SequencingHotShotEvent::Shutdown => {
                 self.channel.shut_down().await;
-                return;
+                return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {
-                return;
+                return None;
             }
         };
         let message_kind =
@@ -155,6 +157,7 @@ impl<
             .broadcast_message(message, membership)
             .await
             .expect("Failed to broadcast message");
+        return None;
     }
 
     /// Filter network event.

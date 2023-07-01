@@ -50,7 +50,6 @@ pub struct DATaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -73,8 +72,6 @@ pub struct DATaskState<
 
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
-
-    pub api: A,
 
     /// needed to typecheck
     pub _pd: PhantomData<I>,
@@ -186,8 +183,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
-    > DATaskState<TYPES, I, A>
+    > DATaskState<TYPES, I>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -288,6 +284,7 @@ where
                     };
                     let name = "DA Vote Collection";
                     let filter = FilterEvent::default();
+                    // TODO (run_view refactor) `TaskBuilder` is created but the task isn't added to the task runner.
                     let _builder =
                         TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)
@@ -308,8 +305,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug,
-    > TS for DATaskState<TYPES, I, A>
+    > TS for DATaskState<TYPES, I>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -334,35 +330,3 @@ pub type DATaskTypes<TYPES, I, A> = HSTWithEvent<
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     DATaskState<TYPES, I, A>,
 >;
-
-pub async fn da_handle<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
->(
-    event: SequencingHotShotEvent<TYPES, I>,
-    mut state: DATaskState<TYPES, I, A>,
-) -> (
-    std::option::Option<HotShotTaskCompleted>,
-    DATaskState<TYPES, I, A>,
-)
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
-    >,
-{
-    if let SequencingHotShotEvent::Shutdown = event {
-        (Some(HotShotTaskCompleted::ShutDown), state)
-    } else {
-        state.handle_event(event).await;
-        (None, state)
-    }
-}
