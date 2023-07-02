@@ -280,10 +280,6 @@ where
                         // This certificate is old, we can throw it away
                         // If next view = cert round, then that means we should already have a task running for it
                         if self.current_view > certificate_internal.round {
-                            // if self.current_replica_task.is_none() {
-                            //     // If this panics then we need to double check the logic above, should never panic
-                            //     panic!()
-                            // }
                             return;
                         }
 
@@ -401,7 +397,8 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
-                    self.current_view = TYPES::Time::new(*new_view)
+                    self.current_view = TYPES::Time::new(*new_view);
+                    self.num_timeouts_tracked = 0;
                 }
                 return;
             }
@@ -412,45 +409,51 @@ where
                 // TODO ED Double check we don't have a task already running?  We shouldn't ever have one
                 // TODO ED Only trigger if second timeout
                 // TODO ED Send view change event if only first timeout
-                let mut replica_state = ViewSyncReplicaTaskState {
-                    phantom: PhantomData,
-                    current_view: self.current_view,
-                    next_view: TYPES::Time::new(*view_number),
-                    relay: 0,
-                    finalized: false,
-                    sent_view_change_event: false,
-                    phase: LastSeenViewSyncCeritificate::None,
-                    exchange: self.exchange.clone(),
-                    api: self.api.clone(),
-                    event_stream: self.event_stream.clone(),
-                };
 
-                // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
-                replica_state = replica_state.handle_event(event2).await.1;
+                self.num_timeouts_tracked += 1;
 
-                let name = format!(
-                    "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
-                    self.next_view, self.current_view
-                );
+                // TODO ED Make this a configurable variable
+                if self.num_timeouts_tracked > 2 {
+                    let mut replica_state = ViewSyncReplicaTaskState {
+                        phantom: PhantomData,
+                        current_view: self.current_view,
+                        next_view: TYPES::Time::new(*view_number),
+                        relay: 0,
+                        finalized: false,
+                        sent_view_change_event: false,
+                        phase: LastSeenViewSyncCeritificate::None,
+                        exchange: self.exchange.clone(),
+                        api: self.api.clone(),
+                        event_stream: self.event_stream.clone(),
+                    };
 
-                // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
-                let replica_handle_event = HandleEvent(Arc::new(
-                    move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
-                        async move { state.handle_event(event).await }.boxed()
-                    },
-                ));
+                    // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
+                    replica_state = replica_state.handle_event(event2).await.1;
 
-                let filter = FilterEvent::default();
-                let _builder = TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
-                    .register_event_stream(replica_state.event_stream.clone(), filter)
-                    .await
-                    .register_state(replica_state)
-                    .register_event_handler(replica_handle_event);
+                    let name = format!(
+                        "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
+                        self.next_view, self.current_view
+                    );
+
+                    // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
+                    let replica_handle_event = HandleEvent(Arc::new(
+                        move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
+                            async move { state.handle_event(event).await }.boxed()
+                        },
+                    ));
+
+                    let filter = FilterEvent::default();
+                    let _builder =
+                        TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
+                            .register_event_stream(replica_state.event_stream.clone(), filter)
+                            .await
+                            .register_state(replica_state)
+                            .register_event_handler(replica_handle_event);
+                }
             }
 
-            _ => todo!(),
-        };
-        return;
+            _ => return,
+        }
     }
 
     // Resets state once view sync has completed
@@ -648,8 +651,8 @@ where
 
                             return (None, self);
                         }
-                        Ok(None) => todo!(),
-                        Err(_) => todo!(),
+                        Ok(None) => return (None, self),
+                        Err(_) => return (None, self),
                     }
                 }
                 ViewSyncMessageType::Vote(vote) => {
@@ -658,9 +661,7 @@ where
                 }
             },
 
-            SequencingHotShotEvent::Timeout(view_number) => {
-                todo!()
-            }
+            SequencingHotShotEvent::Timeout(view_number) => return (None, self),
 
             SequencingHotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) => {
                 // Shouldn't ever receive a timeout for a relay higher than ours
@@ -724,15 +725,15 @@ where
                                         .await;
                                 }
                             });
+                            return (None, self);
                         }
-                        Ok(None) => unimplemented!(),
-                        Err(_) => unimplemented!(),
+                        Ok(None) => return (None, self),
+                        Err(_) => return (None, self),
                     }
                 }
             }
-            _ => todo!(),
+            _ => return (None, self),
         }
-
         return (None, self);
     }
 }
@@ -764,9 +765,7 @@ where
     ) {
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => match message {
-                ViewSyncMessageType::Certificate(certificate) => {
-                    todo!()
-                }
+                ViewSyncMessageType::Certificate(certificate) => return (None, self),
                 // TODO ED Change name of last seen certificate to just be phase
                 ViewSyncMessageType::Vote(vote) => {
                     let (vote_internal, phase) = match vote {
@@ -791,12 +790,11 @@ where
                     }
 
                     // TODO ED Put actual VoteData here
-                    let view_sync_data = 
-                        ViewSyncData::<TYPES> {
-                            round: vote_internal.round,
-                            relay: self.exchange.public_key().to_bytes(),
-                        }
-                        .commit();
+                    let view_sync_data = ViewSyncData::<TYPES> {
+                        round: vote_internal.round,
+                        relay: self.exchange.public_key().to_bytes(),
+                    }
+                    .commit();
 
                     let mut accumulator = self.exchange.accumulate_vote(
                         &vote_internal.signature.0,
@@ -806,7 +804,7 @@ where
                         vote_internal.vote_token.clone(),
                         vote_internal.round,
                         self.accumulator.left().unwrap(),
-                        Some(vote_internal.relay)
+                        Some(vote_internal.relay),
                     );
 
                     self.accumulator = match accumulator {

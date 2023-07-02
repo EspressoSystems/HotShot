@@ -278,8 +278,8 @@ impl<TYPES: NodeType>
     ) -> Self {
         let certificate_internal = ViewSyncCertificateInternal {
             round: view_number,
-            relay: todo!(),
-            signatures,
+            relay: relay.unwrap(),
+            signatures: signatures.clone(),
         };
         match signatures {
             YesNoSignature::ViewSyncPreCommit(_) => {

@@ -1291,7 +1291,7 @@ impl<
     }
 
     fn vote_data(&self, _commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
-        todo!()
+        unimplemented!()
     }
 
     fn accumulate_vote(
