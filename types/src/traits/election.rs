@@ -995,7 +995,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// Signs a precommit vote
     fn sign_precommit_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a commit vote
@@ -1009,7 +1009,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// Signs a commit vote
     fn sign_commit_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
@@ -1023,7 +1023,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// Sings a finalize vote
     fn sign_finalize_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
     fn is_valid_view_sync_cert(&self) -> bool;
@@ -1075,9 +1075,9 @@ impl<
             round,
         };
 
-        let vote_data = ViewSyncVoteData::PreCommit(vote_data_internal.commit());
+        let vote_data_internal_commitment = vote_data_internal.commit();
 
-        let signature = self.sign_precommit_message(vote_data.commit());
+        let signature = self.sign_precommit_message(vote_data_internal_commitment);
 
         GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
             ViewSyncVote::PreCommit(ViewSyncVoteInternal {
@@ -1086,18 +1086,18 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(vote_data_internal.commit()),
+                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
             }),
         ))
     }
 
     fn sign_precommit_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSync(commitment).as_bytes(),
+            &VoteData::ViewSync(ViewSyncVoteData::PreCommit(commitment).commit()).as_bytes(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1109,14 +1109,39 @@ impl<
         relay: u64,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I> {
-        todo!()
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: relay_pub_key.clone(),
+            round,
+        };
+
+        let vote_data_internal_commitment = vote_data_internal.commit();
+
+        let signature = self.sign_commit_message(vote_data_internal_commitment);
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+            ViewSyncVote::Commit(ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature,
+                vote_token,
+                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
+            }),
+        ))
     }
 
     fn sign_commit_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        todo!()
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSync(ViewSyncVoteData::Commit(commitment).commit()).as_bytes(),
+        );
+
+        (self.public_key.to_bytes(), signature)
     }
 
     fn create_finalize_message<I: NodeImplementation<TYPES>>(
@@ -1125,20 +1150,44 @@ impl<
         relay: u64,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I> {
-        todo!()
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: relay_pub_key.clone(),
+            round,
+        };
+
+        let vote_data_internal_commitment = vote_data_internal.commit();
+
+        let signature = self.sign_finalize_message(vote_data_internal_commitment);
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+            ViewSyncVote::Finalize(ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature,
+                vote_token,
+                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
+            }),
+        ))
     }
 
     fn sign_finalize_message(
         &self,
-        commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        todo!()
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSync(ViewSyncVoteData::Finalize(commitment).commit()).as_bytes(),
+        );
+
+        (self.public_key.to_bytes(), signature)
     }
 
     fn is_valid_view_sync_cert(&self) -> bool {
         todo!()
     }
-
 }
 
 impl<
