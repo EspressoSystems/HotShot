@@ -603,40 +603,57 @@ where
                         self.relay = certificate_internal.relay
                     }
 
-                    let message = match self.phase {
-                        LastSeenViewSyncCeritificate::None => unimplemented!(),
-                        LastSeenViewSyncCeritificate::PreCommit => {
-                            self.exchange.create_commit_message::<I>()
-                        }
-                        LastSeenViewSyncCeritificate::Commit => {
-                            self.exchange.create_finalize_message::<I>()
-                        }
-                        LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
-                    };
-
-                    // TODO ED Perhaps should change the return type of create_x_message functions
-                    if let GeneralConsensusMessage::ViewSync(vote) = message {
-                        self.event_stream
-                            .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
-                            .await;
-                    }
-
                     // TODO ED Going to assume that nodes must have stake for the view they are voting to enter
-                    let maybe_vote_token =
-                        self.exchange.membership().make_vote_token(self.next_view, &self.exchange.private_key());
-
+                    let maybe_vote_token = self
+                        .exchange
+                        .membership()
+                        .make_vote_token(self.next_view, &self.exchange.private_key());
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {
+                            let message = match self.phase {
+                                LastSeenViewSyncCeritificate::None => unimplemented!(),
+                                LastSeenViewSyncCeritificate::PreCommit => {
+                                    self.exchange.create_commit_message::<I>(
+                                        self.next_view,
+                                        self.relay,
+                                        vote_token.clone(),
+                                    )
+                                }
+                                LastSeenViewSyncCeritificate::Commit => {
+                                    self.exchange.create_finalize_message::<I>(
+                                        self.next_view,
+                                        self.relay,
+                                        vote_token.clone(),
+                                    )
+                                }
+                                LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
+                            };
+
+                            // TODO ED Perhaps should change the return type of create_x_message functions
+                            if let GeneralConsensusMessage::ViewSync(vote) = message {
+                                self.event_stream
+                                    .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                    .await;
+                            }
+
                             // TODO ED Insert relay logic once create message functions are finished
                             if self.relay > 0 {
                                 let message = match self.phase {
                                     LastSeenViewSyncCeritificate::None => unimplemented!(),
-                                    LastSeenViewSyncCeritificate::PreCommit => self
-                                        .exchange
-                                        .create_precommit_message::<I>(self.next_view, self.relay, vote_token),
+                                    LastSeenViewSyncCeritificate::PreCommit => {
+                                        self.exchange.create_precommit_message::<I>(
+                                            self.next_view,
+                                            self.relay,
+                                            vote_token.clone(),
+                                        )
+                                    }
                                     LastSeenViewSyncCeritificate::Commit => {
-                                        self.exchange.create_commit_message::<I>()
+                                        self.exchange.create_commit_message::<I>(
+                                            self.next_view,
+                                            self.relay,
+                                            vote_token.clone(),
+                                        )
                                     }
                                     LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
                                 };
@@ -687,40 +704,65 @@ where
                     && relay == self.relay
                     && last_seen_certificate == self.phase
                 {
-                    self.relay = self.relay + 1;
-                    let message = match self.phase {
-                        LastSeenViewSyncCeritificate::None => unimplemented!(),
-                        LastSeenViewSyncCeritificate::PreCommit => {
-                            self.exchange.create_commit_message::<I>()
-                        }
-                        LastSeenViewSyncCeritificate::Commit => {
-                            self.exchange.create_finalize_message::<I>()
-                        }
-                        LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
-                    };
+                    let maybe_vote_token = self
+                        .exchange
+                        .membership()
+                        .make_vote_token(self.next_view, &self.exchange.private_key());
 
-                    // TODO ED Perhaps should change the return type of create_x_message functions
-                    if let GeneralConsensusMessage::ViewSync(vote) = message {
-                        self.event_stream
-                            .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
-                            .await;
+                    match maybe_vote_token {
+                        Ok(Some(vote_token)) => {
+                            self.relay = self.relay + 1;
+                            let message = match self.phase {
+                                LastSeenViewSyncCeritificate::None => {
+                                    self.exchange.create_precommit_message::<I>(
+                                        self.next_view,
+                                        self.relay,
+                                        vote_token.clone(),
+                                    )
+                                }
+                                LastSeenViewSyncCeritificate::PreCommit => {
+                                    self.exchange.create_commit_message::<I>(
+                                        self.next_view,
+                                        self.relay,
+                                        vote_token.clone(),
+                                    )
+                                }
+                                LastSeenViewSyncCeritificate::Commit => {
+                                    self.exchange.create_finalize_message::<I>(
+                                        self.next_view,
+                                        self.relay,
+                                        vote_token.clone(),
+                                    )
+                                }
+                                LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
+                            };
+
+                            // TODO ED Perhaps should change the return type of create_x_message functions
+                            if let GeneralConsensusMessage::ViewSync(vote) = message {
+                                self.event_stream
+                                    .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                    .await;
+                            }
+
+                            // TODO ED Add event to shutdown this task
+                            async_spawn({
+                                let stream = self.event_stream.clone();
+                                async move {
+                                    // TODO ED Add actual timeout parameter
+                                    async_sleep(Duration::from_millis(10000)).await;
+                                    stream
+                                        .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                                            ViewNumber::new(*self.next_view),
+                                            self.relay,
+                                            last_seen_certificate,
+                                        ))
+                                        .await;
+                                }
+                            });
+                        }
+                        Ok(None) => unimplemented!(),
+                        Err(_) => unimplemented!(),
                     }
-
-                    // TODO ED Add event to shutdown this task
-                    async_spawn({
-                        let stream = self.event_stream.clone();
-                        async move {
-                            async_sleep(Duration::from_millis(10000)).await;
-                            // TODO ED Needs to know which view number we are timing out?
-                            stream
-                                .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                    ViewNumber::new(*self.next_view),
-                                    self.relay,
-                                    last_seen_certificate,
-                                ))
-                                .await;
-                        }
-                    });
                 }
             }
             _ => todo!(),
