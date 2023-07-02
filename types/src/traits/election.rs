@@ -87,6 +87,7 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
     /// Vote to sync the network on a particular view
+    // TODO ED Change this to ViewSyncVoteData<COMMITABLE>
     ViewSync(Commitment<COMMITTABLE>),
 }
 
