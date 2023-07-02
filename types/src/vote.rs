@@ -93,7 +93,9 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     /// The relay this vote is intended for
-    pub relay: EncodedPublicKey,
+    pub relay_pub_key: EncodedPublicKey,
+
+    pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::Time,
     /// This node's signature over the VoteData
@@ -104,7 +106,7 @@ pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     pub vote_data: VoteData<ViewSyncData<TYPES>>,
 }
 
-/// The data View Sync votes are signed over
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncData<TYPES: NodeType> {

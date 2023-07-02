@@ -10,9 +10,12 @@ use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
+use crate::message::ViewSyncMessageType;
 use crate::message::{
     CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
 };
+use crate::vote::ViewSyncVoteInternal;
+
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::traits::{
@@ -82,8 +85,8 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
-    /// Vote to synch the network on a particular view
-    ViewSync(ViewSyncVoteData<COMMITTABLE>),
+    /// Vote to sync the network on a particular view
+    ViewSync(Commitment<COMMITTABLE>),
 }
 
 /// Data which `ViewSyncVotes` are signed over
@@ -96,6 +99,25 @@ pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
     Commit(Commitment<COMMITTABLE>),
     /// A finalize vote
     Finalize(Commitment<COMMITTABLE>),
+}
+
+impl<COMMITTABLE: Committable + Serialize + Clone> Committable for ViewSyncVoteData<COMMITTABLE> {
+    fn commit(&self) -> Commitment<Self> {
+        let builder = commit::RawCommitmentBuilder::new("View Sync Vote Commitment");
+
+        builder.var_size_field("Phase", &self.as_bytes()).finalize()
+    }
+}
+
+impl<COMMITTABLE: Committable + Serialize + Clone> ViewSyncVoteData<COMMITTABLE> {
+    #[must_use]
+    /// Convert vote data into bytes.
+    ///
+    /// # Panics
+    /// Panics if the serialization fails.
+    pub fn as_bytes(&self) -> Vec<u8> {
+        bincode_opts().serialize(&self).unwrap()
+    }
 }
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
@@ -963,7 +985,12 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
     /// Creates a precommit vote
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I>;
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a precommit vote
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -977,7 +1004,9 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I>;
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(
+        &self,
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Sings a finalize vote
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -1018,15 +1047,45 @@ impl<
         M: NetworkMsg,
     > ViewSyncExchangeType<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I> {
-        todo!()
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I> {
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: self.get_leader(round + relay).to_bytes(),
+            round,
+        };
+
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data = ViewSyncVoteData::PreCommit(vote_data_internal.commit());
+
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSync(vote_data.commit()).as_bytes(),
+        );
+
+ 
+        
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+            ViewSyncVote::PreCommit(ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature: (self.public_key.to_bytes(), signature),
+                vote_token,
+                vote_data: VoteData::ViewSync(vote_data_internal.commit()),
+            }),
+        ))
     }
 
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature) {
         todo!()
     }
 
-    // TODO ED Check this return type, do we want this?
     fn create_commit_message<I: NodeImplementation<TYPES>>(
         &self,
     ) -> GeneralConsensusMessage<TYPES, I> {
@@ -1037,7 +1096,9 @@ impl<
         todo!()
     }
 
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> GeneralConsensusMessage<TYPES, I> {
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(
+        &self,
+    ) -> GeneralConsensusMessage<TYPES, I> {
         todo!()
     }
 
@@ -1048,6 +1109,27 @@ impl<
     fn is_valid_view_sync_cert(&self) -> bool {
         todo!()
     }
+
+    // fn sign_no_vote(
+    //     &self,
+    //     leaf_commitment: Commitment<LEAF>,
+    // ) -> (EncodedPublicKey, EncodedSignature) {
+    //     let signature = TYPES::SignatureKey::sign(
+    //         &self.private_key,
+    //         &VoteData::<LEAF>::No(leaf_commitment).as_bytes(),
+    //     );
+    //     (self.public_key.to_bytes(), signature)
+    // }
+
+    // let signature = self.sign_no_vote(leaf_commitment);
+    // GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
+    //     justify_qc_commitment,
+    //     signature,
+    //     leaf_commitment,
+    //     current_view,
+    //     vote_token,
+    //     vote_data: VoteData::No(leaf_commitment),
+    // }))
 }
 
 impl<

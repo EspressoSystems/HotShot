@@ -17,6 +17,7 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
+use hotshot_types::traits::election::Membership;
 
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
@@ -288,8 +289,8 @@ where
 
                         // If we do not already have a task for this view
                         if self.task_map.get(&certificate_internal.round).is_none()
-                        // TODO Also need to account for if entry already exists from a relay bound message 
-                            // || self.current_replica_task.unwrap() < certificate_internal.round
+                        // TODO Also need to account for if entry already exists from a relay bound message
+                        // || self.current_replica_task.unwrap() < certificate_internal.round
                         {
                             // TODO ED Need to check cert is valid to avoid attack of someone sending an invalid cert and messing up everyone's view sync
                             // TODO Or can use current view to let multiple tasks runs
@@ -298,10 +299,12 @@ where
                             //     return;
                             // }
 
-                                // TODO ED Don't know if the certificate is valid or not yet...
+                            // TODO ED Don't know if the certificate is valid or not yet...
 
-                            self.task_map.insert(certificate_internal.round, (true, false));
-                       
+                            self.task_map
+                                .insert(certificate_internal.round, (true, false));
+                            // TODO ED Need to GV old entries once we know we don't need them anymore
+
                             // self.current_replica_task = Some(certificate_internal.round);
                             // TODO ED When we receive view sync finished event set this to None
 
@@ -435,13 +438,11 @@ where
                 if self.current_view < TYPES::Time::new(*new_view) {
                     self.current_view = TYPES::Time::new(*new_view)
                 }
-                return
+                return;
             }
             // TODO ED Spawn task to start NK20 protocol (if two timeouts have happened)
             // TODO ED Need to add view number to timeout event
             SequencingHotShotEvent::Timeout(view_number) => {
-
-
                 // TODO ED Clean up this code, pull it out so it isn't repeated from above
                 // TODO ED Double check we don't have a task already running?  We shouldn't ever have one
                 // TODO ED Only trigger if second timeout
@@ -463,7 +464,10 @@ where
                 replica_state = replica_state.handle_event(event2).await.1;
                 // TODO ED Do we want to have a separate event for this? Or handle it here?
 
-                let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+                let name = format!(
+                    "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
+                    self.next_view, self.current_view
+                );
 
                 // TODO ED Passing in mut state seems to make more sense than a separate function not impled on the state?
                 let replica_handle_event = HandleEvent(Arc::new(
@@ -473,15 +477,12 @@ where
                 ));
 
                 let filter = FilterEvent::default();
-                let _builder =
-                    TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(
-                        name,
-                    )
+                let _builder = TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
                     .register_event_stream(replica_state.event_stream.clone(), filter)
                     .await
                     .register_state(replica_state)
                     .register_event_handler(replica_handle_event);
-            },
+            }
 
             _ => todo!(),
         };
@@ -620,43 +621,54 @@ where
                             .await;
                     }
 
-                    // TODO ED Insert relay logic once create message functions are finished
-                    if self.relay > 0 {
-                        let message = match self.phase {
-                            LastSeenViewSyncCeritificate::None => unimplemented!(),
-                            LastSeenViewSyncCeritificate::PreCommit => {
-                                self.exchange.create_precommit_message::<I>()
+                    // TODO ED Going to assume that nodes must have stake for the view they are voting to enter
+                    let maybe_vote_token =
+                        self.exchange.membership().make_vote_token(self.next_view, &self.exchange.private_key());
+
+
+                    match maybe_vote_token {
+                        Ok(Some(vote_token)) => {
+                            // TODO ED Insert relay logic once create message functions are finished
+                            if self.relay > 0 {
+                                let message = match self.phase {
+                                    LastSeenViewSyncCeritificate::None => unimplemented!(),
+                                    LastSeenViewSyncCeritificate::PreCommit => self
+                                        .exchange
+                                        .create_precommit_message::<I>(self.next_view, self.relay, vote_token),
+                                    LastSeenViewSyncCeritificate::Commit => {
+                                        self.exchange.create_commit_message::<I>()
+                                    }
+                                    LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
+                                };
+                                if let GeneralConsensusMessage::ViewSync(vote) = message {
+                                    self.event_stream
+                                        .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                        .await;
+                                }
                             }
-                            LastSeenViewSyncCeritificate::Commit => {
-                                self.exchange.create_commit_message::<I>()
-                            }
-                            LastSeenViewSyncCeritificate::Finalize => unimplemented!(),
-                        };
-                        if let GeneralConsensusMessage::ViewSync(vote) = message {
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
-                                .await;
+
+                            // TODO ED Add event to shutdown this task
+                            async_spawn({
+                                let stream = self.event_stream.clone();
+                                let phase = self.phase.clone();
+                                async move {
+                                    async_sleep(Duration::from_millis(10000)).await;
+                                    // TODO ED Needs to know which view number we are timing out?
+                                    stream
+                                        .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                                            ViewNumber::new(*self.next_view),
+                                            self.relay,
+                                            phase,
+                                        ))
+                                        .await;
+                                }
+                            });
+
+                            return (None, self);
                         }
+                        Ok(None) => todo!(),
+                        Err(_) => todo!(),
                     }
-
-                    // TODO ED Add event to shutdown this task
-                    async_spawn({
-                        let stream = self.event_stream.clone();
-                        let phase = self.phase.clone();
-                        async move {
-                            async_sleep(Duration::from_millis(10000)).await;
-                            // TODO ED Needs to know which view number we are timing out?
-                            stream
-                                .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                    ViewNumber::new(*self.next_view),
-                                    self.relay,
-                                    phase,
-                                ))
-                                .await;
-                        }
-                    });
-
-                    return (None, self);
                 }
                 ViewSyncMessageType::Vote(vote) => {
                     // Ignore
@@ -666,7 +678,7 @@ where
 
             SequencingHotShotEvent::Timeout(view_number) => {
                 todo!()
-            }, 
+            }
 
             SequencingHotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) => {
                 // Shouldn't ever receive a timeout for a relay higher than ours
