@@ -1087,7 +1087,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
+                vote_data: VoteData::ViewSync(ViewSyncVoteData::PreCommit(vote_data_internal_commitment).commit()),
             }),
         ))
     }
@@ -1128,7 +1128,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
+                vote_data: VoteData::ViewSync(ViewSyncVoteData::Commit(vote_data_internal_commitment).commit()),
             }),
         ))
     }
@@ -1169,7 +1169,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(vote_data_internal_commitment),
+                vote_data: VoteData::ViewSync(ViewSyncVoteData::Finalize(vote_data_internal_commitment).commit()),
             }),
         ))
     }
@@ -1246,7 +1246,7 @@ impl<
     type Certificate = ViewSyncCertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
-    type Commitment = ViewSyncData<TYPES>;
+    type Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>;
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -1280,12 +1280,12 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        leaf_commitment: Commitment<ViewSyncData<TYPES>>,
+        leaf_commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
-    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, Self::Certificate> {
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

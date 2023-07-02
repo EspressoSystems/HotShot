@@ -18,6 +18,7 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::traits::election::Membership;
+use hotshot_types::traits::election::SignedCertificate;
 
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
@@ -81,7 +82,7 @@ pub struct ViewSyncTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -122,7 +123,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
 }
@@ -149,7 +150,7 @@ pub struct ViewSyncReplicaTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
     pub phantom: PhantomData<(TYPES, I)>,
@@ -183,7 +184,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
 }
@@ -204,9 +205,10 @@ pub struct ViewSyncRelayTaskState<
     >,
 > {
     phantom: PhantomData<(TYPES, I)>,
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub accumulator: Either<
-        VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+        VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>,
         ViewSyncCertificate<TYPES>,
     >,
 }
@@ -248,7 +250,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
@@ -349,36 +351,24 @@ where
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
-                        // TODO ED If task doesn't exist, make it (and check that it is for this relay)
-
                         let vote_internal = match vote {
                             ViewSyncVote::PreCommit(vote_internal) => vote_internal,
-                            ViewSyncVote::Commit(vote_internal) => todo!(),
-                            ViewSyncVote::Finalize(vote_internal) => todo!(),
+                            ViewSyncVote::Commit(vote_internal) => vote_internal,
+                            ViewSyncVote::Finalize(vote_internal) => vote_internal,
                         };
 
-                        // TODO ED Make another function for this that we can change later
-                        if !self
-                            .exchange
-                            .is_leader(vote_internal.round /* + vote.relay */)
+                        if self.task_map.get(&vote_internal.round).is_none()
+                        // TODO ED Also need to account for if entry already exists from a relay bound message
                         {
-                            return;
-                        }
+                            self.task_map.insert(vote_internal.round, (false, true));
 
-                        if self.current_relay_task.is_none()
-                            || self.current_relay_task.unwrap() < vote_internal.round
-                        {
-                            self.current_relay_task = Some(vote_internal.round);
-
-                            let view_sync_data = ViewSyncData::<TYPES> {
-                                round: vote_internal.round,
-                                relay: self
-                                    .exchange
-                                    // TODO ED Add relay to below, just use our own public key instead of get leader function
-                                    .get_leader(vote_internal.round)
-                                    .to_bytes(),
+                            // TODO ED Make another function for this that we can change later
+                            if !self
+                                .exchange
+                                .is_leader(vote_internal.round + vote_internal.relay)
+                            {
+                                return;
                             }
-                            .commit();
 
                             let mut accumulator = VoteAccumulator {
                                 total_vote_outcomes: HashMap::new(),
@@ -388,33 +378,16 @@ where
                                 failure_threshold: self.exchange.failure_threshold(),
                             };
 
-                            let mut accumulator = self.exchange.accumulate_vote(
-                                &vote_internal.signature.0,
-                                &vote_internal.signature.1,
-                                view_sync_data,
-                                vote_internal.vote_data,
-                                vote_internal.vote_token.clone(),
-                                vote_internal.round,
-                                accumulator,
-                            );
-
-                            // TODO ED There is a better way to structure this code above and below, put into own function
-                            match accumulator {
-                                Either::Left(acc) => {
-                                    accumulator = Either::Left(acc);
-                                }
-                                Either::Right(qc) => {
-                                    // TODO ED Need to send out next certificate
-                                    return;
-                                }
-                            }
-
-                            let relay_state = ViewSyncRelayTaskState {
+                            let mut relay_state = ViewSyncRelayTaskState {
                                 phantom: PhantomData,
+                                event_stream: self.event_stream.clone(),
                                 exchange: self.exchange.clone(),
-                                accumulator,
+                                accumulator: either::Left(accumulator),
                             };
-                            let name = format!("View Sync Relay Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
+
+                            relay_state = relay_state.handle_event(event2).await.1;
+
+                            let name = format!("View Sync Relay Task");
 
                             let relay_handle_event = HandleEvent(Arc::new(
                                 move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
@@ -433,6 +406,7 @@ where
                     }
                 }
             }
+
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
@@ -530,7 +504,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
     >,
 {
     pub async fn handle_event(
@@ -543,7 +517,6 @@ where
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => {
-
                     let (certificate_internal, last_seen_certificate) = match certificate.clone() {
                         ViewSyncCertificate::PreCommit(certificate_internal) => (
                             certificate_internal,
@@ -563,7 +536,10 @@ where
                     }
 
                     // If certificate is not valid, return current state
-                    if !self.exchange.is_valid_view_sync_cert(certificate, certificate_internal.round.clone()) {
+                    if !self
+                        .exchange
+                        .is_valid_view_sync_cert(certificate, certificate_internal.round.clone())
+                    {
                         return (None, self);
                     }
 
@@ -781,6 +757,15 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > ViewSyncRelayTaskState<TYPES, I>
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+    >,
 {
     pub async fn handle_event(
         mut self,
@@ -794,9 +779,83 @@ impl<
                 ViewSyncMessageType::Certificate(certificate) => {
                     todo!()
                 }
+                // TODO ED Change name of last seen certificate to just be phase
                 ViewSyncMessageType::Vote(vote) => {
-                    // TODO ED Check if valid vote
-                    todo!()
+                    let (vote_internal, phase) = match vote {
+                        ViewSyncVote::PreCommit(vote_internal) => {
+                            (vote_internal, LastSeenViewSyncCeritificate::PreCommit)
+                        }
+                        ViewSyncVote::Commit(vote_internal) => {
+                            (vote_internal, LastSeenViewSyncCeritificate::Commit)
+                        }
+                        ViewSyncVote::Finalize(vote_internal) => {
+                            (vote_internal, LastSeenViewSyncCeritificate::Finalize)
+                        }
+                    };
+
+                    // TODO ED Make another function for this that we can change later
+                    // Ignore this vote if we are not the correct relay
+                    if !self
+                        .exchange
+                        .is_leader(vote_internal.round + vote_internal.relay)
+                    {
+                        return (None, self);
+                    }
+
+                    let view_sync_data = ViewSyncVoteData::PreCommit(
+                        ViewSyncData::<TYPES> {
+                            round: vote_internal.round,
+                            relay: self.exchange.public_key().to_bytes(),
+                        }
+                        .commit(),
+                    )
+                    .commit();
+
+                    let mut accumulator = self.exchange.accumulate_vote(
+                        &vote_internal.signature.0,
+                        &vote_internal.signature.1,
+                        view_sync_data.clone(),
+                        vote_internal.vote_data,
+                        vote_internal.vote_token.clone(),
+                        vote_internal.round,
+                        self.accumulator.left().unwrap(),
+                    );
+
+                    self.accumulator = match accumulator {
+                        Left(new_accumulator) => Either::Left(new_accumulator),
+                        Right(certificate) => {
+                            // TODO ED Fix enum wrapping so getting data out of View Sync structs isn't so difficult
+                            let (certificate_internal, phase) = match certificate.clone() {
+                                ViewSyncCertificate::PreCommit(certificate_internal) => (
+                                    certificate_internal,
+                                    LastSeenViewSyncCeritificate::PreCommit,
+                                ),
+                                ViewSyncCertificate::Commit(certificate_internal) => {
+                                    (certificate_internal, LastSeenViewSyncCeritificate::Commit)
+                                }
+                                ViewSyncCertificate::Finalize(certificate_internal) => {
+                                    (certificate_internal, LastSeenViewSyncCeritificate::Finalize)
+                                }
+                            };
+                            let message = ViewSyncMessageType::Certificate(
+                                ViewSyncCertificate::from_signatures_and_commitment(
+                                    certificate_internal.round,
+                                    certificate_internal.signatures,
+                                    view_sync_data,
+                                ),
+                            );
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::ViewSyncMessageSend(message))
+                                .await;
+                            Either::Right(certificate)
+                        }
+                    };
+
+                    if phase == LastSeenViewSyncCeritificate::Finalize {
+                        return (Some(HotShotTaskCompleted::Success), self);
+                    } else {
+                        return (None, self);
+                    }
                 }
             },
             _ => todo!(),
