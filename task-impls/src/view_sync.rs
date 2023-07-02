@@ -535,7 +535,7 @@ where
                     // TODO ED Perhaps in the future this should return an error giving more
                     // context
                     if certificate_internal.round > self.next_view {
-                        return (Some(HotShotTaskCompleted::Success), self);
+                        return (Some(HotShotTaskCompleted::ShutDown), self);
                     }
 
                     // Ignore if the certificate is for an already seen phase
@@ -560,7 +560,7 @@ where
 
                     // The protocol has ended
                     if self.phase == LastSeenViewSyncCeritificate::Finalize {
-                        return ((Some(HotShotTaskCompleted::Success)), self);
+                        return ((Some(HotShotTaskCompleted::ShutDown)), self);
                     }
 
                     if certificate_internal.relay > self.relay {
@@ -831,7 +831,7 @@ where
                     };
 
                     if phase == LastSeenViewSyncCeritificate::Finalize {
-                        return (Some(HotShotTaskCompleted::Success), self);
+                        return (Some(HotShotTaskCompleted::ShutDown), self);
                     } else {
                         return (None, self);
                     }
