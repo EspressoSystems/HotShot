@@ -93,11 +93,23 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
+// TODO ED Rename these types to be clearer
 pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken> {
-    /// These signatures are for a 'Yes' QC or ViewSyncCertificate
+    /// These signatures are for a 'Yes' QC
+    /// Means these signatures will all be the same type - Yes signatures
     Yes(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
     /// These signatures are for a 'No' QC
+    /// Means these signatures could be a combination of either Yes or No signatures
     No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+    ViewSyncPreCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+    ViewSyncCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+
+    ViewSyncFinalize(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
@@ -184,6 +196,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
                 builder = builder.var_size_field("QC Type", "No".as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_) | YesNoSignature::ViewSyncCommit(_) | YesNoSignature::ViewSyncFinalize(_) => unimplemented!()
         };
         for (idx, (k, v)) in signatures.iter().enumerate() {
             builder = builder
@@ -248,7 +261,6 @@ impl<TYPES: NodeType>
 
 impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
 
-// TODO ED Fix ViewSyncVoteData and ViewSyncData, they are confusing names
 impl<TYPES: NodeType>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
     for ViewSyncCertificate<TYPES>

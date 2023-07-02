@@ -373,6 +373,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 no_votes >= u64::from(self.failure_threshold())
                     && yes_votes + no_votes >= u64::from(self.success_threshold())
             }
+            YesNoSignature::ViewSyncPreCommit(_) | YesNoSignature::ViewSyncCommit(_) | YesNoSignature::ViewSyncFinalize(_) => unimplemented!()
         }
     }
 
@@ -1224,7 +1225,7 @@ impl<
 
         let votes = match certificate_internal.signatures {
             // TODO ED Update this signature to be ViewSync signature
-            YesNoSignature::Yes(raw_signatures) => raw_signatures
+            YesNoSignature::ViewSyncCommit(raw_signatures)  | YesNoSignature::ViewSyncPreCommit(raw_signatures) | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
                 .iter()
                 .filter(|signature| {
                     self.is_valid_vote(

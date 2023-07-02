@@ -268,41 +268,46 @@ where
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
-        match vote_data {
+        match vote_data.clone() {
             VoteData::DA(_)
             | VoteData::Yes(_)
             | VoteData::ViewSyncCommit(_)
             | VoteData::ViewSyncFinalize(_)
             | VoteData::Timeout(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data, token));
+                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
             VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data, token));
+                no_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
             VoteData::ViewSyncPreCommit(_) => {
                 *viewsync_precommit_stake_casted += u64::from(token.vote_count());
-                viewsync_precommit_vote_map.insert(key, (sig, vote_data, token));
+                viewsync_precommit_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
         }
 
+        // This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
         if *total_stake_casted >= u64::from(self.success_threshold) {
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(YesNoSignature::Yes(valid_signatures));
+                match vote_data {
+                    VoteData::DA(_) | VoteData::Yes(_) | VoteData::No(_) | VoteData::Timeout(_) => return Either::Right(YesNoSignature::Yes(valid_signatures)),
+                    VoteData::ViewSyncPreCommit(_) => unimplemented!(),
+                    VoteData::ViewSyncCommit(_) => return Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures)),
+                    VoteData::ViewSyncFinalize(_) => return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures)),
+                }
+                
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::No(valid_signatures));
             }
         }
 
-        // TODO ED Rename Yes, No signatures to clarify their uses
-        // Yes means only 1 type of vote (Yes), No means 2 possible types of votes (Yes and No votes)
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
             let valid_signatures = self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
 
-            return Either::Right(YesNoSignature::Yes(valid_signatures));
+            return Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
         }
         Either::Left(self)
     }

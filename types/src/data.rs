@@ -766,6 +766,7 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
                 signatures_bytes.extend("No".as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_) | YesNoSignature::ViewSyncCommit(_) | YesNoSignature::ViewSyncFinalize(_) => unimplemented!()
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
@@ -815,6 +816,7 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
 
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_) | YesNoSignature::ViewSyncCommit(_) | YesNoSignature::ViewSyncFinalize(_) => unimplemented!()
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
