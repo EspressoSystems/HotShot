@@ -51,12 +51,12 @@ use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
+// TODO ED Rename
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum LastSeenViewSyncCeritificate {
     None,
     PreCommit,
     Commit,
-    // TODO ED We shouldn't ever reach this stage because this means the protocol is finished
     Finalize,
 }
 
@@ -837,13 +837,7 @@ where
                                     (certificate_internal, LastSeenViewSyncCeritificate::Finalize)
                                 }
                             };
-                            let message = ViewSyncMessageType::Certificate(
-                                ViewSyncCertificate::from_signatures_and_commitment(
-                                    certificate_internal.round,
-                                    certificate_internal.signatures,
-                                    view_sync_data,
-                                ),
-                            );
+                            let message = ViewSyncMessageType::Certificate(certificate.clone());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncMessageSend(message))
                                 .await;

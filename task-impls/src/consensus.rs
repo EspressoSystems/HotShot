@@ -275,7 +275,6 @@ where
                     let view_number = self.cur_view.clone(); 
                     async move {
                         async_sleep(Duration::from_millis(10000)).await;
-                        // TODO ED Needs to know which view number we are timing out?
                         stream.publish(SequencingHotShotEvent::Timeout(ViewNumber::new(*view_number))).await;
                     }
                 });
@@ -492,7 +491,7 @@ where
             }
             SequencingHotShotEvent::ViewSyncMessage(_) => {
                 // update the view in state to the one in the message
-                // TODO ED This info should come in the form of a ViewChange message
+                // TODO ED This info should come in the form of a ViewChange message, update
                 nll_todo()
             }
             _ => {}

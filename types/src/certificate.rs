@@ -123,7 +123,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
-
         commit: Commitment<LEAF>,
     ) -> Self {
         QuorumCertificate {
