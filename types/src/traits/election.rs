@@ -172,6 +172,7 @@ where
         view_number: TIME,
         signatures: YesNoSignature<COMMITTABLE, TOKEN>,
         commit: Commitment<COMMITTABLE>,
+        relay: Option<u64>
     ) -> Self;
 
     /// Get the view number.
@@ -439,6 +440,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     vota_meta.view_number,
                     signatures,
                     vota_meta.commitment,
+                    vota_meta.relay, 
                 ))
             }
         }
@@ -456,6 +458,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
+        relay: Option<u64>
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate>;
 
     /// The committee which votes on proposals.
@@ -654,6 +657,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
+        relay: Option<u64>
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -662,6 +666,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay: None
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -962,6 +967,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, LEAF>,
+        relay: Option<u64>
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, LEAF>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -970,6 +976,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay: None
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -1296,6 +1303,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+        relay: Option<u64>
     ) -> Either<
         VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         Self::Certificate,
@@ -1307,6 +1315,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay,
         };
         self.accumulate_internal(meta, accumlator)
     }

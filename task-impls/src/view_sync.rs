@@ -806,6 +806,7 @@ where
                         vote_internal.vote_token.clone(),
                         vote_internal.round,
                         self.accumulator.left().unwrap(),
+                        Some(vote_internal.relay)
                     );
 
                     self.accumulator = match accumulator {

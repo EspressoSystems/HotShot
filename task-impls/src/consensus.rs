@@ -190,6 +190,8 @@ where
                     vote.vote_token.clone(),
                     state.cur_view,
                     accumulator,
+                    None
+                    
                 ) {
                     Either::Left(acc) => {
                         state.accumulator = Either::Left(acc);
@@ -472,6 +474,7 @@ where
                             vote.vote_token.clone(),
                             vote.current_view,
                             acc,
+                            None
                         );
                         if vote.current_view > *collection_view {
                             let state = VoteCollectionTaskState {
