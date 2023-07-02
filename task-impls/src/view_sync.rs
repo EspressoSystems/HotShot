@@ -543,7 +543,8 @@ where
         match event {
             SequencingHotShotEvent::ViewSyncMessage(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => {
-                    let (certificate_internal, last_seen_certificate) = match certificate {
+
+                    let (certificate_internal, last_seen_certificate) = match certificate.clone() {
                         ViewSyncCertificate::PreCommit(certificate_internal) => (
                             certificate_internal,
                             LastSeenViewSyncCeritificate::PreCommit,
@@ -562,7 +563,7 @@ where
                     }
 
                     // If certificate is not valid, return current state
-                    if !self.exchange.is_valid_view_sync_cert() {
+                    if !self.exchange.is_valid_view_sync_cert(certificate, certificate_internal.round.clone()) {
                         return (None, self);
                     }
 

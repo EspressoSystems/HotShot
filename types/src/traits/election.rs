@@ -5,8 +5,8 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::ViewSyncCertificate;
 use crate::certificate::VoteMetaData;
+use crate::certificate::{self, ViewSyncCertificate};
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
@@ -37,6 +37,7 @@ use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::aead::KeyPair;
+use jf_primitives::signatures;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -1026,7 +1027,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
-    fn is_valid_view_sync_cert(&self) -> bool;
+    fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1185,8 +1186,50 @@ impl<
         (self.public_key.to_bytes(), signature)
     }
 
-    fn is_valid_view_sync_cert(&self) -> bool {
-        todo!()
+    fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
+        // self.is_valid_vote(encoded_key, encoded_signature, data, view_number, vote_token)
+
+        let (certificate_internal, threshold, vote_data) = match certificate.clone() {
+            ViewSyncCertificate::PreCommit(certificate_internal) => {
+                let vote_data = VoteData::ViewSync(
+                    ViewSyncVoteData::PreCommit(
+                        ViewSyncData::<TYPES> {
+                            relay: self.public_key.to_bytes(),
+                            round,
+                        }
+                        .commit(),
+                    )
+                    .commit(),
+                );
+                (certificate_internal, self.failure_threshold(), vote_data)
+            }
+            ViewSyncCertificate::Commit(certificate_internal) => {
+                todo!()
+            }
+            ViewSyncCertificate::Finalize(certificate_internal) => {
+                todo!()
+            }
+        };
+
+        let votes = match certificate_internal.signatures {
+            YesNoSignature::Yes(raw_signatures) => {
+                raw_signatures
+                    .iter()
+                    .filter(|signature| {
+                        self.is_valid_vote(
+                            signature.0,
+                            &signature.1 .0,
+                            signature.1 .1.clone(),
+                            certificate_internal.round,
+                            Checked::Unchecked(signature.1 .2.clone()),
+                        ) && (matches!(&signature.1 .1, vote_data))
+                    })
+                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())))
+            }
+            _ => unimplemented!(),
+        };
+
+        return votes >= threshold.into()
     }
 }
 
