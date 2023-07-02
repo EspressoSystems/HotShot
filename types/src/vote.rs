@@ -292,12 +292,17 @@ where
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 match vote_data {
-                    VoteData::DA(_) | VoteData::Yes(_) | VoteData::No(_) | VoteData::Timeout(_) => return Either::Right(YesNoSignature::Yes(valid_signatures)),
+                    VoteData::DA(_) | VoteData::Yes(_) | VoteData::No(_) | VoteData::Timeout(_) => {
+                        return Either::Right(YesNoSignature::Yes(valid_signatures))
+                    }
                     VoteData::ViewSyncPreCommit(_) => unimplemented!(),
-                    VoteData::ViewSyncCommit(_) => return Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures)),
-                    VoteData::ViewSyncFinalize(_) => return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures)),
+                    VoteData::ViewSyncCommit(_) => {
+                        return Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures))
+                    }
+                    VoteData::ViewSyncFinalize(_) => {
+                        return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures))
+                    }
                 }
-                
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::No(valid_signatures));
@@ -305,7 +310,11 @@ where
         }
 
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
-            let valid_signatures = self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
+            let valid_signatures = self
+                .viewsync_precommit_vote_outcomes
+                .remove(&commitment)
+                .unwrap()
+                .1;
 
             return Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
         }

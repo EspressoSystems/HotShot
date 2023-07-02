@@ -125,7 +125,7 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub view_number: TIME,
     /// The relay index for view sync
     // TODO ED Make VoteMetaData more generic to avoid this variable that only ViewSync uses
-    pub relay: Option<u64>
+    pub relay: Option<u64>,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
@@ -136,7 +136,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         view_number: TYPES::Time,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
         commit: Commitment<LEAF>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Self {
         QuorumCertificate {
             leaf_commitment: commit,
@@ -227,7 +227,7 @@ impl<TYPES: NodeType>
         view_number: TYPES::Time,
         signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>,
         commit: Commitment<TYPES::BlockType>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Self {
         DACertificate {
             view_number,
@@ -274,7 +274,7 @@ impl<TYPES: NodeType>
         view_number: TYPES::Time,
         signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
         commit: Commitment<ViewSyncData<TYPES>>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Self {
         let certificate_internal = ViewSyncCertificateInternal {
             round: view_number,
@@ -307,7 +307,9 @@ impl<TYPES: NodeType>
         match self.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal)
             | ViewSyncCertificate::Commit(certificate_internal)
-            | ViewSyncCertificate::Finalize(certificate_internal) => certificate_internal.signatures,
+            | ViewSyncCertificate::Finalize(certificate_internal) => {
+                certificate_internal.signatures
+            }
         }
     }
 

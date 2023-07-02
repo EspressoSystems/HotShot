@@ -152,7 +152,7 @@ where
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
-                            None
+                            None,
                         ) {
                             Either::Left(acc) => {
                                 accumulator = acc;
@@ -493,7 +493,7 @@ where
                                     vote.vote_token.clone(),
                                     self.cur_view,
                                     accumulator,
-                                    None
+                                    None,
                                 ) {
                                     Either::Left(acc) => {
                                         accumulator = acc;

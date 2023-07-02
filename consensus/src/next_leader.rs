@@ -127,7 +127,7 @@ where
                                 vote.vote_token.clone(),
                                 self.cur_view,
                                 accumlator,
-                                None
+                                None,
                             ) {
                                 Either::Left(acc) => {
                                     accumlator = acc;

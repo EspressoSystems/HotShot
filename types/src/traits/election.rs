@@ -172,7 +172,7 @@ where
         view_number: TIME,
         signatures: YesNoSignature<COMMITTABLE, TOKEN>,
         commit: Commitment<COMMITTABLE>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Self;
 
     /// Get the view number.
@@ -374,7 +374,9 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 no_votes >= u64::from(self.failure_threshold())
                     && yes_votes + no_votes >= u64::from(self.success_threshold())
             }
-            YesNoSignature::ViewSyncPreCommit(_) | YesNoSignature::ViewSyncCommit(_) | YesNoSignature::ViewSyncFinalize(_) => unimplemented!()
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         }
     }
 
@@ -440,7 +442,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     vota_meta.view_number,
                     signatures,
                     vota_meta.commitment,
-                    vota_meta.relay, 
+                    vota_meta.relay,
                 ))
             }
         }
@@ -458,7 +460,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate>;
 
     /// The committee which votes on proposals.
@@ -657,7 +659,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -666,7 +668,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
-            relay: None
+            relay: None,
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -967,7 +969,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, LEAF>,
-        relay: Option<u64>
+        relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, LEAF>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -976,7 +978,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
-            relay: None
+            relay: None,
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -1232,7 +1234,9 @@ impl<
 
         let votes = match certificate_internal.signatures {
             // TODO ED Update this signature to be ViewSync signature
-            YesNoSignature::ViewSyncCommit(raw_signatures)  | YesNoSignature::ViewSyncPreCommit(raw_signatures) | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
+            YesNoSignature::ViewSyncCommit(raw_signatures)
+            | YesNoSignature::ViewSyncPreCommit(raw_signatures)
+            | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
                 .iter()
                 .filter(|signature| {
                     self.is_valid_vote(
@@ -1303,11 +1307,8 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
-        relay: Option<u64>
-    ) -> Either<
-        VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
-        Self::Certificate,
-    > {
+        relay: Option<u64>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
