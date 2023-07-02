@@ -3,6 +3,7 @@
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
 //! can send, and vote accumulator that converts votes into certificates.
 
+use crate::traits::election::ViewSyncVoteData;
 use crate::{
     certificate::{QuorumCertificate, YesNoSignature},
     data::LeafType,
@@ -12,7 +13,6 @@ use crate::{
         signature_key::{EncodedPublicKey, EncodedSignature},
     },
 };
-use crate::traits::election::ViewSyncVoteData;
 use commit::{Commitment, Committable};
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -106,7 +106,6 @@ pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     /// The vote data this vote is signed over
     pub vote_data: VoteData<ViewSyncData<TYPES>>,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -216,6 +215,8 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// Map of all no signatures accumlated so far
     pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// Map of all view sync precommit votes accumulated thus far
+    pub viewsync_precommit_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
@@ -256,6 +257,11 @@ where
             .no_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_precommit_stake_casted, viewsync_precommit_vote_map) = self
+            .viewsync_precommit_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
@@ -263,8 +269,11 @@ where
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
-            // TODO ED Need different threshold for PreCommit view sync vote, but shoudl work with success threshold 
-            VoteData::DA(_) | VoteData::Yes(_) |  VoteData::ViewSyncCommit(_) | VoteData::ViewSyncFinalize(_) => {
+            VoteData::DA(_)
+            | VoteData::Yes(_)
+            | VoteData::ViewSyncCommit(_)
+            | VoteData::ViewSyncFinalize(_)
+            | VoteData::Timeout(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
                 yes_vote_map.insert(key, (sig, vote_data, token));
             }
@@ -272,12 +281,10 @@ where
                 *no_stake_casted += u64::from(token.vote_count());
                 no_vote_map.insert(key, (sig, vote_data, token));
             }
-            VoteData::Timeout(_) => {
-                unimplemented!()
+            VoteData::ViewSyncPreCommit(_) => {
+                *viewsync_precommit_stake_casted += u64::from(token.vote_count());
+                viewsync_precommit_vote_map.insert(key, (sig, vote_data, token));
             }
-            // TODO ED Add ViewSyncPreCommit collection here
-
-            _ => unimplemented!()
         }
 
         if *total_stake_casted >= u64::from(self.success_threshold) {
@@ -288,6 +295,14 @@ where
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::No(valid_signatures));
             }
+        }
+
+        // TODO ED Rename Yes, No signatures to clarify their uses
+        // Yes means only 1 type of vote (Yes), No means 2 possible types of votes (Yes and No votes)
+        if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
+            let valid_signatures = self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
+
+            return Either::Right(YesNoSignature::Yes(valid_signatures));
         }
         Either::Left(self)
     }

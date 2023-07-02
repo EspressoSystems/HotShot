@@ -2,7 +2,6 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
-use hotshot_types::data::ViewNumber;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
@@ -19,6 +18,7 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
+use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
 use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -272,10 +272,14 @@ where
                     // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
                     // TODO(bf): get the real timeout from the config.
                     let stream = self.event_stream.clone();
-                    let view_number = self.cur_view.clone(); 
+                    let view_number = self.cur_view.clone();
                     async move {
                         async_sleep(Duration::from_millis(10000)).await;
-                        stream.publish(SequencingHotShotEvent::Timeout(ViewNumber::new(*view_number))).await;
+                        stream
+                            .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                                *view_number,
+                            )))
+                            .await;
                     }
                 });
                 let consensus = self.consensus.upgradable_read().await;
@@ -454,6 +458,8 @@ where
                             total_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
+                            viewsync_precommit_vote_outcomes: HashMap::new(),
+
                             success_threshold: self.quorum_exchange.success_threshold(),
                             failure_threshold: self.quorum_exchange.failure_threshold(),
                         };

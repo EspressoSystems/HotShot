@@ -94,7 +94,7 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
 pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken> {
-    /// These signatures are for a 'Yes' QC
+    /// These signatures are for a 'Yes' QC or ViewSyncCertificate
     Yes(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
     /// These signatures are for a 'No' QC
     No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
