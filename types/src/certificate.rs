@@ -10,6 +10,7 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use crate::traits::election::ViewSyncVoteData;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
@@ -69,16 +70,24 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewSyncCertificate<TYPES: NodeType> {
+    PreCommit(ViewSyncCertificateInternal<TYPES>),
+    Commit(ViewSyncCertificateInternal<TYPES>),
+    Finalize(ViewSyncCertificateInternal<TYPES>),
+}
+
 /// A view sync certificate representing a quorum of votes for a particular view sync phase
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct ViewSyncCertificate<TYPES: NodeType> {
+pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// Relay the votes are intended for
-    pub relay: EncodedPublicKey,
+    pub relay: u64,
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Threshold Signature
-    pub signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+    pub signatures: YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
@@ -114,7 +123,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
-
         commit: Commitment<LEAF>,
     ) -> Self {
         QuorumCertificate {
@@ -240,15 +248,16 @@ impl<TYPES: NodeType>
 
 impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
 
+// TODO ED Fix ViewSyncVoteData and ViewSyncData, they are confusing names
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>
     for ViewSyncCertificate<TYPES>
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         _view_number: TYPES::Time,
-        _signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
-        _commit: Commitment<ViewSyncData<TYPES>>,
+        _signatures: YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType>,
+        _commit: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
     ) -> Self {
         todo!()
     }
@@ -259,19 +268,19 @@ impl<TYPES: NodeType>
     }
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType> {
+    fn signatures(&self) -> YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType> {
         todo!()
     }
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
     /// Get the leaf commitment.
-    fn leaf_commitment(&self) -> Commitment<ViewSyncData<TYPES>> {
+    fn leaf_commitment(&self) -> Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>> {
         todo!()
     }
 
     /// Set the leaf commitment.
-    fn set_leaf_commitment(&mut self, _commitment: Commitment<ViewSyncData<TYPES>>) {
+    fn set_leaf_commitment(&mut self, _commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>) {
         todo!()
     }
 
