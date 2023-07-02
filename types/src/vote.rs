@@ -263,7 +263,8 @@ where
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
-            VoteData::DA(_) | VoteData::Yes(_) => {
+            // TODO ED Need different threshold for PreCommit view sync vote, but shoudl work with success threshold 
+            VoteData::DA(_) | VoteData::Yes(_) |  VoteData::ViewSync(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
                 yes_vote_map.insert(key, (sig, vote_data, token));
             }
@@ -274,7 +275,8 @@ where
             VoteData::Timeout(_) => {
                 unimplemented!()
             }
-            VoteData::ViewSync(_) => todo!(),
+
+            _ => unimplemented!()
         }
 
         if *total_stake_casted >= u64::from(self.success_threshold) {

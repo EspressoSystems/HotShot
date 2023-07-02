@@ -272,9 +272,6 @@ where
                             }
                         };
 
-                        // TODO ED Perhaps should keep a map of replica task to view number? But seems wasteful.
-                        // Either way, seems like there is perhaps a better way to structure this part
-                        // TODO ED This unwrap will fail? Does Rust only execute the first one?
                         // Start a new view sync replica task
 
                         // TODO ED Could make replica.next_view static and immutable
@@ -294,21 +291,14 @@ where
                         // TODO Also need to account for if entry already exists from a relay bound message
                         // || self.current_replica_task.unwrap() < certificate_internal.round
                         {
-                            // TODO ED Need to check cert is valid to avoid attack of someone sending an invalid cert and messing up everyone's view sync
-                            // TODO Or can use current view to let multiple tasks runs
-                            // TODO ED I think we can delete this:
-                            // if !self.exchange.is_valid_view_sync_cert() {
-                            //     return;
-                            // }
+                            // Need to check cert is valid to avoid attack of someone sending an invalid cert and messing up everyone's view sync
+                            // Or can use current view to let multiple tasks runs
 
                             // TODO ED Don't know if the certificate is valid or not yet...
 
                             self.task_map
                                 .insert(certificate_internal.round, (true, false));
-                            // TODO ED Need to GV old entries once we know we don't need them anymore
-
-                            // self.current_replica_task = Some(certificate_internal.round);
-                            // TODO ED When we receive view sync finished event set this to None
+                            // TODO ED Need to GC old entries once we know we don't need them anymore
 
                             // TODO ED I think this can just be default, make a function
                             // TODO ED Probably don't need current view really
@@ -325,10 +315,8 @@ where
                                 event_stream: self.event_stream.clone(),
                             };
 
-                            // TODO ED Make sure this works correctly
                             // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
                             replica_state = replica_state.handle_event(event2).await.1;
-                            // TODO ED Do we want to have a separate event for this? Or handle it here?
 
                             let name = format!("View Sync Replica Task: Attempting to enter view {:?} from view {:?}", self.next_view, self.current_view);
 
@@ -420,6 +408,7 @@ where
                 // TODO ED Clean up this code, pull it out so it isn't repeated from above
                 // TODO ED Double check we don't have a task already running?  We shouldn't ever have one
                 // TODO ED Only trigger if second timeout
+                // TODO ED Send view change event if only first timeout
                 let mut replica_state = ViewSyncReplicaTaskState {
                     phantom: PhantomData,
                     current_view: self.current_view,
@@ -433,10 +422,8 @@ where
                     event_stream: self.event_stream.clone(),
                 };
 
-                // TODO ED Make sure this works correctly
                 // TODO ED Only if returns that replica state should keep running, if is finalized cert then it should stop
                 replica_state = replica_state.handle_event(event2).await.1;
-                // TODO ED Do we want to have a separate event for this? Or handle it here?
 
                 let name = format!(
                     "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
@@ -559,11 +546,6 @@ where
 
                     self.phase = last_seen_certificate;
 
-                    // The protocol has ended
-                    if self.phase == LastSeenViewSyncCeritificate::Finalize {
-                        return ((Some(HotShotTaskCompleted::Success)), self);
-                    }
-
                     // Send ViewChange event if necessary
                     if self.phase >= LastSeenViewSyncCeritificate::Commit
                         && !self.sent_view_change_event
@@ -574,6 +556,11 @@ where
                             )))
                             .await;
                         self.sent_view_change_event = true;
+                    }
+
+                    // The protocol has ended
+                    if self.phase == LastSeenViewSyncCeritificate::Finalize {
+                        return ((Some(HotShotTaskCompleted::Success)), self);
                     }
 
                     if certificate_internal.relay > self.relay {
@@ -614,21 +601,20 @@ where
                                     .await;
                             }
 
-                            // TODO ED Insert relay logic once create message functions are finished
                             if self.relay > 0 {
                                 let message = match self.phase {
                                     LastSeenViewSyncCeritificate::None => unimplemented!(),
                                     LastSeenViewSyncCeritificate::PreCommit => {
                                         self.exchange.create_precommit_message::<I>(
                                             self.next_view,
-                                            self.relay,
+                                            0,
                                             vote_token.clone(),
                                         )
                                     }
                                     LastSeenViewSyncCeritificate::Commit => {
                                         self.exchange.create_commit_message::<I>(
                                             self.next_view,
-                                            self.relay,
+                                            0,
                                             vote_token.clone(),
                                         )
                                     }
@@ -647,7 +633,6 @@ where
                                 let phase = self.phase.clone();
                                 async move {
                                     async_sleep(Duration::from_millis(10000)).await;
-                                    // TODO ED Needs to know which view number we are timing out?
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                             ViewNumber::new(*self.next_view),
