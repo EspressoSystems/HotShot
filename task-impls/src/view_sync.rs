@@ -19,6 +19,7 @@ use hotshot_task::{
 };
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::SignedCertificate;
+use hotshot_types::traits::election::VoteData;
 
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
@@ -82,7 +83,7 @@ pub struct ViewSyncTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -123,7 +124,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
 }
@@ -150,7 +151,7 @@ pub struct ViewSyncReplicaTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
     pub phantom: PhantomData<(TYPES, I)>,
@@ -184,7 +185,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
 }
@@ -208,7 +209,7 @@ pub struct ViewSyncRelayTaskState<
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub accumulator: Either<
-        VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         ViewSyncCertificate<TYPES>,
     >,
 }
@@ -250,7 +251,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
@@ -491,7 +492,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
     pub async fn handle_event(
@@ -749,7 +750,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>,
+        Commitment = ViewSyncData<TYPES>,
     >,
 {
     pub async fn handle_event(
@@ -787,14 +788,13 @@ where
                         return (None, self);
                     }
 
-                    let view_sync_data = ViewSyncVoteData::PreCommit(
+                    // TODO ED Put actual VoteData here
+                    let view_sync_data = 
                         ViewSyncData::<TYPES> {
                             round: vote_internal.round,
                             relay: self.exchange.public_key().to_bytes(),
                         }
-                        .commit(),
-                    )
-                    .commit();
+                        .commit();
 
                     let mut accumulator = self.exchange.accumulate_vote(
                         &vote_internal.signature.0,

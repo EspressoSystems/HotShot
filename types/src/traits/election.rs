@@ -86,9 +86,10 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
-    /// Vote to sync the network on a particular view
-    // TODO ED Change this to ViewSyncVoteData<COMMITABLE>
-    ViewSync(Commitment<COMMITTABLE>),
+
+    ViewSyncPreCommit(Commitment<COMMITTABLE>),
+    ViewSyncCommit(Commitment<COMMITTABLE>),
+    ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
 /// Data which `ViewSyncVotes` are signed over
@@ -1088,7 +1089,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(ViewSyncVoteData::PreCommit(vote_data_internal_commitment).commit()),
+                vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
             }),
         ))
     }
@@ -1099,7 +1100,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSync(ViewSyncVoteData::PreCommit(commitment).commit()).as_bytes(),
+            &VoteData::ViewSyncPreCommit(commitment).as_bytes(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1129,7 +1130,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(ViewSyncVoteData::Commit(vote_data_internal_commitment).commit()),
+                vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
             }),
         ))
     }
@@ -1140,7 +1141,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSync(ViewSyncVoteData::Commit(commitment).commit()).as_bytes(),
+            &VoteData::ViewSyncCommit(commitment).as_bytes(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1170,7 +1171,7 @@ impl<
                 round,
                 signature,
                 vote_token,
-                vote_data: VoteData::ViewSync(ViewSyncVoteData::Finalize(vote_data_internal_commitment).commit()),
+                vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
             }),
         ))
     }
@@ -1181,56 +1182,64 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSync(ViewSyncVoteData::Finalize(commitment).commit()).as_bytes(),
+            &VoteData::ViewSyncFinalize(commitment).as_bytes(),
         );
 
         (self.public_key.to_bytes(), signature)
     }
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        // self.is_valid_vote(encoded_key, encoded_signature, data, view_number, vote_token)
-
         let (certificate_internal, threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
-                let vote_data = VoteData::ViewSync(
-                    ViewSyncVoteData::PreCommit(
-                        ViewSyncData::<TYPES> {
-                            relay: self.public_key.to_bytes(),
-                            round,
-                        }
-                        .commit(),
-                    )
+                let vote_data = VoteData::ViewSyncPreCommit(
+                    ViewSyncData::<TYPES> {
+                        relay: self.public_key.to_bytes(),
+                        round,
+                    }
                     .commit(),
                 );
                 (certificate_internal, self.failure_threshold(), vote_data)
             }
             ViewSyncCertificate::Commit(certificate_internal) => {
-                todo!()
+                let vote_data = VoteData::ViewSyncCommit(
+                    ViewSyncData::<TYPES> {
+                        relay: self.public_key.to_bytes(),
+                        round,
+                    }
+                    .commit(),
+                );
+                (certificate_internal, self.success_threshold(), vote_data)
             }
             ViewSyncCertificate::Finalize(certificate_internal) => {
-                todo!()
+                let vote_data = VoteData::ViewSyncFinalize(
+                    ViewSyncData::<TYPES> {
+                        relay: self.public_key.to_bytes(),
+                        round,
+                    }
+                    .commit(),
+                );
+                (certificate_internal, self.success_threshold(), vote_data)
             }
         };
 
         let votes = match certificate_internal.signatures {
-            YesNoSignature::Yes(raw_signatures) => {
-                raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        self.is_valid_vote(
-                            signature.0,
-                            &signature.1 .0,
-                            signature.1 .1.clone(),
-                            certificate_internal.round,
-                            Checked::Unchecked(signature.1 .2.clone()),
-                        ) && (matches!(&signature.1 .1, vote_data))
-                    })
-                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())))
-            }
+            // TODO ED Update this signature to be ViewSync signature
+            YesNoSignature::Yes(raw_signatures) => raw_signatures
+                .iter()
+                .filter(|signature| {
+                    self.is_valid_vote(
+                        signature.0,
+                        &signature.1 .0,
+                        signature.1 .1.clone(),
+                        certificate_internal.round,
+                        Checked::Unchecked(signature.1 .2.clone()),
+                    ) && (matches!(&signature.1 .1, vote_data))
+                })
+                .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
             _ => unimplemented!(),
         };
 
-        return votes >= threshold.into()
+        return votes >= threshold.into();
     }
 }
 
@@ -1247,7 +1256,7 @@ impl<
     type Certificate = ViewSyncCertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
-    type Commitment = ViewSyncVoteData<ViewSyncData<TYPES>>;
+    type Commitment = ViewSyncData<TYPES>;
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -1281,12 +1290,15 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        leaf_commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        leaf_commitment: Commitment<ViewSyncData<TYPES>>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>,
-    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>, Self::Certificate> {
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+    ) -> Either<
+        VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+        Self::Certificate,
+    > {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

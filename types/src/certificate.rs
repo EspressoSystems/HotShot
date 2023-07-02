@@ -87,7 +87,7 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Threshold Signature
-    pub signatures: YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType>,
+    pub signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
@@ -250,14 +250,14 @@ impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
 
 // TODO ED Fix ViewSyncVoteData and ViewSyncData, they are confusing names
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncVoteData<ViewSyncData<TYPES>>>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
     for ViewSyncCertificate<TYPES>
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         _view_number: TYPES::Time,
-        _signatures: YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType>,
-        _commit: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>,
+        _signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+        _commit: Commitment<ViewSyncData<TYPES>>,
     ) -> Self {
         todo!()
     }
@@ -268,19 +268,19 @@ impl<TYPES: NodeType>
     }
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<ViewSyncVoteData<ViewSyncData<TYPES>>, TYPES::VoteTokenType> {
+    fn signatures(&self) -> YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType> {
         todo!()
     }
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
     /// Get the leaf commitment.
-    fn leaf_commitment(&self) -> Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>> {
+    fn leaf_commitment(&self) -> Commitment<ViewSyncData<TYPES>> {
         todo!()
     }
 
     /// Set the leaf commitment.
-    fn set_leaf_commitment(&mut self, _commitment: Commitment<ViewSyncVoteData<ViewSyncData<TYPES>>>) {
+    fn set_leaf_commitment(&mut self, _commitment: Commitment<ViewSyncData<TYPES>>) {
         todo!()
     }
 
