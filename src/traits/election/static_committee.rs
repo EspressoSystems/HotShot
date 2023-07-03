@@ -129,7 +129,7 @@ where
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
-        // Sishan NOTE: change the length from 8 to 32
+        // Sishan NOTE: change the length from 8 to 32, use defined constant? instead of 32.
         message.extend_from_slice(&[0u8; 32 - 8]);
         let signature = PUBKEY::sign(private_key, key_pair_test.clone(), &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
