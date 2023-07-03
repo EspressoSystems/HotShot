@@ -164,6 +164,7 @@ impl<
             | SequencingHotShotEvent::QuorumVoteSend(_)
             | SequencingHotShotEvent::DAProposalSend(_)
             | SequencingHotShotEvent::DAVoteSend(_)
+            | SequencingHotShotEvent::ViewSyncMessageSend(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
