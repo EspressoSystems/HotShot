@@ -1,7 +1,6 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::art::async_spawn;
-use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::channel::UnboundedStream;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
@@ -13,6 +12,7 @@ use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::task::HandleEvent;
 use hotshot_task::task::HotShotTaskCompleted;
 use hotshot_task::task_impls::TaskBuilder;
+use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, TaskErr, TS},
@@ -97,7 +97,6 @@ pub struct ViewSyncTaskState<
     pub api: A,
 
     // pub task_runner: TaskRunner,
-
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
@@ -288,7 +287,6 @@ where
 
                             // TODO ED Need to GC old entries in task map once we know we don't need them anymore
                             let mut replica_state = ViewSyncReplicaTaskState {
-                       
                                 current_view: certificate_internal.round,
                                 next_view: certificate_internal.round,
                                 relay: 0,
@@ -382,7 +380,6 @@ where
                             };
 
                             let mut relay_state = ViewSyncRelayTaskState {
-                              
                                 event_stream: self.event_stream.clone(),
                                 exchange: self.exchange.clone(),
                                 accumulator: either::Left(accumulator),
@@ -430,8 +427,6 @@ where
                 // TODO ED Combine this code with other replica code since some of it is repeated
                 self.num_timeouts_tracked += 1;
 
-                // TODO ED Send ViewChange event here?
-
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked == 2 {
                     let (is_replica_running, _) = self
@@ -442,7 +437,6 @@ where
                     *is_replica_running = true;
 
                     let mut replica_state = ViewSyncReplicaTaskState {
-                       
                         current_view: self.current_view,
                         next_view: TYPES::Time::new(*view_number),
                         relay: 0,
@@ -482,6 +476,14 @@ where
                             .await
                             .register_state(replica_state)
                             .register_event_handler(replica_handle_event);
+                } else {
+                    // If this is the first timeout we've seen advance to the next view
+                    self.current_view + 1; 
+                    self.event_stream
+                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                            *self.current_view,
+                        )))
+                        .await;
                 }
             }
 
