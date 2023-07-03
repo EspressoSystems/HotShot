@@ -55,6 +55,7 @@ use std::{
     },
     time::Duration,
 };
+use nll::nll_todo::nll_todo;
 use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
@@ -580,11 +581,11 @@ where
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {
         event_stream: event_stream.clone(),
-        filtered_event_stream: todo!(),
+        filtered_event_stream: nll_todo(),
         current_view: TYPES::Time::new(0),
         next_view: TYPES::Time::new(0),
-        exchange: todo!(),
-        api: todo!(),
+        exchange: nll_todo(),
+        api: nll_todo(),
         num_timeouts_tracked: 0,
         task_map: HashMap::default(),
         view_sync_timeout: Duration::new(10, 0),
