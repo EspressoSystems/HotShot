@@ -91,17 +91,16 @@ pub struct ViewSyncTaskState<
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
 
-    current_replica_task: Option<TYPES::Time>,
-    current_relay_task: Option<TYPES::Time>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
-
     pub api: A,
 
-    // How many timeouts we've seen in a row; is reset upon a successful view change
+    /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
-    // Represents if replica task is running, if relay task is running
+    /// Represents if replica task is running, if relay task is running
     pub task_map: HashMap<TYPES::Time, (bool, bool)>,
+
+    pub view_sync_timeout: Duration
 }
 
 impl<
@@ -154,6 +153,7 @@ pub struct ViewSyncReplicaTaskState<
     >,
 {
     pub phantom: PhantomData<(TYPES, I)>,
+    pub view_sync_timeout: Duration,
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
     pub phase: ViewSyncPhase,
@@ -295,6 +295,7 @@ where
                                 exchange: self.exchange.clone(),
                                 api: self.api.clone(),
                                 event_stream: self.event_stream.clone(),
+                                view_sync_timeout: self.view_sync_timeout,
                             };
 
                             let result = replica_state.handle_event(event).await;
@@ -362,6 +363,7 @@ where
                                 event_stream: self.event_stream.clone(),
                                 exchange: self.exchange.clone(),
                                 accumulator: either::Left(accumulator),
+
                             };
 
                             let result = relay_state.handle_event(event).await;
@@ -428,6 +430,7 @@ where
                         exchange: self.exchange.clone(),
                         api: self.api.clone(),
                         event_stream: self.event_stream.clone(),
+                        view_sync_timeout: self.view_sync_timeout
                     };
 
                     let result = replica_state.handle_event(event).await;
@@ -640,7 +643,7 @@ where
                                 let stream = self.event_stream.clone();
                                 let phase = self.phase.clone();
                                 async move {
-                                    async_sleep(Duration::from_millis(10000)).await;
+                                    async_sleep(self.view_sync_timeout).await;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                             ViewNumber::new(*self.next_view),
@@ -714,7 +717,7 @@ where
                                 let stream = self.event_stream.clone();
                                 async move {
                                     // TODO ED Add actual timeout parameter
-                                    async_sleep(Duration::from_millis(10000)).await;
+                                    async_sleep(self.view_sync_timeout).await;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                             ViewNumber::new(*self.next_view),

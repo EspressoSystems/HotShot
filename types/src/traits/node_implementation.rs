@@ -184,9 +184,7 @@ pub trait ExchangesType<
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
-    // fn view_sync_exchange(&self) -> &ViewSyncExchangeType<TYPES, MESSAGE>;
-
-    // TODO ED Add view sync exchange here
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange;
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
     /// networks.
@@ -282,6 +280,10 @@ where
 
     fn quorum_exchange(&self) -> &Self::QuorumExchange {
         &self.quorum_exchange
+    }
+
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange  {
+        &self.view_sync_exchange
     }
 
     async fn wait_for_networks_ready(&self) {
@@ -386,6 +388,10 @@ where
 
     fn quorum_exchange(&self) -> &Self::QuorumExchange {
         &self.quorum_exchange
+    }
+
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange {
+        &self.view_sync_exchange
     }
 
     async fn wait_for_networks_ready(&self) {
