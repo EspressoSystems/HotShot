@@ -24,6 +24,8 @@ use snafu::Snafu;
 use std::marker::PhantomData;
 use tracing::warn;
 
+use nll::nll_todo::nll_todo;
+
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -84,6 +86,9 @@ impl<
                     GeneralConsensusMessage::Vote(vote) => {
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
                     }
+                    GeneralConsensusMessage::ViewSync(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncMessage(view_sync_message)
+                    }
                     _ => {
                         warn!("Got unexpected message type in network task!");
                         return;
@@ -122,6 +127,13 @@ impl<
                 SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
                 vote.signature().clone(),
             ),
+            SequencingHotShotEvent::ViewSyncMessageSend(view_sync_message) => (
+                SequencingMessage(Left(GeneralConsensusMessage::ViewSync(
+                    view_sync_message.clone(),
+                ))),
+                
+                nll_todo()
+            ),
             SequencingHotShotEvent::DAProposalSend(proposal) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
                     proposal.clone(),
@@ -132,6 +144,7 @@ impl<
                 SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 vote.signature.1.clone(),
             ),
+            // TODO ED Add view sync message handling
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
                 return;
