@@ -1,6 +1,7 @@
 use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use digest::generic_array::GenericArray;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
@@ -128,6 +129,7 @@ where
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
+        // let mut message = GenericArray::from_slice(&vec_message); 
         let signature = PUBKEY::sign(private_key, key_pair_test.clone(), &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
