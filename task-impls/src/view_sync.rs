@@ -551,7 +551,6 @@ where
                     }
 
                     // Ignore if the certificate is for an already seen phase
-                    // TODO ED Change 'phase' to last_seen_certificate for better clarity
                     if last_seen_certificate <= self.phase {
                         return (None, self);
                     }
@@ -716,7 +715,6 @@ where
                             async_spawn({
                                 let stream = self.event_stream.clone();
                                 async move {
-                                    // TODO ED Add actual timeout parameter
                                     async_sleep(self.view_sync_timeout).await;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
