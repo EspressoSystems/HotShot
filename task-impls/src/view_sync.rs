@@ -1,6 +1,7 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::art::async_spawn;
+use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::channel::UnboundedStream;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
@@ -85,8 +86,7 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-    // TODO ED Add task runner? 
-
+    // TODO ED Add task runner?
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
@@ -96,13 +96,15 @@ pub struct ViewSyncTaskState<
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub api: A,
 
+    // pub task_runner: TaskRunner,
+
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
     /// Represents if replica task is running, if relay task is running
     pub task_map: HashMap<TYPES::Time, (bool, bool)>,
 
-    pub view_sync_timeout: Duration
+    pub view_sync_timeout: Duration,
 }
 
 impl<
@@ -154,7 +156,6 @@ pub struct ViewSyncReplicaTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-    pub phantom: PhantomData<(TYPES, I)>,
     pub view_sync_timeout: Duration,
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
@@ -204,7 +205,6 @@ pub struct ViewSyncRelayTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
-    phantom: PhantomData<(TYPES, I)>,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub accumulator: Either<
@@ -254,6 +254,7 @@ where
     >,
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
+        // TODO ED Match on &event
         match event.clone() {
             SequencingHotShotEvent::ViewSyncMessage(message) => {
                 match message {
@@ -287,7 +288,7 @@ where
 
                             // TODO ED Need to GC old entries in task map once we know we don't need them anymore
                             let mut replica_state = ViewSyncReplicaTaskState {
-                                phantom: PhantomData,
+                       
                                 current_view: certificate_internal.round,
                                 next_view: certificate_internal.round,
                                 relay: 0,
@@ -327,6 +328,25 @@ where
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
                             // TODO ED Launch task
+
+                            //     let view_sync_task_builder =
+                            //     TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())
+                            //         .register_event_stream(event_stream.clone(), view_sync_event_filter)
+                            //         .await
+                            //         .register_registry(&mut registry.clone())
+                            //         .await
+                            //         .register_state(view_sync_state)
+                            //         .register_event_handler(view_sync_event_handler);
+                            // // impossible for unwrap to fail
+                            // // we *just* registered
+                            // let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
+
+                            // let view_sync_task = ViewSyncTaskStateTypes::build(view_sync_task_builder).launch();
+                            // task_runner.add_task(
+                            //     view_sync_task_id,
+                            //     view_sync_name.to_string(),
+                            //     view_sync_task,
+                            // )
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -362,11 +382,10 @@ where
                             };
 
                             let mut relay_state = ViewSyncRelayTaskState {
-                                phantom: PhantomData,
+                              
                                 event_stream: self.event_stream.clone(),
                                 exchange: self.exchange.clone(),
                                 accumulator: either::Left(accumulator),
-
                             };
 
                             let result = relay_state.handle_event(event).await;
@@ -420,10 +439,10 @@ where
                         .entry(TYPES::Time::new(*view_number))
                         .or_insert_with(|| (false, false));
 
-                    *is_replica_running = true; 
+                    *is_replica_running = true;
 
                     let mut replica_state = ViewSyncReplicaTaskState {
-                        phantom: PhantomData,
+                       
                         current_view: self.current_view,
                         next_view: TYPES::Time::new(*view_number),
                         relay: 0,
@@ -433,7 +452,7 @@ where
                         exchange: self.exchange.clone(),
                         api: self.api.clone(),
                         event_stream: self.event_stream.clone(),
-                        view_sync_timeout: self.view_sync_timeout
+                        view_sync_timeout: self.view_sync_timeout,
                     };
 
                     let result = replica_state.handle_event(event).await;
@@ -443,7 +462,7 @@ where
                         return;
                     }
 
-                    replica_state = result.1; 
+                    replica_state = result.1;
 
                     let name = format!(
                         "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
@@ -473,7 +492,7 @@ where
     /// Filter view sync related events.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            | SequencingHotShotEvent::ViewSyncMessage(_)
+            SequencingHotShotEvent::ViewSyncMessage(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)

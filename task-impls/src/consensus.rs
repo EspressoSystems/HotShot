@@ -497,10 +497,11 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::ViewSyncMessage(_) => {
+            SequencingHotShotEvent::ViewChange(new_view) => {
                 // update the view in state to the one in the message
-                // TODO ED This info should come in the form of a ViewChange message, update
-                nll_todo()
+                if self.cur_view < TYPES::Time::new(*new_view) {
+                    self.cur_view = TYPES::Time::new(*new_view);
+                }
             }
             _ => {}
         }
