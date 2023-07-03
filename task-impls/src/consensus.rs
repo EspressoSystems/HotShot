@@ -195,7 +195,7 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
+                            .publish(SequencingHotShotEvent::QCSend(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
                         return (None, state);

@@ -22,7 +22,7 @@ use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::SequencingLeaf,
+    data::{ProposalType, SequencingLeaf},
     message::{ProcessedSequencingMessage, SequencingMessage},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -59,12 +59,6 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
-    /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
-    /// Channel for accepting leader proposals and timeouts messages.
-    #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The `high_qc` per spec
@@ -73,14 +67,8 @@ pub struct DATaskState<
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
-    /// needed to typecheck
-    pub _pd: PhantomData<I>,
-
     /// Current Vote collection task, with it's view.
     pub vote_collector: (TYPES::Time, JoinHandle<()>),
-
-    /// timeout task handle
-    pub timeout_task: JoinHandle<()>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -163,7 +151,7 @@ where
                 Right(dac) => {
                     state
                         .event_stream
-                        .publish(SequencingHotShotEvent::DACFormed(dac.clone()))
+                        .publish(SequencingHotShotEvent::DACSend(dac.clone()))
                         .await;
                     state.accumulator = Right(dac);
                     return (None, state);
@@ -196,19 +184,12 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                self.timeout_task = async_spawn({
-                    // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-                    // let next_view_timeout = next_view_timeout;
-                    // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                    // TODO(bf): get the real timeout from the config.
-                    let stream = self.event_stream.clone();
-                    async move {
-                        async_sleep(Duration::from_millis(10000)).await;
-                        stream.publish(SequencingHotShotEvent::Timeout).await;
-                    }
-                });
+                let view = proposal.data.get_view_number();
+                if view < self.cur_view {
+                    return;
+                }
                 let block_commitment = proposal.data.deltas.commit();
-                let view_leader_key = self.committee_exchange.get_leader(self.cur_view);
+                let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
                     return;
                 }
@@ -217,29 +198,26 @@ where
                     return;
                 }
 
-                let vote_token = self.committee_exchange.make_vote_token(self.cur_view);
+                let vote_token = self.committee_exchange.make_vote_token(view);
                 match vote_token {
                     Err(e) => {
-                        error!(
-                            "Failed to generate vote token for {:?} {:?}",
-                            self.cur_view, e
-                        );
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for DA committee on {:?}", self.cur_view);
+                        info!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        info!("We were chosen for DA committee on {:?}", self.cur_view);
+                        info!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
                         let message = self.committee_exchange.create_da_message::<I>(
                             self.high_qc.commit(),
                             block_commitment,
-                            self.cur_view,
+                            view,
                             vote_token,
                         );
 
-                        info!("Sending vote to the leader {:?}", message);
+                        self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
                             info!("Sending vote to the DA leader {:?}", vote);
@@ -324,9 +302,9 @@ pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     DAVoteCollectionTaskState<TYPES, I>,
 >;
 
-pub type DATaskTypes<TYPES, I, A> = HSTWithEvent<
+pub type DATaskTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    DATaskState<TYPES, I, A>,
+    DATaskState<TYPES, I>,
 >;
