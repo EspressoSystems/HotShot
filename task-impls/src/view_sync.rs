@@ -85,6 +85,8 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    // TODO ED Add task runner? 
+
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
@@ -324,6 +326,7 @@ where
                                 .await
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
+                            // TODO ED Launch task
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
