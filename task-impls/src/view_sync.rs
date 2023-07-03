@@ -36,7 +36,6 @@ use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::ViewSyncExchangeType;
-use hotshot_types::traits::election::ViewSyncVoteData;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;

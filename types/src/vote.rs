@@ -3,7 +3,6 @@
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
 //! can send, and vote accumulator that converts votes into certificates.
 
-use crate::traits::election::ViewSyncVoteData;
 use crate::{
     certificate::{QuorumCertificate, YesNoSignature},
     data::LeafType,

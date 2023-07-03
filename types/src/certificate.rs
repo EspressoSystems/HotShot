@@ -1,6 +1,6 @@
 //! Provides two types of cerrtificates and their accumulators.
 
-use crate::traits::election::ViewSyncVoteData;
+
 use crate::vote::ViewSyncData;
 use crate::{
     data::{fake_commitment, LeafType},

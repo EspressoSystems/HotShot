@@ -92,36 +92,6 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
-/// Data which `ViewSyncVotes` are signed over
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
-    /// A precommit vote
-    PreCommit(Commitment<COMMITTABLE>),
-    /// A commit vote
-    Commit(Commitment<COMMITTABLE>),
-    /// A finalize vote
-    Finalize(Commitment<COMMITTABLE>),
-}
-
-impl<COMMITTABLE: Committable + Serialize + Clone> Committable for ViewSyncVoteData<COMMITTABLE> {
-    fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("View Sync Vote Commitment");
-
-        builder.var_size_field("Phase", &self.as_bytes()).finalize()
-    }
-}
-
-impl<COMMITTABLE: Committable + Serialize + Clone> ViewSyncVoteData<COMMITTABLE> {
-    #[must_use]
-    /// Convert vote data into bytes.
-    ///
-    /// # Panics
-    /// Panics if the serialization fails.
-    pub fn as_bytes(&self) -> Vec<u8> {
-        bincode_opts().serialize(&self).unwrap()
-    }
-}
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
