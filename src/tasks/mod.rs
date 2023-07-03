@@ -36,7 +36,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use nll::nll_todo::nll_todo;
+
 use snafu::Snafu;
 use std::{
     collections::HashMap,

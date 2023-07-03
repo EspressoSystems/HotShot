@@ -5,7 +5,7 @@
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use nll::nll_todo::nll_todo;
+
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]

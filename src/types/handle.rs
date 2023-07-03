@@ -4,11 +4,11 @@ use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
 use crate::{
-    traits::{NetworkError::ShutDown, NodeImplementation},
-    types::{Event, HotShotError::NetworkFault},
+    traits::{NodeImplementation},
+    types::{Event},
     SystemContext,
 };
-use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+
 use commit::Committable;
 use futures::FutureExt;
 use futures::Stream;
@@ -22,7 +22,7 @@ use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
-    error::{HotShotError, RoundTimedoutState},
+    error::{HotShotError},
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
@@ -33,12 +33,11 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use nll::nll_todo::nll_todo;
+
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tracing::{debug, error};
+use tracing::{error};
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
