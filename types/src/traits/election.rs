@@ -1233,7 +1233,6 @@ impl<
         };
 
         let votes = match certificate_internal.signatures {
-            // TODO ED Update this signature to be ViewSync signature
             YesNoSignature::ViewSyncCommit(raw_signatures)
             | YesNoSignature::ViewSyncPreCommit(raw_signatures)
             | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
