@@ -228,14 +228,14 @@ where
         println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
         // Sishan NOTE: for QC Aggregation
-        // Sishan NOTE TODO: change 32 to a defined constant
-        let pointer = data.as_ptr() as *const [u8; 32];
-        let mut msg_test = unsafe { *pointer };
+        let mut generic_msg_test = GenericArray::from_slice(data);
+        println!("generic_msg_test = {:?}", generic_msg_test);
         println!("data = {:?}", data);
         let agg_signature_test =
             BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
                 &(),
-                &msg_test.into(),
+                &generic_msg_test,
+                // &msg_test.into(),
                 key_pair_test.sign_key_ref(),
                 &mut rand::thread_rng());
         let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
