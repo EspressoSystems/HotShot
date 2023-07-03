@@ -468,7 +468,7 @@ where
     }
 
     /// Filter view sync related events.
-    fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
+    pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             | SequencingHotShotEvent::ViewSyncMessage(_)
             | SequencingHotShotEvent::Shutdown
