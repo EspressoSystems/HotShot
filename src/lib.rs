@@ -812,6 +812,7 @@ where
 
         let _quorum_exchange = self.inner.exchanges.quorum_exchange();
         let _committee_exchange = self.inner.exchanges.committee_exchange();
+        let _view_sync_exchange = self.inner.exchanges.view_sync_exchange();
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
         // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
