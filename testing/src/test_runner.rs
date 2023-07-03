@@ -56,7 +56,7 @@ where
     next_node_id: u64,
 }
 
-struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
     pub handle: SystemContextHandle<TYPES, I>,
 }

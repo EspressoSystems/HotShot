@@ -38,7 +38,7 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use hotshot_task::{event_stream::ChannelStream, global_registry};
+use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -239,8 +239,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             transactions: Arc::default(),
             saved_leaves,
             saved_blocks,
-            // TODO this is incorrect
-            // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: anchored_leaf.get_justify_qc(),
             metrics: consensus_metrics,

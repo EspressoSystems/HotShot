@@ -9,6 +9,7 @@ use crate::{
     SystemContext,
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use async_compatibility_layer::channel::UnboundedStream;
 use commit::Committable;
 use futures::FutureExt;
 use futures::Stream;
@@ -134,6 +135,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub async fn get_event_stream(&mut self, filter: FilterEvent<Event<TYPES, I::Leaf>>) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
         self.output_event_stream.subscribe(filter).await
     }
+
+    /// HACK so we can know the types when running tests...
+    /// there are two cleaner solutions:
+    /// - make the stream generic and in nodetypes or nodeimpelmentation
+    /// - type wrapper
+    pub async fn get_event_stream_known_impl(
+        &mut self,
+        filter: FilterEvent<Event<TYPES, I::Leaf>>,
+    ) -> (UnboundedStream<Event<TYPES, I::Leaf>> , StreamId) {
+        self.output_event_stream.subscribe(filter).await
+    }
+
+
 
     /// Gets the current committed state of the [`HotShot`] instance
     ///

@@ -11,10 +11,12 @@
 
 use Poll::{Pending, Ready};
 
-use event_stream::SendableStream;
+use either::Either;
+use event_stream::{SendableStream, EventStream};
 // The spawner of the task should be able to fire and forget the task if it makes sense.
 use futures::{stream::Fuse, Stream, StreamExt, Future, future::BoxFuture};
 use nll::nll_todo::nll_todo;
+use task::PassType;
 use std::{
     pin::Pin,
     task::{Context, Poll}, marker::PhantomData, sync::Arc,
@@ -82,22 +84,18 @@ impl<T, U> Merge<T, U> {
 impl<T, U> Stream for Merge<T, U>
 where
     T: Stream,
-    U: Stream<Item = T::Item>,
+    U: Stream,
 {
-    type Item = T::Item;
+    type Item = Either<T::Item, U::Item>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let me = self.project();
         let a_first = *me.a_first;
 
         // Toggle the flag
         *me.a_first = !a_first;
 
-        if a_first {
-            poll_next(me.a, me.b, cx)
-        } else {
-            poll_next(me.b, me.a, cx)
-        }
+        poll_next(me.a, me.b, cx, a_first)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -113,28 +111,46 @@ where
     }
 }
 
+impl<X: Stream + SendableStream, Y: Stream + SendableStream> SendableStream for Merge<X, Y> { }
+
 /// poll the next item in the merged stream
 fn poll_next<T, U>(
     first: Pin<&mut T>,
     second: Pin<&mut U>,
     cx: &mut Context<'_>,
-) -> Poll<Option<T::Item>>
+    order: bool
+) -> Poll<Option<Either<T::Item, U::Item>>>
 where
     T: Stream,
-    U: Stream<Item = T::Item>,
+    U: Stream,
 {
     let mut done = true;
 
-    match first.poll_next(cx) {
-        Ready(Some(val)) => return Ready(Some(val)),
-        Ready(None) => {}
-        Pending => done = false,
-    }
+    // there's definitely a better way to do this
+    if order {
+        match first.poll_next(cx) {
+            Ready(Some(val)) => return Ready(Some(Either::Left(val))),
+            Ready(None) => {}
+            Pending => done = false,
+        }
 
-    match second.poll_next(cx) {
-        Ready(Some(val)) => return Ready(Some(val)),
-        Ready(None) => {}
-        Pending => done = false,
+        match second.poll_next(cx) {
+            Ready(Some(val)) => return Ready(Some(Either::Right(val))),
+            Ready(None) => {}
+            Pending => done = false,
+        }
+    } else {
+        match second.poll_next(cx) {
+            Ready(Some(val)) => return Ready(Some(Either::Right(val))),
+            Ready(None) => {}
+            Pending => done = false,
+        }
+
+        match first.poll_next(cx) {
+            Ready(Some(val)) => return Ready(Some(Either::Left(val))),
+            Ready(None) => {}
+            Pending => done = false,
+        }
     }
 
     if done {
@@ -206,16 +222,14 @@ where
 }
 
 /// yoinked from futures crate, adds sync bound that we need
-fn boxed_sync<'a, F>(fut: F) -> BoxSyncFuture<'a, F::Output>
+pub fn boxed_sync<'a, F>(fut: F) -> BoxSyncFuture<'a, F::Output>
 where
 F: Future + Sized + Send + 'a + Sync,
 {
     assert_future::<F::Output, _>(Box::pin(fut))
 }
 
-impl<O : Sync + Send + 'static> SendableStream for GeneratedStream<O> {
-
-}
+impl<O: 'static> SendableStream for GeneratedStream<O> {}
 
 #[cfg(test)]
 pub mod test {

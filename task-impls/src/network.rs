@@ -15,8 +15,7 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
-        network::{CommunicationChannel, TransmitType},
-        node_implementation::{NodeImplementation, NodeType},
+        network::{CommunicationChannel, TransmitType}, node_implementation::{NodeImplementation, NodeType},
         signature_key::EncodedSignature,
     },
     vote::VoteType,
