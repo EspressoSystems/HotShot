@@ -11,6 +11,7 @@ use futures::StreamExt;
 use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::task::HandleEvent;
 use hotshot_task::task::HotShotTaskCompleted;
+use hotshot_task::task::HotShotTaskTypes;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task::{
@@ -22,6 +23,7 @@ use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::VoteData;
 
+use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -86,7 +88,7 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-    // TODO ED Add task runner?
+    pub registry: GlobalRegistry,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
@@ -317,34 +319,20 @@ where
                             ));
 
                             let filter = FilterEvent::default();
-                            let _builder =
+                            let builder =
                                 TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(
                                     name,
                                 )
                                 .register_event_stream(replica_state.event_stream.clone(), filter)
                                 .await
+                                .register_registry(&mut self.registry.clone())
+                                .await
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
-                            // TODO ED Launch task
 
-                            //     let view_sync_task_builder =
-                            //     TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())
-                            //         .register_event_stream(event_stream.clone(), view_sync_event_filter)
-                            //         .await
-                            //         .register_registry(&mut registry.clone())
-                            //         .await
-                            //         .register_state(view_sync_state)
-                            //         .register_event_handler(view_sync_event_handler);
-                            // // impossible for unwrap to fail
-                            // // we *just* registered
-                            // let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
-
-                            // let view_sync_task = ViewSyncTaskStateTypes::build(view_sync_task_builder).launch();
-                            // task_runner.add_task(
-                            //     view_sync_task_id,
-                            //     view_sync_name.to_string(),
-                            //     view_sync_task,
-                            // )
+                            // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
+                            let _view_sync_replica_task =
+                                ViewSyncReplicaTaskStateTypes::build(builder).launch();
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -404,12 +392,18 @@ where
                             ));
 
                             let filter = FilterEvent::default();
-                            let _builder =
+                            let builder =
                                 TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
-                                    .register_event_stream(self.event_stream.clone(), filter)
+                                    .register_event_stream(relay_state.event_stream.clone(), filter)
+                                    .await
+                                    .register_registry(&mut self.registry.clone())
                                     .await
                                     .register_state(relay_state)
                                     .register_event_handler(relay_handle_event);
+
+                            // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
+                            let _view_sync_relay_task =
+                                ViewSyncRelayTaskStateTypes::build(builder).launch();
                         }
                     }
                 }
@@ -470,15 +464,21 @@ where
                     ));
 
                     let filter = FilterEvent::default();
-                    let _builder =
+                    let builder =
                         TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
                             .register_event_stream(replica_state.event_stream.clone(), filter)
                             .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
                             .register_state(replica_state)
                             .register_event_handler(replica_handle_event);
+
+                    // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
+                    let _view_sync_replica_task =
+                        ViewSyncReplicaTaskStateTypes::build(builder).launch();
                 } else {
                     // If this is the first timeout we've seen advance to the next view
-                    self.current_view + 1; 
+                    self.current_view + 1;
                     self.event_stream
                         .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
                             *self.current_view,

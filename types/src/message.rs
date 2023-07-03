@@ -69,6 +69,7 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
+    // TODO ED Add view sync purposes
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message

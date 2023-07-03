@@ -565,6 +565,7 @@ where
 {
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {
+        registry: task_runner.registry.clone(),
         event_stream: event_stream.clone(),
         filtered_event_stream: nll_todo(),
         current_view: TYPES::Time::new(0),
