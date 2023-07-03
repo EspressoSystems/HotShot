@@ -139,7 +139,7 @@ impl TxnTaskBuilder {
                 TxnTaskBuilder::DistributionBased => unimplemented!(),
             };
         let merged_stream = Merge::new(stream_generator, hotshot_event_stream);
-        let builder = TaskBuilder::<TxnTaskTypes<TYPES, I>>::new("Test Completion Task".to_string())
+        let builder = TaskBuilder::<TxnTaskTypes<TYPES, I>>::new("Test Transaction Submission Task".to_string())
             .register_event_stream(test_event_stream, FilterEvent::default()).await
             .register_registry(registry).await
             .register_state(state)

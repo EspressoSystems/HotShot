@@ -20,7 +20,7 @@ impl TaskErr for CompletionTaskErr {}
 
 /// Data availability task state
 pub struct CompletionTask {
-    event_stream: ChannelStream<GlobalTestEvent>
+    test_event_stream: ChannelStream<GlobalTestEvent>
 }
 impl TS for CompletionTask {}
 
@@ -45,7 +45,12 @@ pub struct TimeBasedCompletionTaskBuilder {
 
 impl TimeBasedCompletionTaskBuilder {
     /// create the task and launch it
-    pub async fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(self, registry: &mut GlobalRegistry, event_stream: ChannelStream<GlobalTestEvent>) -> (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>) {
+    pub async fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+        self,
+        registry: &mut GlobalRegistry,
+        test_event_stream: ChannelStream<GlobalTestEvent>,
+        hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
+    ) -> (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>) {
         // TODO we'll possibly want multiple criterion including:
         // - certain number of txns committed
         // - anchor of certain depth
@@ -67,7 +72,7 @@ impl TimeBasedCompletionTaskBuilder {
                     Left(_) => {
                         // msg is from timer
                         // at this point we're done.
-                        state.event_stream.publish(GlobalTestEvent::ShutDown).await;
+                        state.test_event_stream.publish(GlobalTestEvent::ShutDown).await;
                         (Some(HotShotTaskCompleted::ShutDown), state)
                     },
                     Right(_) => {
@@ -85,15 +90,16 @@ impl TimeBasedCompletionTaskBuilder {
             };
             boxed_sync(fut)
         }));
+        let merged_stream = Merge::new(stream_generator, hotshot_event_stream);
         let builder = TaskBuilder::<CompletionTaskTypes<TYPES, I>>::new("Test Completion Task".to_string())
-            .register_event_stream(event_stream, FilterEvent::default()).await
+            .register_event_stream(test_event_stream, FilterEvent::default()).await
             .register_registry(registry).await
             .register_state(self.state)
             .register_event_handler(event_handler)
             .register_message_handler(message_handler)
-            .register_message_stream(stream_generator)
+            .register_message_stream(merged_stream)
             ;
         let task_id = builder.get_task_id().unwrap();
-        (task_id, CompletionTaskTypes::build(builder).launch())
+        (task_id, CompletionTaskTypes::<TYPES, I>::build(builder).launch())
     }
 }
