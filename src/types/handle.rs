@@ -8,7 +8,9 @@ use crate::{
     SystemContext,
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use async_lock::RwLock;
 use commit::Committable;
+use hotshot_consensus::Consensus;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
@@ -46,7 +48,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers for cloning the handle.
     pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES, I::Leaf>>>,
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    pub hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<TYPES, I::Leaf>>,
     /// Global to signify the `SystemContext` should be closed after completing the next round
@@ -230,6 +232,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
+    }
+
+    /// Get the underyling consensus state for this [`SystemContext`]
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.hotshot.get_consensus()
     }
 
     /// Block the underlying quorum (and committee) networking interfaces until node is

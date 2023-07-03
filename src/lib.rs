@@ -171,7 +171,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[derive(Clone)]
 pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 
     /// Phantom data for consensus type
     _pd: PhantomData<CONSENSUS>,
@@ -1768,7 +1768,7 @@ where
 #[derive(Clone, Debug)]
 pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]

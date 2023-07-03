@@ -11,8 +11,10 @@ use hotshot_testing::{
 use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
-    traits::TestableNodeImplementation, HotShotType, SystemContext,
+    certificate::QuorumCertificate,
+    demos::vdemo::random_validating_leaf,
+    traits::{Storage, TestableNodeImplementation},
+    HotShotType, SystemContext,
 };
 
 use ark_bls12_381::Parameters as Param381;
@@ -182,14 +184,34 @@ async fn build_consensus_task<
     I: TestableNodeImplementation<
         TYPES::ConsensusType,
         TYPES,
-        Leaf = SequencingLeaf<SequencingTestTypes>,
-        // ConsensusMessage = SequencingMessage<SequencingTestTypes, I>,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+        Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-) -> TaskRunner {
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        Message<TYPES, I>,
+        Networks = (StaticQuroumComm, StaticDAComm),
+    >,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
     let builder = TestBuilder::default_multiple_rounds();
 
     let launcher = builder.build::<SequencingTestTypes, SequencingMemoryImpl>();
@@ -237,22 +259,22 @@ async fn build_consensus_task<
     .expect("Could not init hotshot");
 
     let consensus = handle.get_consensus();
-    let c_api = HotShotSequencingConsensusApi {
-        inner: handle.inner.clone(),
+    let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
+        inner: handle.hotshot.inner.clone(),
     };
 
     let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
     let consensus_state = SequencingConsensusTaskState {
         consensus,
-        cur_view: 0,
-        high_qc: (),
-        quorum_exchange: exchanges.quorum_exchange().clone().into(),
+        cur_view: TYPES::Time::new(0),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
         committee_exchange: committee_exchange.clone().into(),
         _pd: PhantomData,
-        vote_collector: (0, async_spawn({})),
-        timeout_task: async_spawn({}),
+        vote_collector: (TYPES::Time::new(0), async_spawn(async move {})),
+        timeout_task: async_spawn(async move {}),
         event_stream: event_stream.clone(),
         certs: HashMap::new(),
         current_proposal: None,
@@ -271,13 +293,15 @@ async fn build_consensus_task<
     let consensus_name = "Consensus Task";
     let consensus_event_filter = FilterEvent::default();
 
-    let consensus_task_builder = TaskBuilder::<ConsensusTaskTypes>::new(consensus_name.to_string())
-        .register_event_stream(event_stream.clone(), consensus_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(consensus_state)
-        .register_event_handler(consensus_event_handler);
+    let consensus_task_builder = TaskBuilder::<
+        ConsensusTaskTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>,
+    >::new(consensus_name.to_string())
+    .register_event_stream(event_stream.clone(), consensus_event_filter)
+    .await
+    .register_registry(&mut registry.clone())
+    .await
+    .register_state(consensus_state)
+    .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
