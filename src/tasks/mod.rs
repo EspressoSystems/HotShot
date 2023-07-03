@@ -5,6 +5,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
+use hotshot_consensus::SequencingConsensusApi;
 use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_task::{
@@ -18,12 +19,19 @@ use hotshot_task::{
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
+use hotshot_task_impls::view_sync::ViewSyncTaskState;
+use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
+use hotshot_types::certificate::ViewSyncCertificate;
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
+use hotshot_types::traits::node_implementation::SequencingExchangesType;
+use hotshot_types::traits::node_implementation::ViewSyncEx;
+use hotshot_types::vote::ViewSyncData;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
@@ -36,7 +44,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use nll::nll_todo::nll_todo;
+
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -314,19 +322,19 @@ impl TS for DATaskState {}
 pub type DATaskTypes =
     HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
 
-/// view sync error type
-#[derive(Snafu, Debug)]
-pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError {}
+// /// view sync error type
+// #[derive(Snafu, Debug)]
+// pub struct ViewSyncTaskError {}
+// impl TaskErr for ViewSyncTaskError {}
 
-/// view sync task state
-#[derive(Debug)]
-pub struct ViewSyncTaskState {}
-impl TS for ViewSyncTaskState {}
+// /// view sync task state
+// #[derive(Debug)]
+// pub struct ViewSyncTaskState {}
+// impl TS for ViewSyncTaskState {}
 
-/// Types for view sync task
-pub type ViewSyncTaskTypes =
-    HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
+// /// Types for view sync task
+// pub type ViewSyncTaskTypes =
+//     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
 /// add the networking task
 /// # Panics
@@ -544,38 +552,74 @@ pub async fn add_da_task(
 /// add the view sync task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_view_sync_task(
+pub async fn add_view_sync_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
+        + std::fmt::Debug
+        + 'static
+        + std::clone::Clone,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
+{
     // build the view sync task
-    let view_sync_state = ViewSyncTaskState {};
+    let view_sync_state = ViewSyncTaskState {
+        event_stream: event_stream.clone(),
+        filtered_event_stream: todo!(),
+        current_view: TYPES::Time::new(0),
+        next_view: TYPES::Time::new(0),
+        exchange: todo!(),
+        api: todo!(),
+        num_timeouts_tracked: 0,
+        task_map: HashMap::default(),
+        view_sync_timeout: Duration::new(10, 0),
+    };
     let registry = task_runner.registry.clone();
-    let view_sync_event_handler = HandleEvent(Arc::new(move |event, state| {
+    let view_sync_event_handler = HandleEvent(Arc::new(move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
         async move {
-            if let GlobalEvent::Shutdown = event {
+            if let SequencingHotShotEvent::Shutdown = event {
                 (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
-                (None, state)
+
+                state.handle_event(event).await;
+                (None, state) 
             }
         }
         .boxed()
     }));
     let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent::default();
+    let view_sync_event_filter = FilterEvent(Arc::new(
+        ViewSyncTaskState::<TYPES, I, A>::filter,
+    ));
 
-    let view_sync_task_builder = TaskBuilder::<ViewSyncTaskTypes>::new(view_sync_name.to_string())
-        .register_event_stream(event_stream.clone(), view_sync_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(view_sync_state)
-        .register_event_handler(view_sync_event_handler);
+    let view_sync_task_builder =
+        TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())
+            .register_event_stream(event_stream.clone(), view_sync_event_filter)
+            .await
+            .register_registry(&mut registry.clone())
+            .await
+            .register_state(view_sync_state)
+            .register_event_handler(view_sync_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
 
-    let view_sync_task = ViewSyncTaskTypes::build(view_sync_task_builder).launch();
+    let view_sync_task = ViewSyncTaskStateTypes::build(view_sync_task_builder).launch();
     task_runner.add_task(
         view_sync_task_id,
         view_sync_name.to_string(),

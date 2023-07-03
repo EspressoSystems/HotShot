@@ -108,7 +108,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            // TODO ED Revisit this once Yes/No votes are in place for DA
+            viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
         };
@@ -152,6 +152,7 @@ where
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
+                            None,
                         ) {
                             Either::Left(acc) => {
                                 accumulator = acc;
@@ -462,6 +463,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
+            viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
         };
@@ -491,6 +493,7 @@ where
                                     vote.vote_token.clone(),
                                     self.cur_view,
                                     accumulator,
+                                    None,
                                 ) {
                                     Either::Left(acc) => {
                                         accumulator = acc;
