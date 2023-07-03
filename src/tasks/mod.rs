@@ -323,20 +323,6 @@ impl TS for DATaskState {}
 pub type DATaskTypes =
     HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
 
-// /// view sync error type
-// #[derive(Snafu, Debug)]
-// pub struct ViewSyncTaskError {}
-// impl TaskErr for ViewSyncTaskError {}
-
-// /// view sync task state
-// #[derive(Debug)]
-// pub struct ViewSyncTaskState {}
-// impl TS for ViewSyncTaskState {}
-
-// /// Types for view sync task
-// pub type ViewSyncTaskTypes =
-//     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
-
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
@@ -562,7 +548,6 @@ pub async fn add_view_sync_task<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
         + std::fmt::Debug
-        + 'static
         + std::clone::Clone,
 >(
     task_runner: TaskRunner,
