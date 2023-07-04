@@ -91,6 +91,35 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSync(ViewSyncVoteData<COMMITTABLE>),
 }
 
+impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMMITTABLE> {
+    fn commit(&self) -> Commitment<Self> {
+        match self {
+            VoteData::DA(block_commitment) => 
+                commit::RawCommitmentBuilder::new("DA Block Commit")
+                    .field("block_commitment", block_commitment.clone())
+                    .finalize(),
+            VoteData::Yes(leaf_commitment) => 
+                commit::RawCommitmentBuilder::new("Yes Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::No(leaf_commitment) =>
+                commit::RawCommitmentBuilder::new("No Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::Timeout(view_number_commitment) =>
+                commit::RawCommitmentBuilder::new("Timeout View Number Commit")
+                    .field("view_number_commitment", view_number_commitment.clone())
+                    .finalize(),
+            VoteData::ViewSync(commitment) =>
+                unimplemented!(),
+        }
+    }
+
+    fn tag() -> String {
+            ("VOTE_DATA_COMMIT").to_string()
+    }
+}
+
 /// Data which `ViewSyncVotes` are signed over
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -369,7 +398,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
+            is_valid_signature = key.validate(encoded_signature, &data.commit().as_ref());
             let valid_vote_token =
                 self.membership()
                     .validate_vote_token(view_number, key, vote_token);
@@ -550,12 +579,11 @@ impl<
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign(). 
-            &VoteData::<TYPES::BlockType>::DA(block_commitment).as_bytes()");
+        println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
-            &VoteData::<TYPES::BlockType>::DA(block_commitment).as_bytes(),
+            &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -835,12 +863,11 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().
-        &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes()");
+        println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
-            &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -854,12 +881,11 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().
-        &VoteData::<LEAF>::No(leaf_commitment).as_bytes()");
+        println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
-            &VoteData::<LEAF>::No(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -872,12 +898,11 @@ impl<
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
-        println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().
-        &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes()");
+        println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             self.key_pair_test.clone(),
-            &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes(),
+            &VoteData::<TYPES::Time>::Timeout(view_number.commit()).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }

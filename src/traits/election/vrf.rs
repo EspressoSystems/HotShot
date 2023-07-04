@@ -5,6 +5,7 @@
 // use ark_bls12_381::Parameters as Param381;
 // use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
+use digest::generic_array::GenericArray;
 // use blake3::Hasher;
 // use commit::{Commitment, Committable, RawCommitmentBuilder};
 // use derivative::Derivative;
@@ -226,18 +227,15 @@ where
     fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
         println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
-        /* Sishan NOTE: for QC Aggregation, 
-         now the msg is a test message, partial_sign only support msg with [u8] in length 32, cannot support general `data`.*/
-        //<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature
-        // let msg_test: [u8; data.len()] = data.clone();
-        let msg_test = [72u8; 32]; // Sishan TODO: change to `data` after hotshot-primitives is updated
-        // msg_test[..data.len()].clone_from_slice(&data); 
-        println!("msg_test = {:?}", msg_test);
+        // Sishan NOTE: for QC Aggregation
+        let mut generic_msg_test = GenericArray::from_slice(data);
+        println!("generic_msg_test = {:?}", generic_msg_test);
         println!("data = {:?}", data);
         let agg_signature_test =
             BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
                 &(),
-                &msg_test.into(),
+                &generic_msg_test,
+                // &msg_test.into(),
                 key_pair_test.sign_key_ref(),
                 &mut rand::thread_rng());
         let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
