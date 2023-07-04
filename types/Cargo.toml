@@ -61,7 +61,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "3
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
-serde = { version = "1.0.164", features = ["derive"] }
+serde = { version = "1.0.166", features = ["derive"] }
 snafu = "0.7.4"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
 time = "0.3.22"

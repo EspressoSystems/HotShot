@@ -86,7 +86,7 @@ tokio = { version = "1", optional = true, features = [
 ] }
 tracing = "0.1.37"
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
-serde = { version = "1.0.164", features = ["derive"] }
+serde = { version = "1.0.166", features = ["derive"] }
 
 [dev-dependencies]
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
