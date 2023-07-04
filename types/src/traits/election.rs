@@ -1062,7 +1062,7 @@ impl<
 
         let signature = self.sign_precommit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::PreCommit(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1071,7 +1071,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_precommit_message(
@@ -1103,7 +1103,7 @@ impl<
 
         let signature = self.sign_commit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::Commit(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1112,7 +1112,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_commit_message(
@@ -1144,7 +1144,7 @@ impl<
 
         let signature = self.sign_finalize_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::Finalize(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1153,7 +1153,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_finalize_message(

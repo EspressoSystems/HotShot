@@ -86,8 +86,11 @@ impl<
                     GeneralConsensusMessage::Vote(vote) => {
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
                     }
-                    GeneralConsensusMessage::ViewSync(view_sync_message) => {
-                        SequencingHotShotEvent::ViewSyncMessage(view_sync_message)
+                    GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
+                    }
+                    GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                     }
                     _ => {
                         warn!("Got unexpected message type in network task!");
@@ -127,13 +130,7 @@ impl<
                 SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
                 vote.signature().clone(),
             ),
-            SequencingHotShotEvent::ViewSyncMessageSend(view_sync_message) => (
-                SequencingMessage(Left(GeneralConsensusMessage::ViewSync(
-                    view_sync_message.clone(),
-                ))),
-                
-                nll_todo()
-            ),
+
             SequencingHotShotEvent::DAProposalSend(proposal) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
                     proposal.clone(),
@@ -177,7 +174,8 @@ impl<
             | SequencingHotShotEvent::QuorumVoteSend(_)
             | SequencingHotShotEvent::DAProposalSend(_)
             | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncMessageSend(_)
+            | SequencingHotShotEvent::ViewSyncVoteSend(_)
+            | SequencingHotShotEvent::ViewSyncCertificateSend(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

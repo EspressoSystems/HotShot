@@ -627,9 +627,9 @@ where
                                 ViewSyncPhase::Finalize => unimplemented!(),
                             };
 
-                            if let GeneralConsensusMessage::ViewSync(vote) = message {
+                            if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
                                 self.event_stream
-                                    .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                    .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                     .await;
                             }
 
@@ -653,9 +653,9 @@ where
                                     }
                                     ViewSyncPhase::Finalize => unimplemented!(),
                                 };
-                                if let GeneralConsensusMessage::ViewSync(vote) = message {
+                                if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
                                     self.event_stream
-                                        .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                        .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                         .await;
                                 }
                             }
@@ -728,9 +728,9 @@ where
                                 ViewSyncPhase::Finalize => unimplemented!(),
                             };
 
-                            if let GeneralConsensusMessage::ViewSync(vote) = message {
+                            if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
                                 self.event_stream
-                                    .publish(SequencingHotShotEvent::ViewSyncMessageSend(vote))
+                                    .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                     .await;
                             }
 
@@ -843,7 +843,7 @@ where
                             };
                             let message = ViewSyncMessageType::Certificate(certificate.clone());
                             self.event_stream
-                                .publish(SequencingHotShotEvent::ViewSyncMessageSend(message))
+                                .publish(SequencingHotShotEvent::ViewSyncCertificateSend(message))
                                 .await;
                             Either::Right(certificate)
                         }

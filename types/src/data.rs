@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -188,6 +188,17 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     type NodeType = TYPES;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
+    }
+}
+
+impl<TYPES: NodeType> ProposalType for ViewSyncCertificate<TYPES> {
+    type NodeType = TYPES;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        match self {
+            ViewSyncCertificate::PreCommit(certificate_internal)
+            | ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => certificate_internal.round,
+        }
     }
 }
 

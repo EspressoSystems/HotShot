@@ -1,11 +1,13 @@
 use hotshot_task::task::PassType;
 use hotshot_types::certificate::QuorumCertificate;
+use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;
 use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::vote::{DAVote, QuorumVote};
 
 use crate::view_sync::ViewSyncPhase;
@@ -25,7 +27,10 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
-    ViewSyncMessageSend(ViewSyncMessageType<TYPES>),
+    ViewSyncVoteSend(ViewSyncVote<TYPES>),
+    ViewSyncCertificateSend(ViewSyncCertificate<TYPES>),
+    ViewSyncVoteRecv(ViewSyncVote<TYPES>),
+    ViewSyncCertificateRecv(Proposal<ViewSyncCertificate<TYPES>>),
     Timeout(ViewNumber),
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}
