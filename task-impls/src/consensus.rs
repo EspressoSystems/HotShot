@@ -554,7 +554,7 @@ where
                                     .register_state(state)
                                     .register_event_handler(handle_event);
                             let id = builder.get_task_id().unwrap();
-                            let _task = VoteCollectionTypes::build(builder).launch();
+                            let _task = async_spawn(VoteCollectionTypes::build(builder).launch() );
                             self.vote_collector = Some((vote.current_view, id));
                         }
                     }
