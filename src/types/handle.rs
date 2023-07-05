@@ -266,11 +266,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    pub async fn shut_down(self) {
-        // TODO
-        // self.internal_event_stream.publish(Event::ShutDown).await
-        nll_todo()
-
+    pub async fn shut_down(mut self) {
+        self.registry.shutdown_all().await
     }
 
     /// return the timeout for a view of the underlying `SystemContext`
