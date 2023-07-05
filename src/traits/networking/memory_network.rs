@@ -30,7 +30,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
-use nll::nll_todo::nll_todo;
+
 
 use crate::NodeImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -705,6 +705,7 @@ mod tests {
                 TestNetwork,
                 Message<Test, Self>,
             >,
+            ViewSyncExchange<Test, TestProposal, TestMembership, TestNetwork, Message<Test, Self>>,
         >;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;

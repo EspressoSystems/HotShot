@@ -40,7 +40,7 @@ use crate::{
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{
-        broadcast::{channel, BroadcastSender},
+        broadcast::{BroadcastSender},
         subscribable_rwlock::SubscribableRwLock,
     },
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -50,7 +50,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
-use either::{Left, Right};
+
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
@@ -58,18 +58,17 @@ use hotshot_consensus::{
 };
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task::{event_stream::ChannelStream, global_registry};
+use hotshot_task::{event_stream::ChannelStream};
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
+use hotshot_types::{certificate::DACertificate};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
-    data::{DAProposal, LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
-        CommitteeConsensusMessage, ConsensusMessageType, DataMessage, InternalTrigger, Message,
-        MessageKind, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        Proposal, SequencingMessage, ValidatingMessage,
+        ConsensusMessageType, DataMessage, InternalTrigger, Message,
+        MessageKind, ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
     },
     traits::{
         consensus_type::{
@@ -78,9 +77,9 @@ use hotshot_types::{
         },
         election::SignedCertificate,
         metrics::Metrics,
-        network::{NetworkError, TransmitType},
+        network::{NetworkError},
         node_implementation::{
-            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SendToTasks,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx,
         },
@@ -89,22 +88,22 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{DAVote, QuorumVote, VoteType},
+    vote::{VoteType},
     HotShotConfig,
 };
-use hotshot_utils::bincode::bincode_opts;
+
 use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
-use std::sync::atomic::AtomicBool;
+
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroUsize,
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc},
     time::{Duration, Instant},
 };
 use tasks::GlobalEvent;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, instrument, trace, warn, Instrument};
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -198,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        let global_registry = GlobalRegistry::new();
+        let _global_registry = GlobalRegistry::new();
 
         info!("Creating a new hotshot");
 
@@ -811,8 +810,9 @@ where
         // TODO this will need to go in the consensus task state
         let output_event_stream = ChannelStream::new();
 
-        let quorum_exchange = self.inner.exchanges.quorum_exchange();
-        let committee_exchange = self.inner.exchanges.committee_exchange();
+        let _quorum_exchange = self.inner.exchanges.quorum_exchange();
+        let _committee_exchange = self.inner.exchanges.committee_exchange();
+        let _view_sync_exchange = self.inner.exchanges.view_sync_exchange();
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
         // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;

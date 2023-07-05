@@ -41,7 +41,7 @@ use libp2p_networking::{
     },
     reexport::Multiaddr,
 };
-use nll::nll_todo::nll_todo;
+
 use serde::Serialize;
 use snafu::ResultExt;
 use std::{

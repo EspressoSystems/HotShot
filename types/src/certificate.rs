@@ -1,5 +1,6 @@
 //! Provides two types of cerrtificates and their accumulators.
 
+use crate::traits::election::ViewSyncVoteData;
 use crate::vote::ViewSyncData;
 use crate::{
     data::{fake_commitment, LeafType},
@@ -69,12 +70,20 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewSyncCertificate<TYPES: NodeType> {
+    PreCommit(ViewSyncCertificateInternal<TYPES>),
+    Commit(ViewSyncCertificateInternal<TYPES>),
+    Finalize(ViewSyncCertificateInternal<TYPES>),
+}
+
 /// A view sync certificate representing a quorum of votes for a particular view sync phase
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct ViewSyncCertificate<TYPES: NodeType> {
+pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// Relay the votes are intended for
-    pub relay: EncodedPublicKey,
+    pub relay: u64,
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Threshold Signature
@@ -84,11 +93,20 @@ pub struct ViewSyncCertificate<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
+// TODO ED Rename these types to be clearer
 pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken> {
     /// These signatures are for a 'Yes' QC
+    /// Means these signatures will all be the same type - Yes signatures
     Yes(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
     /// These signatures are for a 'No' QC
+    /// Means these signatures could be a combination of either Yes or No signatures
     No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+    ViewSyncPreCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+    ViewSyncCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+
+    ViewSyncFinalize(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
@@ -105,6 +123,9 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub vote_token: T,
     /// View number for the vote
     pub view_number: TIME,
+    /// The relay index for view sync
+    // TODO ED Make VoteMetaData more generic to avoid this variable that only ViewSync uses
+    pub relay: Option<u64>,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
@@ -114,8 +135,8 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
-
         commit: Commitment<LEAF>,
+        relay: Option<u64>,
     ) -> Self {
         QuorumCertificate {
             leaf_commitment: commit,
@@ -176,6 +197,9 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
                 builder = builder.var_size_field("QC Type", "No".as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
         for (idx, (k, v)) in signatures.iter().enumerate() {
             builder = builder
@@ -203,6 +227,7 @@ impl<TYPES: NodeType>
         view_number: TYPES::Time,
         signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>,
         commit: Commitment<TYPES::BlockType>,
+        relay: Option<u64>,
     ) -> Self {
         DACertificate {
             view_number,
@@ -246,25 +271,49 @@ impl<TYPES: NodeType>
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
-        _view_number: TYPES::Time,
-        _signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
-        _commit: Commitment<ViewSyncData<TYPES>>,
+        view_number: TYPES::Time,
+        signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+        commit: Commitment<ViewSyncData<TYPES>>,
+        relay: Option<u64>,
     ) -> Self {
-        todo!()
+        let certificate_internal = ViewSyncCertificateInternal {
+            round: view_number,
+            relay: relay.unwrap(),
+            signatures: signatures.clone(),
+        };
+        match signatures {
+            YesNoSignature::ViewSyncPreCommit(_) => {
+                ViewSyncCertificate::PreCommit(certificate_internal)
+            }
+            YesNoSignature::ViewSyncCommit(_) => ViewSyncCertificate::Commit(certificate_internal),
+            YesNoSignature::ViewSyncFinalize(_) => {
+                ViewSyncCertificate::Finalize(certificate_internal)
+            }
+            _ => unimplemented!(),
+        }
     }
 
     /// Get the view number.
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        match self.clone() {
+            ViewSyncCertificate::PreCommit(certificate_internal)
+            | ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => certificate_internal.round,
+        }
     }
 
     /// Get signatures.
     fn signatures(&self) -> YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType> {
-        todo!()
+        match self.clone() {
+            ViewSyncCertificate::PreCommit(certificate_internal)
+            | ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => {
+                certificate_internal.signatures
+            }
+        }
     }
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
-
     /// Get the leaf commitment.
     fn leaf_commitment(&self) -> Commitment<ViewSyncData<TYPES>> {
         todo!()

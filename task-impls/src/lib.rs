@@ -9,3 +9,6 @@ pub mod events;
 
 /// The task which implements the network.
 pub mod network;
+
+/// The task which implements view synchronization
+pub mod view_sync;
