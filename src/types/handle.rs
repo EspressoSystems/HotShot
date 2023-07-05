@@ -3,11 +3,7 @@
 use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
-use crate::{
-    traits::{NodeImplementation},
-    types::{Event},
-    SystemContext,
-};
+use crate::{traits::NodeImplementation, types::Event, SystemContext};
 
 use commit::Committable;
 use futures::FutureExt;
@@ -22,7 +18,7 @@ use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
-    error::{HotShotError},
+    error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
@@ -34,10 +30,8 @@ use hotshot_types::{
     },
 };
 
-use std::sync::{
-    Arc,
-};
-use tracing::{error};
+use std::sync::Arc;
+use tracing::error;
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;

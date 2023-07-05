@@ -39,10 +39,7 @@ use crate::{
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
-    async_primitives::{
-        broadcast::{BroadcastSender},
-        subscribable_rwlock::SubscribableRwLock,
-    },
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -56,19 +53,19 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task::{event_stream::ChannelStream};
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
     data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
-        ConsensusMessageType, DataMessage, InternalTrigger, Message,
-        MessageKind, ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
+        ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
     },
     traits::{
         consensus_type::{
@@ -77,7 +74,7 @@ use hotshot_types::{
         },
         election::SignedCertificate,
         metrics::Metrics,
-        network::{NetworkError},
+        network::NetworkError,
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
@@ -88,7 +85,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{VoteType},
+    vote::VoteType,
     HotShotConfig,
 };
 
@@ -99,7 +96,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroUsize,
-    sync::{Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tasks::GlobalEvent;

@@ -282,7 +282,7 @@ where
         &self.quorum_exchange
     }
 
-    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange  {
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange {
         &self.view_sync_exchange
     }
 

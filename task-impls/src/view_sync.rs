@@ -85,8 +85,7 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-    // TODO ED Add task runner? 
-
+    // TODO ED Add task runner?
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
@@ -102,7 +101,7 @@ pub struct ViewSyncTaskState<
     /// Represents if replica task is running, if relay task is running
     pub task_map: HashMap<TYPES::Time, (bool, bool)>,
 
-    pub view_sync_timeout: Duration
+    pub view_sync_timeout: Duration,
 }
 
 impl<
@@ -366,7 +365,6 @@ where
                                 event_stream: self.event_stream.clone(),
                                 exchange: self.exchange.clone(),
                                 accumulator: either::Left(accumulator),
-
                             };
 
                             let result = relay_state.handle_event(event).await;
@@ -420,7 +418,7 @@ where
                         .entry(TYPES::Time::new(*view_number))
                         .or_insert_with(|| (false, false));
 
-                    *is_replica_running = true; 
+                    *is_replica_running = true;
 
                     let mut replica_state = ViewSyncReplicaTaskState {
                         phantom: PhantomData,
@@ -433,7 +431,7 @@ where
                         exchange: self.exchange.clone(),
                         api: self.api.clone(),
                         event_stream: self.event_stream.clone(),
-                        view_sync_timeout: self.view_sync_timeout
+                        view_sync_timeout: self.view_sync_timeout,
                     };
 
                     let result = replica_state.handle_event(event).await;
@@ -443,7 +441,7 @@ where
                         return;
                     }
 
-                    replica_state = result.1; 
+                    replica_state = result.1;
 
                     let name = format!(
                         "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
@@ -473,7 +471,7 @@ where
     /// Filter view sync related events.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            | SequencingHotShotEvent::ViewSyncMessageRecv(_)
+            SequencingHotShotEvent::ViewSyncMessageRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)

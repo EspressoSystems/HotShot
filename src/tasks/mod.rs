@@ -5,9 +5,9 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
-use hotshot_consensus::SequencingConsensusApi;
 use async_lock::RwLock;
 use futures::FutureExt;
+use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -30,7 +30,6 @@ use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
 use hotshot_types::{
@@ -49,10 +48,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-<<<<<<< HEAD
-=======
-
->>>>>>> run_view_refactor
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -594,22 +589,21 @@ where
         view_sync_timeout: Duration::new(10, 0),
     };
     let registry = task_runner.registry.clone();
-    let view_sync_event_handler = HandleEvent(Arc::new(move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
-        async move {
-            if let SequencingHotShotEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-
-                state.handle_event(event).await;
-                (None, state) 
+    let view_sync_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
             }
-        }
-        .boxed()
-    }));
-    let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent(Arc::new(
-        ViewSyncTaskState::<TYPES, I, A>::filter,
+            .boxed()
+        },
     ));
+    let view_sync_name = "ViewSync Task";
+    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, A>::filter));
 
     let view_sync_task_builder =
         TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())

@@ -144,6 +144,7 @@ where
                 vote.vote_token.clone(),
                 state.cur_view,
                 accumulator,
+                None,
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
@@ -246,6 +247,7 @@ where
                     no_vote_outcomes: HashMap::new(),
                     success_threshold: self.committee_exchange.success_threshold(),
                     failure_threshold: self.committee_exchange.failure_threshold(),
+                    viewsync_precommit_vote_outcomes: HashMap::new(),
                 };
                 // Todo check if we are the leader
                 let accumulator = self.committee_exchange.accumulate_vote(
@@ -256,6 +258,7 @@ where
                     vote.vote_token.clone(),
                     vote.current_view,
                     acc,
+                    None,
                 );
                 if vote.current_view > *collection_view {
                     let state = DAVoteCollectionTaskState {
