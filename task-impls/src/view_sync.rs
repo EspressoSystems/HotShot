@@ -254,7 +254,7 @@ where
 {
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event.clone() {
-            SequencingHotShotEvent::ViewSyncMessageSend(message) => {
+            SequencingHotShotEvent::ViewSyncMessageRecv(message) => {
                 match message {
                     ViewSyncMessageType::Certificate(certificate) => {
                         let (certificate_internal, last_seen_certificate) = match certificate {
@@ -471,7 +471,7 @@ where
     /// Filter view sync related events.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            SequencingHotShotEvent::ViewSyncMessageSend(_)
+            SequencingHotShotEvent::ViewSyncMessageRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)
@@ -516,7 +516,7 @@ where
         ViewSyncReplicaTaskState<TYPES, I, A>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncMessageSend(message) => match message {
+            SequencingHotShotEvent::ViewSyncMessageRecv(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => {
                     let (certificate_internal, last_seen_certificate) = match certificate.clone() {
                         ViewSyncCertificate::PreCommit(certificate_internal) => {
@@ -765,7 +765,7 @@ where
         ViewSyncRelayTaskState<TYPES, I>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncMessageSend(message) => match message {
+            SequencingHotShotEvent::ViewSyncMessageRecv(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => return (None, self),
                 ViewSyncMessageType::Vote(vote) => {
                     let (vote_internal, phase) = match vote {

@@ -202,7 +202,7 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
+                            .publish(SequencingHotShotEvent::QCSend(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
                         return (None, state);
@@ -554,7 +554,7 @@ where
                                     .register_state(state)
                                     .register_event_handler(handle_event);
                             let id = builder.get_task_id().unwrap();
-                            let _task = async_spawn(VoteCollectionTypes::build(builder).launch() );
+                            let _task = async_spawn(VoteCollectionTypes::build(builder).launch());
                             self.vote_collector = Some((vote.current_view, id));
                         }
                     }
@@ -563,14 +563,15 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DACertificateRecv(cert) => {
+            SequencingHotShotEvent::DACRecv(cert) => {
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
                 if view == self.cur_view {
                     self.vote_if_able();
                 }
             }
-            SequencingHotShotEvent::ViewChange(_) => {
+            SequencingHotShotEvent::ViewChange(_) => nll_todo(),
+            SequencingHotShotEvent::ViewSyncMessageRecv(_) => {
                 // update the view in state to the one in the message
                 // TODO ED This info should come in the form of a ViewChange message, update
                 nll_todo()
@@ -670,7 +671,7 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     match event {
         SequencingHotShotEvent::QuorumProposalRecv(_, _)
         | SequencingHotShotEvent::QuorumVoteRecv(_, _)
-        | SequencingHotShotEvent::DACertificateRecv(_)
+        | SequencingHotShotEvent::DACRecv(_)
         | SequencingHotShotEvent::ViewChange(_)
         | SequencingHotShotEvent::Timeout(_) => true,
         _ => false,

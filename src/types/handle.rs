@@ -31,7 +31,6 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tracing::error;
 

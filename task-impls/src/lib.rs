@@ -1,6 +1,9 @@
 /// the task which implements the main parts of consensus
 pub mod consensus;
 
+/// The task which implements the main parts of data availability.
+pub mod da;
+
 /// Defines the events passed between tasks
 pub mod events;
 

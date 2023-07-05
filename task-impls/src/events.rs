@@ -1,6 +1,5 @@
 use hotshot_task::task::PassType;
-use hotshot_types::certificate::DACertificate;
-use hotshot_types::certificate::QuorumCertificate;
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;
 use hotshot_types::message::ViewSyncMessageType;
@@ -18,15 +17,14 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     QuorumVoteRecv(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     DAProposalRecv(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteRecv(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
-    DACertificateRecv(DACertificate<TYPES>),
+    DACRecv(DACertificate<TYPES>),
+    ViewSyncMessageRecv(ViewSyncMessageType<TYPES>),
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAProposalSend(Proposal<DAProposal<TYPES>>),
     DAVoteSend(DAVote<TYPES, I::Leaf>),
-    DACertificateSend(DACertificate<TYPES>),
-    QCFormed(QuorumCertificate<TYPES, I::Leaf>),
-    /// A view has timeouted out locally or we received/formed a timeout cert
-    /// contains the view we are moving to
+    QCSend(QuorumCertificate<TYPES, I::Leaf>),
+    DACSend(DACertificate<TYPES>),
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
     ViewSyncMessageSend(ViewSyncMessageType<TYPES>),
