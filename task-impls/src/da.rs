@@ -1,16 +1,10 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::channel::UnboundedReceiver;
-use async_lock::{Mutex, RwLock};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
-use core::time::Duration;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::{Consensus, View};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::task::FilterEvent;
@@ -20,11 +14,10 @@ use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
-use hotshot_types::vote::DAVote;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::DACertificate,
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{ProcessedSequencingMessage, SequencingMessage},
+    message::SequencingMessage,
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
@@ -34,7 +27,6 @@ use hotshot_types::{
 };
 use snafu::Snafu;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
@@ -231,9 +223,14 @@ where
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
-                if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
+                // Check if we are the leader and the vote is from the sender.
+                let view = vote.current_view;
+                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
+                    || vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                {
                     return None;
                 }
+
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
                 }));
@@ -246,22 +243,21 @@ where
                     failure_threshold: self.committee_exchange.failure_threshold(),
                     viewsync_precommit_vote_outcomes: HashMap::new(),
                 };
-                // Todo check if we are the leader
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.signature.0,
                     &vote.signature.1,
                     vote.block_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
-                    vote.current_view,
+                    view,
                     acc,
                     None,
                 );
-                if vote.current_view > *collection_view {
+                if view > *collection_view {
                     let state = DAVoteCollectionTaskState {
                         committee_exchange: self.committee_exchange.clone(),
                         accumulator,
-                        cur_view: vote.current_view,
+                        cur_view: view,
                         event_stream: self.event_stream.clone(),
                     };
                     let name = "DA Vote Collection";
