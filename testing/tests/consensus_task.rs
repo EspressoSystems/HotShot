@@ -265,7 +265,9 @@ where
 
     let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
+    let registry = task_runner.registry.clone();
     let consensus_state = SequencingConsensusTaskState {
+        registry: registry.clone(),
         consensus,
         cur_view: TYPES::Time::new(0),
         high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
@@ -279,7 +281,6 @@ where
         certs: HashMap::new(),
         current_proposal: None,
     };
-    let registry = task_runner.registry.clone();
     let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
         async move {
             if let SequencingHotShotEvent::Shutdown = event {

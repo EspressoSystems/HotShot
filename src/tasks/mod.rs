@@ -499,8 +499,10 @@ where
     let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
         inner: hotshot.inner.clone(),
     };
+    let registry = task_runner.registry.clone();
     // build the consensus task
     let consensus_state = SequencingConsensusTaskState {
+        registry: registry.clone(),
         consensus,
         cur_view: ViewNumber::new(0),
         high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
@@ -508,13 +510,12 @@ where
         api: c_api.clone(),
         committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
         _pd: PhantomData,
-        vote_collector: (ViewNumber::new(0), async_spawn(async move {})),
+        vote_collector: None,
         timeout_task: async_spawn(async move {}),
         event_stream: event_stream.clone(),
         certs: HashMap::new(),
         current_proposal: None,
     };
-    let registry = task_runner.registry.clone();
     let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
     let consensus_event_handler = HandleEvent(Arc::new(

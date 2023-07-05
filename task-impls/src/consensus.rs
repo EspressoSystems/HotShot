@@ -8,6 +8,7 @@ use commit::Committable;
 use core::time::Duration;
 use either::Either;
 use either::Right;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use hotshot_consensus::utils::Terminator;
 use hotshot_consensus::Consensus;
@@ -15,10 +16,13 @@ use hotshot_consensus::SequencingConsensusApi;
 use hotshot_consensus::View;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
+use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
+use hotshot_task::task::HotShotTaskTypes;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
+use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
@@ -41,8 +45,10 @@ use hotshot_types::{
 };
 use nll::nll_todo::nll_todo;
 use snafu::Snafu;
+use std::alloc::GlobalAlloc;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
@@ -77,6 +83,7 @@ pub struct SequencingConsensusTaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// View number this view is executing in.
@@ -96,7 +103,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: (ViewNumber, JoinHandle<()>),
+    pub vote_collector: Option<(ViewNumber, usize)>,
 
     /// timeout task handle
     pub timeout_task: JoinHandle<()>,
@@ -491,7 +498,16 @@ where
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
-                        let (collection_view, _collection_task) = &self.vote_collector;
+                        let collection_view = if let Some((collection_view, collection_task)) =
+                            &self.vote_collector
+                        {
+                            if vote.current_view > *collection_view {
+                                self.registry.shutdown_task(*collection_task);
+                            }
+                            collection_view.clone()
+                        } else {
+                            ViewNumber::new(0)
+                        };
                         let acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
@@ -512,7 +528,7 @@ where
                             acc,
                             None,
                         );
-                        if vote.current_view > *collection_view {
+                        if vote.current_view > collection_view {
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -520,13 +536,21 @@ where
                                 event_stream: self.event_stream.clone(),
                             };
                             let name = "Quorum Vote Collection";
-                            let filter = FilterEvent::default();
-                            let _builder =
+                            let filter = FilterEvent(Arc::new(|event| match event {
+                                SequencingHotShotEvent::QuorumVoteRecv(_, _) => true,
+                                _ => false,
+                            }));
+                            let builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
                                     .register_event_stream(self.event_stream.clone(), filter)
                                     .await
+                                    .register_registry(&mut self.registry.clone())
+                                    .await
                                     .register_state(state)
                                     .register_event_handler(handle_event);
+                            let id = builder.get_task_id().unwrap();
+                            let _task = VoteCollectionTypes::build(builder).launch();
+                            self.vote_collector = Some((vote.current_view, id));
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
