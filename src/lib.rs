@@ -173,7 +173,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[derive(Clone)]
 pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 
     /// Phantom data for consensus type
     _pd: PhantomData<CONSENSUS>,
@@ -349,6 +349,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             .await
             .get_decided_leaf()
             .get_state()
+    }
+
+    /// Returns a copy of the consensus struct
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.inner.consensus.clone()
     }
 
     /// Returns a copy of the last decided leaf
@@ -1722,9 +1727,9 @@ where
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]

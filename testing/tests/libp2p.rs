@@ -19,7 +19,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct Libp2pImpl {}
 
 type StaticMembership =

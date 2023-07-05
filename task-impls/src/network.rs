@@ -96,6 +96,9 @@ impl<
                     CommitteeConsensusMessage::DAVote(vote) => {
                         SequencingHotShotEvent::DAVoteRecv(vote.clone(), vote.signature.1)
                     }
+                    CommitteeConsensusMessage::DACertificate(cert) => {
+                        SequencingHotShotEvent::DACRecv(cert)
+                    }
                 },
             },
             MessageKind::Data(_) => {

@@ -12,6 +12,7 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -22,7 +23,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -164,6 +165,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {
                         warn!("The next leader has received an unexpected proposal!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }
@@ -378,7 +382,7 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: self.high_qc.clone(),
-            dac: self.cert,
+            dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
         };
 
@@ -528,6 +532,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAVote(_, _sender) => {
                         warn!("The next leader has received an unexpected DA vote!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }

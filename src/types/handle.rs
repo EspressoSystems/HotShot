@@ -4,11 +4,13 @@ use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
-
+use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use async_lock::RwLock;
 use commit::Committable;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use hotshot_consensus::Consensus;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::event_stream::SendableStream;
@@ -29,7 +31,6 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-
 use std::sync::Arc;
 use tracing::error;
 
@@ -55,7 +56,8 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) registry: GlobalRegistry,
 
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    pub hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
@@ -238,6 +240,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
+    }
+
+    /// Get the underyling consensus state for this [`SystemContext`]
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.hotshot.get_consensus()
     }
 
     /// Block the underlying quorum (and committee) networking interfaces until node is

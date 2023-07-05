@@ -90,7 +90,7 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 /// type alias for a "usable" node impl type
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StandardNodeImplType {}
 
 /// type alias for membership using vrf types
@@ -122,7 +122,7 @@ pub type VrfCommunicationViewSync = MemoryCommChannel<
 >;
 
 /// type alias for static committee node
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticNodeImplType {}
 
 type StaticMembership =

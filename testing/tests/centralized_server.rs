@@ -22,7 +22,7 @@ use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct VrfCentralizedImp {}
 
 type VrfMembership = VrfImpl<
@@ -88,7 +88,7 @@ async fn centralized_server_network_vrf() {
     shutdown_logging();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct StaticCentralizedImp {}
 
 type StaticMembership =

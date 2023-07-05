@@ -10,14 +10,14 @@ use hotshot_types::vote::{DAVote, QuorumVote};
 
 use crate::view_sync::ViewSyncPhase;
 
-#[derive(Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Shutdown,
     QuorumProposalRecv(Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey),
     QuorumVoteRecv(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     DAProposalRecv(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteRecv(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
-    DACRecv(DACertificate<TYPES>, TYPES::SignatureKey),
+    DACRecv(DACertificate<TYPES>),
     ViewSyncMessageRecv(ViewSyncMessageType<TYPES>),
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
