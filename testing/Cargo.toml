@@ -60,6 +60,8 @@ hotshot = { path = "../", features = [
   "hotshot-testing",
 ], default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
+hotshot-orchestrator = { path = "../orchestrator", default-features = false }
+
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [

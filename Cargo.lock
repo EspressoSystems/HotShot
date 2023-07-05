@@ -2995,6 +2995,7 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
+ "hotshot-orchestrator",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
