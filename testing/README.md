@@ -19,7 +19,8 @@ TestBuilder::default().build() ->  TestLauncher::launch()      -> TestRunner::ex
 ```
 
 Easily overriding setup/correctness checks/hooks and launching is all done by anonymous functions. Fairly sane and configurable setup and correct check functions may be generated from the round builder. The intended workflow should look like:
-```
+
+```rust
 use std::sync::Arc;
 use futures::FutureExt;
 use hotshot_testing::test_types::StaticNodeImplType;

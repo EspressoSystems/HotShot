@@ -7,6 +7,17 @@ use futures::{Stream, stream::Unfold};
 use futures::stream::unfold;
 use async_compatibility_layer::art::async_sleep;
 use rand::{prelude::Distribution, thread_rng};
+
+
+///  builder
+pub mod test_builder;
+
+/// launcher
+pub mod test_launcher;
+
+/// runner
+pub mod test_runner;
+
 /// task that's consuming events and asserting safety
 pub mod safety_task;
 
@@ -19,6 +30,7 @@ pub mod txn_task;
 /// task that decides when things are complete
 pub mod completion_task;
 
+/// context used by the safety task
 pub mod node_ctx;
 
 // TODO node changer (spin up and down)

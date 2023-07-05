@@ -1,3 +1,4 @@
+// TODO rename this file to per-node
 
 use std::{sync::Arc, ops::Deref};
 
@@ -13,7 +14,12 @@ use tracing::log::warn;
 
 use crate::test_errors::ConsensusTestError;
 
-use super::{GlobalTestEvent, node_ctx::{NodeCtx, ViewStatus, ViewFailed, ViewSuccess}};
+use super::{GlobalTestEvent, node_ctx::{NodeCtx, ViewStatus, ViewFailed, ViewSuccess}, completion_task::CompletionTask};
+
+// TODO
+#[derive(Clone, Debug)]
+pub struct OverallSafetyPropertiesDescription {
+}
 
 /// Data Availability task error
 #[derive(Snafu, Debug)]
@@ -27,7 +33,7 @@ impl TaskErr for SafetyTaskErr {}
 /// Data availability task state
 #[derive(Debug)]
 pub struct SafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
-    ctx: NodeCtx<TYPES, I>
+    pub(crate) ctx: NodeCtx<TYPES, I>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default for SafetyTask<TYPES, I> {
@@ -40,14 +46,18 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 
 /// builder describing custom safety properties
 #[derive(Clone)]
-pub enum SafetyTaskBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
-    GenProperties{
-        /// number failed views
-        num_failed_views: Option<usize>,
-        /// number decide events
-        num_decide_events: Option<usize>,
-    },
+pub enum SafetyTaskDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+    GenProperties(NodeSafetyPropertiesDescription),
     CustomProperties(SafetyFinisher<TYPES, I>)
+}
+
+/// properties used for gen
+#[derive(Clone, Debug)]
+pub struct NodeSafetyPropertiesDescription {
+    /// number failed views
+    pub num_failed_views: Option<usize>,
+    /// number decide events
+    pub num_decide_events: Option<usize>,
 }
 
 // basic consistency check for single node
@@ -81,13 +91,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 
 
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> SafetyTaskBuilder<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> SafetyTaskDescription<TYPES, I> {
     fn gen_finisher(self) -> SafetyFinisher<TYPES, I>{
         match self {
-            SafetyTaskBuilder::CustomProperties(finisher) => {
+            SafetyTaskDescription::CustomProperties(finisher) => {
                 finisher
             },
-            SafetyTaskBuilder::GenProperties { num_failed_views, num_decide_events } => {
+            SafetyTaskDescription::GenProperties(NodeSafetyPropertiesDescription{ num_failed_views, num_decide_events }) => {
                 SafetyFinisher(Arc::new( move |ctx: &mut NodeCtx<TYPES, I>| {
                         async move {
                             let mut num_failed = 0;
@@ -128,74 +138,78 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 
 
      /// build
-    pub async fn build(
+    pub fn build(
         self,
-        registry: &mut GlobalRegistry,
-        test_event_stream: ChannelStream<GlobalTestEvent>,
-        hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
-    ) -> (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>) {
-
-
-        let test_event_handler = HandleEvent::<SafetyTaskTypes<TYPES, I>>(Arc::new(move |event, mut state| {
-            let finisher = self.clone().gen_finisher();
+        // registry: &mut GlobalRegistry,
+        // test_event_stream: ChannelStream<GlobalTestEvent>,
+        // hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
+    ) ->  Box<dyn Fn(SafetyTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>, UnboundedStream<Event<TYPES, I::Leaf>>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>> {
+        Box::new(move |state, mut registry, test_event_stream, hotshot_event_stream| {
+            // TODO this is cursed, there's definitely a better way to do this
+            let desc = self.clone();
             async move {
-                match event {
-                    GlobalTestEvent::ShutDown => {
-                        let finished = finisher(&mut state.ctx).await;
-                        let result =
-                        match finished {
-                            Ok(()) => HotShotTaskCompleted::ShutDown,
-                            Err(err) => HotShotTaskCompleted::Error(Box::new(err)),
+                let test_event_handler = HandleEvent::<SafetyTaskTypes<TYPES, I>>(Arc::new(move |event, mut state| {
+                    let finisher = desc.clone().gen_finisher();
+                    async move {
+                        match event {
+                            GlobalTestEvent::ShutDown => {
+                                let finished = finisher(&mut state.ctx).await;
+                                let result =
+                                    match finished {
+                                        Ok(()) => HotShotTaskCompleted::ShutDown,
+                                        Err(err) => HotShotTaskCompleted::Error(Box::new(err)),
 
-                        };
-                        return (Some(result), state);
-                        // return (Some(HotShotTaskCompleted, finisher(state.ctx).await)
-                        // TODO run lambda on gathered state
-                        // return (Some(HotShotTaskCompleted::ShutDown), state);
-                    },
-                    _ => { unimplemented!() }
-                }
+                                    };
+                                return (Some(result), state);
+                                // return (Some(HotShotTaskCompleted, finisher(state.ctx).await)
+                                // TODO run lambda on gathered state
+                                // return (Some(HotShotTaskCompleted::ShutDown), state);
+                            },
+                            _ => { unimplemented!() }
+                        }
+                    }.boxed()
+                }));
+                let message_handler = HandleMessage::<SafetyTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
+                    async move {
+                        let  Event {view_number, event} = msg;
+                        match event {
+                            EventType::Error { error } => {
+                                // TODO better warn with node idx
+                                warn!("View {:?} failed for a replica", view_number);
+                                state.ctx.round_results.insert(view_number, ViewStatus::ViewFailed(ViewFailed(error)));
+                            },
+                            EventType::Decide { leaf_chain, qc } => {
+                                // for leaf in leaf_chain {
+                                // TODO how to test this
+                                // }
+                                // TODO how to do this counting
+                                state.ctx.round_results.insert(view_number, ViewStatus::ViewSuccess(nll_todo()));
+
+                            },
+                            // these aren't failures
+                            EventType::ReplicaViewTimeout { view_number } |
+                                EventType::NextLeaderViewTimeout { view_number } |
+                                EventType::ViewFinished { view_number } => todo!(),
+                            _ => todo!(),
+                        }
+                        (None, state)
+                    }.boxed()
+                }));
+
+                let builder = TaskBuilder::<SafetyTaskTypes<TYPES, I>>::new("Safety Check Task".to_string())
+                    .register_event_stream(test_event_stream, FilterEvent::default()).await
+                    .register_registry(&mut registry).await
+                    .register_state(state)
+                    .register_event_handler(test_event_handler)
+                    .register_message_handler(message_handler)
+                    .register_message_stream(hotshot_event_stream)
+                    ;
+                let task_id = builder.get_task_id().unwrap();
+                (task_id, SafetyTaskTypes::build(builder).launch())
+
             }.boxed()
-        }));
-        let message_handler = HandleMessage::<SafetyTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
-            async move {
-                let  Event {view_number, event} = msg;
-                match event {
-                    EventType::Error { error } => {
-                        // TODO better warn with node idx
-                        warn!("View {:?} failed for a replica", view_number);
-                        state.ctx.round_results.insert(view_number, ViewStatus::ViewFailed(ViewFailed(error)));
-                    },
-                    EventType::Decide { leaf_chain, qc } => {
-                        // for leaf in leaf_chain {
-                            // TODO how to test this
-                        // }
-                        // TODO how to do this counting
-                        state.ctx.round_results.insert(view_number, ViewStatus::ViewSuccess(ViewSuccess(nll_todo())));
 
-                    },
-                    // these aren't failures
-                    EventType::ReplicaViewTimeout { view_number } |
-                    EventType::NextLeaderViewTimeout { view_number } |
-                    EventType::ViewFinished { view_number } => todo!(),
-                    _ => todo!(),
-                }
-                (None, state)
-            }.boxed()
-        }));
-
-        let state = SafetyTask::default();
-
-        let builder = TaskBuilder::<SafetyTaskTypes<TYPES, I>>::new("Safety Check Task".to_string())
-            .register_event_stream(test_event_stream, FilterEvent::default()).await
-            .register_registry(registry).await
-            .register_state(state)
-            .register_event_handler(test_event_handler)
-            .register_message_handler(message_handler)
-            .register_message_stream(hotshot_event_stream)
-        ;
-        let task_id = builder.get_task_id().unwrap();
-        (task_id, SafetyTaskTypes::build(builder).launch())
+        })
     }
 }
 

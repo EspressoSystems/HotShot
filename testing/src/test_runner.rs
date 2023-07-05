@@ -56,6 +56,7 @@ where
     next_node_id: u64,
 }
 
+#[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
     pub handle: SystemContextHandle<TYPES, I>,
@@ -466,5 +467,24 @@ where
             result.push(self.add_random_transaction(None, rng).await);
         }
         Some(result)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_basic() {
+        let metadata = crate::app_tasks::test_builder::TestMetadata::default();
+        metadata.gen_launcher::<crate::test_types::StaticCommitteeTestTypes, crate::test_types::StaticNodeImplType>()
+            .launch()
+            .run_test()
+            .await
+            .unwrap();
     }
 }

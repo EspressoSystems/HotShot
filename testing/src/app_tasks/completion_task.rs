@@ -9,6 +9,8 @@ use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use hotshot_task::{task::{TaskErr, TS, HST, HandleEvent, HandleMessage, HotShotTaskCompleted, FilterEvent, HotShotTaskTypes}, task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder}, event_stream::{ChannelStream, SendableStream, EventStream, self}, global_registry::{GlobalRegistry, HotShotTaskId}, GeneratedStream, boxed_sync, Merge};
 
+use crate::test_runner::Node;
+
 use super::{GlobalTestEvent, TestTask};
 
 /// the idea here is to run as long as we want
@@ -19,87 +21,97 @@ pub struct CompletionTaskErr {}
 impl TaskErr for CompletionTaskErr {}
 
 /// Data availability task state
-pub struct CompletionTask {
-    test_event_stream: ChannelStream<GlobalTestEvent>
+pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+    pub(crate) test_event_stream: ChannelStream<GlobalTestEvent>,
+    pub(crate) handles: Vec<Node<TYPES, I>>,
 }
-impl TS for CompletionTask {}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS for CompletionTask<TYPES, I> {
+}
 
 /// Completion task types
-pub type CompletionTaskTypes<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
-> =
+pub type CompletionTaskTypes<TYPES, I>
+=
     HSTWithEventAndMessage<
         CompletionTaskErr,
         GlobalTestEvent,
         ChannelStream<GlobalTestEvent>,
-        Either<(), Event<TYPES, I::Leaf>>,
-        Merge<GeneratedStream<()>, UnboundedStream<Event<TYPES, I::Leaf>>>,
-        CompletionTask
+        (),
+        GeneratedStream<()>,
+        CompletionTask<TYPES, I>
     >;
 
-pub struct TimeBasedCompletionTaskBuilder {
-    duration: Duration,
-    state: CompletionTask
+// TODO this is broken. Need to communicate to handles to kill everything
+#[derive(Clone, Debug)]
+pub struct TimeBasedCompletionTaskDescription {
+    pub duration: Duration,
 }
 
-impl TimeBasedCompletionTaskBuilder {
+#[derive(Clone, Debug)]
+pub enum CompletionTaskDescription {
+    TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription)
+}
+
+impl CompletionTaskDescription {
+    pub fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(self) ->  Box<dyn FnOnce(CompletionTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>> {
+        match self {
+            CompletionTaskDescription::TimeBasedCompletionTaskBuilder(td) => td.build_and_launch(),
+        }
+    }
+}
+
+impl TimeBasedCompletionTaskDescription {
     /// create the task and launch it
-    pub async fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-        registry: &mut GlobalRegistry,
-        test_event_stream: ChannelStream<GlobalTestEvent>,
-        hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
-    ) -> (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>) {
-        // TODO we'll possibly want multiple criterion including:
-        // - certain number of txns committed
-        // - anchor of certain depth
-        // - some other stuff? probably?
-        let event_handler = HandleEvent::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
+    ) ->  Box<dyn FnOnce(CompletionTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>> {
+        Box::new(move |state, mut registry, test_event_stream| {
             async move {
-                match event {
-                    GlobalTestEvent::ShutDown => {
-                        return (Some(HotShotTaskCompleted::ShutDown), state);
-                    },
-                    // TODO
-                    _ => { unimplemented!() }
-                }
-            }.boxed()
-        }));
-        let message_handler = HandleMessage::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |msg, state| {
-            async move {
-                match msg {
-                    Left(_) => {
-                        // msg is from timer
-                        // at this point we're done.
+                // TODO we'll possibly want multiple criterion including:
+                // - certain number of txns committed
+                // - anchor of certain depth
+                // - some other stuff? probably?
+                let event_handler = HandleEvent::<CompletionTaskTypes::<TYPES, I>>(Arc::new(move |event, state| {
+                    async move {
+                        match event {
+                            GlobalTestEvent::ShutDown => {
+                                return (Some(HotShotTaskCompleted::ShutDown), state);
+                            },
+                            // TODO
+                            _ => { unimplemented!() }
+                        }
+                    }.boxed()
+                }));
+                let message_handler = HandleMessage::<CompletionTaskTypes::<TYPES, I>>(Arc::new(move |msg, state| {
+                    async move {
                         state.test_event_stream.publish(GlobalTestEvent::ShutDown).await;
+                        for node in &state.handles {
+                            node.handle.clone().shut_down().await;
+                        }
                         (Some(HotShotTaskCompleted::ShutDown), state)
-                    },
-                    Right(_) => {
-                        (None, state)
-                    }
-                }
+                    }.boxed()
+                }));
+                // normally I'd say "let's use Interval from async-std!"
+                // but doing this is easier than unifying async-std with tokio's slightly different
+                // interval abstraction
+                let stream_generator = GeneratedStream::new(Arc::new(move || {
+                    let fut = async move {
+                        async_sleep(self.duration).await;
+                    };
+                    boxed_sync(fut)
+                }));
+                let builder = TaskBuilder::<CompletionTaskTypes::<TYPES, I>>::new("Test Completion Task".to_string())
+                    .register_event_stream(test_event_stream, FilterEvent::default()).await
+                    .register_registry(&mut registry).await
+                    .register_state(state)
+                    .register_event_handler(event_handler)
+                    .register_message_handler(message_handler)
+                    .register_message_stream(stream_generator)
+                    ;
+                let task_id = builder.get_task_id().unwrap();
+                (task_id, CompletionTaskTypes::build(builder).launch())
+
             }.boxed()
-        }));
-        // normally I'd say "let's use Interval from async-std!"
-        // but doing this is easier than unifying async-std with tokio's slightly different
-        // interval abstraction
-        let stream_generator = GeneratedStream::new(Arc::new(move || {
-            let fut = async move {
-                async_sleep(self.duration).await;
-            };
-            boxed_sync(fut)
-        }));
-        let merged_stream = Merge::new(stream_generator, hotshot_event_stream);
-        let builder = TaskBuilder::<CompletionTaskTypes<TYPES, I>>::new("Test Completion Task".to_string())
-            .register_event_stream(test_event_stream, FilterEvent::default()).await
-            .register_registry(registry).await
-            .register_state(self.state)
-            .register_event_handler(event_handler)
-            .register_message_handler(message_handler)
-            .register_message_stream(merged_stream)
-            ;
-        let task_id = builder.get_task_id().unwrap();
-        (task_id, CompletionTaskTypes::<TYPES, I>::build(builder).launch())
+        })
     }
 }

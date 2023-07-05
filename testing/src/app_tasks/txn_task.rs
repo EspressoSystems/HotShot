@@ -25,8 +25,8 @@ impl TaskErr for TxnTaskErr {}
 /// state of task that decides when things are completed
 pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>{
     // TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
-    handles: Vec<Node<TYPES, I>>,
-    next_node_idx: Option<usize>
+    pub handles: Vec<Node<TYPES, I>>,
+    pub next_node_idx: Option<usize>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS for TxnTask<TYPES, I> {}
@@ -39,13 +39,14 @@ pub type TxnTaskTypes<
             TxnTaskErr,
             GlobalTestEvent,
             ChannelStream<GlobalTestEvent>,
-            Either<(), Event<TYPES, I::Leaf>>,
-            Merge<GeneratedStream<()>, UnboundedStream<Event<TYPES, I::Leaf>>>,
+            (),
+            GeneratedStream<()>,
             TxnTask<TYPES, I>
         >;
 
 /// build the transaction task
-pub enum TxnTaskBuilder {
+#[derive(Clone, Debug)]
+pub enum TxnTaskDescription {
     /// submit transactions in a round robin style using
     /// every `Duration` seconds
     RoundRobinTimeBased(Duration),
@@ -54,39 +55,35 @@ pub enum TxnTaskBuilder {
     // others?
 }
 
-impl TxnTaskBuilder {
+impl TxnTaskDescription {
     /// build a task
-    pub async fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-        state: TxnTask<TYPES, I>,
-        registry: &mut GlobalRegistry,
-        test_event_stream: ChannelStream<GlobalTestEvent>,
-        hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
-    ) ->  (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>) {
-        // consistency check
-        match self {
-            TxnTaskBuilder::RoundRobinTimeBased(_) => assert!(state.next_node_idx.is_some()),
-            TxnTaskBuilder::DistributionBased => assert!(state.next_node_idx.is_none()),
-        }
-        // TODO we'll possibly want multiple criterion including:
-        // - certain number of txns committed
-        // - anchor of certain depth
-        // - some other stuff? probably?
-        let event_handler = HandleEvent::<TxnTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
+    ) ->  Box<dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>> {
+        Box::new(move |state, mut registry, test_event_stream| {
             async move {
-                match event {
-                    GlobalTestEvent::ShutDown => {
-                        return (Some(HotShotTaskCompleted::ShutDown), state);
-                    },
-                    // TODO
-                    _ => { unimplemented!() }
+                // consistency check
+                match self {
+                    TxnTaskDescription::RoundRobinTimeBased(_) => assert!(state.next_node_idx.is_some()),
+                    TxnTaskDescription::DistributionBased => assert!(state.next_node_idx.is_none()),
                 }
-            }.boxed()
-        }));
-        let message_handler = HandleMessage::<TxnTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
-            async move {
-                match msg {
-                    Left(_) => {
+                // TODO we'll possibly want multiple criterion including:
+                // - certain number of txns committed
+                // - anchor of certain depth
+                // - some other stuff? probably?
+                let event_handler = HandleEvent::<TxnTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
+                    async move {
+                        match event {
+                            GlobalTestEvent::ShutDown => {
+                                return (Some(HotShotTaskCompleted::ShutDown), state);
+                            },
+                            // TODO
+                            _ => { unimplemented!() }
+                        }
+                    }.boxed()
+                }));
+                let message_handler = HandleMessage::<TxnTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
+                    async move {
                         if let Some(idx) = state.next_node_idx {
                             // submit to idx handle
                             // increment state
@@ -118,36 +115,34 @@ impl TxnTaskBuilder {
                             unimplemented!()
                         }
 
-                    },
-                    Right(_) => {
-                        return (None, state)
-                    }
-                }
-            }.boxed()
-        }));
-        let stream_generator =
-            match self {
-                TxnTaskBuilder::RoundRobinTimeBased(duration) => {
-                    GeneratedStream::new(Arc::new(move || {
-                        let fut = async move {
-                            async_sleep(duration).await;
-                        };
-                        boxed_sync(fut)
-                    }))
+                    }.boxed()
+                }));
+                let stream_generator =
+                    match self {
+                        TxnTaskDescription::RoundRobinTimeBased(duration) => {
+                            GeneratedStream::new(Arc::new(move || {
+                                let fut = async move {
+                                    async_sleep(duration).await;
+                                };
+                                boxed_sync(fut)
+                            }))
 
-                },
-                TxnTaskBuilder::DistributionBased => unimplemented!(),
-            };
-        let merged_stream = Merge::new(stream_generator, hotshot_event_stream);
-        let builder = TaskBuilder::<TxnTaskTypes<TYPES, I>>::new("Test Transaction Submission Task".to_string())
-            .register_event_stream(test_event_stream, FilterEvent::default()).await
-            .register_registry(registry).await
-            .register_state(state)
-            .register_event_handler(event_handler)
-            .register_message_handler(message_handler)
-            .register_message_stream(merged_stream)
-            ;
-        let task_id = builder.get_task_id().unwrap();
-        (task_id, TxnTaskTypes::build(builder).launch())
+                        },
+                        TxnTaskDescription::DistributionBased => unimplemented!(),
+                    };
+                let builder = TaskBuilder::<TxnTaskTypes<TYPES, I>>::new("Test Transaction Submission Task".to_string())
+                    .register_event_stream(test_event_stream, FilterEvent::default()).await
+                    .register_registry(&mut registry).await
+                    .register_state(state)
+                    .register_event_handler(event_handler)
+                    .register_message_handler(message_handler)
+                    .register_message_stream(stream_generator)
+                    ;
+                let task_id = builder.get_task_id().unwrap();
+                (task_id, TxnTaskTypes::build(builder).launch())
+
+            }.boxed()
+
+        })
     }
 }
