@@ -280,28 +280,34 @@ where
                         info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
+                        let message: GeneralConsensusMessage<TYPES, I>;
+
                         // Validate the DAC.
                         if !self
                             .committee_exchange
                             .is_valid_cert(&cert, proposal.block_commitment)
                         {
                             warn!("Invalid DAC in proposal! Skipping proposal.");
-                            let _message: GeneralConsensusMessage<TYPES, I> =
-                                self.quorum_exchange.create_no_message(
-                                    proposal.justify_qc.commit(),
-                                    proposal.justify_qc.leaf_commitment,
-                                    cert.view_number,
-                                    vote_token,
-                                );
+                            message = self.quorum_exchange.create_no_message(
+                                proposal.justify_qc.commit(),
+                                proposal.justify_qc.leaf_commitment,
+                                cert.view_number,
+                                vote_token,
+                            );
                         } else {
-                            let _message: GeneralConsensusMessage<TYPES, I> =
-                                self.quorum_exchange.create_yes_message(
-                                    proposal.justify_qc.commit(),
-                                    proposal.justify_qc.leaf_commitment,
-                                    cert.view_number,
-                                    vote_token,
-                                );
+                            message = self.quorum_exchange.create_yes_message(
+                                proposal.justify_qc.commit(),
+                                proposal.justify_qc.leaf_commitment,
+                                cert.view_number,
+                                vote_token,
+                            );
                         }
+                        if let GeneralConsensusMessage::Vote(vote) = message {
+                            info!("Sending vote to next leader {:?}", vote);
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                                .await;
+                        };
                     }
                 }
             }
@@ -536,9 +542,8 @@ where
                                 event_stream: self.event_stream.clone(),
                             };
                             let name = "Quorum Vote Collection";
-                            let filter = FilterEvent(Arc::new(|event| match event {
-                                SequencingHotShotEvent::QuorumVoteRecv(_, _) => true,
-                                _ => false,
+                            let filter = FilterEvent(Arc::new(|event| {
+                                matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_, _))
                             }));
                             let builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())

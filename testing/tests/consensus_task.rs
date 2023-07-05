@@ -224,8 +224,6 @@ where
     let initializer =
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 
-    let node_id = 1;
-
     let known_nodes = config.known_nodes.clone();
     let private_key = I::generate_test_key(node_id);
     let public_key = TYPES::SignatureKey::from_private(&private_key);
