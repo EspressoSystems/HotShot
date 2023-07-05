@@ -27,6 +27,7 @@ use snafu::{ensure, Snafu};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
+    ops::{Add, Div, Rem},
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -40,6 +41,9 @@ use std::{
     Ord,
     Hash,
     Serialize,
+    // std::ops::Add,
+    // std::ops::Div,
+    // std::ops::Rem,
     Deserialize,
     CanonicalSerialize,
     CanonicalDeserialize,
@@ -768,6 +772,9 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
                 signatures_bytes.extend("No".as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
@@ -817,6 +824,9 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
 
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);

@@ -31,3 +31,6 @@ pub mod round;
 
 /// helper functions to build a round
 pub mod round_builder;
+
+/// tasks for view
+pub mod app_tasks;

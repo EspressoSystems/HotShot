@@ -208,9 +208,9 @@ impl<
         STATE: TS,
     > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
 {
-    type Event = ();
+    type Event = EVENT;
     type State = STATE;
-    type EventStream = DummyStream;
+    type EventStream = ESTREAM;
     type Message = MSG;
     type MessageStream = MSTREAM;
     type Error = ERR;
@@ -283,10 +283,10 @@ pub mod test {
         HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
     pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<
         Error,
-        Message,
-        UnboundedStream<Message>,
         Event,
         ChannelStream<Event>,
+        Message,
+        UnboundedStream<Message>,
         State,
     >;
 

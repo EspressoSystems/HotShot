@@ -20,6 +20,7 @@ use crate::{
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
+use hotshot_task::task::PassType;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -51,6 +52,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
         self.kind.purpose()
     }
 }
+
+/// A wrapper type for implementing `PassType` on a vector of `Message`.
+#[derive(Clone, Debug)]
+pub struct Messages<TYPES: NodeType, I: NodeImplementation<TYPES>>(pub Vec<Message<TYPES, I>>);
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Messages<TYPES, I> {}
 
 /// A message type agnostic description of a messages purpose
 pub enum MessagePurpose {
@@ -327,7 +334,7 @@ where
 }
 
 /// A view sync message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub enum ViewSyncMessageType<TYPES: NodeType> {
     /// A view sync vote

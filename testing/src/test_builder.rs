@@ -36,7 +36,7 @@ pub struct TestMetadata {
     /// number of txn per round
     /// TODO in the future we should make this sample from a distribution
     /// much like how network reliability is implemented
-    pub num_txns_per_round: usize,
+    pub num_txns_per_view: usize,
     /// Description of the network reliability
     /// `None` == perfect network
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
@@ -63,7 +63,7 @@ impl Default for TestMetadata {
             max_transactions: NonZeroUsize::new(999999).unwrap(),
             min_transactions: 0,
             timing_data: TimingData::default(),
-            num_txns_per_round: 20,
+            num_txns_per_view: 20,
             da_committee_size: 0,
         }
     }
@@ -84,7 +84,11 @@ impl TestMetadata {
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
@@ -96,7 +100,7 @@ impl TestMetadata {
     {
         Round {
             setup_round: RoundSetupBuilder {
-                num_txns_per_round: metadata.num_txns_per_round,
+                num_txns_per_round: metadata.num_txns_per_view,
                 ..RoundSetupBuilder::default()
             }
             .build(),
@@ -228,7 +232,11 @@ impl TestBuilder {
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,

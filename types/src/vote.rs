@@ -3,6 +3,7 @@
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
 //! can send, and vote accumulator that converts votes into certificates.
 
+use crate::traits::election::ViewSyncVoteData;
 use crate::{
     certificate::{QuorumCertificate, YesNoSignature},
     data::LeafType,
@@ -93,7 +94,9 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     /// The relay this vote is intended for
-    pub relay: EncodedPublicKey,
+    pub relay_pub_key: EncodedPublicKey,
+
+    pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::Time,
     /// This node's signature over the VoteData
@@ -213,6 +216,8 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// Map of all no signatures accumlated so far
     pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// Map of all view sync precommit votes accumulated thus far
+    pub viewsync_precommit_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
@@ -253,35 +258,66 @@ where
             .no_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_precommit_stake_casted, viewsync_precommit_vote_map) = self
+            .viewsync_precommit_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
-        match vote_data {
-            VoteData::DA(_) | VoteData::Yes(_) => {
+        match vote_data.clone() {
+            VoteData::DA(_)
+            | VoteData::Yes(_)
+            | VoteData::ViewSyncCommit(_)
+            | VoteData::ViewSyncFinalize(_)
+            | VoteData::Timeout(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data, token));
+                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
             VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data, token));
+                no_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
-            VoteData::Timeout(_) => {
-                unimplemented!()
+            VoteData::ViewSyncPreCommit(_) => {
+                *viewsync_precommit_stake_casted += u64::from(token.vote_count());
+                viewsync_precommit_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
-            VoteData::ViewSync(_) => todo!(),
         }
 
+        // This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
         if *total_stake_casted >= u64::from(self.success_threshold) {
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(YesNoSignature::Yes(valid_signatures));
+                match vote_data {
+                    VoteData::DA(_) | VoteData::Yes(_) | VoteData::No(_) | VoteData::Timeout(_) => {
+                        return Either::Right(YesNoSignature::Yes(valid_signatures))
+                    }
+                    VoteData::ViewSyncPreCommit(_) => unimplemented!(),
+                    VoteData::ViewSyncCommit(_) => {
+                        return Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures))
+                    }
+                    VoteData::ViewSyncFinalize(_) => {
+                        return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures))
+                    }
+                }
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::No(valid_signatures));
             }
+        }
+
+        if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
+            let valid_signatures = self
+                .viewsync_precommit_vote_outcomes
+                .remove(&commitment)
+                .unwrap()
+                .1;
+
+            return Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
         }
         Either::Left(self)
     }

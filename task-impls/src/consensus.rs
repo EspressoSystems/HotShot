@@ -5,6 +5,7 @@ use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
+use hotshot_consensus::View;
 use core::time::Duration;
 use either::Either;
 use either::Right;
@@ -18,9 +19,10 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-
 use hotshot_types::data::ProposalType;
+use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
+use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -103,7 +105,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: (TYPES::Time, JoinHandle<()>),
+    pub vote_collector: (ViewNumber, JoinHandle<()>),
 
     /// timeout task handle
     pub timeout_task: JoinHandle<()>,
@@ -112,7 +114,7 @@ pub struct SequencingConsensusTaskState<
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 
     /// All the DA certs we've received for current and future views.
-    pub certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+    pub certs: HashMap<ViewNumber, DACertificate<TYPES>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -176,6 +178,7 @@ where
         Commitment = SequencingLeaf<TYPES>,
     >,
 {
+    // TODO ED Emit a view change event upon new proposal?
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => match vote {
             QuorumVote::Yes(vote) => {
@@ -192,6 +195,7 @@ where
                     vote.vote_token.clone(),
                     state.cur_view,
                     accumulator,
+                    None,
                 ) {
                     Either::Left(acc) => {
                         state.accumulator = Either::Left(acc);
@@ -203,7 +207,7 @@ where
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
-                        return (Some(HotShotTaskCompleted::Success), state);
+                        return (None, state);
                     }
                 }
             }
@@ -221,7 +225,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -305,10 +309,10 @@ where
             }
         }
     }
-    async fn update_view(&mut self, new_view: TYPES::Time) {
+    async fn update_view(&mut self, new_view: ViewNumber) {
         // Remove old certs, we won't vote on past views
         for view in *self.cur_view..*new_view - 1 {
-            let v = TYPES::Time::new(view);
+            let v = ViewNumber::new(view);
             self.certs.remove(&v);
         }
         self.cur_view = new_view;
@@ -466,10 +470,13 @@ where
                             // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
                             // TODO(bf): get the real timeout from the config.
                             let stream = self.event_stream.clone();
+                            let view_number = self.cur_view.clone();
                             async move {
                                 async_sleep(Duration::from_millis(10000)).await;
                                 stream
-                                    .publish(SequencingHotShotEvent::Timeout(view + 1))
+                                    .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                                        *view_number,
+                                    )))
                                     .await;
                             }
                         });
@@ -498,6 +505,8 @@ where
                             total_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
+                            viewsync_precommit_vote_outcomes: HashMap::new(),
+
                             success_threshold: self.quorum_exchange.success_threshold(),
                             failure_threshold: self.quorum_exchange.failure_threshold(),
                         };
@@ -510,6 +519,7 @@ where
                             vote.vote_token.clone(),
                             vote.current_view,
                             acc,
+                            None,
                         );
                         if vote.current_view > *collection_view {
                             let state = VoteCollectionTaskState {
@@ -533,20 +543,16 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DACertificateRecv(cert, sender) => {
+            SequencingHotShotEvent::DACertificateRecv(cert) => {
                 let view = cert.view_number;
-                let view_leader_key = self.quorum_exchange.get_leader(view);
-                if sender == view_leader_key {
-                    self.certs.insert(view, cert);
-                } else {
-                    warn!("Received a DA cert but not from the right leader");
-                }
+                self.certs.insert(view, cert);
                 if view == self.cur_view {
                     self.vote_if_able();
                 }
             }
-            SequencingHotShotEvent::ViewSyncMessage => {
+            SequencingHotShotEvent::ViewChange(_) => {
                 // update the view in state to the one in the message
+                // TODO ED This info should come in the form of a ViewChange message, update
                 nll_todo()
             }
             SequencingHotShotEvent::Timeout(view) => {
@@ -600,7 +606,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 >;
 
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,

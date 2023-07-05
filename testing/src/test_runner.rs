@@ -1,3 +1,4 @@
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
@@ -126,7 +127,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         setup_logging();
@@ -159,7 +164,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         let mut results = vec![];
@@ -218,7 +227,11 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
+            Networks = (
+                QuorumCommChannel<TYPES, I>,
+                I::ViewSyncCommChannel,
+                I::CommitteeCommChannel,
+            ),
         >,
     {
         let node_id = self.next_node_id;
@@ -239,6 +252,7 @@ where
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
+            // TODO ED Add view sync network here
             (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),
@@ -331,13 +345,17 @@ where
         info!("EXECUTOR: running one round");
         for handle in self.nodes() {
             info!("STARTING ONE ROUND");
-            handle.start_one_round().await;
+            // TODO (justin) fix this. we need long running tasks
+            let _: () = nll_todo();
+            // handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
             info!("EXECUTOR: COLLECTING NODE {:?}", node.node_id.clone());
-            let result = node.handle.collect_round_events().await;
+            // let result = node.handle.collect_round_events().await;
+            // TODO (justin) fix this. we need long running tasks
+            let result = nll_todo();
             info!(
                 "EXECUTOR: collected node {:?} results: {}",
                 node.node_id.clone(),

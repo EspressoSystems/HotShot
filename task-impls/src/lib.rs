@@ -9,3 +9,5 @@ pub mod network;
 
 /// Defines the types to run unit tests for a task.
 pub mod harness;
+/// The task which implements view synchronization
+pub mod view_sync;

@@ -33,24 +33,6 @@ pub struct EventSequence<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     Vec<EventInputOutput<TYPES, I>>,
 );
 
-// impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestHarness<TYPES, I> {
-//     fn run(&mut self, events: EventSequence<TYPES, I>) {
-//         for in_or_out_bundle in events {
-//             match in_or_out_bundle {
-//                 Input(bundle) => {
-//                     for event in bundle {
-//                         self.event_stream.push(event);
-//                     }
-//                 }
-//                 Output(bundle) => {
-//                     // Wait for the output events to come in until the full bundle is satisfied
-//                     // TODO handle extranious events
-//                 }
-//             }
-//         }
-//     }
-// }
-
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for TestHarnessState<TYPES, I> {}
 
 /// view sync error type
