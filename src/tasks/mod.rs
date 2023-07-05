@@ -1,13 +1,13 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{SystemContext, ViewRunner};
+use crate::{async_spawn, SystemContext, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
-use hotshot_consensus::SequencingConsensusApi;
 use async_lock::RwLock;
 use futures::FutureExt;
+use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -22,6 +22,7 @@ use hotshot_task::{
 use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
+    da::{DATaskState, DATaskTypes},
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
@@ -29,22 +30,24 @@ use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
 use hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
+        election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
-        node_implementation::{ExchangesType, NodeImplementation, NodeType},
+        node_implementation::{
+            CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
+        },
         signature_key::EncodedSignature,
         state::ConsensusTime,
     },
     vote::VoteType,
 };
-
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -308,25 +311,6 @@ impl TS for ConsensusTaskState {}
 pub type ConsensusTaskTypes =
     HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
 
-/// Data Availability task error
-#[derive(Snafu, Debug)]
-pub struct DATaskError {}
-impl TaskErr for DATaskError {}
-
-/// Data availability task state
-#[derive(Debug)]
-pub struct DATaskState {}
-impl TS for DATaskState {}
-
-/// Data Availability task types
-pub type DATaskTypes =
-    HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
-
-// /// view sync error type
-// #[derive(Snafu, Debug)]
-// pub struct ViewSyncTaskError {}
-// impl TaskErr for ViewSyncTaskError {}
-
 // /// view sync task state
 // #[derive(Debug)]
 // pub struct ViewSyncTaskState {}
@@ -429,12 +413,8 @@ where
     let network_event_handler = HandleEvent(Arc::new(
         move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
             async move {
-                if let SequencingHotShotEvent::Shutdown = event {
-                    (Some(HotShotTaskCompleted::ShutDown), state)
-                } else {
-                    state.handle_event(event, exchange.membership()).await;
-                    (None, state)
-                }
+                let completion_status = state.handle_event(event, exchange.membership()).await;
+                (completion_status, state)
             }
             .boxed()
         },
@@ -514,27 +494,47 @@ pub async fn add_consensus_task(
 /// add the Data Availability task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_da_task(
+pub async fn add_da_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    committee_exchange: CommitteeEx<TYPES, I>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
     // build the da task
-    let da_state = DATaskState {};
+    let da_state = DATaskState {
+        cur_view: TYPES::Time::new(0),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        committee_exchange: committee_exchange.into(),
+        vote_collector: (TYPES::Time::new(0), async_spawn(async move {})),
+        event_stream: event_stream.clone(),
+    };
     let registry = task_runner.registry.clone();
-    let da_event_handler = HandleEvent(Arc::new(move |event, state| {
+    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
         async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                (None, state)
-            }
+            let completion_status = state.handle_event(event).await;
+            (completion_status, state)
         }
         .boxed()
     }));
     let da_name = "DA Task";
-    let da_event_filter = FilterEvent::default();
+    let da_event_filter = FilterEvent(Arc::new(DATaskState::<TYPES, I>::filter));
 
-    let da_task_builder = TaskBuilder::<DATaskTypes>::new(da_name.to_string())
+    let da_task_builder = TaskBuilder::<DATaskTypes<TYPES, I>>::new(da_name.to_string())
         .register_event_stream(event_stream.clone(), da_event_filter)
         .await
         .register_registry(&mut registry.clone())
@@ -544,7 +544,6 @@ pub async fn add_da_task(
     // impossible for unwrap to fail
     // we *just* registered
     let da_task_id = da_task_builder.get_task_id().unwrap();
-
     let da_task = DATaskTypes::build(da_task_builder).launch();
     task_runner.add_task(da_task_id, da_name.to_string(), da_task)
 }
@@ -590,22 +589,21 @@ where
         view_sync_timeout: Duration::new(10, 0),
     };
     let registry = task_runner.registry.clone();
-    let view_sync_event_handler = HandleEvent(Arc::new(move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
-        async move {
-            if let SequencingHotShotEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-
-                state.handle_event(event).await;
-                (None, state) 
+    let view_sync_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
             }
-        }
-        .boxed()
-    }));
-    let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent(Arc::new(
-        ViewSyncTaskState::<TYPES, I, A>::filter,
+            .boxed()
+        },
     ));
+    let view_sync_name = "ViewSync Task";
+    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, A>::filter));
 
     let view_sync_task_builder =
         TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())

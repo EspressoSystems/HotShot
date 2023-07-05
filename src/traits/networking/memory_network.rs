@@ -4,6 +4,7 @@
 //! integration tests.
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetrics};
+use crate::NodeImplementation;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{bounded, Receiver, SendError, Sender},
@@ -14,11 +15,12 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
     traits::{
-        election::Membership,
+        election::{Membership, ViewSyncExchange},
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
@@ -30,10 +32,6 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
-
-
-use crate::NodeImplementation;
-use hotshot_types::traits::network::ViewMessage;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{

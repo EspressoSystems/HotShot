@@ -207,16 +207,15 @@ type VoteMap<C, TOKEN> = HashMap<
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-// TODO ED Change LEAF to COMMITTABLE
-pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
+pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub yes_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
-    pub viewsync_precommit_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1

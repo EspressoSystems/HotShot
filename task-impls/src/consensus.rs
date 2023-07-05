@@ -199,7 +199,7 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
+                            .publish(SequencingHotShotEvent::QCSend(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
                         return (None, state);
@@ -497,7 +497,7 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::ViewSyncMessage(_) => {
+            SequencingHotShotEvent::ViewSyncMessageRecv(_) => {
                 // update the view in state to the one in the message
                 // TODO ED This info should come in the form of a ViewChange message, update
                 nll_todo()
