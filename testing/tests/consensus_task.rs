@@ -285,6 +285,7 @@ where
             if let SequencingHotShotEvent::Shutdown = event {
                 (Some(HotShotTaskCompleted::ShutDown), state)
             } else {
+                state.handle_event(event).await;
                 (None, state)
             }
         }

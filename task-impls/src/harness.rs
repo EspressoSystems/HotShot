@@ -35,7 +35,6 @@ pub struct EventSequence<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for TestHarnessState<TYPES, I> {}
 
-/// view sync error type
 #[derive(Snafu, Debug)]
 pub struct TestHarnessTaskError {}
 impl TaskErr for TestHarnessTaskError {}

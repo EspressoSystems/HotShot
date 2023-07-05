@@ -1,11 +1,16 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{SystemContext, ViewRunner};
+use crate::{
+    CommitteeEx, DACertificate, HotShotSequencingConsensusApi, QuorumCertificate,
+    SequencingQuorumEx, SystemContext, ViewRunner,
+};
+use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
+use async_std::stream::Filter;
 use futures::FutureExt;
 use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::{
@@ -22,12 +27,17 @@ use hotshot_task::{
 use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
+    consensus::{
+        consensus_event_filter, ConsensusTaskError, ConsensusTaskTypes,
+        SequencingConsensusTaskState,
+    },
     events::SequencingHotShotEvent,
     network::{NetworkTaskState, NetworkTaskTypes},
 };
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, Messages, SequencingMessage};
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
@@ -44,7 +54,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -294,20 +303,6 @@ pub enum GlobalEvent {
 }
 impl PassType for GlobalEvent {}
 
-/// Consensus Task Error
-#[derive(Snafu, Debug)]
-pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
-
-/// consensus task state
-#[derive(Debug)]
-pub struct ConsensusTaskState {}
-impl TS for ConsensusTaskState {}
-
-/// consensus task types
-pub type ConsensusTaskTypes =
-    HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
-
 /// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct DATaskError {}
@@ -472,33 +467,83 @@ where
 /// add the consensus task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_consensus_task(
+pub async fn add_consensus_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
+    let consensus = hotshot.get_consensus();
+    let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
     // build the consensus task
-    let consensus_state = ConsensusTaskState {};
+    let consensus_state = SequencingConsensusTaskState {
+        consensus,
+        cur_view: ViewNumber::new(0),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
+        api: c_api.clone(),
+        committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
+        _pd: PhantomData,
+        vote_collector: (ViewNumber::new(0), async_spawn(async move {})),
+        timeout_task: async_spawn(async move {}),
+        event_stream: event_stream.clone(),
+        certs: HashMap::new(),
+        current_proposal: None,
+    };
     let registry = task_runner.registry.clone();
-    let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
-        async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                (None, state)
-            }
-        }
-        .boxed()
-    }));
+    let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
-    let consensus_event_filter = FilterEvent::default();
-
-    let consensus_task_builder = TaskBuilder::<ConsensusTaskTypes>::new(consensus_name.to_string())
-        .register_event_stream(event_stream.clone(), consensus_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(consensus_state)
-        .register_event_handler(consensus_event_handler);
+    let consensus_event_handler = HandleEvent(Arc::new(
+        move |event,
+              mut state: SequencingConsensusTaskState<
+            TYPES,
+            I,
+            HotShotSequencingConsensusApi<TYPES, I>,
+        >| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
+            }
+            .boxed()
+        },
+    ));
+    let consensus_task_builder = TaskBuilder::<
+        ConsensusTaskTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>,
+    >::new(consensus_name.to_string())
+    .register_event_stream(event_stream.clone(), filter)
+    .await
+    .register_registry(&mut registry.clone())
+    .await
+    .register_state(consensus_state)
+    .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let consensus_task_id = consensus_task_builder.get_task_id().unwrap();

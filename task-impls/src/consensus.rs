@@ -5,7 +5,6 @@ use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
-use hotshot_consensus::View;
 use core::time::Duration;
 use either::Either;
 use either::Right;
@@ -13,6 +12,7 @@ use futures::FutureExt;
 use hotshot_consensus::utils::Terminator;
 use hotshot_consensus::Consensus;
 use hotshot_consensus::SequencingConsensusApi;
+use hotshot_consensus::View;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::task::FilterEvent;
@@ -52,15 +52,6 @@ use tracing::{error, info, warn};
 pub struct ConsensusTaskError {}
 impl TaskErr for ConsensusTaskError {}
 
-// pub struct TimeoutTaskState {
-//     /// shared stream
-//     event_stream: MaybePinnedEventStream<HSTT>,
-// }
-
-// pub async fn timeout_handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(event: SequencingHotShotEvent<TYPES, I>, state: TimeoutTaskState) -> (std::option::Option<HotShotTaskCompleted>, TimeoutTaskState) {
-//     (None, state)
-// }
-
 // #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -89,7 +80,7 @@ pub struct SequencingConsensusTaskState<
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// View number this view is executing in.
-    pub cur_view: TYPES::Time,
+    pub cur_view: ViewNumber,
     /// The High QC.
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
 
@@ -231,7 +222,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > SequencingConsensusTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -612,7 +603,7 @@ pub async fn sequencing_consensus_handle<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 >(
     event: SequencingHotShotEvent<TYPES, I>,
     mut state: SequencingConsensusTaskState<TYPES, I, A>,
@@ -641,5 +632,18 @@ where
     } else {
         state.handle_event(event).await;
         (None, state)
+    }
+}
+
+pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    event: &SequencingHotShotEvent<TYPES, I>,
+) -> bool {
+    match event {
+        SequencingHotShotEvent::QuorumProposalRecv(_, _)
+        | SequencingHotShotEvent::QuorumVoteRecv(_, _)
+        | SequencingHotShotEvent::DACertificateRecv(_)
+        | SequencingHotShotEvent::ViewChange(_)
+        | SequencingHotShotEvent::Timeout(_) => true,
+        _ => false,
     }
 }
