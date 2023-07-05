@@ -1,4 +1,5 @@
 use crate::events::SequencingHotShotEvent;
+use async_compatibility_layer::art::async_spawn;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
@@ -7,8 +8,9 @@ use either::{Left, Right};
 use futures::FutureExt;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
+use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
@@ -22,6 +24,7 @@ use hotshot_types::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
         signature_key::SignatureKey,
+        state::ConsensusTime,
     },
     vote::VoteAccumulator,
 };
@@ -52,14 +55,16 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    pub registry: GlobalRegistry,
+
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
 
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
-    /// Current Vote collection task, with it's view.
-    pub vote_collector: (ViewNumber, JoinHandle<()>),
+    /// Current Vote collection task, with it's view and ID.
+    pub vote_collector: (ViewNumber, usize, JoinHandle<HotShotTaskCompleted>),
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -234,7 +239,10 @@ where
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
                 }));
-                let (collection_view, _collection_task) = &self.vote_collector;
+                let (collection_view, collection_id, _collection_task) = &self.vote_collector;
+                if view > *collection_view {
+                    self.registry.shutdown_task(*collection_id);
+                }
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
@@ -262,20 +270,28 @@ where
                     };
                     let name = "DA Vote Collection";
                     let filter = FilterEvent::default();
-                    // TODO (run_view refactor) `TaskBuilder` is created but the task isn't added to the task runner.
-                    let _builder =
+                    let builder =
                         TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)
                             .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
                             .register_state(state)
                             .register_event_handler(handle_event);
+                    let id = builder.get_task_id().unwrap();
+                    let task = async_spawn(DAVoteCollectionTypes::build(builder).launch());
+                    self.vote_collector = (view, id, task);
                 }
             }
             SequencingHotShotEvent::ViewChange(view) => {
                 self.cur_view = view;
                 return None;
             }
-            SequencingHotShotEvent::Shutdown => return Some(HotShotTaskCompleted::ShutDown),
+            SequencingHotShotEvent::Shutdown => {
+                let (_, collection_id, _) = &self.vote_collector;
+                self.registry.shutdown_task(*collection_id);
+                return Some(HotShotTaskCompleted::ShutDown);
+            }
             _ => {}
         }
         None
