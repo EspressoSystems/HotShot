@@ -116,7 +116,7 @@ type StaticDAComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     DAProposal<SequencingTestTypes>,
-    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    DAVote<SequencingTestTypes>,
     StaticMembership,
 >;
 type StaticQuroumComm = MemoryCommChannel<

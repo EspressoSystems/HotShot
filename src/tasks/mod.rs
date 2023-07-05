@@ -2,8 +2,8 @@
 
 use crate::async_spawn;
 use crate::{
-    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate,
-    SequencingQuorumEx, SystemContext, ViewRunner,
+    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
+    SystemContext, ViewRunner,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},

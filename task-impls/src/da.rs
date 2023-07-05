@@ -62,8 +62,6 @@ pub struct DATaskState<
 {
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
-    /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
 
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
@@ -215,8 +213,7 @@ where
                         info!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
-                        let message = self.committee_exchange.create_da_message::<I>(
-                            self.high_qc.commit(),
+                        let message = self.committee_exchange.create_da_message(
                             block_commitment,
                             view,
                             vote_token,

@@ -31,11 +31,7 @@ pub trait VoteType<TYPES: NodeType>:
 /// A vote on DA proposal.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
-pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// TODO we should remove this
-    /// this is correct, but highly inefficient
-    /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+pub struct DAVote<TYPES: NodeType> {
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -152,7 +148,7 @@ pub enum QuorumVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     Timeout(TimeoutVote<TYPES, LEAF>),
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES> for DAVote<TYPES, LEAF> {
+impl<TYPES: NodeType> VoteType<TYPES> for DAVote<TYPES> {
     fn current_view(&self) -> TYPES::Time {
         self.current_view
     }
