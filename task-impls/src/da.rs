@@ -5,13 +5,12 @@ use async_lock::{Mutex, RwLock};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
-use hotshot_types::vote::DAVote;
 use core::time::Duration;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::Consensus;
 use hotshot_consensus::SequencingConsensusApi;
+use hotshot_consensus::{Consensus, View};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::task::FilterEvent;
@@ -21,9 +20,10 @@ use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{ProposalType, SequencingLeaf},
+    data::{ProposalType, SequencingLeaf, ViewNumber},
     message::{ProcessedSequencingMessage, SequencingMessage},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -61,7 +61,7 @@ pub struct DATaskState<
     >,
 {
     /// View number this view is executing in.
-    pub cur_view: TYPES::Time,
+    pub cur_view: ViewNumber,
     /// The `high_qc` per spec
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
 
@@ -69,7 +69,7 @@ pub struct DATaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: (TYPES::Time, JoinHandle<()>),
+    pub vote_collector: (ViewNumber, JoinHandle<()>),
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -91,7 +91,7 @@ pub struct DAVoteCollectionTaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>,
-    pub cur_view: TYPES::Time,
+    pub cur_view: ViewNumber,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
@@ -111,7 +111,7 @@ where
 }
 
 async fn vote_handle<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 >(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
@@ -166,7 +166,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -182,21 +182,24 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
+    pub async fn handle_event(
+        &mut self,
+        event: SequencingHotShotEvent<TYPES, I>,
+    ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
-                    return;
+                    return None;
                 }
                 let block_commitment = proposal.data.deltas.commit();
                 let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
-                    return;
+                    return None;
                 }
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
                     warn!(?proposal.signature, "Could not verify proposal.");
-                    return;
+                    return None;
                 }
 
                 let vote_token = self.committee_exchange.make_vote_token(view);
@@ -231,7 +234,7 @@ where
             }
             SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
                 if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
-                    return;
+                    return None;
                 }
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
@@ -272,8 +275,24 @@ where
                             .register_event_handler(handle_event);
                 }
             }
-            SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
+            SequencingHotShotEvent::ViewChange(view) => {
+                self.cur_view = view;
+                return None;
+            }
+            SequencingHotShotEvent::Shutdown => return Some(HotShotTaskCompleted::ShutDown),
             _ => {}
+        }
+        None
+    }
+
+    /// Filter the DA event.
+    pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
+        match event {
+            SequencingHotShotEvent::DAProposalRecv(_, _)
+            | SequencingHotShotEvent::DAVoteRecv(_, _)
+            | SequencingHotShotEvent::Shutdown
+            | SequencingHotShotEvent::ViewChange(_) => true,
+            _ => false,
         }
     }
 }

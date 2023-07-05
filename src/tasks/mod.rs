@@ -41,7 +41,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -494,7 +493,7 @@ pub async fn add_consensus_task(
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_da_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -523,7 +522,7 @@ where
         event_stream: event_stream.clone(),
     };
     let registry = task_runner.registry.clone();
-    let da_event_handler = HandleEvent(Arc::new(move |event, state| {
+    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
         async move {
             let completion_status = state.handle_event(event).await;
             (completion_status, state)
