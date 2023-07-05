@@ -818,7 +818,7 @@ where
         // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
         // let task_runner = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
         // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-        // let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+        // let task_runner = add_da_task(task_runner, event_stream.clone(), committee_exchange).await;
         // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
         async_spawn(async move {
             task_runner.launch().await;

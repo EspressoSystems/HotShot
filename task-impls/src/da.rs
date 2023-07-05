@@ -5,6 +5,7 @@ use async_lock::{Mutex, RwLock};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
+use hotshot_types::vote::DAVote;
 use core::time::Duration;
 use either::Either;
 use either::{Left, Right};
@@ -271,6 +272,7 @@ where
                             .register_event_handler(handle_event);
                 }
             }
+            SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
             _ => {}
         }
     }
