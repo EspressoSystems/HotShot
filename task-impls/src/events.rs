@@ -28,7 +28,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
     ViewSyncVoteSend(ViewSyncVote<TYPES>),
-    ViewSyncCertificateSend(ViewSyncCertificate<TYPES>),
+    ViewSyncCertificateSend(Proposal<ViewSyncCertificate<TYPES>>),
     ViewSyncVoteRecv(ViewSyncVote<TYPES>),
     ViewSyncCertificateRecv(Proposal<ViewSyncCertificate<TYPES>>),
     Timeout(ViewNumber),

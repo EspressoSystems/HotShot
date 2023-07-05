@@ -19,6 +19,7 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
+use hotshot_types::message::GeneralConsensusMessage::ViewSyncCertificate as ViewSyncCertificateProposal;
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::VoteData;
@@ -538,155 +539,148 @@ where
         ViewSyncReplicaTaskState<TYPES, I, A>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncMessage(message) => match message {
-                ViewSyncMessageType::Certificate(certificate) => {
-                    let (certificate_internal, last_seen_certificate) = match certificate.clone() {
-                        ViewSyncCertificate::PreCommit(certificate_internal) => {
-                            (certificate_internal, ViewSyncPhase::PreCommit)
+            SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
+                // TODO ED Check signature
+                let (certificate_internal, last_seen_certificate) = match message.data.clone() {
+                    ViewSyncCertificate::PreCommit(certificate_internal) => {
+                        (certificate_internal, ViewSyncPhase::PreCommit)
+                    }
+                    ViewSyncCertificate::Commit(certificate_internal) => {
+                        (certificate_internal, ViewSyncPhase::Commit)
+                    }
+                    ViewSyncCertificate::Finalize(certificate_internal) => {
+                        (certificate_internal, ViewSyncPhase::Finalize)
+                    }
+                };
+
+                // Ignore certificate if it is for an older round
+                if certificate_internal.round < self.next_view {
+                    return (None, self);
+                }
+
+                // If certificate is not valid, return current state
+                if !self
+                    .exchange
+                    .is_valid_view_sync_cert(message.data, certificate_internal.round.clone())
+                {
+                    return (None, self);
+                }
+
+                // If certificate is for a higher round shutdown this task
+                // since another task should have been started for the higher round
+                // TODO ED Perhaps in the future this should return an error giving more
+                // context
+                if certificate_internal.round > self.next_view {
+                    return (Some(HotShotTaskCompleted::ShutDown), self);
+                }
+
+                // Ignore if the certificate is for an already seen phase
+                if last_seen_certificate <= self.phase {
+                    return (None, self);
+                }
+
+                self.phase = last_seen_certificate;
+
+                // Send ViewChange event if necessary
+                if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
+                    self.event_stream
+                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                            *self.next_view,
+                        )))
+                        .await;
+                    self.sent_view_change_event = true;
+                }
+
+                // The protocol has ended
+                if self.phase == ViewSyncPhase::Finalize {
+                    return ((Some(HotShotTaskCompleted::ShutDown)), self);
+                }
+
+                if certificate_internal.relay > self.relay {
+                    self.relay = certificate_internal.relay
+                }
+
+                // TODO ED Assuming that nodes must have stake for the view they are voting to enter
+                let maybe_vote_token = self
+                    .exchange
+                    .membership()
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
+
+                match maybe_vote_token {
+                    Ok(Some(vote_token)) => {
+                        let message = match self.phase {
+                            ViewSyncPhase::None => unimplemented!(),
+                            ViewSyncPhase::PreCommit => self.exchange.create_commit_message::<I>(
+                                self.next_view,
+                                self.relay,
+                                vote_token.clone(),
+                            ),
+                            ViewSyncPhase::Commit => self.exchange.create_finalize_message::<I>(
+                                self.next_view,
+                                self.relay,
+                                vote_token.clone(),
+                            ),
+                            // Should never hit this
+                            ViewSyncPhase::Finalize => unimplemented!(),
+                        };
+
+                        if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
+                                .await;
                         }
-                        ViewSyncCertificate::Commit(certificate_internal) => {
-                            (certificate_internal, ViewSyncPhase::Commit)
-                        }
-                        ViewSyncCertificate::Finalize(certificate_internal) => {
-                            (certificate_internal, ViewSyncPhase::Finalize)
-                        }
-                    };
 
-                    // Ignore certificate if it is for an older round
-                    if certificate_internal.round < self.next_view {
-                        return (None, self);
-                    }
-
-                    // If certificate is not valid, return current state
-                    if !self
-                        .exchange
-                        .is_valid_view_sync_cert(certificate, certificate_internal.round.clone())
-                    {
-                        return (None, self);
-                    }
-
-                    // If certificate is for a higher round shutdown this task
-                    // since another task should have been started for the higher round
-                    // TODO ED Perhaps in the future this should return an error giving more
-                    // context
-                    if certificate_internal.round > self.next_view {
-                        return (Some(HotShotTaskCompleted::ShutDown), self);
-                    }
-
-                    // Ignore if the certificate is for an already seen phase
-                    if last_seen_certificate <= self.phase {
-                        return (None, self);
-                    }
-
-                    self.phase = last_seen_certificate;
-
-                    // Send ViewChange event if necessary
-                    if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
-                        self.event_stream
-                            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
-                                *self.next_view,
-                            )))
-                            .await;
-                        self.sent_view_change_event = true;
-                    }
-
-                    // The protocol has ended
-                    if self.phase == ViewSyncPhase::Finalize {
-                        return ((Some(HotShotTaskCompleted::ShutDown)), self);
-                    }
-
-                    if certificate_internal.relay > self.relay {
-                        self.relay = certificate_internal.relay
-                    }
-
-                    // TODO ED Assuming that nodes must have stake for the view they are voting to enter
-                    let maybe_vote_token = self
-                        .exchange
-                        .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key());
-
-                    match maybe_vote_token {
-                        Ok(Some(vote_token)) => {
+                        // Send to the first relay after sending to k_th relay
+                        if self.relay > 0 {
                             let message = match self.phase {
                                 ViewSyncPhase::None => unimplemented!(),
                                 ViewSyncPhase::PreCommit => {
-                                    self.exchange.create_commit_message::<I>(
+                                    self.exchange.create_precommit_message::<I>(
                                         self.next_view,
-                                        self.relay,
+                                        0,
                                         vote_token.clone(),
                                     )
                                 }
-                                ViewSyncPhase::Commit => {
-                                    self.exchange.create_finalize_message::<I>(
-                                        self.next_view,
-                                        self.relay,
-                                        vote_token.clone(),
-                                    )
-                                }
-                                // Should never hit this
+                                ViewSyncPhase::Commit => self.exchange.create_commit_message::<I>(
+                                    self.next_view,
+                                    0,
+                                    vote_token.clone(),
+                                ),
                                 ViewSyncPhase::Finalize => unimplemented!(),
                             };
-
                             if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
                                 self.event_stream
                                     .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                     .await;
                             }
-
-                            // Send to the first relay after sending to k_th relay
-                            if self.relay > 0 {
-                                let message = match self.phase {
-                                    ViewSyncPhase::None => unimplemented!(),
-                                    ViewSyncPhase::PreCommit => {
-                                        self.exchange.create_precommit_message::<I>(
-                                            self.next_view,
-                                            0,
-                                            vote_token.clone(),
-                                        )
-                                    }
-                                    ViewSyncPhase::Commit => {
-                                        self.exchange.create_commit_message::<I>(
-                                            self.next_view,
-                                            0,
-                                            vote_token.clone(),
-                                        )
-                                    }
-                                    ViewSyncPhase::Finalize => unimplemented!(),
-                                };
-                                if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                                    self.event_stream
-                                        .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
-                                        .await;
-                                }
-                            }
-
-                            // TODO ED Add event to shutdown this task if a view is completed
-                            async_spawn({
-                                let stream = self.event_stream.clone();
-                                let phase = self.phase.clone();
-                                async move {
-                                    async_sleep(self.view_sync_timeout).await;
-                                    stream
-                                        .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                            ViewNumber::new(*self.next_view),
-                                            self.relay,
-                                            phase,
-                                        ))
-                                        .await;
-                                }
-                            });
-
-                            return (None, self);
                         }
-                        Ok(None) => return (None, self),
-                        Err(_) => return (None, self),
+
+                        // TODO ED Add event to shutdown this task if a view is completed
+                        async_spawn({
+                            let stream = self.event_stream.clone();
+                            let phase = self.phase.clone();
+                            async move {
+                                async_sleep(self.view_sync_timeout).await;
+                                stream
+                                    .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                                        ViewNumber::new(*self.next_view),
+                                        self.relay,
+                                        phase,
+                                    ))
+                                    .await;
+                            }
+                        });
+
+                        return (None, self);
                     }
+                    Ok(None) => return (None, self),
+                    Err(_) => return (None, self),
                 }
-                ViewSyncMessageType::Vote(vote) => {
-                    // Ignore
-                    return (None, self);
-                }
-            },
+            }
+            SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
+                // Ignore
+                return (None, self);
+            }
 
             // The main ViewSync task should handle this
             SequencingHotShotEvent::Timeout(view_number) => return (None, self),
@@ -830,18 +824,20 @@ where
                     self.accumulator = match accumulator {
                         Left(new_accumulator) => Either::Left(new_accumulator),
                         Right(certificate) => {
-                            let (certificate_internal, phase) = match certificate.clone() {
-                                ViewSyncCertificate::PreCommit(certificate_internal) => {
-                                    (certificate_internal, ViewSyncPhase::PreCommit)
-                                }
-                                ViewSyncCertificate::Commit(certificate_internal) => {
-                                    (certificate_internal, ViewSyncPhase::Commit)
-                                }
-                                ViewSyncCertificate::Finalize(certificate_internal) => {
-                                    (certificate_internal, ViewSyncPhase::Finalize)
-                                }
+                            let (certificate_internal, message) = match certificate.clone() {
+                                ViewSyncCertificate::PreCommit(certificate_internal) => (
+                                    certificate_internal,
+                                    ViewSyncCertificate::PreCommit(certificate.clone()),
+                                ),
+                                ViewSyncCertificate::Commit(certificate_internal) => (
+                                    certificate_internal,
+                                    ViewSyncCertificate::Commit(certificate.clone()),
+                                ),
+                                ViewSyncCertificate::Finalize(certificate_internal) => (
+                                    certificate_internal,
+                                    ViewSyncCertificate::Finalize(certificate.clone()),
+                                ),
                             };
-                            let message = ViewSyncMessageType::Certificate(certificate.clone());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncCertificateSend(message))
                                 .await;
