@@ -123,23 +123,6 @@ pub async fn run_orchestrator_da<
     .await;
 }
 
-// VALIDATOR
-
-// #[derive(Parser, Debug, Clone)]
-// #[command(
-//     name = "Multi-machine consensus",
-//     about = "Simulates consensus among multiple machines"
-// )]
-/// Arguments passed to the validator
-// pub struct DAValidatorArgs {
-//     /// The address the orchestrator runs on
-//     host: IpAddr,
-//     /// The port the orchestrator runs on
-//     port: u16,
-//     /// This node's public IP address, for libp2p
-//     /// If no IP address is passed in, it will default to 127.0.0.1
-//     public_ip: Option<IpAddr>,
-// }
 
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
@@ -184,7 +167,6 @@ pub trait RunDA<
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-    //NODE: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     Self: Sync,
 {
     /// Initializes networking, returns self
@@ -231,19 +213,6 @@ pub trait RunDA<
             config.config.total_nodes.get() as u64
         );
 
-        // let election_config = config.config.election_config.clone().unwrap_or_else(|| {
-        //     <QuorumExchange<
-        //         TYPES,
-        //         SequencingLeaf<TYPES>,
-        //         QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        //         MEMBERSHIP,
-        //         QUORUMNETWORK,
-        //         Message<TYPES, NODE>,
-        //     > as ConsensusExchange<TYPES, Message<TYPES, NODE>>>::Membership::default_election_config(
-        //         config.config.total_nodes.get() as u64
-        //     )
-        // });
-
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
@@ -265,13 +234,6 @@ pub trait RunDA<
         .await
         .expect("Could not init hotshot");
 
-        // let state = hotshot
-        //     .storage()
-        //     .get_anchored_view()
-        //     .await
-        //     .expect("Couldn't get HotShot's anchored view")
-        //     .state;
-        // (state, hotshot)
         hotshot
     }
 
@@ -377,8 +339,6 @@ pub trait RunDA<
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 }
-
-//type Proposal<T> = DAProposal<T>;
 
 // WEB SERVER
 
@@ -554,104 +514,6 @@ where
     }
 }
 
-/// Holds the client connection to the orchestrator
-// pub struct OrchestratorClient {
-//     client: surf_disco::Client<ClientError>,
-// }
-
-// impl OrchestratorClient {
-//     /// Creates the client that connects to the orchestrator
-//     async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
-//         let base_url = format!("{0}:{1}", args.host, args.port);
-//         let base_url = format!("http://{base_url}").parse().unwrap();
-//         let client = surf_disco::Client::<ClientError>::new(base_url);
-//         assert!(client.connect(None).await);
-//         OrchestratorClient { client }
-//     }
-
-//     /// Sends an identify message to the server
-//     /// Returns this validator's node_index in the network
-//     async fn identify_with_orchestrator(&self, identity: String) -> u16 {
-//         let identity = identity.as_str();
-//         let f = |client: Client<ClientError>| {
-//             async move {
-//                 let node_index: Result<u16, ClientError> = client
-//                     .post(&format!("api/identity/{identity}"))
-//                     .send()
-//                     .await;
-//                 node_index
-//             }
-//             .boxed()
-//         };
-//         self.wait_for_fn_from_orchestrator(f).await
-//     }
-
-//     /// Returns the run configuration from the orchestrator
-//     /// Will block until the configuration is returned
-//     async fn get_config_from_orchestrator<TYPES: NodeType>(
-//         &self,
-//         node_index: u16,
-//     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
-//         let f = |client: Client<ClientError>| {
-//             async move {
-//                 let config: Result<
-//                     NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-//                     ClientError,
-//                 > = client
-//                     .post(&format!("api/config/{node_index}"))
-//                     .send()
-//                     .await;
-//                 config
-//             }
-//             .boxed()
-//         };
-//         self.wait_for_fn_from_orchestrator(f).await
-//     }
-
-//     /// Tells the orchestrator this validator is ready to start
-//     /// Blocks until the orchestrator indicates all nodes are ready to start
-//     async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
-//         let send_ready_f = |client: Client<ClientError>| {
-//             async move {
-//                 let result: Result<_, ClientError> = client
-//                     .post("api/ready")
-//                     .body_json(&node_index)
-//                     .unwrap()
-//                     .send()
-//                     .await;
-//                 result
-//             }
-//             .boxed()
-//         };
-//         self.wait_for_fn_from_orchestrator::<_, _, ()>(send_ready_f)
-//             .await;
-
-//         let wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
-//             async move { client.get("api/start").send().await }.boxed()
-//         };
-//         self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
-//             .await
-//     }
-
-//     /// Generic function that waits for the orchestrator to return a non-error
-//     /// Returns whatever type the given function returns
-//     async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
-//     where
-//         F: Fn(Client<ClientError>) -> Fut,
-//         Fut: Future<Output = Result<GEN, ClientError>>,
-//     {
-//         loop {
-//             let client = self.client.clone();
-//             let res = f(client).await;
-//             match res {
-//                 Ok(x) => break x,
-//                 Err(_x) => {
-//                     async_sleep(Duration::from_millis(250)).await;
-//                 }
-//             }
-//         }
-//     }
-// }
 
 /// Main entry point for validators
 pub async fn main_entry_point<
