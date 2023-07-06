@@ -574,9 +574,7 @@ where
 
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // update the view in state to the one in the message
-                if self.cur_view < TYPES::Time::new(*new_view) {
-                    self.cur_view = TYPES::Time::new(*new_view);
-                }
+                self.update_view(new_view);
             }
             SequencingHotShotEvent::Timeout(view) => {
                 self.update_view(view);

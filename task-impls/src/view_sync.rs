@@ -88,7 +88,6 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
-
     pub registry: GlobalRegistry,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
@@ -331,9 +330,9 @@ where
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
 
-                            let _view_sync_replica_task =
-                            async_spawn(
-                                ViewSyncReplicaTaskStateTypes::build(builder).launch());
+                            let _view_sync_replica_task = async_spawn(async move {
+                                ViewSyncReplicaTaskStateTypes::build(builder).launch().await
+                            });
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -403,8 +402,9 @@ where
                                     .register_event_handler(relay_handle_event);
 
                             // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
-                            let _view_sync_relay_task =
-                            async_spawn(ViewSyncRelayTaskStateTypes::build(builder).launch());
+                            let _view_sync_relay_task = async_spawn(async move {
+                                ViewSyncRelayTaskStateTypes::build(builder).launch().await
+                            });
                         }
                     }
                 }
@@ -475,8 +475,9 @@ where
                             .register_event_handler(replica_handle_event);
 
                     // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
-                    let _view_sync_replica_task =
-                    async_spawn(ViewSyncReplicaTaskStateTypes::build(builder).launch());
+                    let _view_sync_replica_task = async_spawn(async move {
+                        ViewSyncReplicaTaskStateTypes::build(builder).launch().await
+                    });
                 } else {
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view + 1;
@@ -540,13 +541,11 @@ where
         ViewSyncReplicaTaskState<TYPES, I, A>,
     ) {
         match event {
-
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
                 // TODO ED Check signature
                 let (certificate_internal, last_seen_certificate) = match message.data.clone() {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
-
                     }
                     ViewSyncCertificate::Commit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::Commit)
