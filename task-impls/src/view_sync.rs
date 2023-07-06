@@ -331,9 +331,9 @@ where
                                 .register_state(replica_state)
                                 .register_event_handler(replica_handle_event);
 
-                            // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                             let _view_sync_replica_task =
-                                ViewSyncReplicaTaskStateTypes::build(builder).launch();
+                            async_spawn(
+                                ViewSyncReplicaTaskStateTypes::build(builder).launch());
                         }
                     }
                     ViewSyncMessageType::Vote(vote) => {
@@ -404,7 +404,7 @@ where
 
                             // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                             let _view_sync_relay_task =
-                                ViewSyncRelayTaskStateTypes::build(builder).launch();
+                            async_spawn(ViewSyncRelayTaskStateTypes::build(builder).launch());
                         }
                     }
                 }
@@ -476,7 +476,7 @@ where
 
                     // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                     let _view_sync_replica_task =
-                        ViewSyncReplicaTaskStateTypes::build(builder).launch();
+                    async_spawn(ViewSyncReplicaTaskStateTypes::build(builder).launch());
                 } else {
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view + 1;
