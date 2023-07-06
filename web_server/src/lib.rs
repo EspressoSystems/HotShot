@@ -37,18 +37,28 @@ const MAX_TXNS: usize = 10;
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: HashMap<u64, (String, Vec<u8>)>,
+
+    view_sync_proposals: HashMap<u64, (String, Vec<u8>)>,
     /// view number -> (secret, da_certificates)
     da_certificates: HashMap<u64, (String, Vec<u8>)>,
     /// view for oldest proposals in memory
     oldest_proposal: u64,
     /// view for teh oldest DA certificate
     oldest_certificate: u64,
+
+    oldest_view_sync_proposal: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+
+    view_sync_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> highest vote index for that view number
     vote_index: HashMap<u64, u64>,
+
+    view_sync_vote_index: HashMap<u64, u64>,
     /// view number of oldest votes in memory
     oldest_vote: u64,
+
+    oldest_view_sync_vote: u64,
     /// index -> transaction
     transactions: HashMap<u64, Vec<u8>>,
     /// highest transaction index
@@ -76,6 +86,11 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             vote_index: HashMap::new(),
             transactions: HashMap::new(),
             _prng: StdRng::from_entropy(),
+            view_sync_proposals: HashMap::new(),
+            view_sync_votes: HashMap::new(),
+            view_sync_vote_index: HashMap::new(),
+            oldest_view_sync_vote: 0,
+            oldest_view_sync_proposal: 0,
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -90,11 +105,24 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_view_sync_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error>;
+
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
+    fn post_view_sync_proposal(&mut self, view_number: u64, proposal: Vec<u8>)
+        -> Result<(), Error>;
+
     fn post_da_certificate(&mut self, view_number: u64, cert: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
@@ -301,6 +329,27 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .insert(next_view_for_leader, (secret, Vec::new()));
         Ok(())
     }
+
+    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        todo!()
+    }
+
+    fn get_view_sync_votes(
+            &self,
+            view_number: u64,
+            index: u64,
+        ) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        todo!()
+    }
+
+    fn post_view_sync_proposal(&mut self, view_number: u64, proposal: Vec<u8>)
+            -> Result<(), Error> {
+        todo!()
+    }
+
+    fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
+        todo!()
+    }
 }
 
 #[derive(Args, Default)]
@@ -396,6 +445,7 @@ where
         }
         .boxed()
     })?
+    // TODO ED Register view sync endpoints
     .post("secret", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
