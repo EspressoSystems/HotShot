@@ -1010,6 +1010,8 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ) -> (EncodedPublicKey, EncodedSignature);
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
+
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1221,6 +1223,11 @@ impl<
         };
 
         return votes >= threshold.into();
+    }
+
+
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
+        todo!()
     }
 }
 

@@ -7,6 +7,7 @@ use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
+use hotshot_types::traits::node_implementation::ViewSyncProposalType;
 use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::vote::{DAVote, QuorumVote};
 
@@ -28,9 +29,9 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
     ViewSyncVoteSend(ViewSyncVote<TYPES>),
-    ViewSyncCertificateSend(Proposal<ViewSyncCertificate<TYPES>>),
+    ViewSyncCertificateSend(Proposal<ViewSyncProposalType<TYPES, I>>),
     ViewSyncVoteRecv(ViewSyncVote<TYPES>),
-    ViewSyncCertificateRecv(Proposal<ViewSyncCertificate<TYPES>>),
+    ViewSyncCertificateRecv(Proposal<ViewSyncProposalType<TYPES, I>>),
     Timeout(ViewNumber),
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

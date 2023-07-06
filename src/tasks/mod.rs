@@ -558,7 +558,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,

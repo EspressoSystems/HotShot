@@ -83,7 +83,7 @@ pub struct ViewSyncTaskState<
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -125,7 +125,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -152,7 +152,7 @@ pub struct ViewSyncReplicaTaskState<
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -184,7 +184,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -249,7 +249,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -526,7 +526,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -768,7 +768,7 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
@@ -824,19 +824,11 @@ where
                     self.accumulator = match accumulator {
                         Left(new_accumulator) => Either::Left(new_accumulator),
                         Right(certificate) => {
-                            let (certificate_internal, message) = match certificate.clone() {
-                                ViewSyncCertificate::PreCommit(certificate_internal) => (
-                                    certificate_internal,
-                                    ViewSyncCertificate::PreCommit(certificate.clone()),
-                                ),
-                                ViewSyncCertificate::Commit(certificate_internal) => (
-                                    certificate_internal,
-                                    ViewSyncCertificate::Commit(certificate.clone()),
-                                ),
-                                ViewSyncCertificate::Finalize(certificate_internal) => (
-                                    certificate_internal,
-                                    ViewSyncCertificate::Finalize(certificate.clone()),
-                                ),
+                            let signature =
+                                self.exchange.sign_certificate_proposal(certificate.clone());
+                            let message = Proposal {
+                                data: certificate.clone(),
+                                signature,
                             };
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncCertificateSend(message))
