@@ -26,7 +26,6 @@ use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
-use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -579,8 +578,8 @@ where
                 self.update_view(new_view);
             }
             SequencingHotShotEvent::Timeout(view) => {
-                self.update_view(view);
-                nll_todo()
+                // The view sync module will handle updating views in the case of timeout 
+                // TODO ED In the future send a timeout vote
             }
             _ => {}
         }

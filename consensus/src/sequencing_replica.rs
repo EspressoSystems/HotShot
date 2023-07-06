@@ -421,7 +421,8 @@ where
                                 warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                                 continue;
                             }
-                            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+                            ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                            ProcessedGeneralConsensusMessage::ViewSyncVote(_) => todo!(),
                         }
                     }
                     Right(committee_message) => {

@@ -10,7 +10,7 @@ use crate::certificate::{self, ViewSyncCertificate};
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
-use crate::message::ViewSyncMessageType;
+
 use crate::message::{
     CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
 };

@@ -2,7 +2,6 @@ use hotshot_task::task::PassType;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;
-use hotshot_types::message::ViewSyncMessageType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
@@ -20,7 +19,6 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAProposalRecv(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteRecv(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     DACRecv(DACertificate<TYPES>),
-    ViewSyncMessageRecv(ViewSyncMessageType<TYPES>),
     QuorumProposalSend(Proposal<QuorumProposalType<TYPES, I>>),
     QuorumVoteSend(QuorumVote<TYPES, I::Leaf>),
     DAProposalSend(Proposal<DAProposal<TYPES>>),

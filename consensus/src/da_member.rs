@@ -111,7 +111,10 @@ where
                                 warn!("DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.");
                                 continue;
                             }
-                            ProcessedGeneralConsensusMessage::ViewSync(_) => {
+                            ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => {
+                                todo!()
+                            }
+                            ProcessedGeneralConsensusMessage::ViewSyncVote(_) => {
                                 todo!()
                             }
                         }

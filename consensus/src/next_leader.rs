@@ -154,7 +154,8 @@ where
                 ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
-                ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+                ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                ProcessedGeneralConsensusMessage::ViewSyncVote(_) => todo!(),
             }
         }
 
