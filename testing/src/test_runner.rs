@@ -485,16 +485,143 @@ where
 
 #[cfg(test)]
 pub mod test {
+    use ark_bls12_381::Parameters as Param381;
+    use hotshot::{
+        demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
+        traits::{
+            election::{
+                static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
+                vrf::JfPubKey,
+            },
+            implementations::{
+                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+            },
+            NodeImplementation,
+        },
+    };
+    use hotshot_types::data::QuorumProposal;
+    use hotshot_types::message::{Message, SequencingMessage};
+    use hotshot_types::traits::election::ViewSyncExchange;
+    use hotshot_types::vote::QuorumVote;
+    use hotshot_types::vote::ViewSyncVote;
+    use hotshot_types::{
+        data::{DAProposal, SequencingLeaf, ViewNumber},
+        traits::{
+            consensus_type::sequencing_consensus::SequencingConsensus,
+            election::{CommitteeExchange, QuorumExchange},
+            node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
+        },
+        vote::DAVote,
+    };
+    use jf_primitives::signatures::BLSSignatureScheme;
+    use serde::{Deserialize, Serialize};
+    use tracing::instrument;
+    #[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+        )]
+        pub struct SequencingTestTypes;
+    impl NodeType for SequencingTestTypes {
+        type ConsensusType = SequencingConsensus;
+        type Time = ViewNumber;
+        type BlockType = SDemoBlock;
+        type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+        type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
+        type Transaction = SDemoTransaction;
+        type ElectionConfigType = StaticElectionConfig;
+        type StateType = SDemoState;
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+    pub struct SequencingMemoryImpl {}
+
+    type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+
+    type StaticDAComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+    >;
+
+    type StaticQuroumComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+    >;
+
+    type StaticViewSyncComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
+    StaticMembership,
+    >;
+
+    impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
+        type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+        type Leaf = SequencingLeaf<SequencingTestTypes>;
+        type Exchanges = SequencingExchanges<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, Self>,
+            QuorumExchange<
+                SequencingTestTypes,
+                Self::Leaf,
+                QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                StaticMembership,
+                StaticQuroumComm,
+                Message<SequencingTestTypes, Self>,
+                >,
+                CommitteeExchange<
+                    SequencingTestTypes,
+                    StaticMembership,
+                    StaticDAComm,
+                    Message<SequencingTestTypes, Self>,
+                    >,
+                    ViewSyncExchange<
+                        SequencingTestTypes,
+                        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                        StaticMembership,
+                        StaticViewSyncComm,
+                        Message<SequencingTestTypes, Self>,
+                        >,
+                        >;
+        type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+        fn new_channel_maps(
+            start_view: ViewNumber,
+            ) -> (
+                ChannelMaps<SequencingTestTypes, Self>,
+                Option<ChannelMaps<SequencingTestTypes, Self>>,
+                ) {
+                (
+                    ChannelMaps::new(start_view),
+                    Some(ChannelMaps::new(start_view)),
+                    )
+            }
+    }
 
     #[cfg(test)]
     #[cfg_attr(
         feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
+        )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_basic() {
         let metadata = crate::app_tasks::test_builder::TestMetadata::default();
-        metadata.gen_launcher::<crate::test_types::StaticCommitteeTestTypes, crate::test_types::StaticNodeImplType>()
+        metadata.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
             .launch()
             .run_test()
             .await
