@@ -20,7 +20,6 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
-use async_compatibility_layer::logging::setup_logging;
 use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
