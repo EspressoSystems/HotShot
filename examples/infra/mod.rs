@@ -2,17 +2,12 @@ use async_compatibility_layer::{
     art::async_sleep,
     logging::{setup_backtrace, setup_logging},
 };
-use hotshot_types::data::ViewNumber;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::event::{Event, EventType};
-use futures::StreamExt;
-use nll::nll_todo::nll_todo;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_task::task::FilterEvent;
 use clap::Parser;
 use futures::Future;
 use futures::FutureExt;
+use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
@@ -27,7 +22,11 @@ use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
+use hotshot_task::task::FilterEvent;
+use hotshot_types::data::ViewNumber;
+use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
@@ -53,6 +52,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
@@ -332,7 +332,7 @@ pub trait Run<
         error!("Starting hotshot!");
         context.start_consensus().await;
         let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
-        let mut anchor_view : TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
+        let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
 
         let total_nodes_u64 = total_nodes.get() as u64;
@@ -352,15 +352,14 @@ pub trait Run<
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
-                },
-                Some(Event { view_number, event} ) => {
+                }
+                Some(Event { view_number, event }) => {
                     match event {
                         EventType::Error { error } => {
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
-
-                        },
-                        EventType::Decide { leaf_chain, qc} => {
+                        }
+                        EventType::Decide { leaf_chain, qc } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 let new_anchor = leaf.view_number;
@@ -376,28 +375,21 @@ pub trait Run<
                                 break;
                             }
                             // when we make progress, submit new events
-                        },
+                        }
                         EventType::ReplicaViewTimeout { view_number } => {
                             error!("Timed out as a replicas in view {:?}", view_number);
-
-                        },
+                        }
                         EventType::NextLeaderViewTimeout { view_number } => {
                             error!("Timed out as the next leader in view {:?}", view_number);
-
-                        },
+                        }
                         EventType::ViewFinished { view_number } => {
                             tracing::info!("view finished: {:?}", view_number);
-                        },
+                        }
                         _ => unimplemented!(),
-
-
                     }
                 }
             }
         }
-
-
-
 
         // while round <= rounds {
         //     error!("Round {}:", round);

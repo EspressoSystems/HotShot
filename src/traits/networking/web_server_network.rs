@@ -16,6 +16,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::message::{Message, MessagePurpose};
 use hotshot_types::traits::consensus_type::ConsensusType;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -536,12 +537,19 @@ impl<
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    async fn shut_down(&self) -> () {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::shut_down(&self.0)
-        .await;
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+            >>::shut_down(&self.0)
+            .await;
+        };
+        boxed_sync(closure)
     }
 
     /// broadcast message to those listening on the communication channel
@@ -568,15 +576,22 @@ impl<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::recv_msgs(&self.0, transmit_type)
-        .await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+            >>::recv_msgs(&self.0, transmit_type)
+            .await
+        };
+        boxed_sync(closure)
     }
 
     /// look up a node
@@ -619,8 +634,15 @@ impl<
 
     /// Blocks until the network is shut down
     /// then returns true
-    async fn shut_down(&self) {
-        self.inner.running.store(false, Ordering::Relaxed);
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            self.inner.running.store(false, Ordering::Relaxed);
+        };
+        boxed_sync(closure)
     }
 
     /// broadcast message to some subset of nodes
@@ -655,27 +677,37 @@ impl<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        match transmit_type {
-            TransmitType::Direct => {
-                let mut queue = self.inner.direct_poll_queue.write().await;
-                Ok(queue
-                    .drain(..)
-                    .collect::<Vec<_>>()
-                    .iter()
-                    .map(|x| x.get_message().unwrap())
-                    .collect())
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            match transmit_type {
+                TransmitType::Direct => {
+                    let mut queue = self.inner.direct_poll_queue.write().await;
+                    Ok(queue
+                        .drain(..)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .map(|x| x.get_message().unwrap())
+                        .collect())
+                }
+                TransmitType::Broadcast => {
+                    let mut queue = self.inner.broadcast_poll_queue.write().await;
+                    Ok(queue
+                        .drain(..)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .map(|x| x.get_message().unwrap())
+                        .collect())
+                }
             }
-            TransmitType::Broadcast => {
-                let mut queue = self.inner.broadcast_poll_queue.write().await;
-                Ok(queue
-                    .drain(..)
-                    .collect::<Vec<_>>()
-                    .iter()
-                    .map(|x| x.get_message().unwrap())
-                    .collect())
-            }
-        }
+        };
+        boxed_sync(closure)
     }
 
     /// look up a node

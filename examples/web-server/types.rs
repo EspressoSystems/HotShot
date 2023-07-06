@@ -19,7 +19,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct NodeImpl {}
 
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;

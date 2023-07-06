@@ -1,29 +1,60 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{HotShotType, SystemContext, ViewRunner};
+use crate::async_spawn;
+use crate::{
+    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate,
+    SequencingQuorumEx, SystemContext, ViewRunner,
+};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
+    art::{async_sleep, async_spawn_local, async_timeout},
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
+use async_std::stream::Filter;
 use futures::FutureExt;
+use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::{
-    event_stream::{self, ChannelStream},
-    global_registry::GlobalRegistry,
+    boxed_sync,
+    event_stream::ChannelStream,
     task::{
-        FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, PassType, TaskErr, TS,
+        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
+        TaskErr, TS,
     },
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
+    GeneratedStream, Merge,
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_task_impls::view_sync::ViewSyncTaskState;
+use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
+use hotshot_task_impls::{
+    consensus::{
+        consensus_event_filter, ConsensusTaskError, ConsensusTaskTypes,
+        SequencingConsensusTaskState,
+    },
+    da::{DATaskState, DATaskTypes},
+    events::SequencingHotShotEvent,
+    network::{NetworkTaskState, NetworkTaskTypes},
+};
+use hotshot_types::certificate::ViewSyncCertificate;
+use hotshot_types::data::QuorumProposal;
+use hotshot_types::message::{Message, Messages, SequencingMessage};
+use hotshot_types::traits::election::{ConsensusExchange, Membership};
+use hotshot_types::traits::node_implementation::ViewSyncEx;
+use hotshot_types::vote::ViewSyncData;
 use hotshot_types::{
     constants::LOOK_AHEAD,
+    data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
-        node_implementation::{ExchangesType, NodeImplementation, NodeType},
+        node_implementation::{
+            CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
+        },
+        signature_key::EncodedSignature,
+        state::ConsensusTime,
     },
+    vote::VoteType,
 };
 use snafu::Snafu;
 use std::{
@@ -35,7 +66,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -266,65 +297,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
 }
 
-/// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to their relevant handler
-// pub async fn network_task<
-//     TYPES: NodeType,
-//     I: NodeImplementation<TYPES>,
-//     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>>,
-// >(
-//     hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-//     shut_down: Arc<AtomicBool>,
-//     transmit_type: TransmitType,
-//     exchange: Arc<EXCHANGE>,
-// ) where
-//     SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-// {
-//     info!(
-//         "Launching network processing task for {:?} messages",
-//         transmit_type
-//     );
-//     let networking = &exchange.network();
-//     let mut incremental_backoff_ms = 10;
-//     while !shut_down.load(Ordering::Relaxed) {
-//         let queue = match networking.recv_msgs(transmit_type).await {
-//             Ok(queue) => queue,
-//             Err(e) => {
-//                 if !shut_down.load(Ordering::Relaxed) {
-//                     error!(?e, "did not shut down gracefully.");
-//                 }
-//                 return;
-//             }
-//         };
-//         if queue.is_empty() {
-//             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-//             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-//             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-//             continue;
-//         }
-//         // Make sure to reset the backoff time
-//         incremental_backoff_ms = 10;
-//         for item in queue {
-//             let _metrics = Arc::clone(&hotshot.inner.consensus.read().await.metrics);
-//             trace!(?item, "Processing item");
-//             hotshot.handle_message(item, transmit_type).await;
-//         }
-//         trace!(
-//             "Items processed in network {:?} task, querying for more",
-//             transmit_type
-//         );
-//     }
-// }
-
-/// networking task error type
-#[derive(Snafu, Debug)]
-pub struct NetworkingTaskError {}
-impl TaskErr for NetworkingTaskError {}
-
-/// networking task's state
-#[derive(Debug)]
-pub struct NetworkingTaskState {}
-impl TS for NetworkingTaskState {}
-
 /// event for global event stream
 #[derive(Clone, Debug)]
 pub enum GlobalEvent {
@@ -335,125 +307,233 @@ pub enum GlobalEvent {
 }
 impl PassType for GlobalEvent {}
 
-/// Networking task types
-pub type NetworkingTaskTypes =
-    HSTWithEvent<NetworkingTaskError, GlobalEvent, ChannelStream<GlobalEvent>, NetworkingTaskState>;
+// /// view sync error type
+// #[derive(Snafu, Debug)]
+// pub struct ViewSyncTaskError {}
+// impl TaskErr for ViewSyncTaskError {}
 
-/// Consensus Task Error
-#[derive(Snafu, Debug)]
-pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
+// /// view sync task state
+// #[derive(Debug)]
+// pub struct ViewSyncTaskState {}
+// impl TS for ViewSyncTaskState {}
 
-/// consensus task state
-#[derive(Debug)]
-pub struct ConsensusTaskState {}
-impl TS for ConsensusTaskState {}
-
-/// consensus task types
-pub type ConsensusTaskTypes =
-    HSTWithEvent<ConsensusTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ConsensusTaskState>;
-
-/// Data Availability task error
-#[derive(Snafu, Debug)]
-pub struct DATaskError {}
-impl TaskErr for DATaskError {}
-
-/// Data availability task state
-#[derive(Debug)]
-pub struct DATaskState {}
-impl TS for DATaskState {}
-
-/// Data Availability task types
-pub type DATaskTypes =
-    HSTWithEvent<DATaskError, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
-
-/// view sync error type
-#[derive(Snafu, Debug)]
-pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError {}
-
-/// view sync task state
-#[derive(Debug)]
-pub struct ViewSyncTaskState {}
-impl TS for ViewSyncTaskState {}
-
-/// Types for view sync task
-pub type ViewSyncTaskTypes =
-    HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
+// /// Types for view sync task
+// pub type ViewSyncTaskTypes =
+//     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_networking_task(
+pub async fn add_network_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    EXCHANGE: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = PROPOSAL,
+            Vote = VOTE,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
-    let networking_state = NetworkingTaskState {};
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    exchange: EXCHANGE,
+) -> TaskRunner
+where
+    EXCHANGE::Networking:
+        CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+{
+    let channel = exchange.network().clone();
+    let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Broadcast)
+                    .await
+                    .expect("Failed to receive broadcast messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let channel = exchange.network().clone();
+    let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let network = channel.clone();
+        let closure = async move {
+            let msgs = Messages(
+                network
+                    .recv_msgs(TransmitType::Direct)
+                    .await
+                    .expect("Failed to receive direct messages"),
+            );
+            async_sleep(Duration::new(0, 500)).await;
+            network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let message_stream = Merge::new(broadcast_stream, direct_stream);
+    let channel = exchange.network().clone();
+    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+        channel,
+        event_stream: event_stream.clone(),
+        view: ViewNumber::genesis(),
+        phantom: PhantomData,
+    };
     let registry = task_runner.registry.clone();
-    let networking_event_handler = HandleEvent(Arc::new(move |event, state| {
-        async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
+    let network_message_handler = HandleMessage(Arc::new(
+        move |messages: either::Either<Messages<TYPES, I>, Messages<TYPES, I>>,
+              mut state: NetworkTaskState<
+            TYPES,
+            I,
+            PROPOSAL,
+            VOTE,
+            MEMBERSHIP,
+            EXCHANGE::Networking,
+        >| {
+            let messages = match messages{
+                either::Either::Left(messages) | either::Either::Right(messages) => messages
+            };
+            async move {
+                for message in messages.0 {
+                    state.handle_message(message).await;
+                }
                 (None, state)
             }
-        }
-        .boxed()
-    }));
+            .boxed()
+        },
+    ));
+    let network_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
+            async move {
+                let completion_status = state.handle_event(event, exchange.membership()).await;
+                (completion_status, state)
+            }
+            .boxed()
+        },
+    ));
     let networking_name = "Networking Task";
-    let networking_event_filter = FilterEvent::default();
+    let networking_event_filter = FilterEvent(Arc::new(
+        NetworkTaskState::<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, EXCHANGE::Networking>::filter,
+    ));
 
     let networking_task_builder =
-        TaskBuilder::<NetworkingTaskTypes>::new(networking_name.to_string())
+        TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
+            .register_message_stream(message_stream)
             .register_event_stream(event_stream.clone(), networking_event_filter)
             .await
             .register_registry(&mut registry.clone())
             .await
-            .register_state(networking_state)
-            .register_event_handler(networking_event_handler);
-    // impossible for unwrap to fail
+            .register_state(network_state)
+            .register_message_handler(network_message_handler)
+            .register_event_handler(network_event_handler);
+
+    // impossible for unwraps to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
+    let networking_task = NetworkTaskTypes::build(networking_task_builder).launch();
 
-    let networking_task = NetworkingTaskTypes::build(networking_task_builder).launch();
-
-    task_runner.add_task(
+    let task_runner = task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    )
+    );
+
+    task_runner
 }
 
 /// add the consensus task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_consensus_task(
+pub async fn add_consensus_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
-    // build the consensus task
-    let consensus_state = ConsensusTaskState {};
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
+    let consensus = hotshot.get_consensus();
+    let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
     let registry = task_runner.registry.clone();
-    let consensus_event_handler = HandleEvent(Arc::new(move |event, state| {
-        async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                (None, state)
-            }
-        }
-        .boxed()
-    }));
+    // build the consensus task
+    let consensus_state = SequencingConsensusTaskState {
+        registry: registry.clone(),
+        consensus,
+        cur_view: ViewNumber::new(0),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
+        api: c_api.clone(),
+        committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
+        _pd: PhantomData,
+        vote_collector: None,
+        timeout_task: async_spawn(async move {}),
+        event_stream: event_stream.clone(),
+        certs: HashMap::new(),
+        current_proposal: None,
+    };
+    let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
-    let consensus_event_filter = FilterEvent::default();
-
-    let consensus_task_builder = TaskBuilder::<ConsensusTaskTypes>::new(consensus_name.to_string())
-        .register_event_stream(event_stream.clone(), consensus_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(consensus_state)
-        .register_event_handler(consensus_event_handler);
+    let consensus_event_handler = HandleEvent(Arc::new(
+        move |event,
+              mut state: SequencingConsensusTaskState<
+            TYPES,
+            I,
+            HotShotSequencingConsensusApi<TYPES, I>,
+        >| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
+            }
+            .boxed()
+        },
+    ));
+    let consensus_task_builder = TaskBuilder::<
+        ConsensusTaskTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>,
+    >::new(consensus_name.to_string())
+    .register_event_stream(event_stream.clone(), filter)
+    .await
+    .register_registry(&mut registry.clone())
+    .await
+    .register_state(consensus_state)
+    .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
@@ -469,27 +549,47 @@ pub async fn add_consensus_task(
 /// add the Data Availability task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_da_task(
+pub async fn add_da_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    committee_exchange: CommitteeEx<TYPES, I>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
+{
     // build the da task
-    let da_state = DATaskState {};
+    let da_state = DATaskState {
+        cur_view: TYPES::Time::new(0),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        committee_exchange: committee_exchange.into(),
+        vote_collector: (TYPES::Time::new(0), async_spawn(async move {})),
+        event_stream: event_stream.clone(),
+    };
     let registry = task_runner.registry.clone();
-    let da_event_handler = HandleEvent(Arc::new(move |event, state| {
+    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
         async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                (None, state)
-            }
+            let completion_status = state.handle_event(event).await;
+            (completion_status, state)
         }
         .boxed()
     }));
     let da_name = "DA Task";
-    let da_event_filter = FilterEvent::default();
+    let da_event_filter = FilterEvent(Arc::new(DATaskState::<TYPES, I>::filter));
 
-    let da_task_builder = TaskBuilder::<DATaskTypes>::new(da_name.to_string())
+    let da_task_builder = TaskBuilder::<DATaskTypes<TYPES, I>>::new(da_name.to_string())
         .register_event_stream(event_stream.clone(), da_event_filter)
         .await
         .register_registry(&mut registry.clone())
@@ -499,7 +599,6 @@ pub async fn add_da_task(
     // impossible for unwrap to fail
     // we *just* registered
     let da_task_id = da_task_builder.get_task_id().unwrap();
-
     let da_task = DATaskTypes::build(da_task_builder).launch();
     task_runner.add_task(da_task_id, da_name.to_string(), da_task)
 }
@@ -507,60 +606,76 @@ pub async fn add_da_task(
 /// add the view sync task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_view_sync_task(
+pub async fn add_view_sync_task<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
+        + std::fmt::Debug
+        + 'static
+        + std::clone::Clone,
+>(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<GlobalEvent>,
-) -> TaskRunner {
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+) -> TaskRunner
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = ViewSyncCertificate<TYPES>,
+        Commitment = ViewSyncData<TYPES>,
+    >,
+{
     // build the view sync task
-    let view_sync_state = ViewSyncTaskState {};
+    let view_sync_state = ViewSyncTaskState {
+        event_stream: event_stream.clone(),
+        filtered_event_stream: todo!(),
+        current_view: TYPES::Time::new(0),
+        next_view: TYPES::Time::new(0),
+        exchange: todo!(),
+        api: todo!(),
+        num_timeouts_tracked: 0,
+        task_map: HashMap::default(),
+        view_sync_timeout: Duration::new(10, 0),
+    };
     let registry = task_runner.registry.clone();
-    let view_sync_event_handler = HandleEvent(Arc::new(move |event, state| {
-        async move {
-            if let GlobalEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                (None, state)
+    let view_sync_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
             }
-        }
-        .boxed()
-    }));
+            .boxed()
+        },
+    ));
     let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent::default();
+    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, A>::filter));
 
-    let view_sync_task_builder = TaskBuilder::<ViewSyncTaskTypes>::new(view_sync_name.to_string())
-        .register_event_stream(event_stream.clone(), view_sync_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(view_sync_state)
-        .register_event_handler(view_sync_event_handler);
+    let view_sync_task_builder =
+        TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())
+            .register_event_stream(event_stream.clone(), view_sync_event_filter)
+            .await
+            .register_registry(&mut registry.clone())
+            .await
+            .register_state(view_sync_state)
+            .register_event_handler(view_sync_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
 
-    let view_sync_task = ViewSyncTaskTypes::build(view_sync_task_builder).launch();
+    let view_sync_task = ViewSyncTaskStateTypes::build(view_sync_task_builder).launch();
     task_runner.add_task(
         view_sync_task_id,
         view_sync_name.to_string(),
         view_sync_task,
     )
 }
-
-// the view runner
-// pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-//     _hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-// ) -> (GlobalRegistry, ChannelStream<GlobalEvent>) {
-//     let task_runner = TaskRunner::new();
-//     let registry = task_runner.registry.clone();
-//     let event_stream = event_stream::ChannelStream::new();
-//
-//     // TODO it may make sense to move this up a level
-//     let task_runner = add_networking_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_da_task(task_runner, event_stream.clone()).await;
-//     let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-//     async_spawn(async move {
-//         task_runner.launch().await;
-//     });
-//     (registry, event_stream)
-// }

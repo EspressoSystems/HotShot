@@ -13,6 +13,8 @@ use hotshot::{
         NodeImplementation,
     },
 };
+use hotshot_types::traits::election::ViewSyncExchange;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
@@ -88,7 +90,7 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 /// type alias for a "usable" node impl type
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StandardNodeImplType {}
 
 /// type alias for membership using vrf types
@@ -110,8 +112,17 @@ pub type VrfCommunication = MemoryCommChannel<
     VrfMembership,
 >;
 
+/// type alias for comm channel using vrf
+pub type VrfCommunicationViewSync = MemoryCommChannel<
+    VrfTestTypes,
+    StandardNodeImplType,
+    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+    ViewSyncVote<VrfTestTypes>,
+    VrfMembership,
+>;
+
 /// type alias for static committee node
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticNodeImplType {}
 
 type StaticMembership =
@@ -122,6 +133,14 @@ type StaticCommunication = MemoryCommChannel<
     StaticNodeImplType,
     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+>;
+
+type StaticCommunicationViewSync = MemoryCommChannel<
+    StaticCommitteeTestTypes,
+    StaticNodeImplType,
+    ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    ViewSyncVote<StaticCommitteeTestTypes>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
@@ -137,6 +156,13 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
             ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfMembership,
             VrfCommunication,
+            Message<VrfTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            VrfTestTypes,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+            VrfMembership,
+            VrfCommunicationViewSync,
             Message<VrfTestTypes, Self>,
         >,
     >;
@@ -165,6 +191,13 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticMembership,
             StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            StaticCommitteeTestTypes,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunicationViewSync,
             Message<StaticCommitteeTestTypes, Self>,
         >,
     >;

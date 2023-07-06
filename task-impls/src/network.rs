@@ -1,17 +1,16 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::channel::UnboundedStream;
 use either::Either::{self, Left, Right};
-use futures::StreamExt;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TaskErr, TS},
-    task_impls::HSTWithEvent,
+    task::{HotShotTaskCompleted, TaskErr, TS},
+    task_impls::HSTWithEventAndMessage,
+    GeneratedStream, Merge,
 };
 use hotshot_types::message::Message;
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{GeneralConsensusMessage, MessageKind},
+    message::{GeneralConsensusMessage, MessageKind, Messages},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
@@ -21,8 +20,8 @@ use hotshot_types::{
     vote::VoteType,
 };
 use snafu::Snafu;
-use std::{marker::PhantomData, sync::Arc};
-use tracing::{info, trace};
+use std::marker::PhantomData;
+use tracing::warn;
 
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -36,11 +35,10 @@ pub struct NetworkTaskState<
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 > {
-    channel: COMMCHANNEL,
-    events: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    view: ViewNumber,
-    phantom: PhantomData<(TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP)>,
+    pub channel: COMMCHANNEL,
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub view: ViewNumber,
+    pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
 }
 
 impl<
@@ -71,12 +69,54 @@ impl<
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
     > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
-    /// Handle the given event and return whether to keep running.
-    async fn handle_event(
+    /// Handle the given message.
+    pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
+        let event = match message.kind {
+            MessageKind::Consensus(consensus_message) => match consensus_message.0 {
+                Either::Left(general_message) => match general_message {
+                    GeneralConsensusMessage::Proposal(proposal) => {
+                        SequencingHotShotEvent::QuorumProposalRecv(
+                            proposal.clone(),
+                            proposal.signature,
+                        )
+                    }
+                    GeneralConsensusMessage::Vote(vote) => {
+                        SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
+                    }
+                    _ => {
+                        warn!("Got unexpected message type in network task!");
+                        return;
+                    }
+                },
+                Either::Right(committee_message) => match committee_message {
+                    CommitteeConsensusMessage::DAProposal(proposal) => {
+                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), proposal.signature)
+                    }
+                    CommitteeConsensusMessage::DAVote(vote) => {
+                        SequencingHotShotEvent::DAVoteRecv(vote.clone(), vote.signature.1)
+                    }
+                    CommitteeConsensusMessage::DACertificate(cert) => {
+                        SequencingHotShotEvent::DACRecv(cert)
+                    }
+                },
+            },
+            MessageKind::Data(_) => {
+                warn!("Got unexpected message type in network task!");
+                return;
+            }
+            MessageKind::_Unreachable(_) => unimplemented!(),
+        };
+        self.event_stream.publish(event).await;
+    }
+
+    /// Handle the given event.
+    ///
+    /// Returns the completion status.
+    pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
-        membership: MEMBERSHIP,
-    ) -> bool {
+        membership: &MEMBERSHIP,
+    ) -> Option<HotShotTaskCompleted> {
         let (consensus_message, signature) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
@@ -98,14 +138,14 @@ impl<
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
-                return true;
+                return None;
             }
             SequencingHotShotEvent::Shutdown => {
                 self.channel.shut_down().await;
-                return false;
+                return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {
-                return true;
+                return None;
             }
         };
         let message_kind =
@@ -116,14 +156,14 @@ impl<
             _phantom: PhantomData,
         };
         self.channel
-            .broadcast_message(message, &membership)
+            .broadcast_message(message, membership)
             .await
             .expect("Failed to broadcast message");
-        return true;
+        return None;
     }
 
     /// Filter network event.
-    fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
+    pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             SequencingHotShotEvent::QuorumProposalSend(_)
             | SequencingHotShotEvent::QuorumVoteSend(_)
@@ -134,83 +174,19 @@ impl<
             _ => false,
         }
     }
-
-    /// Subscribe to network events.
-    async fn subscribe(&mut self, event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>) {
-        self.events = event_stream
-            .subscribe(FilterEvent(Arc::new(Self::filter)))
-            .await
-            .0
-    }
-
-    /// Run when spawning the network tasks.
-    async fn run(&mut self, transmit_type: TransmitType, membership: MEMBERSHIP) {
-        info!(
-            "Launching network processing task for {:?} messages and events",
-            transmit_type
-        );
-        let messages = self
-            .channel
-            .recv_msgs(transmit_type)
-            .await
-            .expect("Failed to receive message");
-        for m in messages {
-            let event = match m.kind {
-                MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                    Either::Left(general_message) => match general_message {
-                        GeneralConsensusMessage::Proposal(proposal) => {
-                            SequencingHotShotEvent::QuorumProposalRecv(
-                                proposal.clone(),
-                                proposal.signature,
-                            )
-                        }
-                        GeneralConsensusMessage::Vote(vote) => {
-                            SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
-                        }
-                        _ => panic!("Got unexpected message type in network task!"),
-                    },
-                    Either::Right(committee_message) => match committee_message {
-                        CommitteeConsensusMessage::DAProposal(proposal) => {
-                            SequencingHotShotEvent::DAProposalRecv(
-                                proposal.clone(),
-                                proposal.signature,
-                            )
-                        }
-                        CommitteeConsensusMessage::DAVote(vote) => {
-                            SequencingHotShotEvent::DAVoteRecv(vote.clone(), vote.signature.1)
-                        }
-                    },
-                },
-                MessageKind::Data(_) => {
-                    panic!("Got unexpected message type in network task!");
-                }
-                MessageKind::_Unreachable(_) => unimplemented!(),
-            };
-            self.event_stream.publish(event).await;
-            trace!(
-                "Messages processed in network {:?} task, querying for more",
-                transmit_type
-            );
-        }
-        let mut running = true;
-        while running {
-            let event = self.events.next().await.expect("No event");
-            running = self.handle_event(event, membership.clone()).await;
-            trace!(
-                "Events processed in network {:?} task, querying for more",
-                transmit_type
-            );
-        }
-    }
 }
 
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
 impl TaskErr for NetworkTaskError {}
 
-pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
-    NetworkTaskError,
-    SequencingHotShotEvent<TYPES, I>,
-    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
->;
+pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
+    HSTWithEventAndMessage<
+        NetworkTaskError,
+        SequencingHotShotEvent<TYPES, I>,
+        ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+        Either<Messages<TYPES, I>, Messages<TYPES, I>>,
+        // A combination of broadcast and direct streams.
+        Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
+        NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
+    >;

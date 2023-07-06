@@ -18,8 +18,9 @@ use futures::{stream::Fuse, Stream, StreamExt, Future, future::BoxFuture};
 use nll::nll_todo::nll_todo;
 use task::PassType;
 use std::{
+    marker::PhantomData,
     pin::Pin,
-    task::{Context, Poll}, marker::PhantomData, sync::Arc,
+    task::{Context, Poll}, sync::Arc,
 };
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
@@ -81,6 +82,7 @@ impl<T, U> Merge<T, U> {
     }
 }
 
+
 impl<T, U> Stream for Merge<T, U>
 where
     T: Stream,
@@ -111,7 +113,12 @@ where
     }
 }
 
-impl<X: Stream + SendableStream, Y: Stream + SendableStream> SendableStream for Merge<X, Y> { }
+impl<T, U> SendableStream for Merge<T, U>
+where
+    T: Stream + Send + Sync + 'static,
+    U: Stream<Item = T::Item> + Send + Sync + 'static,
+{
+}
 
 /// poll the next item in the merged stream
 fn poll_next<T, U>(
@@ -164,22 +171,28 @@ where
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
 
 #[pin_project(project = ProjectedStreamableThing)]
-pub struct GeneratedStream<O>  {
+pub struct GeneratedStream<O> {
     // todo maybe type wrapper is in order
     generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,
     in_progress_fut: Option<BoxSyncFuture<'static, O>>,
 }
 
 impl<O> GeneratedStream<O> {
-    pub fn new(generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,) -> Self{
-        GeneratedStream { generator, in_progress_fut: None }
+    pub fn new(generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>) -> Self {
+        GeneratedStream {
+            generator,
+            in_progress_fut: None,
+        }
     }
 }
 
 impl<O> Stream for GeneratedStream<O> {
     type Item = O;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
         let projection = self.project();
         match projection.in_progress_fut {
             Some(fut) => {
@@ -190,25 +203,25 @@ impl<O> Stream for GeneratedStream<O> {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
                         return Poll::Ready(Some(val));
-                    },
+                    }
                     Pending => {
                         return Poll::Pending;
-                    },
+                    }
                 }
-            },
+            }
             None => {
                 let mut fut = (*projection.generator)();
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
                         return Poll::Ready(Some(val));
-                    },
+                    }
                     Pending => {
                         *projection.in_progress_fut = Some(fut);
                         return Poll::Pending;
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 }
@@ -224,12 +237,12 @@ where
 /// yoinked from futures crate, adds sync bound that we need
 pub fn boxed_sync<'a, F>(fut: F) -> BoxSyncFuture<'a, F::Output>
 where
-F: Future + Sized + Send + 'a + Sync,
+    F: Future + Sized + Send + Sync + 'a,
 {
     assert_future::<F::Output, _>(Box::pin(fut))
 }
 
-impl<O: 'static> SendableStream for GeneratedStream<O> {}
+impl<O: Sync + Send + 'static> SendableStream for GeneratedStream<O> {}
 
 #[cfg(test)]
 pub mod test {
@@ -242,16 +255,12 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_stream_basic() {
-        let mut stream = GeneratedStream::<u32>{
+        let mut stream = GeneratedStream::<u32> {
             generator: Arc::new(move || {
-               let closure = async move {
-                   5
-
-               };
-               boxed_sync(closure)
-            }
-            ),
-            in_progress_fut: None
+                let closure = async move { 5 };
+                boxed_sync(closure)
+            }),
+            in_progress_fut: None,
         };
         assert!(stream.next().await == Some(5));
         assert!(stream.next().await == Some(5));
@@ -266,24 +275,23 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_stream_fancy() {
-        use std::sync::atomic::Ordering;
         use async_compatibility_layer::art::async_sleep;
+        use std::sync::atomic::Ordering;
         use std::time::Duration;
 
         let value = Arc::<std::sync::atomic::AtomicU8>::default();
-        let mut stream = GeneratedStream::<u32>{
+        let mut stream = GeneratedStream::<u32> {
             generator: Arc::new(move || {
-               let value = value.clone();
-               let closure = async move {
-                   let actual_value = value.load(Ordering::Relaxed);
-                   value.store(actual_value + 1, Ordering::Relaxed);
-                   async_sleep(Duration::new(0, 500)).await;
-                   actual_value as u32
-               };
-               boxed_sync(closure)
-            }
-            ),
-            in_progress_fut: None
+                let value = value.clone();
+                let closure = async move {
+                    let actual_value = value.load(Ordering::Relaxed);
+                    value.store(actual_value + 1, Ordering::Relaxed);
+                    async_sleep(Duration::new(0, 500)).await;
+                    actual_value as u32
+                };
+                boxed_sync(closure)
+            }),
+            in_progress_fut: None,
         };
         assert!(stream.next().await == Some(0));
         assert!(stream.next().await == Some(1));
@@ -291,4 +299,3 @@ pub mod test {
         assert!(stream.next().await == Some(3));
     }
 }
-

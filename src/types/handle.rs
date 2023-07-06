@@ -1,29 +1,27 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
+use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
-use crate::tasks::GlobalEvent;
-use crate::{
-    traits::{NetworkError::ShutDown, NodeImplementation},
-    types::{Event, HotShotError::NetworkFault},
-    SystemContext,
-};
+use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use async_compatibility_layer::channel::UnboundedStream;
+use async_lock::RwLock;
 use commit::Committable;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use hotshot_consensus::Consensus;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::event_stream::SendableStream;
 use hotshot_task::event_stream::StreamId;
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
+use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
-    error::{HotShotError, RoundTimedoutState},
+    error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
@@ -34,12 +32,8 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use nll::nll_todo::nll_todo;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-use tracing::{debug, error};
+use std::sync::Arc;
+use tracing::error;
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
@@ -63,7 +57,8 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) registry: GlobalRegistry,
 
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    pub hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
@@ -113,26 +108,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
     // pub async fn available_events(&mut self) -> Result<Vec<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
-        // let mut stream = self.output_stream;
-        // let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(&mut *stream);
-        // let mut output = vec![];
-        // Loop to pull out all the outputs
-        // loop {
-        //     let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(stream);
-            // let _ = FutureExt::<Output = Self::Event>::next(*self.output_stream).await;
-            // match FutureExt<Output = {
-                // Ok(Some(x)) => output.push(x),
-                // Ok(None) => break,
-                // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
-                // Err(x) => return Err(x),
-            // }
-        // }
-        // Ok(output)
+    // let mut stream = self.output_stream;
+    // let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(&mut *stream);
+    // let mut output = vec![];
+    // Loop to pull out all the outputs
+    // loop {
+    //     let _ = <dyn SendableStream<Item = Event<TYPES, I::Leaf>> as StreamExt/* ::<Output = Self::Event> */>::next(stream);
+    // let _ = FutureExt::<Output = Self::Event>::next(*self.output_stream).await;
+    // match FutureExt<Output = {
+    // Ok(Some(x)) => output.push(x),
+    // Ok(None) => break,
+    // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
+    // Err(x) => return Err(x),
+    // }
+    // }
+    // Ok(output)
     //     nll_todo()
     // }
 
     /// obtains a stream to expose to the user
-    pub async fn get_event_stream(&mut self, filter: FilterEvent<Event<TYPES, I::Leaf>>) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
+    pub async fn get_event_stream(
+        &mut self,
+        filter: FilterEvent<Event<TYPES, I::Leaf>>,
+    ) -> (impl Stream<Item = Event<TYPES, I::Leaf>>, StreamId) {
         self.output_event_stream.subscribe(filter).await
     }
 
@@ -182,7 +180,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// performs the genesis initializaiton
-    pub async fn maybe_do_genesis_init(&self){
+    pub async fn maybe_do_genesis_init(&self) {
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
@@ -202,7 +200,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             // TODO (justin) this seems bad. I think we should hard error in this case??
             error!("Hotshot storage has no anchor leaf!");
         }
-
     }
 
     /// begin consensus by sending a genesis event
@@ -259,6 +256,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         &self.storage
     }
 
+    /// Get the underyling consensus state for this [`SystemContext`]
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.hotshot.get_consensus()
+    }
+
     /// Block the underlying quorum (and committee) networking interfaces until node is
     /// successfully initialized into the networks.
     pub async fn wait_for_networks_ready(&self) {
@@ -266,8 +268,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    pub async fn shut_down(mut self) {
-        self.registry.shutdown_all().await
+//     pub async fn shut_down(mut self) {
+//         self.registry.shutdown_all().await
+    pub fn shut_down<'a, 'b>(&'a mut self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        boxed_sync(async move {
+            self.registry.shutdown_all().await
+
+        })
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

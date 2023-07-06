@@ -12,6 +12,7 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
+use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -22,7 +23,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -108,7 +109,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            // TODO ED Revisit this once Yes/No votes are in place for DA
+            viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
         };
@@ -152,6 +153,7 @@ where
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
+                            None,
                         ) {
                             Either::Left(acc) => {
                                 accumulator = acc;
@@ -163,6 +165,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {
                         warn!("The next leader has received an unexpected proposal!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }
@@ -377,7 +382,7 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: self.high_qc.clone(),
-            dac: self.cert,
+            dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
         };
 
@@ -462,6 +467,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
+            viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
         };
@@ -491,6 +497,7 @@ where
                                     vote.vote_token.clone(),
                                     self.cur_view,
                                     accumulator,
+                                    None,
                                 ) {
                                     Either::Left(acc) => {
                                         accumulator = acc;
@@ -525,6 +532,9 @@ where
                     }
                     ProcessedCommitteeConsensusMessage::DAVote(_, _sender) => {
                         warn!("The next leader has received an unexpected DA vote!");
+                    }
+                    ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                        continue;
                     }
                 },
             }

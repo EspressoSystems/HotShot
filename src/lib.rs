@@ -34,7 +34,6 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    // tasks::TaskHandleInner,
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
@@ -42,10 +41,7 @@ use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
-    async_primitives::{
-        broadcast::{channel, BroadcastSender},
-        subscribable_rwlock::SubscribableRwLock,
-    },
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -53,25 +49,23 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
-use either::{Left, Right};
+
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::data::QuorumProposal;
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
-    data::{DAProposal, LeafType, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
-        CommitteeConsensusMessage, ConsensusMessageType, DataMessage, InternalTrigger, Message,
-        MessageKind, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        Proposal, SequencingMessage, ValidatingMessage,
+        ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
     },
     traits::{
         consensus_type::{
@@ -80,9 +74,9 @@ use hotshot_types::{
         },
         election::SignedCertificate,
         metrics::Metrics,
-        network::{NetworkError, TransmitType},
+        network::NetworkError,
         node_implementation::{
-            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SendToTasks,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx,
         },
@@ -91,22 +85,22 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{DAVote, QuorumVote, VoteType},
-    ExecutionType, HotShotConfig,
+    vote::VoteType,
+    HotShotConfig,
 };
-use hotshot_utils::bincode::bincode_opts;
+
 use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
-use tasks::GlobalEvent;
-use std::sync::atomic::AtomicBool;
+
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroUsize,
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tasks::GlobalEvent;
+use tracing::{debug, error, info, instrument, trace, warn, Instrument};
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -176,7 +170,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[derive(Clone)]
 pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 
     /// Phantom data for consensus type
     _pd: PhantomData<CONSENSUS>,
@@ -197,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        let global_registry = GlobalRegistry::new();
+        let _global_registry = GlobalRegistry::new();
 
         info!("Creating a new hotshot");
 
@@ -264,8 +258,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             event_sender: RwLock::default(),
             _metrics: metrics,
             global_registry: nll_todo(),
-            event_stream: nll_todo()
-
+            event_stream: nll_todo(),
         });
 
         Ok(Self {
@@ -350,6 +343,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             .await
             .get_decided_leaf()
             .get_state()
+    }
+
+    /// Returns a copy of the consensus struct
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.inner.consensus.clone()
     }
 
     /// Returns a copy of the last decided leaf
@@ -645,64 +643,8 @@ where
     }
 
     async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
+        // TODO (run_view) the refactored task adding functions don't work for the validating consensus yet.
         unimplemented!()
-
-        // let network_broadcast_task_handle = async_spawn(
-        //     tasks::network_task(
-        //         self.clone(),
-        //         shut_down.clone(),
-        //         TransmitType::Broadcast,
-        //         exchange.clone().into(),
-        //     )
-        //     .instrument(info_span!("HotShot Broadcast Task",)),
-        // );
-        // let network_direct_task_handle = async_spawn(
-        //     tasks::network_task(
-        //         self.clone(),
-        //         shut_down.clone(),
-        //         TransmitType::Direct,
-        //         exchange.clone().into(),
-        //     )
-        //     .instrument(info_span!("HotShot Direct Task",)),
-        // );
-
-        // async_spawn(
-        //     tasks::network_lookup_task(self.clone(), shut_down.clone())
-        //         .instrument(info_span!("HotShot Network Lookup Task",)),
-        // );
-
-        // let (handle_channels, task_channels) = match self.inner.config.execution_type {
-        //     ExecutionType::Continuous => (None, None),
-        //     ExecutionType::Incremental => {
-        //         let (send_consensus_start, recv_consensus_start) = unbounded();
-        //         (Some(send_consensus_start), Some(recv_consensus_start))
-        //     }
-        // };
-
-
-        // let (broadcast_sender, broadcast_receiver) = channel();
-        //
-        // let handle = HotShotHandle {
-        //     sender_handle: Arc::new(broadcast_sender.clone()),
-        //     hotshot: self.clone(),
-        //     stream_output: broadcast_receiver,
-        //     storage: self.inner.storage.clone(),
-        //     shut_down,
-        // };
-        // *self.inner.event_sender.write().await = Some(broadcast_sender);
-        //
-        // let mut background_task_handle = self.inner.background_task_handle.inner.write().await;
-        // *background_task_handle = Some(TaskHandleInner {
-        //     network_broadcast_task_handle,
-        //     network_direct_task_handle,
-        //     committee_network_broadcast_task_handle: None,
-        //     committee_network_direct_task_handle: None,
-        //     consensus_task_handle: nll_todo(),
-        //     shutdown_timeout: Duration::from_millis(self.inner.config.next_view_timeout),
-        //     run_view_channels: handle_channels,
-        //     started,
-        // });
-
     }
 
     // #[instrument(
@@ -762,64 +704,64 @@ where
     // }
 
     // Handle an incoming [`ValidatingMessage`] directed at this node.
-//     #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
-//     async fn handle_direct_consensus_message(
-//         &self,
-//         msg: ValidatingMessage<TYPES, I>,
-//         sender: TYPES::SignatureKey,
-//     ) {
-//         // We can only recv from a replicas
-//         // replicas should only send votes or if they timed out, timeouts
-//         match msg {
-//             ValidatingMessage(
-//                 GeneralConsensusMessage::Proposal(_) | GeneralConsensusMessage::InternalTrigger(_),
-//             ) => {
-//                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
-//             }
-//             // this is ONLY intended for next leader
-//             c @ ValidatingMessage(GeneralConsensusMessage::Vote(_)) => {
-//                 let msg_time = c.view_number();
-//
-//                 let channel_map = self
-//                     .inner
-//                     .channel_maps
-//                     .0
-//                     .proposal_channel
-//                     .upgradable_read()
-//                     .await;
-//
-//                 // check if
-//                 // - is in fact, actually is the next leader
-//                 // - the message is not stale
-//                 let is_leader = self
-//                     .inner
-//                     .clone()
-//                     .exchanges
-//                     .quorum_exchange()
-//                     .is_leader(msg_time + 1);
-//                 if !is_leader || msg_time < channel_map.cur_view {
-//                     warn!(
-//                         "Throwing away {} message for view number: {:?}",
-//                         std::any::type_name::<QuorumVote<TYPES, I::Leaf>>(),
-//                         msg_time
-//                     );
-//                     return;
-//                 }
-//
-//                 let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
-//
-//                 if chan
-//                     .sender_chan
-//                     .send(ProcessedGeneralConsensusMessage::new(c.0, sender))
-//                     .await
-//                     .is_err()
-//                 {
-//                     error!("Failed to send to next leader!");
-//                 }
-//             }
-//             ValidatingMessage(GeneralConsensusMessage::ViewSync(_)) => todo!(),
-//         }
-//     }
+    //     #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
+    //     async fn handle_direct_consensus_message(
+    //         &self,
+    //         msg: ValidatingMessage<TYPES, I>,
+    //         sender: TYPES::SignatureKey,
+    //     ) {
+    //         // We can only recv from a replicas
+    //         // replicas should only send votes or if they timed out, timeouts
+    //         match msg {
+    //             ValidatingMessage(
+    //                 GeneralConsensusMessage::Proposal(_) | GeneralConsensusMessage::InternalTrigger(_),
+    //             ) => {
+    //                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
+    //             }
+    //             // this is ONLY intended for next leader
+    //             c @ ValidatingMessage(GeneralConsensusMessage::Vote(_)) => {
+    //                 let msg_time = c.view_number();
+    //
+    //                 let channel_map = self
+    //                     .inner
+    //                     .channel_maps
+    //                     .0
+    //                     .proposal_channel
+    //                     .upgradable_read()
+    //                     .await;
+    //
+    //                 // check if
+    //                 // - is in fact, actually is the next leader
+    //                 // - the message is not stale
+    //                 let is_leader = self
+    //                     .inner
+    //                     .clone()
+    //                     .exchanges
+    //                     .quorum_exchange()
+    //                     .is_leader(msg_time + 1);
+    //                 if !is_leader || msg_time < channel_map.cur_view {
+    //                     warn!(
+    //                         "Throwing away {} message for view number: {:?}",
+    //                         std::any::type_name::<QuorumVote<TYPES, I::Leaf>>(),
+    //                         msg_time
+    //                     );
+    //                     return;
+    //                 }
+    //
+    //                 let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
+    //
+    //                 if chan
+    //                     .sender_chan
+    //                     .send(ProcessedGeneralConsensusMessage::new(c.0, sender))
+    //                     .await
+    //                     .is_err()
+    //                 {
+    //                     error!("Failed to send to next leader!");
+    //                 }
+    //             }
+    //             ValidatingMessage(GeneralConsensusMessage::ViewSync(_)) => todo!(),
+    //         }
+    //     }
 }
 
 #[async_trait]
@@ -864,20 +806,19 @@ where
         // TODO this will need to go in the consensus task state
         let output_event_stream = ChannelStream::new();
 
+        let _quorum_exchange = self.inner.exchanges.quorum_exchange();
+        let _committee_exchange = self.inner.exchanges.committee_exchange();
+        let _view_sync_exchange = self.inner.exchanges.view_sync_exchange();
 
-        // TODO it may make sense to move this up a level
-        let task_runner = tasks::add_networking_task(task_runner, internal_event_stream.clone()).await;
-        let task_runner = tasks::add_consensus_task(task_runner, internal_event_stream.clone()).await;
-        let task_runner = tasks::add_da_task(task_runner, internal_event_stream.clone()).await;
-        let task_runner = tasks::add_view_sync_task(task_runner, internal_event_stream.clone()).await;
+        // TODO (run_view) Restore the lines below after making all event types consistent.
+        // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
+        // let task_runner = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
+        // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
+        // let task_runner = add_da_task(task_runner, event_stream.clone(), committee_exchange).await;
+        // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
         async_spawn(async move {
             task_runner.launch().await;
         });
-
-        let exchange = self.inner.exchanges.quorum_exchange();
-
-
-
 
         let handle = SystemContextHandle {
             registry,
@@ -888,11 +829,6 @@ where
         };
 
         handle
-
-
-
-
-
 
         // let shut_down = Arc::new(AtomicBool::new(false));
         // let started = Arc::new(AtomicBool::new(false));
@@ -982,7 +918,6 @@ where
         // });
         //
         // handle
-
     }
 
     // #[instrument(
@@ -1648,7 +1583,7 @@ where
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
 struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`HotShotInner`]
+    /// Reference to the [`SystemContextInner`]
     inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
@@ -1757,7 +1692,7 @@ where
         Ok(())
     }
 
-    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
@@ -1786,9 +1721,9 @@ where
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`HotShotInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
+pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Reference to the [`SystemContextInner`]
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]
@@ -1920,7 +1855,7 @@ where
         Ok(())
     }
 
-    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

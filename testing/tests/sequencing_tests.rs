@@ -15,7 +15,9 @@ use hotshot::{
 use hotshot_testing::test_builder::TestBuilder;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::QuorumVote;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
@@ -54,8 +56,8 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct SequencingMemoryImpl {}
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub struct SequencingMemoryImpl {}
 
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
@@ -72,6 +74,14 @@ type StaticQuroumComm = MemoryCommChannel<
     SequencingMemoryImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticViewSyncComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
     StaticMembership,
 >;
 
@@ -93,6 +103,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncComm,
             Message<SequencingTestTypes, Self>,
         >,
     >;
@@ -129,7 +146,7 @@ async fn sequencing_memory_network_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingLibP2PImpl {}
 
 type StaticDACommP2p = Libp2pCommChannel<
@@ -145,6 +162,14 @@ type StaticQuroumCommP2p = Libp2pCommChannel<
     SequencingLibP2PImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticViewSyncCommP2P = Libp2pCommChannel<
+    SequencingTestTypes,
+    SequencingLibP2PImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
     StaticMembership,
 >;
 
@@ -166,6 +191,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDACommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncCommP2P,
             Message<SequencingTestTypes, Self>,
         >,
     >;
@@ -202,7 +234,7 @@ async fn sequencing_libp2p_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingCentralImpl {}
 
 type StaticDACommCentral = CentralizedCommChannel<
@@ -218,6 +250,14 @@ type StaticQuroumCommCentral = CentralizedCommChannel<
     SequencingCentralImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticViewSyncCommCentral = CentralizedCommChannel<
+    SequencingTestTypes,
+    SequencingCentralImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    ViewSyncVote<SequencingTestTypes>,
     StaticMembership,
 >;
 
@@ -239,6 +279,13 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
             SequencingTestTypes,
             StaticMembership,
             StaticDACommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncCommCentral,
             Message<SequencingTestTypes, Self>,
         >,
     >;

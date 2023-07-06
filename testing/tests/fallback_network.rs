@@ -17,7 +17,7 @@ use hotshot_types::{message::ValidatingMessage, traits::election::QuorumExchange
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct FallbackImpl {}
 
 type StaticMembership =
