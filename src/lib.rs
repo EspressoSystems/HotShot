@@ -770,10 +770,7 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<
-            ConsensusType = SequencingConsensus,
-            Time = ViewNumber,
-        >,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

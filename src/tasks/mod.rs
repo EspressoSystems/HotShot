@@ -564,11 +564,7 @@ where
         registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
-        vote_collector: (
-            TYPES::Time::new(0),
-            0,
-            async_spawn(async move { HotShotTaskCompleted::ShutDown }),
-        ),
+        vote_collector: None,
         event_stream: event_stream.clone(),
     };
     let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
