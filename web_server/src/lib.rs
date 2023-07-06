@@ -383,6 +383,13 @@ where
         }
         .boxed()
     })?
+    .get("getviewsyncproposal", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            state.get_view_sync_proposal(view_number)
+        }
+        .boxed()
+    })?
     .get("getcertificate", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -395,6 +402,14 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let index: u64 = req.integer_param("index")?;
             state.get_votes(view_number, index)
+        }
+        .boxed()
+    })?
+    .get("getviewsyncvotes", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let index: u64 = req.integer_param("index")?;
+            state.get_view_sync_votes(view_number, index)
         }
         .boxed()
     })?
@@ -414,11 +429,28 @@ where
         }
         .boxed()
     })?
+    .post("postviewsyncvote", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
+            let vote = req.body_bytes();
+            state.post_view_sync_vote(view_number, vote)
+        }
+        .boxed()
+    })?
     .post("postproposal", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
+        }
+        .boxed()
+    })?
+    .post("postviewsyncproposal", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let proposal = req.body_bytes();
+            state.post_view_sync_proposal(view_number, proposal)
         }
         .boxed()
     })?
@@ -445,7 +477,6 @@ where
         }
         .boxed()
     })?
-    // TODO ED Register view sync endpoints
     .post("secret", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
