@@ -313,7 +313,7 @@ impl PassType for GlobalEvent {}
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,

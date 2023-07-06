@@ -125,11 +125,7 @@ where
     >,
 {
     match event {
-        SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
-            if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
-                return (None, state);
-            }
-
+        SequencingHotShotEvent::DAVoteRecv(vote) => {
             let accumulator = state.accumulator.left().unwrap();
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
@@ -227,7 +223,7 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
+            SequencingHotShotEvent::DAVoteRecv(vote) => {
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
@@ -304,7 +300,7 @@ where
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             SequencingHotShotEvent::DAProposalRecv(_, _)
-            | SequencingHotShotEvent::DAVoteRecv(_, _)
+            | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

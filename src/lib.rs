@@ -526,7 +526,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Spawn all tasks that operate on the given [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I>;
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I>;
 
     // decide which handler to call based on the message variant and `transmit_type`
     // async fn handle_message(&self, item: Message<TYPES, I>, transmit_type: TransmitType) {
@@ -646,7 +646,7 @@ where
         &self.inner.consensus
     }
 
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // TODO (run_view) the refactored task adding functions don't work for the validating consensus yet.
         unimplemented!()
     }
@@ -772,7 +772,6 @@ where
 impl<
         TYPES: NodeType<
             ConsensusType = SequencingConsensus,
-            SignatureKey = EncodedSignature,
             Time = ViewNumber,
         >,
         I: NodeImplementation<
@@ -822,7 +821,7 @@ where
         &self.inner.consensus
     }
 
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
         let internal_event_stream = ChannelStream::new();
@@ -836,7 +835,7 @@ where
         let handle = SystemContextHandle {
             registry,
             output_event_stream,
-            internal_event_stream,
+            internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
         };

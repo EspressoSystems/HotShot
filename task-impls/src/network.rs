@@ -45,7 +45,7 @@ pub struct NetworkTaskState<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -60,7 +60,7 @@ impl<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -74,17 +74,18 @@ impl<
 {
     /// Handle the given message.
     pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
+        let sender = message.signature;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
                         SequencingHotShotEvent::QuorumProposalRecv(
                             proposal.clone(),
-                            proposal.signature,
+                            sender,
                         )
                     }
                     GeneralConsensusMessage::Vote(vote) => {
-                        SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
+                        SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
@@ -99,10 +100,10 @@ impl<
                 },
                 Either::Right(committee_message) => match committee_message {
                     CommitteeConsensusMessage::DAProposal(proposal) => {
-                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), proposal.signature)
+                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
                     }
                     CommitteeConsensusMessage::DAVote(vote) => {
-                        SequencingHotShotEvent::DAVoteRecv(vote.clone(), vote.signature.1)
+                        SequencingHotShotEvent::DAVoteRecv(vote.clone())
                     }
                     CommitteeConsensusMessage::DACertificate(cert) => {
                         SequencingHotShotEvent::DACRecv(cert)
@@ -129,11 +130,11 @@ impl<
         let (consensus_message, signature) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
-                proposal.signature.clone(),
+                sender,
             ),
             SequencingHotShotEvent::QuorumVoteSend(vote) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
-                vote.signature().clone(),
+                vote.signature,
             ),
 
             SequencingHotShotEvent::DAProposalSend(proposal) => (
@@ -144,7 +145,7 @@ impl<
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
-                vote.signature.1.clone(),
+                vote.signature.0.clone(),
             ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal) => (
                 SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
