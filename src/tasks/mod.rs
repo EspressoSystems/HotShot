@@ -335,6 +335,7 @@ pub async fn add_network_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
 ) -> TaskRunner
+// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
     EXCHANGE::Networking:
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
