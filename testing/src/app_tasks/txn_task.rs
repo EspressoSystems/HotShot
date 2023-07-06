@@ -3,7 +3,7 @@ use async_compatibility_layer::{art::async_sleep, channel::UnboundedStream};
 
 use either::Either::{self, Left, Right};
 use futures::{FutureExt, future::BoxFuture};
-use hotshot::{tasks::DATaskState, traits::{NodeImplementation, TestableNodeImplementation}};
+use hotshot::{traits::{NodeImplementation, TestableNodeImplementation}};
 use hotshot_types::{traits::node_implementation::NodeType, event::Event};
 use nll::nll_todo::nll_todo;
 use rand::thread_rng;

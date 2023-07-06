@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use either::Either::{self, Left, Right};
 use futures::{FutureExt, Stream, future::BoxFuture};
-use hotshot::{tasks::DATaskState, traits::TestableNodeImplementation};
+use hotshot::{traits::TestableNodeImplementation};
 use async_compatibility_layer::{art::async_sleep, channel::UnboundedStream};
 use hotshot_types::{traits::{node_implementation::NodeType, consensus_type::sequencing_consensus::SequencingConsensus}, event::Event};
 use nll::nll_todo::nll_todo;

@@ -5,7 +5,7 @@ use std::{sync::Arc, ops::Deref};
 use async_compatibility_layer::channel::UnboundedStream;
 use either::Either;
 use futures::{future::{BoxFuture, LocalBoxFuture}, FutureExt};
-use hotshot::{tasks::DATaskState, traits::TestableNodeImplementation};
+use hotshot::{traits::TestableNodeImplementation};
 use hotshot_types::{traits::node_implementation::NodeType, event::{Event, EventType}};
 use nll::nll_todo::nll_todo;
 use snafu::Snafu;

@@ -254,7 +254,7 @@ where
             known_nodes.clone(),
             election_config.clone(),
             // TODO ED Add view sync network here
-            (quorum_network, committee_network),
+            (quorum_network, nll_todo(), committee_network),
             public_key.clone(),
             private_key.clone(),
             ek.clone(),
@@ -392,8 +392,8 @@ where
     }
 
     /// Gracefully shut down this system
-    pub async fn shutdown_all(self) {
-        for node in self.nodes {
+    pub async fn shutdown_all(&mut self) {
+        for node in &mut self.nodes {
             node.handle.shut_down().await;
         }
         debug!("All nodes should be shut down now.");
@@ -407,7 +407,7 @@ where
     pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
-            let node = self.nodes.remove(idx);
+            let mut node = self.nodes.remove(idx);
             node.handle.shut_down().await;
             Ok(())
         } else {
