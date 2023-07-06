@@ -7,6 +7,7 @@ use crate::certificate::{DACertificate, ViewSyncCertificate};
 use crate::data::DAProposal;
 use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use crate::traits::network::ViewMessage;
+use crate::traits::node_implementation::ViewSyncProposalType;
 use crate::vote::{DAVote, QuorumVote};
 use crate::{
     data::ProposalType,
@@ -69,6 +70,7 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
+    // TODO ED Add view sync purposes
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -222,7 +224,8 @@ where
             GeneralConsensusMessage::InternalTrigger(a) => {
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
-            GeneralConsensusMessage::ViewSync(_) => todo!(),
+            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+
         }
     }
 }
@@ -329,11 +332,13 @@ where
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 
-    /// View Sync related message - either a vote or certificate
-    ViewSync(ViewSyncMessageType<TYPES>),
+    ViewSyncVote(ViewSyncVote<TYPES>), 
+
+    ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
 
 /// A view sync message
+// TODO ED Delete this
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub enum ViewSyncMessageType<TYPES: NodeType> {
@@ -422,7 +427,8 @@ impl<
             GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
-            GeneralConsensusMessage::ViewSync(_) => todo!(),
+            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+
         }
     }
 
@@ -433,7 +439,7 @@ impl<
             GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
             GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
             GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-            GeneralConsensusMessage::ViewSync(_) => todo!(),
+            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
         }
     }
 }
@@ -469,7 +475,7 @@ impl<
                     GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                         InternalTrigger::Timeout(time) => *time,
                     },
-                    GeneralConsensusMessage::ViewSync(_) => todo!(),
+                    GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
                 }
             }
             Right(committee_message) => {
@@ -494,7 +500,8 @@ impl<
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-                GeneralConsensusMessage::ViewSync(_) => todo!(),
+                GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+            
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,

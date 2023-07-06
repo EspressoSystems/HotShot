@@ -23,6 +23,8 @@ use snafu::Snafu;
 use std::marker::PhantomData;
 use tracing::warn;
 
+use nll::nll_todo::nll_todo;
+
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -83,6 +85,12 @@ impl<
                     GeneralConsensusMessage::Vote(vote) => {
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone(), vote.signature())
                     }
+                    GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
+                    }
+                    GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
+                    }
                     _ => {
                         warn!("Got unexpected message type in network task!");
                         return;
@@ -126,6 +134,7 @@ impl<
                 SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
                 vote.signature().clone(),
             ),
+
             SequencingHotShotEvent::DAProposalSend(proposal) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
                     proposal.clone(),
@@ -135,6 +144,16 @@ impl<
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 vote.signature.1.clone(),
+            ),
+            SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal) => (
+                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
+                    certificate_proposal.clone(),
+                ))),
+                certificate_proposal.signature.clone(),
+            ),
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
+                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
+                vote.signature().clone(),
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
@@ -169,6 +188,8 @@ impl<
             | SequencingHotShotEvent::QuorumVoteSend(_)
             | SequencingHotShotEvent::DAProposalSend(_)
             | SequencingHotShotEvent::DAVoteSend(_)
+            | SequencingHotShotEvent::ViewSyncVoteSend(_)
+            | SequencingHotShotEvent::ViewSyncCertificateSend(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

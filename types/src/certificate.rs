@@ -1,6 +1,5 @@
 //! Provides two types of cerrtificates and their accumulators.
 
-use crate::traits::election::ViewSyncVoteData;
 use crate::vote::ViewSyncData;
 use crate::{
     data::{fake_commitment, LeafType},
@@ -264,6 +263,64 @@ impl<TYPES: NodeType>
 }
 
 impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
+
+impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("View Sync Certificate Commitment");
+
+        // builder = builder
+        //     .field("Leaf commitment", self.leaf_commitment)
+        //     .u64_field("View number", *self.view_number.deref());
+
+        let certificate_internal = match &self {
+            // TODO ED Not the best way to do this
+            ViewSyncCertificate::PreCommit(certificate_internal) => {
+                builder = builder.var_size_field("View Sync Phase", "PreCommit".as_bytes());
+                certificate_internal
+            }
+            ViewSyncCertificate::Commit(certificate_internal) => {
+                builder = builder.var_size_field("View Sync Phase", "Commit".as_bytes());
+                certificate_internal
+            }
+            ViewSyncCertificate::Finalize(certificate_internal) => {
+                builder = builder.var_size_field("View Sync Phase", "Finalize".as_bytes());
+                certificate_internal
+            }
+        };
+        let signatures = match self.signatures().clone() {
+            YesNoSignature::ViewSyncPreCommit(signatures) => {
+                builder =
+                    builder.var_size_field("Signature View Sync Phase", "PreCommit".as_bytes());
+                signatures
+            }
+            YesNoSignature::ViewSyncCommit(signatures) => {
+                builder = builder.var_size_field("Signature View Sync Phase", "Commit".as_bytes());
+                signatures
+            }
+            YesNoSignature::ViewSyncFinalize(signatures) => {
+                builder =
+                    builder.var_size_field("Signature View Sync Phase", "Finalize".as_bytes());
+                signatures
+            }
+            _ => unimplemented!(),
+        };
+        for (idx, (k, v)) in signatures.iter().enumerate() {
+            builder = builder
+                .var_size_field(&format!("Signature {idx} public key"), &k.0)
+                .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
+                .var_size_field(&format!("Signature {idx} vote data"), &v.1.as_bytes())
+                .field(&format!("Signature {idx} vote token"), v.2.commit());
+        }
+
+        builder = builder.u64_field("Relay", certificate_internal.relay).u64_field("Round", *certificate_internal.round);
+        builder.finalize()
+    }
+
+    fn tag() -> String {
+        // TODO ED Update this repo with a view sync tag
+        tag::QC.to_string()
+    }
+}
 
 impl<TYPES: NodeType>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>

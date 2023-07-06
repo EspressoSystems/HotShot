@@ -565,6 +565,7 @@ where
                     }
                 }
             }
+
             SequencingHotShotEvent::DACRecv(cert) => {
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
@@ -572,11 +573,10 @@ where
                     self.vote_if_able();
                 }
             }
-            SequencingHotShotEvent::ViewChange(_) => nll_todo(),
-            SequencingHotShotEvent::ViewSyncMessageRecv(_) => {
+
+            SequencingHotShotEvent::ViewChange(new_view) => {
                 // update the view in state to the one in the message
-                // TODO ED This info should come in the form of a ViewChange message, update
-                nll_todo()
+                self.update_view(new_view);
             }
             SequencingHotShotEvent::Timeout(view) => {
                 self.update_view(view);

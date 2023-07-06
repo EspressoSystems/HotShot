@@ -92,36 +92,6 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
-/// Data which `ViewSyncVotes` are signed over
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
-    /// A precommit vote
-    PreCommit(Commitment<COMMITTABLE>),
-    /// A commit vote
-    Commit(Commitment<COMMITTABLE>),
-    /// A finalize vote
-    Finalize(Commitment<COMMITTABLE>),
-}
-
-impl<COMMITTABLE: Committable + Serialize + Clone> Committable for ViewSyncVoteData<COMMITTABLE> {
-    fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("View Sync Vote Commitment");
-
-        builder.var_size_field("Phase", &self.as_bytes()).finalize()
-    }
-}
-
-impl<COMMITTABLE: Committable + Serialize + Clone> ViewSyncVoteData<COMMITTABLE> {
-    #[must_use]
-    /// Convert vote data into bytes.
-    ///
-    /// # Panics
-    /// Panics if the serialization fails.
-    pub fn as_bytes(&self) -> Vec<u8> {
-        bincode_opts().serialize(&self).unwrap()
-    }
-}
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
@@ -1041,6 +1011,8 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ) -> (EncodedPublicKey, EncodedSignature);
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
+
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1093,7 +1065,7 @@ impl<
 
         let signature = self.sign_precommit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::PreCommit(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1102,7 +1074,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_precommit_message(
@@ -1134,7 +1106,7 @@ impl<
 
         let signature = self.sign_commit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::Commit(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1143,7 +1115,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_commit_message(
@@ -1175,7 +1147,7 @@ impl<
 
         let signature = self.sign_finalize_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSync(ViewSyncMessageType::Vote(
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
             ViewSyncVote::Finalize(ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
@@ -1184,7 +1156,7 @@ impl<
                 vote_token,
                 vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
             }),
-        ))
+        )
     }
 
     fn sign_finalize_message(
@@ -1252,6 +1224,14 @@ impl<
         };
 
         return votes >= threshold.into();
+    }
+
+
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
+        TYPES::SignatureKey::sign(
+            &self.private_key,
+            &certificate.commit().as_ref(),
+        )
     }
 }
 

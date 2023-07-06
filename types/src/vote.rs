@@ -3,7 +3,6 @@
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
 //! can send, and vote accumulator that converts votes into certificates.
 
-use crate::traits::election::ViewSyncVoteData;
 use crate::{
     certificate::{QuorumCertificate, YesNoSignature},
     data::LeafType,
@@ -138,6 +137,16 @@ pub enum ViewSyncVote<TYPES: NodeType> {
     Commit(ViewSyncVoteInternal<TYPES>),
     /// Finalize vote
     Finalize(ViewSyncVoteInternal<TYPES>),
+}
+
+impl<TYPES: NodeType> ViewSyncVote<TYPES> {
+    pub fn signature(&self) -> EncodedSignature {
+        match &self {
+            ViewSyncVote::PreCommit(vote_internal) | 
+            ViewSyncVote::Commit(vote_internal)| 
+            ViewSyncVote::Finalize(vote_internal) => vote_internal.signature.1.clone(),
+        }
+    }
 }
 
 /// Votes on validating or commitment proposal.

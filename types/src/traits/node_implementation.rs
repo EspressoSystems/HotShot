@@ -552,9 +552,9 @@ where
     ViewSyncCommChannel<TYPES, I>: TestableChannelImplementation<
         TYPES,
         Message<TYPES, I>,
-        QuorumProposalType<TYPES, I>,
+        ViewSyncProposalType<TYPES, I>,
         ViewSyncVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
+        ViewSyncMembership<TYPES, I>,
         QuorumNetwork<TYPES, I>,
     >,
     TYPES::StateType: TestableState,
@@ -567,7 +567,7 @@ where
     type CommitteeNetwork = ();
 
     type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>;
-    type ViewSyncNetwork = QuorumNetwork<TYPES, I>;
+    type ViewSyncNetwork = ViewSyncNetwork<TYPES, I>;
 
     fn network_generator(
         expected_node_count: usize,
@@ -662,9 +662,9 @@ where
     ViewSyncCommChannel<TYPES, I>: TestableChannelImplementation<
         TYPES,
         Message<TYPES, I>,
-        QuorumProposalType<TYPES, I>,
+        ViewSyncProposalType<TYPES, I>,
         ViewSyncVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
+        ViewSyncMembership<TYPES, I>,
         QuorumNetwork<TYPES, I>,
     >,
     TYPES::StateType: TestableState,
@@ -752,6 +752,9 @@ pub type QuorumProposalType<TYPES, I> =
 pub type CommitteeProposalType<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
+pub type ViewSyncProposalType<TYPES, I> =
+    <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
+
 /// A vote on a [`QuorumProposalType`].
 pub type QuorumVoteType<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
@@ -782,6 +785,8 @@ pub type QuorumMembership<TYPES, I> =
 pub type CommitteeMembership<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership;
 
+pub type ViewSyncMembership<TYPES, I> = QuorumMembership<TYPES, I>;
+
 /// Type for the underlying quorum `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
 pub type QuorumNetwork<TYPES, I> = <QuorumCommChannel<TYPES, I> as CommunicationChannel<
     TYPES,
@@ -803,9 +808,9 @@ pub type CommitteeNetwork<TYPES, I> = <CommitteeCommChannel<TYPES, I> as Communi
 pub type ViewSyncNetwork<TYPES, I> = <ViewSyncCommChannel<TYPES, I> as CommunicationChannel<
     TYPES,
     Message<TYPES, I>,
-    QuorumProposalType<TYPES, I>,
+    ViewSyncProposalType<TYPES, I>,
     ViewSyncVoteType<TYPES, I>,
-    QuorumMembership<TYPES, I>,
+    ViewSyncMembership<TYPES, I>,
 >>::NETWORK;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.

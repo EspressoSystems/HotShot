@@ -66,6 +66,7 @@ use std::{
     },
     time::Duration,
 };
+use nll::nll_todo::nll_todo;
 use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
@@ -306,20 +307,6 @@ pub enum GlobalEvent {
     Dummy,
 }
 impl PassType for GlobalEvent {}
-
-// /// view sync error type
-// #[derive(Snafu, Debug)]
-// pub struct ViewSyncTaskError {}
-// impl TaskErr for ViewSyncTaskError {}
-
-// /// view sync task state
-// #[derive(Debug)]
-// pub struct ViewSyncTaskState {}
-// impl TS for ViewSyncTaskState {}
-
-// /// Types for view sync task
-// pub type ViewSyncTaskTypes =
-//     HSTWithEvent<ViewSyncTaskError, GlobalEvent, ChannelStream<GlobalEvent>, ViewSyncTaskState>;
 
 /// add the networking task
 /// # Panics
@@ -615,7 +602,6 @@ pub async fn add_view_sync_task<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
         + std::fmt::Debug
-        + 'static
         + std::clone::Clone,
 >(
     task_runner: TaskRunner,
@@ -626,19 +612,20 @@ where
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
     >,
 {
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {
+        registry: task_runner.registry.clone(),
         event_stream: event_stream.clone(),
-        filtered_event_stream: todo!(),
+        filtered_event_stream: nll_todo(),
         current_view: TYPES::Time::new(0),
         next_view: TYPES::Time::new(0),
-        exchange: todo!(),
-        api: todo!(),
+        exchange: nll_todo(),
+        api: nll_todo(),
         num_timeouts_tracked: 0,
         task_map: HashMap::default(),
         view_sync_timeout: Duration::new(10, 0),
