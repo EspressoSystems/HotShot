@@ -1227,7 +1227,10 @@ impl<
 
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        todo!()
+        TYPES::SignatureKey::sign(
+            &self.private_key,
+            &certificate.commit().as_ref(),
+        )
     }
 }
 
