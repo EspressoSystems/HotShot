@@ -177,6 +177,9 @@ where
                                 warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
                                 continue;
                             }
+                            ProcessedCommitteeConsensusMessage::DACertificate(_, _) => {
+                                continue;
+                            }
                         }
                     }
                 }

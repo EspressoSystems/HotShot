@@ -28,7 +28,7 @@ pub trait VoteType<TYPES: NodeType>:
 }
 
 /// A vote on DA proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
@@ -49,7 +49,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// A positive or negative vote on validating or commitment proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
@@ -70,7 +70,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// A timeout vote.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
@@ -89,7 +89,7 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// The internals of a view sync vote
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     /// The relay this vote is intended for
@@ -106,7 +106,8 @@ pub struct ViewSyncVoteInternal<TYPES: NodeType> {
     pub vote_data: VoteData<ViewSyncData<TYPES>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+/// The data View Sync votes are signed over
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncData<TYPES: NodeType> {
     /// The relay this vote is intended for
@@ -127,7 +128,7 @@ impl<TYPES: NodeType> Committable for ViewSyncData<TYPES> {
 }
 
 /// Votes to synchronize the network on a single view
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum ViewSyncVote<TYPES: NodeType> {
     /// PreCommit vote
@@ -139,7 +140,7 @@ pub enum ViewSyncVote<TYPES: NodeType> {
 }
 
 /// Votes on validating or commitment proposal.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum QuorumVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Posivite vote.
@@ -206,16 +207,15 @@ type VoteMap<C, TOKEN> = HashMap<
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-// TODO ED Change LEAF to COMMITTABLE
-pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
+pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub yes_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
-    pub viewsync_precommit_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1

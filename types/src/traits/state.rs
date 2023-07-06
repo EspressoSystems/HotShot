@@ -12,7 +12,7 @@ use std::{
     fmt::Debug,
     hash::Hash,
     ops,
-    ops::{Add, Deref, Div, Rem},
+    ops::{Add, Deref, Div, Rem, Sub},
 };
 
 /// Abstraction over the state that blocks modify
@@ -84,6 +84,7 @@ pub trait ConsensusTime:
     + for<'de> serde::Deserialize<'de>
     + ops::AddAssign<u64>
     + ops::Add<u64, Output = Self>
+    + Sub<u64, Output = Self>
     + 'static
 {
     /// Create a new instance of this time unit at time number 0

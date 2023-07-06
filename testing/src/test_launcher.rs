@@ -30,16 +30,16 @@ pub struct ResourceGenerators<
     >,
 {
     /// generate the underlying quorum network used for each node
-    pub(super) network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    pub network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate a new quorum network for each node
-    pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
+    pub quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
-    pub(super) committee_network:
+    pub committee_network:
         CommitteeNetworkGenerator<QuorumNetwork<TYPES, I>, I::CommitteeCommChannel>,
     /// generate a new storage for each node
-    pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
+    pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
-    pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -53,7 +53,7 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    pub(super) generator: ResourceGenerators<TYPES, I>,
+    pub generator: ResourceGenerators<TYPES, I>,
     // contains builder metadata that is used sporadically
     pub(super) metadata: TestMetadata,
     /// round information

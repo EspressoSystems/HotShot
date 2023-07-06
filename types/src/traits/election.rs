@@ -114,6 +114,7 @@ pub trait VoteToken:
     + for<'de> serde::Deserialize<'de>
     + PartialEq
     + Hash
+    + Eq
     + Committable
 {
     // type StakeTable;

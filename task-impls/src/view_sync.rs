@@ -55,7 +55,7 @@ use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, warn};
 
-#[derive(PartialEq, PartialOrd, Clone, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
     None,
     PreCommit,
@@ -88,6 +88,7 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+
     pub registry: GlobalRegistry,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
@@ -257,7 +258,7 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         // TODO ED Match on &event
         match event.clone() {
-            SequencingHotShotEvent::ViewSyncMessage(message) => {
+            SequencingHotShotEvent::ViewSyncMessageRecv(message) => {
                 match message {
                     ViewSyncMessageType::Certificate(certificate) => {
                         let (certificate_internal, last_seen_certificate) = match certificate {
@@ -494,7 +495,7 @@ where
     /// Filter view sync related events.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            SequencingHotShotEvent::ViewSyncMessage(_)
+            SequencingHotShotEvent::ViewSyncMessageRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)
@@ -539,11 +540,13 @@ where
         ViewSyncReplicaTaskState<TYPES, I, A>,
     ) {
         match event {
+
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
                 // TODO ED Check signature
                 let (certificate_internal, last_seen_certificate) = match message.data.clone() {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
+
                     }
                     ViewSyncCertificate::Commit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::Commit)
@@ -781,7 +784,7 @@ where
         ViewSyncRelayTaskState<TYPES, I>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncMessage(message) => match message {
+            SequencingHotShotEvent::ViewSyncMessageRecv(message) => match message {
                 ViewSyncMessageType::Certificate(certificate) => return (None, self),
                 ViewSyncMessageType::Vote(vote) => {
                     let (vote_internal, phase) = match vote {

@@ -3,7 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::certificate::ViewSyncCertificate;
+use crate::certificate::{DACertificate, ViewSyncCertificate};
 use crate::data::DAProposal;
 use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use crate::traits::network::ViewMessage;
@@ -241,6 +241,8 @@ pub enum ProcessedCommitteeConsensusMessage<
     DAProposal(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     /// vote from the DA committee
     DAVote(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
+
+    DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
 }
 
 impl<
@@ -255,6 +257,9 @@ impl<
             }
             ProcessedCommitteeConsensusMessage::DAVote(v, _) => {
                 CommitteeConsensusMessage::DAVote(v)
+            }
+            ProcessedCommitteeConsensusMessage::DACertificate(cert, _) => {
+                CommitteeConsensusMessage::DACertificate(cert)
             }
         }
     }
@@ -273,6 +278,9 @@ impl<
             }
             CommitteeConsensusMessage::DAVote(v) => {
                 ProcessedCommitteeConsensusMessage::DAVote(v, sender)
+            }
+            CommitteeConsensusMessage::DACertificate(cert) => {
+                ProcessedCommitteeConsensusMessage::DACertificate(cert, sender)
             }
         }
     }
@@ -331,7 +339,7 @@ where
 
 /// A view sync message
 // TODO ED Delete this
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub enum ViewSyncMessageType<TYPES: NodeType> {
     /// A view sync vote
@@ -352,6 +360,9 @@ pub enum CommitteeConsensusMessage<
 
     /// vote for data availability committee
     DAVote(DAVote<TYPES, I::Leaf>),
+
+    /// Certificate data is available
+    DACertificate(DACertificate<TYPES>),
 }
 
 /// Messages related to the consensus protocol.
@@ -475,6 +486,7 @@ impl<
                         p.data.get_view_number()
                     }
                     CommitteeConsensusMessage::DAVote(vote_message) => vote_message.current_view(),
+                    CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
                 }
             }
         }
@@ -494,6 +506,7 @@ impl<
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::Proposal,
             },
         }
     }
@@ -517,7 +530,7 @@ pub enum DataMessage<TYPES: NodeType> {
     SubmitTransaction(TYPES::Transaction, TYPES::Time),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
 pub struct Proposal<PROPOSAL: ProposalType> {

@@ -56,8 +56,8 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct SequencingMemoryImpl {}
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub struct SequencingMemoryImpl {}
 
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
@@ -146,7 +146,7 @@ async fn sequencing_memory_network_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingLibP2PImpl {}
 
 type StaticDACommP2p = Libp2pCommChannel<
@@ -234,7 +234,7 @@ async fn sequencing_libp2p_test() {
         .unwrap();
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 struct SequencingCentralImpl {}
 
 type StaticDACommCentral = CentralizedCommChannel<

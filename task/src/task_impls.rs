@@ -254,10 +254,10 @@ pub mod test {
 
     impl TaskErr for Error {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub struct State {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub enum Event {
         Finished,
         Dummy,
@@ -268,7 +268,7 @@ pub mod test {
     impl TS for State {}
     impl PassType for State {}
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub enum Message {
         Finished,
         Dummy,

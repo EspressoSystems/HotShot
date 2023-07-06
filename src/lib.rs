@@ -39,10 +39,7 @@ use crate::{
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
-    async_primitives::{
-        broadcast::{BroadcastSender},
-        subscribable_rwlock::SubscribableRwLock,
-    },
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -56,19 +53,19 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task::{event_stream::ChannelStream};
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
     data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
-        ConsensusMessageType, DataMessage, InternalTrigger, Message,
-        MessageKind, ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
+        ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedGeneralConsensusMessage, SequencingMessage, ValidatingMessage,
     },
     traits::{
         consensus_type::{
@@ -77,7 +74,7 @@ use hotshot_types::{
         },
         election::SignedCertificate,
         metrics::Metrics,
-        network::{NetworkError},
+        network::NetworkError,
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
@@ -88,7 +85,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{VoteType},
+    vote::VoteType,
     HotShotConfig,
 };
 
@@ -99,7 +96,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroUsize,
-    sync::{Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tasks::GlobalEvent;
@@ -176,7 +173,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[derive(Clone)]
 pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 
     /// Phantom data for consensus type
     _pd: PhantomData<CONSENSUS>,
@@ -352,6 +349,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             .await
             .get_decided_leaf()
             .get_state()
+    }
+
+    /// Returns a copy of the consensus struct
+    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
+        self.inner.consensus.clone()
     }
 
     /// Returns a copy of the last decided leaf
@@ -818,7 +820,7 @@ where
         // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
         // let task_runner = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
         // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-        // let task_runner = add_da_task(task_runner, event_stream.clone()).await;
+        // let task_runner = add_da_task(task_runner, event_stream.clone(), committee_exchange).await;
         // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
         async_spawn(async move {
             task_runner.launch().await;
@@ -1725,9 +1727,9 @@ where
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
+    pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]

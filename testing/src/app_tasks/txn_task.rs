@@ -1,4 +1,3 @@
-use hotshot::tasks::DATaskState;
 use hotshot_task::task::{TaskErr, TS};
 use snafu::Snafu;
 
@@ -11,7 +10,3 @@ impl TaskErr for TimeoutTaskErr {}
 #[derive(Debug)]
 pub struct TimeoutTask {}
 impl TS for TimeoutTask {}
-
-// /// Data Availability task types
-// pub type DATaskTypes =
-//     HSTWithEvent<TimeoutTaskErr, GlobalEvent, ChannelStream<GlobalEvent>, DATaskState>;
