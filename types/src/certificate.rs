@@ -312,7 +312,9 @@ impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
                 .field(&format!("Signature {idx} vote token"), v.2.commit());
         }
 
-        builder = builder.u64_field("Relay", certificate_internal.relay).u64_field("Round", *certificate_internal.round);
+        builder = builder
+            .u64_field("Relay", certificate_internal.relay)
+            .u64_field("Round", *certificate_internal.round);
         builder.finalize()
     }
 

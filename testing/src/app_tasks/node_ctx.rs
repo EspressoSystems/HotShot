@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
-use hotshot_types::{traits::node_implementation::NodeType, data::LeafType};
+use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 use snafu::Snafu;
 
 // context for a round
@@ -14,24 +14,25 @@ pub struct NodeCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Consens
     pub round_results: HashMap<TYPES::Time, ViewStatus<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default for NodeCtx<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
+    for NodeCtx<TYPES, I>
+{
     fn default() -> Self {
-        Self { round_results: Default::default() }
+        Self {
+            round_results: Default::default(),
+        }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub enum ViewStatus<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     InProgress(InProgress),
     ViewFailed(ViewFailed<TYPES>),
-    ViewSuccess(ViewSuccess<TYPES, I::Leaf>)
+    ViewSuccess(ViewSuccess<TYPES, I::Leaf>),
 }
 
 #[derive(Debug, Clone)]
-pub struct InProgress {
-
-}
+pub struct InProgress {}
 
 #[derive(Debug, Clone)]
 pub struct ViewFailed<TYPES: NodeType>(pub Arc<HotShotError<TYPES>>);

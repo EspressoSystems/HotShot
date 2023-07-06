@@ -139,15 +139,15 @@ type StaticQuroumComm = MemoryCommChannel<
 type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct SequencingMemoryImpl {}
-    use hotshot_types::vote::ViewSyncVote;
+use hotshot_types::vote::ViewSyncVote;
 
-    type StaticViewSyncComm = MemoryCommChannel<
+type StaticViewSyncComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     ViewSyncVote<SequencingTestTypes>,
     StaticMembership,
-    >;
+>;
 use hotshot_types::traits::election::ViewSyncExchange;
 impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
@@ -162,21 +162,21 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
             StaticMembership,
             StaticQuroumComm,
             Message<SequencingTestTypes, Self>,
-            >,
-            CommitteeExchange<
-                SequencingTestTypes,
-                StaticMembership,
-                StaticDAComm,
-                Message<SequencingTestTypes, Self>,
-                >,
-                ViewSyncExchange<
-                    SequencingTestTypes,
-                    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-                    StaticMembership,
-                    StaticViewSyncComm,
-                    Message<SequencingTestTypes, Self>,
-                    >,
-                    >;
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticViewSyncComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+    >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
@@ -197,7 +197,7 @@ async fn build_consensus_task<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
         SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
-        Time = ViewNumber
+        Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
         TYPES::ConsensusType,
@@ -282,7 +282,11 @@ where
     let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
     let registry = task_runner.registry.clone();
-    let consensus_state = SequencingConsensusTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>> {
+    let consensus_state = SequencingConsensusTaskState::<
+        TYPES,
+        I,
+        HotShotSequencingConsensusApi<TYPES, I>,
+    > {
         registry: registry.clone(),
         consensus,
         cur_view: TYPES::Time::new(0),
@@ -291,23 +295,30 @@ where
         api: c_api.clone(),
         committee_exchange: committee_exchange.clone().into(),
         _pd: PhantomData,
-        vote_collector: Some((TYPES::Time::new(0), nll_todo())),/* async_spawn(async move {})), */
+        vote_collector: Some((TYPES::Time::new(0), nll_todo())), /* async_spawn(async move {})), */
         timeout_task: async_spawn(async move {}),
         event_stream: event_stream.clone(),
         certs: HashMap::new(),
         current_proposal: None,
     };
-    let consensus_event_handler = HandleEvent(Arc::new(move |event, mut state: SequencingConsensusTaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
-        async move {
-            if let SequencingHotShotEvent::Shutdown = event {
-                (Some(HotShotTaskCompleted::ShutDown), state)
-            } else {
-                state.handle_event(event).await;
-                (None, state)
+    let consensus_event_handler = HandleEvent(Arc::new(
+        move |event,
+              mut state: SequencingConsensusTaskState<
+            TYPES,
+            I,
+            HotShotSequencingConsensusApi<TYPES, I>,
+        >| {
+            async move {
+                if let SequencingHotShotEvent::Shutdown = event {
+                    (Some(HotShotTaskCompleted::ShutDown), state)
+                } else {
+                    state.handle_event(event).await;
+                    (None, state)
+                }
             }
-        }
-        .boxed()
-    }));
+            .boxed()
+        },
+    ));
     let consensus_name = "Consensus Task";
     let consensus_event_filter = FilterEvent::default();
 

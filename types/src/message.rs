@@ -224,8 +224,8 @@ where
             GeneralConsensusMessage::InternalTrigger(a) => {
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
-            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
-
+            GeneralConsensusMessage::ViewSyncVote(_)
+            | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
         }
     }
 }
@@ -323,7 +323,7 @@ where
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 
-    ViewSyncVote(ViewSyncVote<TYPES>), 
+    ViewSyncVote(ViewSyncVote<TYPES>),
 
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
@@ -415,8 +415,8 @@ impl<
             GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
-            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
-
+            GeneralConsensusMessage::ViewSyncVote(_)
+            | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
         }
     }
 
@@ -427,7 +427,8 @@ impl<
             GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
             GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
             GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-            GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+            GeneralConsensusMessage::ViewSyncVote(_)
+            | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
         }
     }
 }
@@ -463,7 +464,8 @@ impl<
                     GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                         InternalTrigger::Timeout(time) => *time,
                     },
-                    GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                    GeneralConsensusMessage::ViewSyncVote(_)
+                    | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
                 }
             }
             Right(committee_message) => {
@@ -488,8 +490,8 @@ impl<
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-                GeneralConsensusMessage::ViewSyncVote(_) | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
-            
+                GeneralConsensusMessage::ViewSyncVote(_)
+                | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,

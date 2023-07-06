@@ -37,8 +37,6 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
@@ -49,6 +47,8 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
+use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::task_launcher::TaskRunner;
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,

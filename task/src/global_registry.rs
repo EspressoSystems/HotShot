@@ -183,5 +183,4 @@ impl GlobalRegistry {
             task.0.set_state(TaskStatus::Completed)
         }
     }
-
 }

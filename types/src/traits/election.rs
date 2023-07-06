@@ -92,7 +92,6 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
-
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
     /// Convert vote data into bytes.
@@ -1035,16 +1034,16 @@ impl<
 
         let signature = self.sign_precommit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::PreCommit(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::PreCommit(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_precommit_message(
@@ -1076,16 +1075,16 @@ impl<
 
         let signature = self.sign_commit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::Commit(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Commit(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_commit_message(
@@ -1117,16 +1116,16 @@ impl<
 
         let signature = self.sign_finalize_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::Finalize(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Finalize(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_finalize_message(
@@ -1196,12 +1195,8 @@ impl<
         return votes >= threshold.into();
     }
 
-
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        TYPES::SignatureKey::sign(
-            &self.private_key,
-            &certificate.commit().as_ref(),
-        )
+        TYPES::SignatureKey::sign(&self.private_key, &certificate.commit().as_ref())
     }
 }
 

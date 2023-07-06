@@ -1,13 +1,12 @@
+use async_compatibility_layer::art::async_sleep;
+use futures::stream::unfold;
 use futures::Future;
+use futures::{stream::Unfold, Stream};
 use hotshot_task::event_stream::SendableStream;
-use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent, task::PassType};
+use hotshot_task::{event_stream::ChannelStream, task::PassType, task_impls::HSTWithEvent};
+use rand::{prelude::Distribution, thread_rng};
 use std::marker::PhantomData;
 use std::time::Duration;
-use futures::{Stream, stream::Unfold};
-use futures::stream::unfold;
-use async_compatibility_layer::art::async_sleep;
-use rand::{prelude::Distribution, thread_rng};
-
 
 ///  builder
 pub mod test_builder;
@@ -37,7 +36,7 @@ pub mod node_ctx;
 
 #[derive(Clone, Debug)]
 pub enum GlobalTestEvent {
-    ShutDown
+    ShutDown,
 }
 
 impl PassType for GlobalTestEvent {}
@@ -47,7 +46,8 @@ pub enum ShutDownReason {
     SuccessfullyCompleted,
 }
 
-pub type TestTask<ERR, STATE> = HSTWithEvent<ERR, GlobalTestEvent, ChannelStream<GlobalTestEvent>, STATE>;
+pub type TestTask<ERR, STATE> =
+    HSTWithEvent<ERR, GlobalTestEvent, ChannelStream<GlobalTestEvent>, STATE>;
 
 // pub type empty_unfold = Unfold<(), impl Fn(()) -> impl Future<Output = Option<((), ())>>, impl Future<Output = Option<((), ())>>>;
 

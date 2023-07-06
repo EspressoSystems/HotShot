@@ -56,6 +56,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -66,7 +67,6 @@ use std::{
     },
     time::Duration,
 };
-use nll::nll_todo::nll_todo;
 use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
@@ -389,8 +389,8 @@ where
             MEMBERSHIP,
             EXCHANGE::Networking,
         >| {
-            let messages = match messages{
-                either::Either::Left(messages) | either::Either::Right(messages) => messages
+            let messages = match messages {
+                either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
             async move {
                 for message in messages.0 {
@@ -563,7 +563,11 @@ where
         registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
-        vote_collector: (TYPES::Time::new(0), 0, async_spawn(async move {})),
+        vote_collector: (
+            TYPES::Time::new(0),
+            0,
+            async_spawn(async move { HotShotTaskCompleted::ShutDown }),
+        ),
         event_stream: event_stream.clone(),
     };
     let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
@@ -602,7 +606,8 @@ pub async fn add_view_sync_task<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
         + std::fmt::Debug
-        + std::clone::Clone,
+        + std::clone::Clone
+        + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
