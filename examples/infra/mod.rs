@@ -110,7 +110,6 @@ pub fn load_config_from_file<TYPES: NodeType>(
 }
 
 /// Runs the orchestrator
-/// KALEY TODO: run_da_orchestrator
 pub async fn run_orchestrator<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MEMBERSHIP: Membership<TYPES> + Debug,
@@ -231,7 +230,7 @@ pub trait Run<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed
+            config.seed,
         ));
         let known_nodes = config.config.known_nodes.clone();
 
@@ -645,13 +644,8 @@ where
 // WEB SERVER
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
-type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    TYPES,
-    I,
-    Proposal<TYPES>,
-    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> =
+    WebCommChannel<TYPES, I, Proposal<TYPES>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP>;
 
 /// Represents a web server-based run
 pub struct WebServerRun<
@@ -730,7 +724,7 @@ where
 
         let known_nodes = config.config.known_nodes.clone();
 
-        let mut committee_nodes = known_nodes.clone();
+        let committee_nodes = known_nodes.clone();
 
         // Create the network
         let network: WebCommChannel<
@@ -740,7 +734,14 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, committee_nodes).into(),
+            WebServerNetwork::create(
+                &host.to_string(),
+                port,
+                wait_between_polls,
+                pub_key,
+                committee_nodes,
+            )
+            .into(),
         );
         WebServerRun { config, network }
     }
@@ -773,11 +774,7 @@ impl OrchestratorClient {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
-        //KALEY TODO
-        setup_logging();
-        error!("connecting to client");
         assert!(client.connect(None).await);
-        error!("connected to client");
 
         OrchestratorClient { client }
     }

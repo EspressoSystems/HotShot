@@ -3,18 +3,16 @@ use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 
-use crate::{
-    types::{NodeImpl, ThisMembership, DANetwork, QuorumNetwork, ThisRun, },
-};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun};
 
-use crate::infra::{ValidatorArgs};
+use crate::infra::ValidatorArgs;
 
 pub mod types;
 
-#[path = "../infra/modDA.rs"]
-pub mod infraDA;
 #[path = "../infra/mod.rs"]
 pub mod infra;
+#[path = "../infra/modDA.rs"]
+pub mod infra_da;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -25,6 +23,18 @@ pub mod infra;
 async fn main() {
     setup_logging();
     let args = ValidatorArgs::parse();
-    tracing::error!("connecting to orchestrator at {:?}:{:?}", args.host, args.port);
-    infraDA::main_entry_point::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, NodeImpl, ThisRun>(args).await;
+    tracing::error!(
+        "connecting to orchestrator at {:?}:{:?}",
+        args.host,
+        args.port
+    );
+    infraDA::main_entry_point::<
+        SDemoTypes,
+        ThisMembership,
+        DANetwork,
+        QuorumNetwork,
+        NodeImpl,
+        ThisRun,
+    >(args)
+    .await;
 }

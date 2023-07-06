@@ -5,14 +5,14 @@ use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 use types::ThisMembership;
 
-use crate::infra::{OrchestratorArgs};
+use crate::infra::OrchestratorArgs;
 use crate::infraDA::run_orchestrator_da;
-use crate::types::{NodeImpl, DANetwork, QuorumNetwork};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork};
 
-#[path = "../infra/modDA.rs"]
-pub mod infraDA;
 #[path = "../infra/mod.rs"]
 pub mod infra;
+#[path = "../infra/modDA.rs"]
+pub mod infraDA;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -23,5 +23,6 @@ pub mod infra;
 async fn main() {
     let args = OrchestratorArgs::parse();
 
-    run_orchestrator_da::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, NodeImpl>(args).await;
+    run_orchestrator_da::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, NodeImpl>(args)
+        .await;
 }

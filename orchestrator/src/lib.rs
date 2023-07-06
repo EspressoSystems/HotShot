@@ -20,14 +20,10 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
+use async_compatibility_layer::logging::setup_logging;
 use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
-};
-//KALEY TODO
-use async_compatibility_layer::{
-    //art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
 };
 
 /// yeesh maybe we should just implement SignatureKey for this...
@@ -242,9 +238,6 @@ where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
-    //KALEY TODO
-    setup_logging();
-    tracing::error!("running orchestrator");
     let api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =

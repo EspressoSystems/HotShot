@@ -5,29 +5,34 @@
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
-use crate::traits::{election::static_committee::{StaticElectionConfig, StaticVoteToken},};
-use std::{collections::{HashSet, BTreeMap,}, fmt::{Display, Debug}, ops::Deref, marker::PhantomData,};
+use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    ops::Deref,
+};
 
 use commit::{Commitment, Committable};
+use derivative::Derivative;
+use either::Either;
 use hotshot_types::{
-    data::{fake_commitment, ViewNumber, LeafType, random_commitment, SequencingLeaf},
-    traits::{
-        block_contents::Transaction,
-        state::{ConsensusTime, TestableBlock, TestableState},
-        Block, State,
-        node_implementation::NodeType,
-        consensus_type::sequencing_consensus::SequencingConsensus,
-        signature_key::ed25519::Ed25519Pub,
-        election::Membership,
-    },
     certificate::{QuorumCertificate, YesNoSignature},
     constants::genesis_proposer_id,
+    data::{fake_commitment, random_commitment, LeafType, SequencingLeaf, ViewNumber},
+    traits::{
+        block_contents::Transaction,
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::Membership,
+        node_implementation::NodeType,
+        signature_key::ed25519::Ed25519Pub,
+        state::{ConsensusTime, TestableBlock, TestableState},
+        Block, State,
+    },
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use derivative::Derivative;
-use either::Either;
 
 /// The transaction for the sequencing demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -178,14 +183,6 @@ impl Display for SDemoBlock {
         }
     }
 }
-//KALEY TODO might not need; possibly delete
-// impl SDemoBlock {
-//     /// generate a genesis block 
-//     #[must_use]
-//     pub fn genesis() -> Self {
-//         Self::Genesis(SDemoGenesisBlock {})
-//     }
-// }
 
 impl TestableBlock for SDemoBlock {
     fn genesis() -> Self {
@@ -387,4 +384,3 @@ pub fn random_sequencing_leaf<TYPES: NodeType<ConsensusType = SequencingConsensu
         proposer_id: genesis_proposer_id(),
     }
 }
-

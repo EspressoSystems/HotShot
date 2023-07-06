@@ -1,23 +1,13 @@
 use crate::infra::{load_config_from_file, OrchestratorArgs, OrchestratorClient, ValidatorArgs};
 
-use async_compatibility_layer::{
-    //art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
-use either::Either;
-use commit::Commitment;
-//use async_lock::RwLock;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
-use clap::Parser;
-//use futures::Future;
-use futures::FutureExt;
+use commit::Commitment;
+use either::Either;
 use hotshot::{
     traits::{
-        implementations::{
-            //Libp2pCommChannel, Libp2pNetwork, 
-            MemoryStorage, WebCommChannel, WebServerNetwork,
-        },
-        NodeImplementation, Storage,
+        implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
+        NodeImplementation,
     },
     types::{HotShotHandle, SignatureKey},
     HotShot, ViewRunner,
@@ -26,9 +16,12 @@ use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
 };
-use hotshot_types::traits::{election::ConsensusExchange, node_implementation::{QuorumEx, CommitteeEx}};
+use hotshot_types::traits::{
+    election::ConsensusExchange,
+    node_implementation::{CommitteeEx, QuorumEx},
+};
 use hotshot_types::{
-    data::{LeafType, TestableLeaf, SequencingLeaf, DAProposal, QuorumProposal},
+    data::{DAProposal, LeafType, QuorumProposal, SequencingLeaf, TestableLeaf},
     message::SequencingMessage,
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -38,10 +31,13 @@ use hotshot_types::{
         node_implementation::{ExchangesType, NodeType, SequencingExchanges},
         state::{TestableBlock, TestableState},
     },
-    vote::{QuorumVote, DAVote},
+    vote::{DAVote, QuorumVote},
     HotShotConfig,
 };
-use hotshot_types::{message::Message, traits::election::{QuorumExchange, CommitteeExchange}};
+use hotshot_types::{
+    message::Message,
+    traits::election::{CommitteeExchange, QuorumExchange},
+};
 use hotshot_web_server::config::DEFAULT_WEB_SERVER_DA_PORT;
 // use libp2p::{
 //     identity::{
@@ -60,7 +56,7 @@ use std::{
     cmp,
     //collections::{BTreeSet, VecDeque},
     collections::VecDeque,
-    //fs, 
+    //fs,
     mem,
     net::IpAddr,
     //num::NonZeroUsize,
@@ -74,7 +70,6 @@ use std::{
 #[allow(deprecated)]
 use tracing::error;
 
-
 /// Runs the orchestrator
 pub async fn run_orchestrator_da<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -87,12 +82,12 @@ pub async fn run_orchestrator_da<
             MEMBERSHIP,
         > + Debug,
     QUORUMNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > + Debug,
+            TYPES,
+            Message<TYPES, NODE>,
+            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -107,12 +102,7 @@ pub async fn run_orchestrator_da<
                 QUORUMNETWORK,
                 Message<TYPES, NODE>,
             >,
-            CommitteeExchange<
-                TYPES,
-                MEMBERSHIP,
-                DANETWORK,
-                Message<TYPES, NODE>,
-            >,
+            CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, SequencingLeaf<TYPES>>,
         ConsensusMessage = SequencingMessage<TYPES, NODE>,
@@ -164,12 +154,12 @@ pub trait RunDA<
             MEMBERSHIP,
         > + Debug,
     QUORUMNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > + Debug, 
+            TYPES,
+            Message<TYPES, NODE>,
+            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -184,12 +174,7 @@ pub trait RunDA<
                 QUORUMNETWORK,
                 Message<TYPES, NODE>,
             >,
-            CommitteeExchange<
-                TYPES,
-                MEMBERSHIP,
-                DANETWORK,
-                Message<TYPES, NODE>,
-            >,
+            CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, SequencingLeaf<TYPES>>,
         ConsensusMessage = SequencingMessage<TYPES, NODE>,
@@ -224,7 +209,7 @@ pub trait RunDA<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed
+            config.seed,
         ));
         let known_nodes = config.config.known_nodes.clone();
 
@@ -236,12 +221,15 @@ pub trait RunDA<
             <QuorumEx<TYPES,NODE> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, NODE>,
-            >>::Membership::default_election_config(config.config.total_nodes.get() as u64)});
+            >>::Membership::default_election_config(config.config.total_nodes.get() as u64)
+        });
 
-        let committee_election_config = <CommitteeEx<TYPES,NODE> as ConsensusExchange<
+        let committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
             TYPES,
             Message<TYPES, NODE>,
-        >>::Membership::default_election_config(config.config.total_nodes.get() as u64);
+        >>::Membership::default_election_config(
+            config.config.total_nodes.get() as u64
+        );
 
         // let election_config = config.config.election_config.clone().unwrap_or_else(|| {
         //     <QuorumExchange<
@@ -258,10 +246,7 @@ pub trait RunDA<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            (
-                quorum_election_config,
-                committee_election_config,
-            ),
+            (quorum_election_config, committee_election_config),
             (quorum_network.clone(), da_network.clone()),
             pk.clone(),
             sk.clone(),
@@ -304,7 +289,7 @@ pub trait RunDA<
         let size = mem::size_of::<TYPES::Transaction>();
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
-        let state = hotshot.get_state().await;
+        let _state = hotshot.get_state().await;
 
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
@@ -354,17 +339,17 @@ pub trait RunDA<
 
             match view_results {
                 Ok((leaf_chain, _qc)) => {
-                    let blocks: Vec<Either<TYPES::BlockType, Commitment<TYPES::BlockType>>> = leaf_chain
-                        .into_iter()
-                        .map(|leaf| leaf.get_deltas())
-                        .collect();
-                    //KALEY TODO do something with commitment?
-                    blocks.into_iter().map(
-                        |b| b.either( |block|
-                            total_transactions += block.txn_count()
-                        , |_|total_commitments += 1)
-                    );
-
+                    let blocks: Vec<Either<TYPES::BlockType, Commitment<TYPES::BlockType>>> =
+                        leaf_chain
+                            .into_iter()
+                            .map(|leaf| leaf.get_deltas())
+                            .collect();
+                    for b in blocks.into_iter() {
+                        b.either(
+                            |block| total_transactions += block.txn_count(),
+                            |_| total_commitments += 1,
+                        );
+                    }
                 }
                 Err(e) => {
                     timed_out_views += 1;
@@ -380,6 +365,7 @@ pub trait RunDA<
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("Total commitments: {total_commitments}");
     }
 
     /// Returns the da network for this run
@@ -394,17 +380,11 @@ pub trait RunDA<
 
 //type Proposal<T> = DAProposal<T>;
 
-
 // WEB SERVER
 
 /// Alias for the [`WebCommChannel`] for sequencing consensus.
-type StaticDAComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    TYPES,
-    I,
-    DAProposal<TYPES>,
-    DAVote<TYPES, SequencingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type StaticDAComm<TYPES, I, MEMBERSHIP> =
+    WebCommChannel<TYPES, I, DAProposal<TYPES>, DAVote<TYPES, SequencingLeaf<TYPES>>, MEMBERSHIP>;
 
 /// Alias for the ['WebCommChannel'] for validating consensus
 type StaticQuorumComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
@@ -502,10 +482,6 @@ where
 
         let mut committee_nodes = known_nodes.clone();
         committee_nodes.truncate(config.config.da_committee_size.into());
-        //will not be da here
-        // if is_da {
-        //     committee_nodes.truncate(da_committee_size);
-        // }
 
         // Create the network
         let quorum_network: WebCommChannel<
@@ -515,11 +491,16 @@ where
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key.clone(), known_nodes).into(),
+            WebServerNetwork::create(
+                &host.to_string(),
+                port,
+                wait_between_polls,
+                pub_key.clone(),
+                known_nodes,
+            )
+            .into(),
         );
 
-
-        //KALEY TODO initialize second network with correct port/pubkey?
         let da_network: WebCommChannel<
             TYPES,
             NODE,
@@ -527,10 +508,21 @@ where
             DAVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), DEFAULT_WEB_SERVER_DA_PORT, wait_between_polls, pub_key, committee_nodes).into(),
+            WebServerNetwork::create(
+                &host.to_string(),
+                DEFAULT_WEB_SERVER_DA_PORT,
+                wait_between_polls,
+                pub_key,
+                committee_nodes,
+            )
+            .into(),
         );
-        
-        WebServerDARun { config, quorum_network, da_network }
+
+        WebServerDARun {
+            config,
+            quorum_network,
+            da_network,
+        }
     }
 
     fn get_da_network(
@@ -662,7 +654,6 @@ where
 // }
 
 /// Main entry point for validators
-/// KALEY TODO main_entry_point_DA
 pub async fn main_entry_point<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MEMBERSHIP: Membership<TYPES> + Debug,
@@ -674,33 +665,28 @@ pub async fn main_entry_point<
             MEMBERSHIP,
         > + Debug,
     QUORUMNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > + Debug,
+            TYPES,
+            Message<TYPES, NODE>,
+            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         Exchanges = SequencingExchanges<
+            TYPES,
+            Message<TYPES, NODE>,
+            QuorumExchange<
                 TYPES,
+                SequencingLeaf<TYPES>,
+                QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+                MEMBERSHIP,
+                QUORUMNETWORK,
                 Message<TYPES, NODE>,
-                QuorumExchange<
-                    TYPES,
-                    SequencingLeaf<TYPES>,
-                    QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-                    MEMBERSHIP,
-                    QUORUMNETWORK,
-                    Message<TYPES, NODE>,
-                >,
-                CommitteeExchange<
-                    TYPES,
-                    MEMBERSHIP,
-                    DANETWORK,
-                    Message<TYPES, NODE>,
-                >,
             >,
+            CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
+        >,
         Storage = MemoryStorage<TYPES, SequencingLeaf<TYPES>>,
         ConsensusMessage = SequencingMessage<TYPES, NODE>,
     >,

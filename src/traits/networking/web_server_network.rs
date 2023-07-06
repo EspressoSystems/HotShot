@@ -32,7 +32,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use hotshot_web_server::{self, config};
 use rand::random;
 use serde::{Deserialize, Serialize};
@@ -393,9 +392,7 @@ impl<
     }
 
     /// Launches background tasks for polling the web server
-    async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES>>,
-    ) -> Result<(), ClientError> {
+    async fn run_background_receive(inner: Arc<Inner<M, K, E, TYPES>>) -> Result<(), ClientError> {
         assert!(inner.client.connect(None).await);
         error!("connected to webserver");
         let quorum_proposal_handle = async_spawn({
@@ -693,7 +690,6 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
         // TODO ED Restrict this to be an open port using portpicker
-        //KALEY TODO put port in config file?
         let port = random::<u16>();
         error!("Launching web server on port {port}");
         // Start web server
