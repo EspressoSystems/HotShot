@@ -1,6 +1,7 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::async_spawn;
+use crate::types::SystemContextHandle;
 use crate::{
     DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
     SystemContext, ViewRunner,
@@ -453,7 +454,7 @@ pub async fn add_consensus_task<
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -471,9 +472,9 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    let consensus = hotshot.get_consensus();
+    let consensus = handle.hotshot.get_consensus();
     let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
-        inner: hotshot.inner.clone(),
+        inner: handle.hotshot.inner.clone(),
     };
     let registry = task_runner.registry.clone();
     // build the consensus task

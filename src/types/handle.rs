@@ -18,6 +18,7 @@ use hotshot_task::event_stream::SendableStream;
 use hotshot_task::event_stream::StreamId;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
+use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
@@ -52,7 +53,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers to expose to the user
     pub(crate) output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
     /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: ChannelStream<GlobalEvent>,
+    pub(crate) internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     /// registry for controlling tasks
     pub(crate) registry: GlobalRegistry,
 

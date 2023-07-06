@@ -57,7 +57,7 @@ use hotshot_consensus::{
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::data::{DeltasType, SequencingLeaf, DAProposal};
+use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, traits::election::Membership};
 use hotshot_types::{
@@ -81,7 +81,7 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx, ViewSyncEx,
         },
-        signature_key::SignatureKey,
+        signature_key::{EncodedSignature, SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
         State,
@@ -770,7 +770,11 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+        TYPES: NodeType<
+            ConsensusType = SequencingConsensus,
+            SignatureKey = EncodedSignature,
+            Time = ViewNumber,
+        >,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -781,29 +785,32 @@ impl<
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
-        Membership = MEMBERSHIP,
-    > + Copy + 'static,
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+            Commitment = SequencingLeaf<TYPES>,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = DAProposal<TYPES>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
-        Membership = MEMBERSHIP,
-    >,
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Commitment = TYPES::BlockType,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = ViewSyncCertificate<TYPES>,
-        Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
-        Membership = MEMBERSHIP,
-    >,
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = ViewSyncCertificate<TYPES>,
+            Certificate = ViewSyncCertificate<TYPES>,
+            Commitment = ViewSyncData<TYPES>,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
 {
     fn transactions(
         &self,
@@ -822,9 +829,9 @@ where
         // TODO this will need to go in the consensus task state
         let output_event_stream = ChannelStream::new();
 
-        let quorum_exchange = self.inner.exchanges.quorum_exchange();
-        let committee_exchange = self.inner.exchanges.committee_exchange();
-        let view_sync_exchange = self.inner.exchanges.view_sync_exchange();
+        let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
+        let committee_exchange = self.inner.exchanges.committee_exchange().clone();
+        let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
@@ -840,7 +847,7 @@ where
         let task_runner = add_network_task(
             task_runner,
             internal_event_stream.clone(),
-            committee_exchange,
+            committee_exchange.clone(),
         )
         .await;
         let task_runner =
@@ -848,7 +855,7 @@ where
         let task_runner = add_da_task(
             task_runner,
             internal_event_stream.clone(),
-            committee_exchange,
+            committee_exchange.clone(),
         )
         .await;
         let task_runner = add_view_sync_task(task_runner, internal_event_stream.clone()).await;
