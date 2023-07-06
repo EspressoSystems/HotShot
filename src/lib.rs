@@ -233,6 +233,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             transactions: Arc::default(),
             saved_leaves,
             saved_blocks,
+            // TODO this is incorrect
+            // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: anchored_leaf.get_justify_qc(),
             metrics: consensus_metrics,
