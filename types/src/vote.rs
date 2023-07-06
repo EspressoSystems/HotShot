@@ -139,6 +139,16 @@ pub enum ViewSyncVote<TYPES: NodeType> {
     Finalize(ViewSyncVoteInternal<TYPES>),
 }
 
+impl<TYPES: NodeType> ViewSyncVote<TYPES> {
+    pub fn signature(&self) -> EncodedSignature {
+        match &self {
+            ViewSyncVote::PreCommit(vote_internal) | 
+            ViewSyncVote::Commit(vote_internal)| 
+            ViewSyncVote::Finalize(vote_internal) => vote_internal.signature.1.clone(),
+        }
+    }
+}
+
 /// Votes on validating or commitment proposal.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]

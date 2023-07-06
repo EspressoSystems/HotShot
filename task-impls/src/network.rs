@@ -146,7 +146,16 @@ impl<
                 SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 vote.signature.1.clone(),
             ),
-            // TODO ED Add view sync message handling
+            SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal) => (
+                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
+                    certificate_proposal.clone(),
+                ))),
+                certificate_proposal.signature.clone(),
+            ),
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
+                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
+                vote.signature().clone(),
+            ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
                 return None;
