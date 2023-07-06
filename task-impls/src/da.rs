@@ -279,7 +279,10 @@ where
                             .register_state(state)
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
-                    let task = async_spawn(DAVoteCollectionTypes::build(builder).launch());
+                    let task =
+                        async_spawn(
+                            async move { DAVoteCollectionTypes::build(builder).launch().await },
+                        );
                     self.vote_collector = (view, id, task);
                 }
             }
