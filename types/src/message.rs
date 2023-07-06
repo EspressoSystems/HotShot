@@ -233,24 +233,19 @@ where
 /// A processed consensus message for the DA committee in sequencing consensus.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub enum ProcessedCommitteeConsensusMessage<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> {
+pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType<ConsensusType = SequencingConsensus>> {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     /// vote from the DA committee
-    DAVote(DAVote<TYPES, I::Leaf>, TYPES::SignatureKey),
+    DAVote(DAVote<TYPES>, TYPES::SignatureKey),
 
     DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
 }
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<ProcessedCommitteeConsensusMessage<TYPES, I>> for CommitteeConsensusMessage<TYPES, I>
+impl<TYPES: NodeType<ConsensusType = SequencingConsensus>>
+    From<ProcessedCommitteeConsensusMessage<TYPES>> for CommitteeConsensusMessage<TYPES>
 {
-    fn from(value: ProcessedCommitteeConsensusMessage<TYPES, I>) -> Self {
+    fn from(value: ProcessedCommitteeConsensusMessage<TYPES>) -> Self {
         match value {
             ProcessedCommitteeConsensusMessage::DAProposal(p, _) => {
                 CommitteeConsensusMessage::DAProposal(p)
@@ -265,13 +260,11 @@ impl<
     }
 }
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > ProcessedCommitteeConsensusMessage<TYPES, I>
+impl<TYPES: NodeType<ConsensusType = SequencingConsensus>>
+    ProcessedCommitteeConsensusMessage<TYPES>
 {
     /// Create a [`ProcessedCommitteeConsensusMessage`] from a [`CommitteeConsensusMessage`].
-    pub fn new(value: CommitteeConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
+    pub fn new(value: CommitteeConsensusMessage<TYPES>, sender: TYPES::SignatureKey) -> Self {
         match value {
             CommitteeConsensusMessage::DAProposal(p) => {
                 ProcessedCommitteeConsensusMessage::DAProposal(p, sender)
@@ -287,10 +280,8 @@ impl<
 }
 
 /// A processed consensus message for sequencing consensus.
-pub type ProcessedSequencingMessage<TYPES, I> = Either<
-    ProcessedGeneralConsensusMessage<TYPES, I>,
-    ProcessedCommitteeConsensusMessage<TYPES, I>,
->;
+pub type ProcessedSequencingMessage<TYPES, I> =
+    Either<ProcessedGeneralConsensusMessage<TYPES, I>, ProcessedCommitteeConsensusMessage<TYPES>>;
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -351,15 +342,12 @@ pub enum ViewSyncMessageType<TYPES: NodeType> {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the sequencing consensus protocol for the DA committee.
-pub enum CommitteeConsensusMessage<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> {
+pub enum CommitteeConsensusMessage<TYPES: NodeType<ConsensusType = SequencingConsensus>> {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>),
 
     /// vote for data availability committee
-    DAVote(DAVote<TYPES, I::Leaf>),
+    DAVote(DAVote<TYPES>),
 
     /// Certificate data is available
     DACertificate(DACertificate<TYPES>),
@@ -450,7 +438,7 @@ impl<
 pub struct SequencingMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>);
+>(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES>>);
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -517,7 +505,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
 {
-    type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
+    type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES>;
 }
 
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]

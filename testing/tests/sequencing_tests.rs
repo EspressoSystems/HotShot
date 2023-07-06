@@ -65,7 +65,7 @@ type StaticDAComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     DAProposal<SequencingTestTypes>,
-    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    DAVote<SequencingTestTypes>,
     StaticMembership,
 >;
 
@@ -153,7 +153,7 @@ type StaticDACommP2p = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibP2PImpl,
     DAProposal<SequencingTestTypes>,
-    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    DAVote<SequencingTestTypes>,
     StaticMembership,
 >;
 
@@ -241,7 +241,7 @@ type StaticDACommCentral = CentralizedCommChannel<
     SequencingTestTypes,
     SequencingCentralImpl,
     DAProposal<SequencingTestTypes>,
-    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    DAVote<SequencingTestTypes>,
     StaticMembership,
 >;
 

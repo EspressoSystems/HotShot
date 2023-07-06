@@ -2,8 +2,8 @@
 
 use crate::async_spawn;
 use crate::{
-    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate,
-    SequencingQuorumEx, SystemContext, ViewRunner,
+    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
+    SystemContext, ViewRunner,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
@@ -558,14 +558,14 @@ where
     >,
 {
     // build the da task
+    let registry = task_runner.registry.clone();
     let da_state = DATaskState {
+        registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
-        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         committee_exchange: committee_exchange.into(),
-        vote_collector: (TYPES::Time::new(0), async_spawn(async move {})),
+        vote_collector: (TYPES::Time::new(0), 0, async_spawn(async move {})),
         event_stream: event_stream.clone(),
     };
-    let registry = task_runner.registry.clone();
     let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
         async move {
             let completion_status = state.handle_event(event).await;
