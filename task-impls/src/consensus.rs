@@ -508,7 +508,7 @@ where
                             &self.vote_collector
                         {
                             if vote.current_view > *collection_view {
-                                self.registry.shutdown_task(*collection_task);
+                                self.registry.shutdown_task(*collection_task).await;
                             }
                             collection_view.clone()
                         } else {

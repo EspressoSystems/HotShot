@@ -241,7 +241,7 @@ where
                 }));
                 let (collection_view, collection_id, _collection_task) = &self.vote_collector;
                 if view > *collection_view {
-                    self.registry.shutdown_task(*collection_id);
+                    self.registry.shutdown_task(*collection_id).await;
                 }
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),

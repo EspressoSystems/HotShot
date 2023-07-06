@@ -42,7 +42,7 @@ pub struct GlobalRegistry {
 
 /// function to modify state
 #[allow(clippy::type_complexity)]
-struct Modifier(Box<dyn Fn(&TaskState) -> Either<TaskStatus, bool>>);
+struct Modifier(Box<dyn Fn(&TaskState) -> Either<TaskStatus, bool> + Send>);
 
 impl Default for GlobalRegistry {
     fn default() -> Self {
