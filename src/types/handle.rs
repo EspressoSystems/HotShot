@@ -5,6 +5,7 @@ use crate::Message;
 use crate::QuorumCertificate;
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
 use futures::FutureExt;
@@ -133,6 +134,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.output_event_stream.subscribe(filter).await
     }
 
+    /// HACK so we can know the types when running tests...
+    /// there are two cleaner solutions:
+    /// - make the stream generic and in nodetypes or nodeimpelmentation
+    /// - type wrapper
+    pub async fn get_event_stream_known_impl(
+        &mut self,
+        filter: FilterEvent<Event<TYPES, I::Leaf>>,
+    ) -> (UnboundedStream<Event<TYPES, I::Leaf>> , StreamId) {
+        self.output_event_stream.subscribe(filter).await
+    }
+
+
+
     /// Gets the current committed state of the [`HotShot`] instance
     ///
     /// # Errors
@@ -254,12 +268,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    pub fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+//     pub async fn shut_down(mut self) {
+//         self.registry.shutdown_all().await
+    pub fn shut_down<'a, 'b>(&'a mut self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
     {
-        boxed_sync(async move {})
+        boxed_sync(async move {
+            self.registry.shutdown_all().await
+
+        })
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

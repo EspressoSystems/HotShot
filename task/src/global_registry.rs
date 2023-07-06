@@ -175,4 +175,13 @@ impl GlobalRegistry {
         }
         true
     }
+
+    /// shut down all tasks in registry
+    pub async fn shutdown_all(&mut self) {
+        let task_list = self.state_list.read().await;
+        for task in task_list.iter() {
+            task.0.set_state(TaskStatus::Completed)
+        }
+    }
+
 }

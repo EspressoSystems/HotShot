@@ -14,8 +14,7 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
-        network::CommunicationChannel,
-        node_implementation::{NodeImplementation, NodeType},
+        network::{CommunicationChannel, TransmitType}, node_implementation::{NodeImplementation, NodeType},
         signature_key::EncodedSignature,
     },
     vote::VoteType,
@@ -186,7 +185,7 @@ pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
         NetworkTaskError,
         SequencingHotShotEvent<TYPES, I>,
         ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-        Messages<TYPES, I>,
+        Either<Messages<TYPES, I>, Messages<TYPES, I>>,
         // A combination of broadcast and direct streams.
         Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
         NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,

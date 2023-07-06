@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use either::Either::{self, Left, Right};
+use futures::stream::Unfold;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
@@ -19,6 +20,8 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 /// Includes messages and events
 pub trait PassType: Clone + Debug + Sync + Send + 'static {}
 impl PassType for () {}
+
+impl<U: PassType, T: PassType> PassType for Either<U, T> {}
 
 /// the task state
 pub trait TS: Sync + Send + 'static {}

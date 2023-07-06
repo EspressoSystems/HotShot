@@ -37,6 +37,8 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
@@ -53,9 +55,7 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
@@ -136,9 +136,6 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
-
-    /// Senders to the background tasks.
-    background_task_handle: tasks::TaskHandle<TYPES>,
 
     /// a reference to the metrics that the implementor is using.
     _metrics: Box<dyn Metrics>,
@@ -261,7 +258,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             storage,
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
-            background_task_handle: tasks::TaskHandle::default(),
             _metrics: metrics,
             global_registry: nll_todo(),
             event_stream: nll_todo(),
