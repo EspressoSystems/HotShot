@@ -1,5 +1,4 @@
 use hotshot::demos::vdemo::VDemoTypes;
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use std::sync::Arc;
 
 use async_compatibility_layer::channel::oneshot;

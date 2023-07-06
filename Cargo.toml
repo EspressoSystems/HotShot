@@ -108,11 +108,6 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/web-server-da/orchestrator.rs"
 
 [[example]]
-name = "web-server-da"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/web-server-da.rs"
-
-[[example]]
 name = "web-server-da-validator"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/web-server-da/validator.rs"

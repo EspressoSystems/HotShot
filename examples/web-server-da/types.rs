@@ -1,4 +1,4 @@
-use crate::infraDA::WebServerDARun;
+use crate::infra_da::WebServerDARun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
     demos::sdemo::SDemoTypes,

@@ -6,13 +6,13 @@ use tracing::instrument;
 use types::ThisMembership;
 
 use crate::infra::OrchestratorArgs;
-use crate::infraDA::run_orchestrator_da;
+use crate::infra_da::run_orchestrator_da;
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork};
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
 #[path = "../infra/modDA.rs"]
-pub mod infraDA;
+pub mod infra_da;
 
 #[cfg_attr(
     feature = "tokio-executor",

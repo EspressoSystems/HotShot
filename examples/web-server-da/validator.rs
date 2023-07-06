@@ -28,7 +28,7 @@ async fn main() {
         args.host,
         args.port
     );
-    infraDA::main_entry_point::<
+    infra_da::main_entry_point::<
         SDemoTypes,
         ThisMembership,
         DANetwork,

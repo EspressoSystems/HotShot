@@ -9,9 +9,8 @@ use bincode::Options;
 // use commit::{Commitment, Committable, RawCommitmentBuilder};
 // use derivative::Derivative;
 // use espresso_systems_common::hotshot::tag;
-use hotshot_types::traits::{
-    // node_implementation::NodeType,
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+use hotshot_types::traits::signature_key::{
+    EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
