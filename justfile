@@ -20,7 +20,7 @@ test_tokio:
 
 test_async_std_all:
   echo Testing with async std executor
-  RUST_LOG="" cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
+  RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
 test_pkg := "hotshot"
 

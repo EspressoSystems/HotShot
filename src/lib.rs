@@ -787,8 +787,7 @@ where
             Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
             Commitment = SequencingLeaf<TYPES>,
             Membership = MEMBERSHIP,
-        > + Copy
-        + 'static,
+        > + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
@@ -796,8 +795,7 @@ where
             Certificate = DACertificate<TYPES>,
             Commitment = TYPES::BlockType,
             Membership = MEMBERSHIP,
-        > + Copy
-        + 'static,
+        > + 'static,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
@@ -805,8 +803,7 @@ where
             Certificate = ViewSyncCertificate<TYPES>,
             Commitment = ViewSyncData<TYPES>,
             Membership = MEMBERSHIP,
-        > + Copy
-        + 'static,
+        > + 'static,
 {
     fn transactions(
         &self,

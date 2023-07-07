@@ -46,7 +46,6 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
-        Block,
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
@@ -55,6 +54,7 @@ use hotshot_types::{
         },
         signature_key::EncodedSignature,
         state::ConsensusTime,
+        Block,
     },
     vote::VoteType,
 };
@@ -329,8 +329,7 @@ pub async fn add_network_task<
             Proposal = PROPOSAL,
             Vote = VOTE,
             Membership = MEMBERSHIP,
-        > + Copy
-        + 'static,
+        > + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -406,8 +405,9 @@ where
     ));
     let network_event_handler = HandleEvent(Arc::new(
         move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
+            let membership = exchange.membership().clone();
             async move {
-                let completion_status = state.handle_event(event, exchange.membership()).await;
+                let completion_status = state.handle_event(event, &membership).await;
                 (completion_status, state)
             }
             .boxed()
