@@ -74,7 +74,6 @@ pub struct ViewSyncTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-        + std::fmt::Debug
         + 'static
         + std::clone::Clone,
 > where
@@ -115,7 +114,6 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + std::fmt::Debug
             + 'static
             + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
@@ -145,7 +143,7 @@ pub struct ViewSyncReplicaTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -176,7 +174,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for ViewSyncReplicaTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -239,7 +237,6 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + std::fmt::Debug
             + 'static
             + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
@@ -519,7 +516,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > ViewSyncReplicaTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,

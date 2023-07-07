@@ -606,7 +606,6 @@ pub async fn add_view_sync_task<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-        + std::fmt::Debug
         + std::clone::Clone
         + 'static,
 >(
