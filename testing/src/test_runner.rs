@@ -39,6 +39,9 @@ pub type QuorumNetworkGenerator<TYPES, I, T> =
 /// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
+pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
+
+
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>

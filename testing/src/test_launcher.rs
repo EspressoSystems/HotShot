@@ -1,7 +1,7 @@
 use crate::round::{Round, RoundHook, RoundSafetyCheck, RoundSetup};
 use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{
-    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
+    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, ViewSyncNetworkGenerator, TestRunner,
 };
 use hotshot::types::{Message, SignatureKey};
 use hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};
@@ -36,6 +36,9 @@ pub struct ResourceGenerators<
     /// generate a new committee network for each node
     pub committee_network:
         CommitteeNetworkGenerator<QuorumNetwork<TYPES, I>, I::CommitteeCommChannel>,
+
+    pub view_sync_network:
+        ViewSyncNetworkGenerator<QuorumNetwork<TYPES, I>, I::ViewSyncCommChannel>,
     /// generate a new storage for each node
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
@@ -147,6 +150,8 @@ where
                 network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
+                view_sync_network: I::view_sync_comm_channel_generator(),
+
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },

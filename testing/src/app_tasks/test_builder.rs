@@ -165,6 +165,7 @@ impl TestMetadata {
                 network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
+                view_sync_network: I::view_sync_comm_channel_generator(),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
