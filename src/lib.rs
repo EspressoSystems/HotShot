@@ -50,6 +50,8 @@ use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::task_launcher::TaskRunner;
+use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_types::traits::node_implementation::SequencingExchanges;
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
@@ -160,15 +162,17 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// for receiving messages in the network lookup task
     recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<TYPES::Time>>>>,
 
-    global_registry: GlobalRegistry,
-
-    event_stream: ChannelStream<GlobalEvent>,
+    // global_registry: GlobalRegistry,
+    output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
+    // /// access to the internal event stream, in case we need to, say, shut something down
+    internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 
     /// uid for instrumentation
     id: u64,
 }
 
 /// Thread safe, shared view of a `HotShot`
+// TODO Perhaps we can delete SystemContext since we only consume it in run_tasks()
 #[derive(Clone)]
 pub struct SystemContext<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
@@ -193,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        let _global_registry = GlobalRegistry::new();
+        let global_registry = GlobalRegistry::new();
 
         info!("Creating a new hotshot");
 
@@ -261,8 +265,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
             _metrics: metrics,
-            global_registry: nll_todo(),
-            event_stream: nll_todo(),
+            // global_registry,
+            internal_event_stream: ChannelStream::new(),
+            output_event_stream: ChannelStream::new(),
         });
 
         Ok(Self {
@@ -816,22 +821,36 @@ where
     }
 
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
+        let SystemContextInner {
+            public_key,
+            private_key,
+            config,
+            storage,
+            exchanges,
+            event_sender,
+            _metrics,
+            transactions,
+            consensus,
+            channel_maps,
+            send_network_lookup,
+            recv_network_lookup,
+            output_event_stream,
+            internal_event_stream,
+            id,
+        } = self.inner.clone();
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
-        let internal_event_stream = ChannelStream::new();
-        // TODO this will need to go in the consensus task state
-        let output_event_stream = ChannelStream::new();
 
-        let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
-        let committee_exchange = self.inner.exchanges.committee_exchange().clone();
-        let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
+        let quorum_exchange = exchanges.quorum_exchange().clone();
+        let committee_exchange = exchanges.committee_exchange().clone();
+        let view_sync_exchange = exchanges.view_sync_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
             output_event_stream,
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
-            storage: self.inner.storage.clone(),
+            storage: storage.clone(),
         };
 
         // TODO (run_view) Restore the lines below after making all event types consistent.

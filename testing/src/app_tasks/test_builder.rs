@@ -60,8 +60,9 @@ impl Default for TestMetadata {
             num_bootstrap_nodes: 5,
             da_committee_size: 0,
             per_node_safety_properties: NodeSafetyPropertiesDescription {
-                num_failed_views: nll_todo(),
-                num_decide_events: nll_todo(),
+                // TODO Update these numbers
+                num_failed_views: Some(5),
+                num_decide_events: Some(5),
             },
             overall_safety_properties: OverallSafetyPropertiesDescription {},
             // arbitrary, haven't done the math on this

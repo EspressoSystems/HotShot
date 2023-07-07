@@ -169,7 +169,9 @@ where
             let quorum_network =
                 (self.launcher.resource_generator.quorum_network)(network_generator.clone());
             let committee_network =
-                (self.launcher.resource_generator.committee_network)(network_generator);
+                (self.launcher.resource_generator.committee_network)(network_generator.clone());
+            let view_sync_network =
+                (self.launcher.resource_generator.view_sync_network)(network_generator);
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
             let initializer =
@@ -178,6 +180,7 @@ where
                 .add_node_with_config(
                     quorum_network,
                     committee_network,
+                    view_sync_network,
                     storage,
                     initializer,
                     config,
@@ -194,6 +197,7 @@ where
         &mut self,
         quorum_network: QuorumCommChannel<TYPES, I>,
         committee_network: I::CommitteeCommChannel,
+        view_sync_network: I::ViewSyncCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -230,7 +234,7 @@ where
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-            (quorum_network, nll_todo(), committee_network),
+            (quorum_network, view_sync_network, committee_network),
             public_key.clone(),
             private_key.clone(),
             ek.clone(),
