@@ -43,7 +43,6 @@ use hotshot_types::{
     },
     vote::{QuorumVote, VoteAccumulator},
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::alloc::GlobalAlloc;
 use std::collections::HashMap;

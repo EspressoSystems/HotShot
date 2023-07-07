@@ -58,7 +58,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -635,30 +634,39 @@ where
         view_sync_timeout: Duration::new(10, 0),
     };
     let registry = task_runner.registry.clone();
-    let view_sync_event_handler = HandleEvent(Arc::new(
-        move |event, mut state: ViewSyncTaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
-            async move {
-                if let SequencingHotShotEvent::Shutdown = event {
-                    (Some(HotShotTaskCompleted::ShutDown), state)
-                } else {
-                    state.handle_event(event).await;
-                    (None, state)
+    let view_sync_event_handler =
+        HandleEvent(Arc::new(
+            move |event,
+                  mut state: ViewSyncTaskState<
+                TYPES,
+                I,
+                HotShotSequencingConsensusApi<TYPES, I>,
+            >| {
+                async move {
+                    if let SequencingHotShotEvent::Shutdown = event {
+                        (Some(HotShotTaskCompleted::ShutDown), state)
+                    } else {
+                        state.handle_event(event).await;
+                        (None, state)
+                    }
                 }
-            }
-            .boxed()
-        },
-    ));
+                .boxed()
+            },
+        ));
     let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>::filter));
+    let view_sync_event_filter = FilterEvent(Arc::new(
+        ViewSyncTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>::filter,
+    ));
 
-    let view_sync_task_builder =
-        TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I> >>::new(view_sync_name.to_string())
-            .register_event_stream(event_stream.clone(), view_sync_event_filter)
-            .await
-            .register_registry(&mut registry.clone())
-            .await
-            .register_state(view_sync_state)
-            .register_event_handler(view_sync_event_handler);
+    let view_sync_task_builder = TaskBuilder::<
+        ViewSyncTaskStateTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>,
+    >::new(view_sync_name.to_string())
+    .register_event_stream(event_stream.clone(), view_sync_event_filter)
+    .await
+    .register_registry(&mut registry.clone())
+    .await
+    .register_state(view_sync_state)
+    .register_event_handler(view_sync_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();

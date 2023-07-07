@@ -882,7 +882,7 @@ where
         let task_runner = add_view_sync_task::<TYPES, I>(
             task_runner,
             internal_event_stream.clone(),
-            handle.clone()
+            handle.clone(),
         )
         .await;
         async_spawn(async move {

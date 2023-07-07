@@ -24,8 +24,6 @@ use snafu::Snafu;
 use std::marker::PhantomData;
 use tracing::warn;
 
-use nll::nll_todo::nll_todo;
-
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<

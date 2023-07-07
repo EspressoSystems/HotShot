@@ -8,7 +8,6 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
 use hotshot_types::{ExecutionType, HotShotConfig};
-use nll::nll_todo::nll_todo;
 
 use crate::test_builder::TimingData;
 use crate::test_launcher::ResourceGenerators;
