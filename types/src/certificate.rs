@@ -10,8 +10,10 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use bincode::Options;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
+use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
@@ -75,6 +77,12 @@ pub enum ViewSyncCertificate<TYPES: NodeType> {
     PreCommit(ViewSyncCertificateInternal<TYPES>),
     Commit(ViewSyncCertificateInternal<TYPES>),
     Finalize(ViewSyncCertificateInternal<TYPES>),
+}
+
+impl<TYPES: NodeType> ViewSyncCertificate<TYPES> {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        bincode_opts().serialize(&self).unwrap()
+    }
 }
 
 /// A view sync certificate representing a quorum of votes for a particular view sync phase

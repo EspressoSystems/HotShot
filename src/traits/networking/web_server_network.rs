@@ -475,6 +475,8 @@ impl<
             MessagePurpose::Vote => config::post_vote_route(*view_number),
             MessagePurpose::Data => config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            MessagePurpose::ViewSyncProposal => config::post_view_sync_proposal_route(),
+            MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(),
         };
 
         let network_msg: SendMsg<M> = SendMsg {

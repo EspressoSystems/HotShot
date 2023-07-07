@@ -770,10 +770,7 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<
-            ConsensusType = SequencingConsensus,
-            Time = ViewNumber,
-        >,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -847,6 +844,12 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+        )
+        .await;
+        let task_runner = add_network_task(
+            task_runner,
+            internal_event_stream.clone(),
+            view_sync_exchange.clone(),
         )
         .await;
         let task_runner =
