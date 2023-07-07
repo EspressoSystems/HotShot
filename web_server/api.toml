@@ -92,4 +92,38 @@ DOC = """
 Secret path for leader to post proposal for a given view
 """
 
+# POST a view sync vote, where the view number is passed as an argument
+[route.postviewsyncvote]
+PATH = ["view_sync_vote/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a view sync vote
+"""
 
+# GET a view sync vote, where the view number is passed as an argument
+[route.getviewsyncvote]
+PATH = ["view_sync_vote/:view_number"]
+":view_number" = "Integer"
+METHOD = "GET"
+DOC = """
+GET a view sync vote
+"""
+
+# POST a view sync proposal, where the view number is passed as an argument
+[route.postviewsyncproposal]
+PATH = ["view_sync_proposal/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a view sync vote
+"""
+
+# GET a view sync certificate, where the view number is passed as an argument
+[route.getviewsyncproposal]
+PATH = ["view_sync_proposal/:view_number"]
+":view_number" = "Integer"
+METHOD = "GET"
+DOC = """
+GET a view sync proposal
+"""

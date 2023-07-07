@@ -344,7 +344,8 @@ where
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
                     }
-                    ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+                    ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => unimplemented!(),
+                    ProcessedGeneralConsensusMessage::ViewSyncVote(_) => unimplemented!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

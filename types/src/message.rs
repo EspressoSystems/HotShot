@@ -70,7 +70,9 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
-    // TODO ED Add view sync purposes
+
+    ViewSyncVote, 
+    ViewSyncProposal
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -165,7 +167,8 @@ where
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
     /// A view sync related message - either a vote or certificate
-    ViewSync(ViewSyncMessageType<TYPES>),
+    ViewSyncVote(ViewSyncVote<TYPES>),
+    ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
@@ -182,7 +185,12 @@ where
             ProcessedGeneralConsensusMessage::InternalTrigger(a) => {
                 GeneralConsensusMessage::InternalTrigger(a)
             }
-            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+            ProcessedGeneralConsensusMessage::ViewSyncCertificate(certificate) => {
+                GeneralConsensusMessage::ViewSyncCertificate(certificate)
+            }
+            ProcessedGeneralConsensusMessage::ViewSyncVote(vote) => {
+                GeneralConsensusMessage::ViewSyncVote(vote)
+            }
         }
     }
 }
@@ -203,7 +211,12 @@ impl<
             ProcessedGeneralConsensusMessage::InternalTrigger(a) => {
                 ValidatingMessage(GeneralConsensusMessage::InternalTrigger(a))
             }
-            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+            ProcessedGeneralConsensusMessage::ViewSyncVote(vote) => {
+                ValidatingMessage(GeneralConsensusMessage::ViewSyncVote(vote))
+            }
+            ProcessedGeneralConsensusMessage::ViewSyncCertificate(certificate) => {
+                ValidatingMessage(GeneralConsensusMessage::ViewSyncCertificate(certificate))
+            }
         }
     }
 }
@@ -328,16 +341,6 @@ where
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
 
-/// A view sync message
-// TODO ED Delete this
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = "", serialize = ""))]
-pub enum ViewSyncMessageType<TYPES: NodeType> {
-    /// A view sync vote
-    Vote(ViewSyncVote<TYPES>),
-    /// A view sync certificate
-    Certificate(ViewSyncCertificate<TYPES>),
-}
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
@@ -427,8 +430,8 @@ impl<
             GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
             GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
             GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-            GeneralConsensusMessage::ViewSyncVote(_)
-            | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+            GeneralConsensusMessage::ViewSyncVote(_) => MessagePurpose::ViewSyncVote,
+            GeneralConsensusMessage::ViewSyncCertificate(_) => MessagePurpose::ViewSyncProposal,
         }
     }
 }

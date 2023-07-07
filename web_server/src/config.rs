@@ -35,3 +35,11 @@ pub fn post_transactions_route() -> String {
 pub fn post_staketable_route() -> String {
     "api/staketable".to_string()
 }
+
+pub fn post_view_sync_proposal_route() -> String {
+    "api/view_sync_proposal".to_string()
+}
+
+pub fn post_view_sync_vote_route() -> String {
+    "api/view_sync_vote".to_string()
+}

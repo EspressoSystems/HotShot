@@ -1,7 +1,9 @@
+*/target
 /target
 /result
 /out*.txt
 .idea
 /*.pdf
+*/target_dirs
 /target_dirs
 /.vscode/settings.json
