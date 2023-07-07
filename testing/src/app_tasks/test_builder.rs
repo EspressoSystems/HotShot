@@ -1,13 +1,13 @@
-use std::num::NonZeroUsize;
-use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use std::time::Duration;
 use hotshot::types::SignatureKey;
+use hotshot_types::traits::election::{ConsensusExchange, Membership};
+use std::num::NonZeroUsize;
+use std::time::Duration;
 
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{HotShotConfig, ExecutionType};
-use hotshot_types::traits::node_implementation::{NodeType, QuorumEx, QuorumCommChannel};
+use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
+use hotshot_types::{ExecutionType, HotShotConfig};
 use nll::nll_todo::nll_todo;
 
 use crate::test_builder::TimingData;
@@ -17,8 +17,10 @@ use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskD
 use super::safety_task::SafetyTaskDescription;
 use super::test_launcher::TestLauncher;
 
-use super::{safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription}, txn_task::TxnTaskDescription};
-
+use super::{
+    safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
+    txn_task::TxnTaskDescription,
+};
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
@@ -61,16 +63,25 @@ impl Default for TestMetadata {
                 num_failed_views: nll_todo(),
                 num_decide_events: nll_todo(),
             },
-            overall_safety_properties: OverallSafetyPropertiesDescription {  },
+            overall_safety_properties: OverallSafetyPropertiesDescription {},
             // arbitrary, haven't done the math on this
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::from_millis(10)})
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                TimeBasedCompletionTaskDescription {
+                    duration: Duration::from_millis(10),
+                },
+            ),
         }
     }
 }
 
 impl TestMetadata {
-    pub fn gen_launcher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(self) -> TestLauncher<TYPES, I>
+    pub fn gen_launcher<
+        TYPES: NodeType,
+        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+    >(
+        self,
+    ) -> TestLauncher<TYPES, I>
     where
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
@@ -116,8 +127,7 @@ impl TestMetadata {
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
-            election_config:
-            Some(<QuorumEx<TYPES, I> as ConsensusExchange<
+            election_config: Some(<QuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(
@@ -147,7 +157,8 @@ impl TestMetadata {
 
         let txn_task_generator = txn_description.build();
         let completion_task_generator = completion_task_description.build_and_launch();
-        let per_node_safety_task_description = SafetyTaskDescription::<TYPES,I>::GenProperties(per_node_safety_properties);
+        let per_node_safety_task_description =
+            SafetyTaskDescription::<TYPES, I>::GenProperties(per_node_safety_properties);
         let per_node_safety_task_generator = per_node_safety_task_description.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
@@ -161,6 +172,7 @@ impl TestMetadata {
             txn_task_generator,
             per_node_safety_task_generator,
             completion_task_generator,
-        }.modify_default_config(mod_config)
+        }
+        .modify_default_config(mod_config)
     }
 }

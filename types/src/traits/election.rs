@@ -92,7 +92,6 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
-
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
     /// Convert vote data into bytes.
@@ -462,17 +461,12 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    >(
+    fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I>
-    where
-        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>;
+    ) -> CommitteeConsensusMessage<TYPES>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -481,13 +475,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
 pub struct CommitteeExchange<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<
-        TYPES,
-        M,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+    NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
     /// The network being used by this exchange.
@@ -508,13 +496,7 @@ pub struct CommitteeExchange<
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > CommitteeExchangeType<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
@@ -541,21 +523,14 @@ impl<
         (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    >(
+    fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I>
-    where
-        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    {
+    ) -> CommitteeConsensusMessage<TYPES> {
         let signature = self.sign_da_vote(block_commitment);
-        CommitteeConsensusMessage::<TYPES, I>::DAVote(DAVote {
-            justify_qc_commitment,
+        CommitteeConsensusMessage::<TYPES>::DAVote(DAVote {
             signature,
             block_commitment,
             current_view,
@@ -568,18 +543,12 @@ impl<
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > ConsensusExchange<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = DAProposal<TYPES>;
-    type Vote = DAVote<TYPES, SequencingLeaf<TYPES>>;
+    type Vote = DAVote<TYPES>;
     type Certificate = DACertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
@@ -1065,16 +1034,16 @@ impl<
 
         let signature = self.sign_precommit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::PreCommit(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::PreCommit(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_precommit_message(
@@ -1106,16 +1075,16 @@ impl<
 
         let signature = self.sign_commit_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::Commit(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Commit(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_commit_message(
@@ -1147,16 +1116,16 @@ impl<
 
         let signature = self.sign_finalize_message(vote_data_internal_commitment);
 
-        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(
-            ViewSyncVote::Finalize(ViewSyncVoteInternal {
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Finalize(
+            ViewSyncVoteInternal {
                 relay_pub_key,
                 relay,
                 round,
                 signature,
                 vote_token,
                 vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
-            }),
-        )
+            },
+        ))
     }
 
     fn sign_finalize_message(
@@ -1226,12 +1195,8 @@ impl<
         return votes >= threshold.into();
     }
 
-
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        TYPES::SignatureKey::sign(
-            &self.private_key,
-            &certificate.commit().as_ref(),
-        )
+        TYPES::SignatureKey::sign(&self.private_key, &certificate.commit().as_ref())
     }
 }
 

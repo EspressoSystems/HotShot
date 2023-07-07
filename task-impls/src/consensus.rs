@@ -177,12 +177,8 @@ where
 {
     // TODO ED Emit a view change event upon new proposal?
     match event {
-        SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => match vote {
+        SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
-                    return (None, state);
-                }
-
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -329,7 +325,7 @@ where
                     return;
                 }
                 let view_leader_key = self.quorum_exchange.get_leader(view);
-                if view_leader_key != sender {
+                if view_leader_key != proposal.signature {
                     return;
                 }
 
@@ -492,14 +488,9 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::QuorumVoteRecv(vote, sender) => {
+            SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
-                        if vote.signature.0
-                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                        {
-                            return;
-                        }
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
@@ -507,7 +498,7 @@ where
                             &self.vote_collector
                         {
                             if vote.current_view > *collection_view {
-                                self.registry.shutdown_task(*collection_task);
+                                self.registry.shutdown_task(*collection_task).await;
                             }
                             collection_view.clone()
                         } else {
@@ -542,7 +533,7 @@ where
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent(Arc::new(|event| {
-                                matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_, _))
+                                matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_))
                             }));
                             let builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
@@ -671,7 +662,7 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) -> bool {
     match event {
         SequencingHotShotEvent::QuorumProposalRecv(_, _)
-        | SequencingHotShotEvent::QuorumVoteRecv(_, _)
+        | SequencingHotShotEvent::QuorumVoteRecv(_)
         | SequencingHotShotEvent::DACRecv(_)
         | SequencingHotShotEvent::ViewChange(_)
         | SequencingHotShotEvent::Timeout(_) => true,

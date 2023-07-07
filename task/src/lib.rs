@@ -12,16 +12,17 @@
 use Poll::{Pending, Ready};
 
 use either::Either;
-use event_stream::{SendableStream, EventStream};
+use event_stream::{EventStream, SendableStream};
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use futures::{stream::Fuse, Stream, StreamExt, Future, future::BoxFuture};
+use futures::{future::BoxFuture, stream::Fuse, Future, Stream, StreamExt};
 use nll::nll_todo::nll_todo;
-use task::PassType;
 use std::{
     marker::PhantomData,
     pin::Pin,
-    task::{Context, Poll}, sync::Arc,
+    sync::Arc,
+    task::{Context, Poll},
 };
+use task::PassType;
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
 use pin_project::pin_project;
@@ -82,7 +83,6 @@ impl<T, U> Merge<T, U> {
     }
 }
 
-
 impl<T, U> Stream for Merge<T, U>
 where
     T: Stream,
@@ -125,7 +125,7 @@ fn poll_next<T, U>(
     first: Pin<&mut T>,
     second: Pin<&mut U>,
     cx: &mut Context<'_>,
-    order: bool
+    order: bool,
 ) -> Poll<Option<Either<T::Item, U::Item>>>
 where
     T: Stream,

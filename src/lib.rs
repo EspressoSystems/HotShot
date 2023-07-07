@@ -34,11 +34,10 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
+    tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::task_launcher::TaskRunner;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
@@ -49,6 +48,8 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
+use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::task_launcher::TaskRunner;
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
@@ -56,11 +57,11 @@ use hotshot_consensus::{
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::certificate::DACertificate;
-use hotshot_types::data::{DeltasType, SequencingLeaf};
+use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
+use hotshot_types::{certificate::DACertificate, traits::election::Membership};
 use hotshot_types::{
+    certificate::ViewSyncCertificate,
     data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
@@ -78,16 +79,17 @@ use hotshot_types::{
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
-            ValidatingQuorumEx,
+            ValidatingQuorumEx, ViewSyncEx,
         },
-        signature_key::SignatureKey,
+        signature_key::{EncodedSignature, SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
         State,
     },
-    vote::VoteType,
+    vote::{ViewSyncData, ViewSyncVote, VoteType},
     HotShotConfig,
 };
+use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 
 use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
@@ -524,7 +526,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Spawn all tasks that operate on the given [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I>;
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I>;
 
     // decide which handler to call based on the message variant and `transmit_type`
     // async fn handle_message(&self, item: Message<TYPES, I>, transmit_type: TransmitType) {
@@ -644,7 +646,7 @@ where
         &self.inner.consensus
     }
 
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // TODO (run_view) the refactored task adding functions don't work for the validating consensus yet.
         unimplemented!()
     }
@@ -768,28 +770,46 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<
+            ConsensusType = SequencingConsensus,
+            Time = ViewNumber,
+        >,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
+        MEMBERSHIP: Membership<TYPES>,
     > HotShotType<TYPES, I> for SystemContext<SequencingConsensus, TYPES, I>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
-    >,
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+            Commitment = SequencingLeaf<TYPES>,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
-    >,
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Commitment = TYPES::BlockType,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = ViewSyncCertificate<TYPES>,
+            Certificate = ViewSyncCertificate<TYPES>,
+            Commitment = ViewSyncData<TYPES>,
+            Membership = MEMBERSHIP,
+        > + Copy
+        + 'static,
 {
     fn transactions(
         &self,
@@ -801,34 +821,46 @@ where
         &self.inner.consensus
     }
 
-    async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
+    async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
         let internal_event_stream = ChannelStream::new();
         // TODO this will need to go in the consensus task state
         let output_event_stream = ChannelStream::new();
 
-        let _quorum_exchange = self.inner.exchanges.quorum_exchange();
-        let _committee_exchange = self.inner.exchanges.committee_exchange();
-        let _view_sync_exchange = self.inner.exchanges.view_sync_exchange();
-
-        // TODO (run_view) Restore the lines below after making all event types consistent.
-        // let task_runner = add_network_task(task_runner, event_stream.clone(), quorum_exchange).await;
-        // let task_runner = add_network_task(task_runner, event_stream.clone(), committee_exchange).await;
-        // let task_runner = add_consensus_task(task_runner, event_stream.clone()).await;
-        // let task_runner = add_da_task(task_runner, event_stream.clone(), committee_exchange).await;
-        // let task_runner = add_view_sync_task(task_runner, event_stream.clone()).await;
-        async_spawn(async move {
-            task_runner.launch().await;
-        });
+        let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
+        let committee_exchange = self.inner.exchanges.committee_exchange().clone();
+        let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
             output_event_stream,
-            internal_event_stream,
+            internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
         };
+
+        // TODO (run_view) Restore the lines below after making all event types consistent.
+        let task_runner =
+            add_network_task(task_runner, internal_event_stream.clone(), quorum_exchange).await;
+        let task_runner = add_network_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+        )
+        .await;
+        let task_runner =
+            add_consensus_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+        let task_runner = add_da_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+        )
+        .await;
+        let task_runner = add_view_sync_task(task_runner, internal_event_stream.clone()).await;
+        async_spawn(async move {
+            task_runner.launch().await;
+        });
 
         handle
 

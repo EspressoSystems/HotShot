@@ -1,28 +1,61 @@
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::future::BoxFuture;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_task::{global_registry::{HotShotTaskId, GlobalRegistry}, task::HotShotTaskCompleted, event_stream::ChannelStream, task_launcher::TaskRunner};
-use hotshot_types::{traits::node_implementation::NodeType, event::Event, HotShotConfig};
+use hotshot_task::{
+    event_stream::ChannelStream,
+    global_registry::{GlobalRegistry, HotShotTaskId},
+    task::HotShotTaskCompleted,
+    task_launcher::TaskRunner,
+};
+use hotshot_types::{event::Event, traits::node_implementation::NodeType, HotShotConfig};
 
-use crate::{test_launcher::ResourceGenerators};
+use crate::test_launcher::ResourceGenerators;
 
-use super::{GlobalTestEvent, txn_task::TxnTask, test_builder::TestMetadata, safety_task::SafetyTask, completion_task::CompletionTask, test_runner::TestRunner};
+use super::{
+    completion_task::CompletionTask, safety_task::SafetyTask, test_builder::TestMetadata,
+    test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
+};
 
 /// test launcher
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+{
     /// generator for resources
     pub resource_generator: ResourceGenerators<TYPES, I>,
     /// metadasta used for tasks
     pub metadata: TestMetadata,
     /// overrideable txn task generator function
-    pub txn_task_generator: Box<dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>>,
+    pub txn_task_generator: Box<
+        dyn FnOnce(
+            TxnTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
     /// overrideable safety task generator function
-    pub per_node_safety_task_generator: Box<dyn Fn(SafetyTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>, UnboundedStream<Event<TYPES, I::Leaf>>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>>,
+    pub per_node_safety_task_generator: Box<
+        dyn Fn(
+            SafetyTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+            UnboundedStream<Event<TYPES, I::Leaf>>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
     /// overrideable timeout task generator function
-    pub completion_task_generator: Box<dyn FnOnce(CompletionTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>>,
+    pub completion_task_generator: Box<
+        dyn FnOnce(
+            CompletionTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+{
     // TODO overrides
 
     pub fn launch(self) -> TestRunner<TYPES, I> {
@@ -30,7 +63,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
             launcher: self,
             nodes: Vec::new(),
             next_node_id: 0,
-            task_runner: TaskRunner::default()
+            task_runner: TaskRunner::default(),
         }
     }
 

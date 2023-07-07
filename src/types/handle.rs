@@ -18,6 +18,7 @@ use hotshot_task::event_stream::SendableStream;
 use hotshot_task::event_stream::StreamId;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
+use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
@@ -52,7 +53,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers to expose to the user
     pub(crate) output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
     /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: ChannelStream<GlobalEvent>,
+    pub(crate) internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     /// registry for controlling tasks
     pub(crate) registry: GlobalRegistry,
 
@@ -141,11 +142,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub async fn get_event_stream_known_impl(
         &mut self,
         filter: FilterEvent<Event<TYPES, I::Leaf>>,
-    ) -> (UnboundedStream<Event<TYPES, I::Leaf>> , StreamId) {
+    ) -> (UnboundedStream<Event<TYPES, I::Leaf>>, StreamId) {
         self.output_event_stream.subscribe(filter).await
     }
-
-
 
     /// Gets the current committed state of the [`HotShot`] instance
     ///
@@ -268,17 +267,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-//     pub async fn shut_down(mut self) {
-//         self.registry.shutdown_all().await
+    //     pub async fn shut_down(mut self) {
+    //         self.registry.shutdown_all().await
     pub fn shut_down<'a, 'b>(&'a mut self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
         Self: 'b,
     {
-        boxed_sync(async move {
-            self.registry.shutdown_all().await
-
-        })
+        boxed_sync(async move { self.registry.shutdown_all().await })
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

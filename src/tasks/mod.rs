@@ -1,9 +1,10 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::async_spawn;
+use crate::types::SystemContextHandle;
 use crate::{
-    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate,
-    SequencingQuorumEx, SystemContext, ViewRunner,
+    DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
+    SystemContext, ViewRunner,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local, async_timeout},
@@ -56,6 +57,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::HashMap,
@@ -66,7 +68,6 @@ use std::{
     },
     time::Duration,
 };
-use nll::nll_todo::nll_todo;
 use tracing::{error, info};
 
 #[cfg(feature = "async-std-executor")]
@@ -312,7 +313,7 @@ impl PassType for GlobalEvent {}
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, SignatureKey = EncodedSignature>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -389,8 +390,8 @@ where
             MEMBERSHIP,
             EXCHANGE::Networking,
         >| {
-            let messages = match messages{
-                either::Either::Left(messages) | either::Either::Right(messages) => messages
+            let messages = match messages {
+                either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
             async move {
                 for message in messages.0 {
@@ -453,7 +454,7 @@ pub async fn add_consensus_task<
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -471,9 +472,9 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    let consensus = hotshot.get_consensus();
+    let consensus = handle.hotshot.get_consensus();
     let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
-        inner: hotshot.inner.clone(),
+        inner: handle.hotshot.inner.clone(),
     };
     let registry = task_runner.registry.clone();
     // build the consensus task
@@ -558,14 +559,18 @@ where
     >,
 {
     // build the da task
+    let registry = task_runner.registry.clone();
     let da_state = DATaskState {
+        registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
-        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         committee_exchange: committee_exchange.into(),
-        vote_collector: (TYPES::Time::new(0), async_spawn(async move {})),
+        vote_collector: (
+            TYPES::Time::new(0),
+            0,
+            async_spawn(async move { HotShotTaskCompleted::ShutDown }),
+        ),
         event_stream: event_stream.clone(),
     };
-    let registry = task_runner.registry.clone();
     let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
         async move {
             let completion_status = state.handle_event(event).await;
@@ -602,7 +607,8 @@ pub async fn add_view_sync_task<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
         + std::fmt::Debug
-        + std::clone::Clone,
+        + std::clone::Clone
+        + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,

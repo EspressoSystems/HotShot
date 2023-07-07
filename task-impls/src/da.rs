@@ -1,40 +1,35 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::channel::UnboundedReceiver;
-use async_lock::{Mutex, RwLock};
+use async_compatibility_layer::art::async_spawn;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
-use core::time::Duration;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::{Consensus, View};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
+use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
-use hotshot_types::vote::DAVote;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::DACertificate,
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{ProcessedSequencingMessage, SequencingMessage},
+    message::SequencingMessage,
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
         signature_key::SignatureKey,
+        state::ConsensusTime,
     },
     vote::VoteAccumulator,
 };
 use snafu::Snafu;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
@@ -60,16 +55,16 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    pub registry: GlobalRegistry,
+
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
-    /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
 
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
-    /// Current Vote collection task, with it's view.
-    pub vote_collector: (ViewNumber, JoinHandle<()>),
+    /// Current Vote collection task, with it's view and ID.
+    pub vote_collector: (ViewNumber, usize, JoinHandle<HotShotTaskCompleted>),
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -130,11 +125,7 @@ where
     >,
 {
     match event {
-        SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
-            if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
-                return (None, state);
-            }
-
+        SequencingHotShotEvent::DAVoteRecv(vote) => {
             let accumulator = state.accumulator.left().unwrap();
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
@@ -215,8 +206,7 @@ where
                         info!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
-                        let message = self.committee_exchange.create_da_message::<I>(
-                            self.high_qc.commit(),
+                        let message = self.committee_exchange.create_da_message(
                             block_commitment,
                             view,
                             vote_token,
@@ -233,14 +223,22 @@ where
                     }
                 }
             }
-            SequencingHotShotEvent::DAVoteRecv(vote, sender) => {
-                if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender) {
+            SequencingHotShotEvent::DAVoteRecv(vote) => {
+                // Check if we are the leader and the vote is from the sender.
+                let view = vote.current_view;
+                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
+                    || vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                {
                     return None;
                 }
+
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
                 }));
-                let (collection_view, _collection_task) = &self.vote_collector;
+                let (collection_view, collection_id, _collection_task) = &self.vote_collector;
+                if view > *collection_view {
+                    self.registry.shutdown_task(*collection_id).await;
+                }
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
@@ -249,40 +247,50 @@ where
                     failure_threshold: self.committee_exchange.failure_threshold(),
                     viewsync_precommit_vote_outcomes: HashMap::new(),
                 };
-                // Todo check if we are the leader
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.signature.0,
                     &vote.signature.1,
                     vote.block_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
-                    vote.current_view,
+                    view,
                     acc,
                     None,
                 );
-                if vote.current_view > *collection_view {
+                if view > *collection_view {
                     let state = DAVoteCollectionTaskState {
                         committee_exchange: self.committee_exchange.clone(),
                         accumulator,
-                        cur_view: vote.current_view,
+                        cur_view: view,
                         event_stream: self.event_stream.clone(),
                     };
                     let name = "DA Vote Collection";
                     let filter = FilterEvent::default();
-                    // TODO (run_view refactor) `TaskBuilder` is created but the task isn't added to the task runner.
-                    let _builder =
+                    let builder =
                         TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)
                             .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
                             .register_state(state)
                             .register_event_handler(handle_event);
+                    let id = builder.get_task_id().unwrap();
+                    let task =
+                        async_spawn(
+                            async move { DAVoteCollectionTypes::build(builder).launch().await },
+                        );
+                    self.vote_collector = (view, id, task);
                 }
             }
             SequencingHotShotEvent::ViewChange(view) => {
                 self.cur_view = view;
                 return None;
             }
-            SequencingHotShotEvent::Shutdown => return Some(HotShotTaskCompleted::ShutDown),
+            SequencingHotShotEvent::Shutdown => {
+                let (_, collection_id, _) = &self.vote_collector;
+                self.registry.shutdown_task(*collection_id);
+                return Some(HotShotTaskCompleted::ShutDown);
+            }
             _ => {}
         }
         None
@@ -292,7 +300,7 @@ where
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             SequencingHotShotEvent::DAProposalRecv(_, _)
-            | SequencingHotShotEvent::DAVoteRecv(_, _)
+            | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

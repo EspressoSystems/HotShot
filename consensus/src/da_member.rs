@@ -156,7 +156,6 @@ where
 
                                         // Generate and send vote
                                         let message = self.exchange.create_da_message(
-                                            self.high_qc.commit(),
                                             block_commitment,
                                             self.cur_view,
                                             vote_token,
