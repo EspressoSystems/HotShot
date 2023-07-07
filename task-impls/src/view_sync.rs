@@ -73,10 +73,7 @@ pub struct ViewSyncTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-        + std::fmt::Debug
-        + 'static
-        + std::clone::Clone,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -114,10 +111,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + std::fmt::Debug
-            + 'static
-            + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -145,7 +139,7 @@ pub struct ViewSyncReplicaTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -176,7 +170,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for ViewSyncReplicaTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -238,10 +232,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + std::fmt::Debug
-            + 'static
-            + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -492,7 +483,7 @@ where
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_)
+            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
             | SequencingHotShotEvent::ViewSyncVoteRecv(_)
             | SequencingHotShotEvent::ViewSyncVoteSend(_)
             | SequencingHotShotEvent::Shutdown
@@ -519,7 +510,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::fmt::Debug + 'static,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > ViewSyncReplicaTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -835,7 +826,10 @@ where
                             signature,
                         };
                         self.event_stream
-                            .publish(SequencingHotShotEvent::ViewSyncCertificateSend(message))
+                            .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
+                                message,
+                                self.exchange.public_key().clone(),
+                            ))
                             .await;
                         Either::Right(certificate)
                     }

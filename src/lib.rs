@@ -860,7 +860,11 @@ where
             committee_exchange.clone(),
         )
         .await;
-        let task_runner = add_view_sync_task(task_runner, internal_event_stream.clone()).await;
+        let task_runner = add_view_sync_task::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>(
+            task_runner,
+            internal_event_stream.clone(),
+        )
+        .await;
         async_spawn(async move {
             task_runner.launch().await;
         });

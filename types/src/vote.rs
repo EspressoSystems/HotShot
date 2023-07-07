@@ -9,7 +9,7 @@ use crate::{
     traits::{
         election::{VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
 use commit::{Commitment, Committable};
@@ -143,6 +143,14 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
             | ViewSyncVote::Finalize(vote_internal) => vote_internal.signature.1.clone(),
         }
     }
+    pub fn signature_key(&self) -> TYPES::SignatureKey {
+        let encoded = match &self {
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) => vote_internal.signature.0.clone(),
+        };
+        <TYPES::SignatureKey as SignatureKey>::from_bytes(&encoded).unwrap()
+    }
 }
 
 /// Votes on validating or commitment proposal.
@@ -163,6 +171,12 @@ impl<TYPES: NodeType> VoteType<TYPES> for DAVote<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> DAVote<TYPES> {
+    pub fn signature_key(&self) -> TYPES::SignatureKey {
+        <TYPES::SignatureKey as SignatureKey>::from_bytes(&self.signature.0).unwrap()
+    }
+}
+
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES>
     for QuorumVote<TYPES, LEAF>
 {
@@ -180,6 +194,13 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> QuorumVote<TYPES, LEAF> 
             Self::Yes(vote) | Self::No(vote) => vote.signature.1.clone(),
             Self::Timeout(vote) => vote.signature.1.clone(),
         }
+    }
+    pub fn signature_key(&self) -> TYPES::SignatureKey {
+        let encoded = match &self {
+            Self::Yes(vote) | Self::No(vote) => vote.signature.0.clone(),
+            Self::Timeout(vote) => vote.signature.0.clone(),
+        };
+        <TYPES::SignatureKey as SignatureKey>::from_bytes(&encoded).unwrap()
     }
 }
 

@@ -74,15 +74,12 @@ impl<
 {
     /// Handle the given message.
     pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
-        let sender = message.signature;
+        let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        SequencingHotShotEvent::QuorumProposalRecv(
-                            proposal.clone(),
-                            sender,
-                        )
+                        SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
@@ -127,35 +124,35 @@ impl<
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (consensus_message, signature) = match event {
-            SequencingHotShotEvent::QuorumProposalSend(proposal) => (
+        let (consensus_message, sender) = match event {
+            SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
                 sender,
             ),
             SequencingHotShotEvent::QuorumVoteSend(vote) => (
                 SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
-                vote.signature,
+                vote.signature_key(),
             ),
 
-            SequencingHotShotEvent::DAProposalSend(proposal) => (
+            SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
                     proposal.clone(),
                 ))),
-                proposal.signature.clone(),
+                sender,
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
-                vote.signature.0.clone(),
+                vote.signature_key(),
             ),
-            SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal) => (
+            SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
                     certificate_proposal.clone(),
                 ))),
-                certificate_proposal.signature.clone(),
+                sender,
             ),
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
                 SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
-                vote.signature().clone(),
+                vote.signature_key(),
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
@@ -172,7 +169,7 @@ impl<
         let message_kind =
             MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(consensus_message);
         let message = Message {
-            sender: signature,
+            sender,
             kind: message_kind,
             _phantom: PhantomData,
         };
@@ -186,12 +183,12 @@ impl<
     /// Filter network event.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
-            SequencingHotShotEvent::QuorumProposalSend(_)
+            SequencingHotShotEvent::QuorumProposalSend(_, _)
             | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::DAProposalSend(_)
+            | SequencingHotShotEvent::DAProposalSend(_, _)
             | SequencingHotShotEvent::DAVoteSend(_)
             | SequencingHotShotEvent::ViewSyncVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_)
+            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

@@ -227,7 +227,6 @@ where
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
-                    || vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                 {
                     return None;
                 }

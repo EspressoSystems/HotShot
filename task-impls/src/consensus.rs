@@ -26,6 +26,7 @@ use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
+use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -89,6 +90,9 @@ pub struct SequencingConsensusTaskState<
     pub cur_view: ViewNumber,
     /// The High QC.
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+
+    /// Current block submitted to DA
+    pub block: TYPES::BlockType,
 
     /// the quorum exchange
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
@@ -197,7 +201,7 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCSend(qc.clone()))
+                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
                         return (None, state);
@@ -242,6 +246,9 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    async fn send_da(&self) {
+        // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
+    }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
@@ -325,7 +332,7 @@ where
                     return;
                 }
                 let view_leader_key = self.quorum_exchange.get_leader(view);
-                if view_leader_key != proposal.signature {
+                if view_leader_key != sender {
                     return;
                 }
 
@@ -555,7 +562,86 @@ where
                     }
                 }
             }
+            SequencingHotShotEvent::QCFormed(qc) => {
+                // update our high qc to the qc we just formed
+                self.high_qc = qc;
+                let parent_view_number = &self.high_qc.view_number();
+                let consensus = self.consensus.read().await;
+                let mut reached_decided = false;
 
+                let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+                    warn!("Couldn't find high QC parent in state map.");
+                    return;
+                };
+                let Some(leaf) = parent_view.get_leaf_commitment() else {
+                    warn!(
+                        ?parent_view_number,
+                        ?parent_view,
+                        "Parent of high QC points to a view without a proposal"
+                    );
+                    return;
+                };
+                let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+                    warn!("Failed to find high QC parent.");
+                    return;
+                };
+                if leaf.view_number == consensus.last_decided_view {
+                    reached_decided = true;
+                }
+                let parent_leaf = leaf.clone();
+
+                let original_parent_hash = parent_leaf.commit();
+
+                let mut next_parent_hash = original_parent_hash;
+
+                if !reached_decided {
+                    while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
+                    {
+                        if next_parent_leaf.view_number <= consensus.last_decided_view {
+                            break;
+                        }
+                        next_parent_hash = next_parent_leaf.parent_commitment;
+                    }
+                    // TODO do some sort of sanity check on the view number that it matches decided
+                }
+
+                let block_commitment = self.block.commit();
+                let leaf = SequencingLeaf {
+                    view_number: self.cur_view,
+                    height: parent_leaf.height + 1,
+                    justify_qc: self.high_qc.clone(),
+                    parent_commitment: parent_leaf.commit(),
+                    // Use the block commitment rather than the block, so that the replica can construct
+                    // the same leaf with the commitment.
+                    deltas: Right(block_commitment),
+                    rejected: vec![],
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: self.api.public_key().to_bytes(),
+                };
+                let signature = self
+                    .quorum_exchange
+                    .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
+                // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
+                let proposal = QuorumProposal {
+                    block_commitment,
+                    view_number: leaf.view_number,
+                    height: leaf.height,
+                    justify_qc: self.high_qc.clone(),
+                    proposer_id: leaf.proposer_id,
+                    dac: None,
+                };
+
+                let message = Proposal {
+                    data: proposal,
+                    signature,
+                };
+                self.event_stream
+                    .publish(SequencingHotShotEvent::QuorumProposalSend(
+                        message,
+                        self.quorum_exchange.public_key().clone(),
+                    ))
+                    .await;
+            }
             SequencingHotShotEvent::DACRecv(cert) => {
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
@@ -569,7 +655,7 @@ where
                 self.update_view(new_view);
             }
             SequencingHotShotEvent::Timeout(view) => {
-                // The view sync module will handle updating views in the case of timeout 
+                // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
             }
             _ => {}
@@ -663,6 +749,7 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     match event {
         SequencingHotShotEvent::QuorumProposalRecv(_, _)
         | SequencingHotShotEvent::QuorumVoteRecv(_)
+        | SequencingHotShotEvent::QCFormed(_)
         | SequencingHotShotEvent::DACRecv(_)
         | SequencingHotShotEvent::ViewChange(_)
         | SequencingHotShotEvent::Timeout(_) => true,
