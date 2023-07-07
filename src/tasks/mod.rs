@@ -336,6 +336,7 @@ pub async fn add_network_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
 ) -> TaskRunner
+// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
     EXCHANGE::Networking:
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
@@ -566,11 +567,7 @@ where
         registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
-        vote_collector: (
-            TYPES::Time::new(0),
-            0,
-            async_spawn(async move { HotShotTaskCompleted::ShutDown }),
-        ),
+        vote_collector: None,
         event_stream: event_stream.clone(),
     };
     let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {

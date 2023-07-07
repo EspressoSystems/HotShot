@@ -63,8 +63,8 @@ pub struct DATaskState<
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
-    /// Current Vote collection task, with it's view and ID.
-    pub vote_collector: (ViewNumber, usize, JoinHandle<HotShotTaskCompleted>),
+    /// The view and ID of the current vote collection task, if there is one.
+    pub vote_collector: Option<(ViewNumber, usize)>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -234,10 +234,15 @@ where
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
                 }));
-                let (collection_view, collection_id, _collection_task) = &self.vote_collector;
-                if view > *collection_view {
-                    self.registry.shutdown_task(*collection_id).await;
-                }
+                let collection_view =
+                    if let Some((collection_view, collection_id)) = &self.vote_collector {
+                        if view > *collection_view {
+                            self.registry.shutdown_task(*collection_id).await;
+                        }
+                        collection_view.clone()
+                    } else {
+                        ViewNumber::new(0)
+                    };
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
@@ -256,7 +261,7 @@ where
                     acc,
                     None,
                 );
-                if view > *collection_view {
+                if view > collection_view {
                     let state = DAVoteCollectionTaskState {
                         committee_exchange: self.committee_exchange.clone(),
                         accumulator,
@@ -278,7 +283,7 @@ where
                         async_spawn(
                             async move { DAVoteCollectionTypes::build(builder).launch().await },
                         );
-                    self.vote_collector = (view, id, task);
+                    self.vote_collector = Some((view, id));
                 }
             }
             SequencingHotShotEvent::ViewChange(view) => {
@@ -286,8 +291,6 @@ where
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
-                let (_, collection_id, _) = &self.vote_collector;
-                self.registry.shutdown_task(*collection_id);
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {}
