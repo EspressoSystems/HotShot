@@ -243,6 +243,12 @@ where
         Commitment = ViewSyncData<TYPES>,
         Membership = StaticMembership,
     >,
+    // Why do we need this?
+    GeneralStaticCommittee<
+        SequencingTestTypes,
+        SequencingLeaf<SequencingTestTypes>,
+        JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
+    >: Membership<TYPES>,
 {
     let builder = TestBuilder::default_multiple_rounds();
 
@@ -250,7 +256,7 @@ where
     let node_id = 1;
     let network_generator = Arc::new((launcher.generator.network_generator)(node_id));
     let quorum_network = (launcher.generator.quorum_network)(network_generator.clone());
-    let committee_network = (launcher.generator.committee_network)(network_generator);
+    let committee_network = (launcher.generator.committee_network)(network_generator.clone());
     let view_sync_network = (launcher.generator.view_sync_network)(network_generator);
     let storage = (launcher.generator.storage)(node_id);
     let config = launcher.generator.config.clone();
