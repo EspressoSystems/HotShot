@@ -183,7 +183,6 @@
 //         let handle = runner.get_handle(node_id).unwrap();
 //         let cur_view = handle.get_current_view().await;
 
-
 //         for i in 1..NUM_VIEWS {
 //             if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
 //                 let ref_view_number = TYPES::Time::new(i - 1);

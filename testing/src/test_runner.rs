@@ -41,7 +41,6 @@ pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
 pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
-
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
@@ -502,11 +501,11 @@ pub mod test {
             NodeImplementation,
         },
     };
-    use hotshot_types::{data::QuorumProposal, certificate::ViewSyncCertificate};
     use hotshot_types::message::{Message, SequencingMessage};
     use hotshot_types::traits::election::ViewSyncExchange;
     use hotshot_types::vote::QuorumVote;
     use hotshot_types::vote::ViewSyncVote;
+    use hotshot_types::{certificate::ViewSyncCertificate, data::QuorumProposal};
     use hotshot_types::{
         data::{DAProposal, SequencingLeaf, ViewNumber},
         traits::{

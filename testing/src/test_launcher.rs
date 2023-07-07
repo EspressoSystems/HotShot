@@ -1,7 +1,8 @@
 use crate::round::{Round, RoundHook, RoundSafetyCheck, RoundSetup};
 use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{
-    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, ViewSyncNetworkGenerator, TestRunner,
+    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
+    ViewSyncNetworkGenerator,
 };
 use hotshot::types::{Message, SignatureKey};
 use hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};

@@ -821,36 +821,39 @@ where
     }
 
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
-        let SystemContextInner {
-            public_key,
-            private_key,
-            config,
-            storage,
-            exchanges,
-            event_sender,
-            _metrics,
-            transactions,
-            consensus,
-            channel_maps,
-            send_network_lookup,
-            recv_network_lookup,
-            output_event_stream,
-            internal_event_stream,
-            id,
-        } = self.inner.clone();
+        // let SystemContextInner {
+        //     public_key,
+        //     private_key,
+        //     config,
+        //     storage,
+        //     exchanges,
+        //     event_sender,
+        //     _metrics,
+        //     transactions,
+        //     consensus,
+        //     channel_maps,
+        //     send_network_lookup,
+        //     recv_network_lookup,
+        //     output_event_stream,
+        //     internal_event_stream,
+        //     id,
+        // } = self.inner.clone();
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
 
-        let quorum_exchange = exchanges.quorum_exchange().clone();
-        let committee_exchange = exchanges.committee_exchange().clone();
-        let view_sync_exchange = exchanges.view_sync_exchange().clone();
+        let output_event_stream = self.inner.output_event_stream.clone();
+        let internal_event_stream = self.inner.internal_event_stream.clone();
+
+        let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
+        let committee_exchange = self.inner.exchanges.committee_exchange().clone();
+        let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
             output_event_stream,
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
-            storage: storage.clone(),
+            storage: self.inner.storage.clone(),
         };
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
