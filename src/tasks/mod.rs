@@ -46,6 +46,7 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
+        Block,
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
@@ -483,6 +484,7 @@ where
         consensus,
         cur_view: ViewNumber::new(0),
         high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+        block: TYPES::BlockType::new(),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
         committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
@@ -605,9 +607,7 @@ pub async fn add_view_sync_task<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-        + std::clone::Clone
-        + 'static,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::clone::Clone + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,

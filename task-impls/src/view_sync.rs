@@ -73,9 +73,7 @@ pub struct ViewSyncTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-        + 'static
-        + std::clone::Clone,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -113,9 +111,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + 'static
-            + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -236,9 +232,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>
-            + 'static
-            + std::clone::Clone,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
