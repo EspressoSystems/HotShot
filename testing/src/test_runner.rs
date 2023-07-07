@@ -499,7 +499,7 @@ pub mod test {
             NodeImplementation,
         },
     };
-    use hotshot_types::data::QuorumProposal;
+    use hotshot_types::{data::QuorumProposal, certificate::ViewSyncCertificate};
     use hotshot_types::message::{Message, SequencingMessage};
     use hotshot_types::traits::election::ViewSyncExchange;
     use hotshot_types::vote::QuorumVote;
@@ -566,7 +566,7 @@ pub mod test {
     type StaticViewSyncComm = MemoryCommChannel<
         SequencingTestTypes,
         SequencingMemoryImpl,
-        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        ViewSyncCertificate<SequencingTestTypes>,
         ViewSyncVote<SequencingTestTypes>,
         StaticMembership,
     >;
@@ -593,7 +593,7 @@ pub mod test {
             >,
             ViewSyncExchange<
                 SequencingTestTypes,
-                QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                ViewSyncCertificate<SequencingTestTypes>,
                 StaticMembership,
                 StaticViewSyncComm,
                 Message<SequencingTestTypes, Self>,
