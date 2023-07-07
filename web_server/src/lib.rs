@@ -154,9 +154,47 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
+    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        match self.view_sync_proposals.get(&view_number) {
+            Some(proposal) => {
+                if proposal.1.is_empty() {
+                    Err(ServerError {
+                        status: StatusCode::NotImplemented,
+                        message: format!("View sync proposal not found for view {view_number}"),
+                    })
+                } else {
+                    Ok(Some(vec![proposal.1.clone()]))
+                }
+            }
+            None => Err(ServerError {
+                status: StatusCode::NotImplemented,
+                message: format!("View Sync proposal not found for view {view_number}"),
+            }),
+        }
+    }
+
     /// Return all votes the server has received for a particular view from provided index to most recent
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let votes = self.votes.get(&view_number);
+        let mut ret_votes = vec![];
+        if let Some(votes) = votes {
+            for i in index..*self.vote_index.get(&view_number).unwrap() {
+                ret_votes.push(votes[i as usize].1.clone());
+            }
+        }
+        if !ret_votes.is_empty() {
+            Ok(Some(ret_votes))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_view_sync_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        let votes = self.view_sync_votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
@@ -227,6 +265,25 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .and_modify(|index| *index += 1);
         Ok(())
     }
+
+    fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
+        // Only keep vote history for MAX_VIEWS number of views
+        if self.view_sync_votes.len() >= MAX_VIEWS {
+            self.view_sync_votes.remove(&self.oldest_view_sync_vote);
+            while !self.view_sync_votes.contains_key(&self.oldest_view_sync_vote) {
+                self.oldest_view_sync_vote += 1;
+            }
+        }
+        let highest_index = self.view_sync_vote_index.entry(view_number).or_insert(0);
+        self.view_sync_votes
+            .entry(view_number)
+            .and_modify(|current_votes| current_votes.push((*highest_index, vote.clone())))
+            .or_insert_with(|| vec![(*highest_index, vote)]);
+        self.view_sync_vote_index
+            .entry(view_number)
+            .and_modify(|index| *index += 1);
+        Ok(())
+    }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
         error!("Received proposal for view {}", view_number);
@@ -239,6 +296,26 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             }
         }
         self.proposals
+            .entry(view_number)
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
+            .or_insert_with(|| (String::new(), proposal));
+        Ok(())
+    }
+
+    fn post_view_sync_proposal(
+        &mut self,
+        view_number: u64,
+        mut proposal: Vec<u8>,
+    ) -> Result<(), Error> {
+        // Only keep proposal history for MAX_VIEWS number of view
+        if self.view_sync_proposals.len() >= MAX_VIEWS {
+            self.view_sync_proposals
+                .remove(&self.oldest_view_sync_proposal);
+            while !self.proposals.contains_key(&self.oldest_view_sync_proposal) {
+                self.oldest_view_sync_proposal += 1;
+            }
+        }
+        self.view_sync_proposals
             .entry(view_number)
             .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
             .or_insert_with(|| (String::new(), proposal));
@@ -328,27 +405,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.proposals
             .insert(next_view_for_leader, (secret, Vec::new()));
         Ok(())
-    }
-
-    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        todo!()
-    }
-
-    fn get_view_sync_votes(
-            &self,
-            view_number: u64,
-            index: u64,
-        ) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        todo!()
-    }
-
-    fn post_view_sync_proposal(&mut self, view_number: u64, proposal: Vec<u8>)
-            -> Result<(), Error> {
-        todo!()
-    }
-
-    fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
-        todo!()
     }
 }
 
