@@ -540,7 +540,6 @@ where
     ) {
         match event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                // TODO ED Check signature
                 let (certificate_internal, last_seen_certificate) = match message.data.clone() {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
@@ -555,6 +554,14 @@ where
 
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
+                    return (None, self);
+                }
+
+                let relay_key = self
+                    .exchange
+                    .get_leader(certificate_internal.round + certificate_internal.relay);
+
+                if !relay_key.validate(&message.signature, &message.data.as_bytes()) {
                     return (None, self);
                 }
 
