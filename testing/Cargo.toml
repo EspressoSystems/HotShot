@@ -52,7 +52,7 @@ async-std = { version = "1.12.0", optional = true }
 async-trait = "0.1.71"
 # needed for vrf demo
 # so non-optional for now
-blake3 = { version = "1.4.0", features = ["traits-preview"] }
+blake3 = { version = "1.4.1", features = ["traits-preview"] }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 either = { version = "1.8.1" }
 futures = "0.3.28"
