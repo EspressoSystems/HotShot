@@ -604,10 +604,10 @@ pub async fn add_view_sync_task<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + std::clone::Clone + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -619,22 +619,24 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    let api = HotShotSequencingConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     // build the view sync task
     let view_sync_state = ViewSyncTaskState {
         registry: task_runner.registry.clone(),
         event_stream: event_stream.clone(),
-        filtered_event_stream: nll_todo(),
         current_view: TYPES::Time::new(0),
         next_view: TYPES::Time::new(0),
-        exchange: nll_todo(),
-        api: nll_todo(),
+        exchange: (*api.inner.exchanges.view_sync_exchange()).clone().into(),
+        api,
         num_timeouts_tracked: 0,
         task_map: HashMap::default(),
         view_sync_timeout: Duration::new(10, 0),
     };
     let registry = task_runner.registry.clone();
     let view_sync_event_handler = HandleEvent(Arc::new(
-        move |event, mut state: ViewSyncTaskState<TYPES, I, A>| {
+        move |event, mut state: ViewSyncTaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
             async move {
                 if let SequencingHotShotEvent::Shutdown = event {
                     (Some(HotShotTaskCompleted::ShutDown), state)
@@ -647,10 +649,10 @@ where
         },
     ));
     let view_sync_name = "ViewSync Task";
-    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, A>::filter));
+    let view_sync_event_filter = FilterEvent(Arc::new(ViewSyncTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>::filter));
 
     let view_sync_task_builder =
-        TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, A>>::new(view_sync_name.to_string())
+        TaskBuilder::<ViewSyncTaskStateTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I> >>::new(view_sync_name.to_string())
             .register_event_stream(event_stream.clone(), view_sync_event_filter)
             .await
             .register_registry(&mut registry.clone())
