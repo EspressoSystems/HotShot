@@ -86,7 +86,6 @@ pub struct ViewSyncTaskState<
 {
     pub registry: GlobalRegistry,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    pub filtered_event_stream: UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
 
     pub current_view: TYPES::Time,
     pub next_view: TYPES::Time,
@@ -494,13 +493,6 @@ where
         }
     }
 
-    /// Subscribe to view sync events.
-    async fn subscribe(&mut self, event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>) {
-        self.filtered_event_stream = event_stream
-            .subscribe(FilterEvent(Arc::new(Self::filter)))
-            .await
-            .0
-    }
 }
 
 impl<
