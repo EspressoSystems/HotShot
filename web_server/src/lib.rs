@@ -270,7 +270,10 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         // Only keep vote history for MAX_VIEWS number of views
         if self.view_sync_votes.len() >= MAX_VIEWS {
             self.view_sync_votes.remove(&self.oldest_view_sync_vote);
-            while !self.view_sync_votes.contains_key(&self.oldest_view_sync_vote) {
+            while !self
+                .view_sync_votes
+                .contains_key(&self.oldest_view_sync_vote)
+            {
                 self.oldest_view_sync_vote += 1;
             }
         }

@@ -71,8 +71,8 @@ pub enum MessagePurpose {
     /// Data message
     Data,
 
-    ViewSyncVote, 
-    ViewSyncProposal
+    ViewSyncVote,
+    ViewSyncProposal,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -340,7 +340,6 @@ where
 
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
-
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]

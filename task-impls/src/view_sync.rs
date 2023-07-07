@@ -492,7 +492,7 @@ where
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_)
+            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
             | SequencingHotShotEvent::ViewSyncVoteRecv(_)
             | SequencingHotShotEvent::ViewSyncVoteSend(_)
             | SequencingHotShotEvent::Shutdown
@@ -835,7 +835,10 @@ where
                             signature,
                         };
                         self.event_stream
-                            .publish(SequencingHotShotEvent::ViewSyncCertificateSend(message))
+                            .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
+                                message,
+                                self.exchange.public_key().clone(),
+                            ))
                             .await;
                         Either::Right(certificate)
                     }

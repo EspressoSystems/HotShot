@@ -197,7 +197,7 @@ where
                     Either::Right(qc) => {
                         state
                             .event_stream
-                            .publish(SequencingHotShotEvent::QCSend(qc.clone()))
+                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
                         return (None, state);
@@ -325,7 +325,7 @@ where
                     return;
                 }
                 let view_leader_key = self.quorum_exchange.get_leader(view);
-                if view_leader_key != proposal.signature {
+                if view_leader_key != sender {
                     return;
                 }
 
@@ -569,7 +569,7 @@ where
                 self.update_view(new_view);
             }
             SequencingHotShotEvent::Timeout(view) => {
-                // The view sync module will handle updating views in the case of timeout 
+                // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
             }
             _ => {}
