@@ -1,13 +1,13 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_spawn;
-use async_lock::RwLock;
-#[cfg(feature = "async-std-executor")]
-use async_std::task::JoinHandle;
-use commit::Committable;
 use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+use async_lock::RwLock;
+#[cfg(feature = "async-std-executor")]
+use async_std::task::JoinHandle;
 use commit::Commitment;
+use commit::Committable;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
@@ -21,6 +21,8 @@ use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, Ta
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::certificate::QuorumCertificate;
+use hotshot_types::data::DAProposal;
+use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -214,7 +216,13 @@ where
 
             */
             SequencingHotShotEvent::TransactionRecv(transaction) => {
-                panic!("Received tx in DA task!");
+                error!("Received tx in DA task!");
+                // TODO ED Add validation checks
+                self.consensus.read().await.get_transactions()
+                    .modify(|txns| {
+                        let _new = txns.insert(transaction.commit(), transaction).is_none();
+                    })
+                    .await;
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
@@ -328,6 +336,9 @@ where
             SequencingHotShotEvent::ViewChange(view) => {
                 self.cur_view = view;
 
+                // TODO ED Make this a new task so it doesn't block main DA task
+                panic!("HERE");
+
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.committee_exchange.get_leader(self.cur_view + 1)
                     != self.committee_exchange.public_key().clone()
@@ -366,25 +377,31 @@ where
                 let mut block = <TYPES as NodeType>::StateType::next_block(None);
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
-                //         for txn in txns {
-                //             if let Ok(new_block) = block.add_transaction_raw(&txn) {
-                //                 block = new_block;
-                //                 continue;
-                //             }
-                //         }
-                //         let block_commitment = block.commit();
+                for txn in txns {
+                    if let Ok(new_block) = block.add_transaction_raw(&txn) {
+                        block = new_block;
+                        continue;
+                    }
+                }
+                let block_commitment = block.commit();
 
-                //         let consensus = self.consensus.read().await;
-                //         let signature = self.committee_exchange.sign_da_proposal(&block.commit());
-                //         let data: DAProposal<TYPES> = DAProposal {
-                //             deltas: block.clone(),
-                //             view_number: self.cur_view,
-                //         };
-                //         let message = SequencingMessage::<TYPES, I>(Right(
-                //             CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
-                //         ));
+                let consensus = self.consensus.read().await;
+                let signature = self.committee_exchange.sign_da_proposal(&block.commit());
+                let data: DAProposal<TYPES> = DAProposal {
+                    deltas: block.clone(),
+                    view_number: self.cur_view,
+                };
+                let message = SequencingMessage::<TYPES, I>(Right(
+                    CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
+                ));
                 // Brodcast DA proposal
-                // TODO ED Send event
+                // TODO ED We should send an event to do this, but just getting it to work for now
+                if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
+                    consensus.metrics.failed_to_send_messages.add(1);
+                    warn!(?message, ?e, "Could not broadcast leader proposal");
+                } else {
+                    consensus.metrics.outgoing_broadcast_messages.add(1);
+                }
 
                 return None;
             }
@@ -419,30 +436,30 @@ where
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
                 .collect();
 
-                let time_past = task_start_time.elapsed();
-                if unclaimed_txns.len() < self.api.min_transactions()
-                    && (time_past < self.api.propose_max_round_time())
-                {
-                    let duration = self.api.propose_max_round_time() - time_past;
-                    let result = async_timeout(duration, receiver.recv()).await;
-                    match result {
-                        Err(_) => {
-                            // Fall through below to updating new block
-                            info!("propose_max_round_time passed, sending transactions we have so far");
-                        }
-                        Ok(Err(e)) => {
-                            // Something unprecedented is wrong, and `transactions` has been dropped
-                            error!("Channel receiver error for SubscribableRwLock {:?}", e);
-                            return None;
-                        }
-                        Ok(Ok(_)) => continue,
+            let time_past = task_start_time.elapsed();
+            if unclaimed_txns.len() < self.api.min_transactions()
+                && (time_past < self.api.propose_max_round_time())
+            {
+                let duration = self.api.propose_max_round_time() - time_past;
+                let result = async_timeout(duration, receiver.recv()).await;
+                match result {
+                    Err(_) => {
+                        // Fall through below to updating new block
+                        info!("propose_max_round_time passed, sending transactions we have so far");
                     }
+                    Ok(Err(e)) => {
+                        // Something unprecedented is wrong, and `transactions` has been dropped
+                        error!("Channel receiver error for SubscribableRwLock {:?}", e);
+                        return None;
+                    }
+                    Ok(Ok(_)) => continue,
                 }
-                let mut txns = vec![];
-                for (_hash, txn) in unclaimed_txns {
-                    txns.push(txn.clone());
-                }
-                return Some(txns);
+            }
+            let mut txns = vec![];
+            for (_hash, txn) in unclaimed_txns {
+                txns.push(txn.clone());
+            }
+            return Some(txns);
         }
         None
     }
