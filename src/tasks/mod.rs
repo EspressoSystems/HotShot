@@ -563,9 +563,13 @@ where
     >,
 {
     // build the da task
+    let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let registry = task_runner.registry.clone();
     let da_state = DATaskState {
         registry: registry.clone(),
+        api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
         high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         cur_view: TYPES::Time::new(0),
@@ -573,7 +577,7 @@ where
         vote_collector: None,
         event_stream: event_stream.clone(),
     };
-    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
+    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
         async move {
             let completion_status = state.handle_event(event).await;
             (completion_status, state)
@@ -581,9 +585,9 @@ where
         .boxed()
     }));
     let da_name = "DA Task";
-    let da_event_filter = FilterEvent(Arc::new(DATaskState::<TYPES, I>::filter));
+    let da_event_filter = FilterEvent(Arc::new(DATaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>::filter));
 
-    let da_task_builder = TaskBuilder::<DATaskTypes<TYPES, I>>::new(da_name.to_string())
+    let da_task_builder = TaskBuilder::<DATaskTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>>::new(da_name.to_string())
         .register_event_stream(event_stream.clone(), da_event_filter)
         .await
         .register_registry(&mut registry.clone())

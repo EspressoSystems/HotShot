@@ -4,10 +4,15 @@ use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
+
+use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
+use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+use commit::Commitment;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
 use hotshot_consensus::Consensus;
+use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
@@ -19,6 +24,8 @@ use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::traits::Block;
+use hotshot_types::traits::State;
 use hotshot_types::{
     certificate::DACertificate,
     data::{ProposalType, SequencingLeaf, ViewNumber},
@@ -33,10 +40,15 @@ use hotshot_types::{
 };
 use snafu::Snafu;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Instant;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+
+/// A type alias for `HashMap<Commitment<T>, T>`
+type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -49,6 +61,7 @@ pub struct DATaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -58,11 +71,13 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    pub api: A,
     pub registry: GlobalRegistry,
 
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
 
+    // pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
 
@@ -173,7 +188,8 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > DATaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    > DATaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -308,6 +324,7 @@ where
                     self.vote_collector = Some((view, id));
                 }
             }
+            // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
                 self.cur_view = view;
 
@@ -321,24 +338,24 @@ where
                 // ED Copy of parent_leaf() function from sequencing leader
 
                 let parent_view_number = &self.high_qc.view_number;
-                // let consensus = self.consensus.read().await;
-                // let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                //     warn!("Couldn't find high QC parent in state map.");
-                //     return None;
-                // };
-                // let Some(leaf) = parent_view.get_leaf_commitment() else {
-                //     warn!(
-                //         ?parent_view_number,
-                //         ?parent_view,
-                //         "Parent of high QC points to a view without a proposal"
-                //     );
-                //     return None;
-                // };
-                // let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-                //     warn!("Failed to find high QC parent.");
-                //     return None;
-                // };
-                // Some(leaf.clone())
+                let consensus = self.consensus.read().await;
+                let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+                    warn!("Couldn't find high QC parent in state map.");
+                    return None;
+                };
+                let Some(leaf) = parent_view.get_leaf_commitment() else {
+                    warn!(
+                        ?parent_view_number,
+                        ?parent_view,
+                        "Parent of high QC points to a view without a proposal"
+                    );
+                    return None;
+                };
+                let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+                    warn!("Failed to find high QC parent.");
+                    return None;
+                };
+                let parent_leaf = leaf.clone();
 
                 // Prepare the DA Proposal
                 //         let Some(parent_leaf) = self.parent_leaf().await else {
@@ -346,8 +363,8 @@ where
                 //     return None;
                 // };
 
-                //         let mut block = <TYPES as NodeType>::StateType::next_block(None);
-                //         let txns = self.wait_for_transactions().await?;
+                let mut block = <TYPES as NodeType>::StateType::next_block(None);
+                let txns = self.wait_for_transactions(parent_leaf).await?;
 
                 //         for txn in txns {
                 //             if let Ok(new_block) = block.add_transaction_raw(&txn) {
@@ -379,6 +396,57 @@ where
         None
     }
 
+    /// return None if we can't get transactions
+    async fn wait_for_transactions(
+        &self,
+        parent_leaf: SequencingLeaf<TYPES>,
+    ) -> Option<Vec<TYPES::Transaction>> {
+        let task_start_time = Instant::now();
+
+        // let parent_leaf = self.parent_leaf().await?;
+        let previous_used_txns = match parent_leaf.deltas {
+            Either::Left(block) => block.contained_transactions(),
+            Either::Right(_commitment) => HashSet::new(),
+        };
+        let consensus = self.consensus.read().await;
+
+        let receiver = consensus.transactions.subscribe().await;
+
+        while task_start_time.elapsed() < self.api.propose_max_round_time() {
+            // let txns = self.transactions.cloned().await;
+            // let unclaimed_txns: Vec<_> = txns
+            //     .iter()
+            //     .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
+            //     .collect();
+
+            //     let time_past = task_start_time.elapsed();
+            //     if unclaimed_txns.len() < self.api.min_transactions()
+            //         && (time_past < self.api.propose_max_round_time())
+            //     {
+            //         let duration = self.api.propose_max_round_time() - time_past;
+            //         let result = async_timeout(duration, receiver.recv()).await;
+            //         match result {
+            //             Err(_) => {
+            //                 // Fall through below to updating new block
+            //                 info!("propose_max_round_time passed, sending transactions we have so far");
+            //             }
+            //             Ok(Err(e)) => {
+            //                 // Something unprecedented is wrong, and `transactions` has been dropped
+            //                 error!("Channel receiver error for SubscribableRwLock {:?}", e);
+            //                 return None;
+            //             }
+            //             Ok(Ok(_)) => continue,
+            //         }
+            //     }
+            //     let mut txns = vec![];
+            //     for (_hash, txn) in unclaimed_txns {
+            //         txns.push(txn.clone());
+            //     }
+            //     return Some(txns);
+        }
+        None
+    }
+
     /// Filter the DA event.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         match event {
@@ -399,7 +467,8 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-    > TS for DATaskState<TYPES, I>
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    > TS for DATaskState<TYPES, I, A>
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -418,9 +487,9 @@ pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     DAVoteCollectionTaskState<TYPES, I>,
 >;
 
-pub type DATaskTypes<TYPES, I> = HSTWithEvent<
+pub type DATaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    DATaskState<TYPES, I>,
+    DATaskState<TYPES, I, A>,
 >;
