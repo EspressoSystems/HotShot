@@ -157,7 +157,6 @@ impl<
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
-                self.channel.shut_down().await;
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {
