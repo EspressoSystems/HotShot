@@ -88,6 +88,7 @@ where
         >,
     {
         self.add_nodes(self.launcher.metadata.start_nodes).await;
+
         let TestRunner {
             launcher,
             nodes,
@@ -137,11 +138,13 @@ where
                 stream,
             )
             .await;
+            task_runner = task_runner.add_task(id, id.to_string(), task);
         }
 
+        // TODO ED Here
         task_runner.launch().await;
         // TODO turn errors into something sensible
-        nll_todo()
+        Ok(())
     }
 
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
