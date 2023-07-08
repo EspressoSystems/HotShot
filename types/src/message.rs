@@ -512,7 +512,7 @@ impl<
     type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES>;
 }
 
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Messages related to sending data between nodes
 pub enum DataMessage<TYPES: NodeType> {

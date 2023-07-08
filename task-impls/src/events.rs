@@ -1,7 +1,7 @@
 use hotshot_task::task::PassType;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
-use hotshot_types::message::Proposal;
+use hotshot_types::message::{Proposal, DataMessage};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;
@@ -35,5 +35,6 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewSyncVoteRecv(ViewSyncVote<TYPES>),
     ViewSyncCertificateRecv(Proposal<ViewSyncProposalType<TYPES, I>>),
     Timeout(ViewNumber),
+    TransactionRecv(DataMessage<TYPES>),
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}
