@@ -188,6 +188,10 @@ where
             See QuorumProposalRecv(view n) --> start building new DA Proposal (view n + 1) (with transactions you already have or wait for more) 
             
             */
+            SequencingHotShotEvent::TransactionRecv(transaction) => {
+                panic!("Received tx in DA task!");
+                return None
+            }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -313,6 +317,7 @@ where
             SequencingHotShotEvent::DAProposalRecv(_, _)
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
+            | SequencingHotShotEvent::TransactionRecv(_)
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
         }

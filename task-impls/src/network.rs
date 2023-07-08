@@ -6,6 +6,7 @@ use hotshot_task::{
     task_impls::HSTWithEventAndMessage,
     GeneratedStream, Merge,
 };
+use tracing::error;
 use hotshot_types::{message::{CommitteeConsensusMessage, SequencingMessage}, traits::election::SignedCertificate};
 use hotshot_types::message::{DataMessage, Message};
 use hotshot_types::traits::state::ConsensusTime;
@@ -116,7 +117,7 @@ impl<
                         transaction,
                         view_number,
                     ) => {
-                        panic!("Tx received");
+                        // panic!("Tx received");
                         SequencingHotShotEvent::TransactionRecv(transaction)},
                 }
             }
