@@ -424,6 +424,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
         let kind = kind.into();
+        
         async_spawn_local(async move {
             if inner
                 .exchanges

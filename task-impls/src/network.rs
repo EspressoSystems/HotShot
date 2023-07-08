@@ -6,9 +6,9 @@ use hotshot_task::{
     task_impls::HSTWithEventAndMessage,
     GeneratedStream, Merge,
 };
+use hotshot_types::{message::{CommitteeConsensusMessage, SequencingMessage}, traits::election::SignedCertificate};
+use hotshot_types::message::{DataMessage, Message};
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::message::{Message, DataMessage};
-use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::{GeneralConsensusMessage, MessageKind, Messages},
@@ -43,6 +43,7 @@ pub struct NetworkTaskState<
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     pub view: ViewNumber,
     pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
+    // TODO ED Need to add exchange so we can get the recipient key and our own key?
 }
 
 impl<
@@ -114,7 +115,9 @@ impl<
                     hotshot_types::message::DataMessage::SubmitTransaction(
                         transaction,
                         view_number,
-                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
+                    ) => {
+                        panic!("Tx received");
+                        SequencingHotShotEvent::TransactionRecv(transaction)},
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
@@ -130,13 +133,14 @@ impl<
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (sender, message_kind, transmit_type) = match event {
+        let (sender, message_kind, transmit_type, recipient) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
                     SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
                 ),
                 TransmitType::Broadcast,
+                None
             ),
             SequencingHotShotEvent::QuorumVoteSend(vote) => (
                 vote.signature_key(),
@@ -144,6 +148,7 @@ impl<
                     SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
                 ),
                 TransmitType::Direct,
+                Some(membership.get_leader(vote.current_view() + 1))
             ),
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
@@ -154,6 +159,7 @@ impl<
                     ))),
                 ),
                 TransmitType::Broadcast,
+                None
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
@@ -161,6 +167,8 @@ impl<
                     SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 ),
                 TransmitType::Direct,
+                Some(membership.get_leader(vote.current_view + 1))
+
             ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
@@ -170,6 +178,7 @@ impl<
                     ))),
                 ),
                 TransmitType::Broadcast,
+                None
             ),
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
                 vote.signature_key(),
@@ -177,12 +186,18 @@ impl<
                     SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
                 ),
                 TransmitType::Direct,
+                Some(membership.get_leader(vote.round() + vote.relay()))
+
             ),
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(transaction, TYPES::Time::new(*self.view))),
+                MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(
+                    transaction,
+                    TYPES::Time::new(*self.view),
+                )),
                 TransmitType::Broadcast,
+                None
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
@@ -202,11 +217,20 @@ impl<
             kind: message_kind,
             _phantom: PhantomData,
         };
-        // ED What about direct messages?
-        self.channel
-            .broadcast_message(message, membership)
-            .await
-            .expect("Failed to broadcast message");
+        match transmit_type {
+            // TODO ED We do not always want to send to the leader, update
+            TransmitType::Direct => self
+                .channel
+                .direct_message(message, recipient.unwrap())
+                .await
+                .expect("Failed to direct message"),
+            TransmitType::Broadcast => self
+                .channel
+                .broadcast_message(message, membership)
+                .await
+                .expect("Failed to broadcast message"),
+        }
+
         return None;
     }
 
@@ -220,7 +244,9 @@ impl<
             | SequencingHotShotEvent::ViewSyncVoteSend(_)
             | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
             | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_) => true,
+            | SequencingHotShotEvent::ViewChange(_)
+            | SequencingHotShotEvent::TransactionSend(_) => true,
+
             _ => false,
         }
     }

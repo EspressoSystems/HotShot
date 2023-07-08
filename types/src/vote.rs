@@ -151,6 +151,22 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
         };
         <TYPES::SignatureKey as SignatureKey>::from_bytes(&encoded).unwrap()
     }
+
+    pub fn relay(&self) -> u64 {
+        match &self {
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) => vote_internal.relay,
+        }
+    }
+
+    pub fn round(&self) -> TYPES::Time {
+        match &self {
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) => vote_internal.round,
+        }
+    }
 }
 
 /// Votes on validating or commitment proposal.
