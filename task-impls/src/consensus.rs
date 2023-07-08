@@ -272,9 +272,40 @@ where
     }
     async fn vote_if_able(&self) {
         if let Some(proposal) = &self.current_proposal {
-            error!("In vote if able");
+            // ED Need to account for the genesis DA cert
+            if proposal.justify_qc.is_genesis() {
+                let view = TYPES::Time::new(0);
+                let vote_token = self.quorum_exchange.make_vote_token(view);
+                match vote_token {
+                    Err(e) => {
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
+                    }
+                    Ok(None) => {
+                        info!("We were not chosen for consensus committee on {:?}", view);
+                    }
+                    Ok(Some(vote_token)) => {
+                        let message: GeneralConsensusMessage<TYPES, I>;
+                        message = self.quorum_exchange.create_yes_message(
+                            proposal.justify_qc.commit(),
+                            proposal.justify_qc.leaf_commitment,
+                            view,
+                            vote_token,
+                        );
+
+                        if let GeneralConsensusMessage::Vote(vote) = message {
+                            info!("Sending vote to next leader {:?}", vote);
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                                .await;
+                        };
+                    }
+                }
+                return;
+            }
 
             if let Some(cert) = self.certs.get(&proposal.get_view_number()) {
+                error!("In vote if able");
+
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -309,7 +340,7 @@ where
                                 vote_token,
                             );
                         }
-                        
+
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
                             self.event_stream
@@ -486,7 +517,6 @@ where
                         // ED We already send the vote below
                         self.vote_if_able().await;
                         self.current_proposal = None;
-
 
                         self.timeout_task = async_spawn({
                             // let next_view_timeout = hotshot.inner.config.next_view_timeout;
