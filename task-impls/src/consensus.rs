@@ -248,6 +248,7 @@ where
 {
     async fn send_da(&self) {
         // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
+        // ED: Added this in the DA task ^ 
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;

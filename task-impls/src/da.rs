@@ -216,7 +216,7 @@ where
 
             */
             SequencingHotShotEvent::TransactionRecv(transaction) => {
-                error!("Received tx in DA task!");
+                // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
                 self.consensus.read().await.get_transactions()
                     .modify(|txns| {
@@ -337,7 +337,8 @@ where
                 self.cur_view = view;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
-                panic!("HERE");
+                error!("Here2");
+                // panic!("HERE");
 
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.committee_exchange.get_leader(self.cur_view + 1)
