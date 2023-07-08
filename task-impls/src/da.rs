@@ -337,8 +337,6 @@ where
                 self.cur_view = view;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
-                error!("Here2");
-                // panic!("HERE");
 
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.committee_exchange.get_leader(self.cur_view + 1)

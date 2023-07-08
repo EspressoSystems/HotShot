@@ -893,7 +893,7 @@ where
         });
 
         // Start HotShot by changing the view to 1 and sending other needed events
-        internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await; 
+        // internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await; 
         internal_event_stream.publish(SequencingHotShotEvent::QCFormed(QuorumCertificate::genesis())).await; 
 
         handle

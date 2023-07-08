@@ -31,6 +31,7 @@ use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::vote::VoteType;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{QuorumProposal, SequencingLeaf},
@@ -248,7 +249,7 @@ where
 {
     async fn send_da(&self) {
         // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
-        // ED: Added this in the DA task ^ 
+        // ED: Added this in the DA task ^
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
@@ -271,6 +272,8 @@ where
     }
     async fn vote_if_able(&self) {
         if let Some(proposal) = &self.current_proposal {
+            error!("In vote if able");
+
             if let Some(cert) = self.certs.get(&proposal.get_view_number()) {
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
@@ -291,6 +294,7 @@ where
                             .is_valid_cert(&cert, proposal.block_commitment)
                         {
                             warn!("Invalid DAC in proposal! Skipping proposal.");
+
                             message = self.quorum_exchange.create_no_message(
                                 proposal.justify_qc.commit(),
                                 proposal.justify_qc.leaf_commitment,
@@ -305,6 +309,7 @@ where
                                 vote_token,
                             );
                         }
+                        
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
                             self.event_stream
@@ -337,6 +342,8 @@ where
                     return;
                 }
 
+                self.current_proposal = Some(proposal.data.clone());
+
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
                 match vote_token {
@@ -362,6 +369,7 @@ where
                                 .get(&justify_qc.leaf_commitment())
                                 .cloned()
                         };
+
                         let Some(parent) = parent else {
                             warn!("Proposal's parent missing from storage");
                             return;
@@ -387,6 +395,7 @@ where
                             .is_valid_cert(&justify_qc, parent_commitment)
                         {
                             warn!("Invalid justify_qc in proposal!.");
+
                             message = self.quorum_exchange.create_no_message::<I>(
                                 justify_qc_commitment,
                                 leaf_commitment,
@@ -463,13 +472,21 @@ where
                             }
                         }
                         // self.update_view(view);
-                        for view in *self.cur_view..*view - 1 {
-                            let v = TYPES::Time::new(view);
-                            self.certs.remove(&v);
+
+                        // GC only if we are not in the genesis view
+                        // ED Should use the genesis() function here
+                        if *self.cur_view != 0 {
+                            for view in *self.cur_view..*view - 1 {
+                                let v = TYPES::Time::new(view);
+                                self.certs.remove(&v);
+                            }
                         }
                         self.cur_view = view;
+
+                        // ED We already send the vote below
+                        self.vote_if_able().await;
                         self.current_proposal = None;
-                        self.vote_if_able();
+
 
                         self.timeout_task = async_spawn({
                             // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -487,12 +504,16 @@ where
                                     .await;
                             }
                         });
-                        if let GeneralConsensusMessage::Vote(vote) = message {
-                            info!("Sending vote to next leader {:?}", vote);
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
-                                .await;
-                        };
+
+                        // Because we call the vote if able function above
+                        // if let GeneralConsensusMessage::Vote(vote) = message {
+                        //     info!("Sending vote to next leader {:?}", vote);
+                        //     error!("Vote is {:?}", vote.current_view());
+
+                        //     self.event_stream
+                        //         .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                        //         .await;
+                        // };
                     }
                 }
             }
@@ -647,7 +668,7 @@ where
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
                 if view == self.cur_view {
-                    self.vote_if_able();
+                    self.vote_if_able().await;
                 }
             }
 

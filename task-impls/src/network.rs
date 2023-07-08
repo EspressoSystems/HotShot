@@ -6,8 +6,6 @@ use hotshot_task::{
     task_impls::HSTWithEventAndMessage,
     GeneratedStream, Merge,
 };
-use tracing::error;
-use hotshot_types::{message::{CommitteeConsensusMessage, SequencingMessage}, traits::election::SignedCertificate};
 use hotshot_types::message::{DataMessage, Message};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
@@ -22,8 +20,13 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_types::{
+    message::{CommitteeConsensusMessage, SequencingMessage},
+    traits::election::SignedCertificate,
+};
 use snafu::Snafu;
 use std::marker::PhantomData;
+use tracing::error;
 use tracing::warn;
 
 use nll::nll_todo::nll_todo;
@@ -118,7 +121,8 @@ impl<
                         view_number,
                     ) => {
                         // panic!("Tx received");
-                        SequencingHotShotEvent::TransactionRecv(transaction)},
+                        SequencingHotShotEvent::TransactionRecv(transaction)
+                    }
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
@@ -141,16 +145,19 @@ impl<
                     SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
                 ),
                 TransmitType::Broadcast,
-                None
+                None,
             ),
-            SequencingHotShotEvent::QuorumVoteSend(vote) => (
-                vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
-                ),
-                TransmitType::Direct,
-                Some(membership.get_leader(vote.current_view() + 1))
-            ),
+            SequencingHotShotEvent::QuorumVoteSend(vote) => {
+                error!("HERE {:?}", vote.current_view());
+                (
+                    vote.signature_key(),
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
+                    ),
+                    TransmitType::Direct,
+                    Some(membership.get_leader(vote.current_view() + 1)),
+                )
+            }
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
@@ -160,7 +167,7 @@ impl<
                     ))),
                 ),
                 TransmitType::Broadcast,
-                None
+                None,
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
@@ -168,8 +175,7 @@ impl<
                     SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 ),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.current_view + 1))
-
+                Some(membership.get_leader(vote.current_view + 1)),
             ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
@@ -179,7 +185,7 @@ impl<
                     ))),
                 ),
                 TransmitType::Broadcast,
-                None
+                None,
             ),
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
                 vote.signature_key(),
@@ -187,8 +193,7 @@ impl<
                     SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
                 ),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.round() + vote.relay()))
-
+                Some(membership.get_leader(vote.round() + vote.relay())),
             ),
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
@@ -198,7 +203,7 @@ impl<
                     TYPES::Time::new(*self.view),
                 )),
                 TransmitType::Broadcast,
-                None
+                None,
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
