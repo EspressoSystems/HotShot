@@ -32,13 +32,17 @@ pub mod types;
 
 pub mod tasks;
 
+use crate::tasks::da_filter;
+use crate::tasks::view_sync_filter;
+use hotshot_task::task::FilterEvent;
+
+use crate::tasks::quorum_filter;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use hotshot_task::event_stream::EventStream;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
@@ -50,6 +54,7 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::event_stream::EventStream;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
@@ -425,7 +430,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
         let kind = kind.into();
-        
+
         async_spawn_local(async move {
             if inner
                 .exchanges
@@ -859,18 +864,25 @@ where
         };
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
-        let task_runner =
-            add_network_task(task_runner, internal_event_stream.clone(), quorum_exchange).await;
+        let task_runner = add_network_task(
+            task_runner,
+            internal_event_stream.clone(),
+            quorum_exchange,
+            FilterEvent(Arc::new(quorum_filter)),
+        )
+        .await;
         let task_runner = add_network_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            FilterEvent(Arc::new(da_filter)),
         )
         .await;
         let task_runner = add_network_task(
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
+            FilterEvent(Arc::new(view_sync_filter)),
         )
         .await;
         let task_runner =
@@ -879,13 +891,13 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
-            handle.clone()
+            handle.clone(),
         )
         .await;
         let task_runner = add_view_sync_task::<TYPES, I>(
             task_runner,
             internal_event_stream.clone(),
-            handle.clone()
+            handle.clone(),
         )
         .await;
         async_spawn(async move {
@@ -893,8 +905,12 @@ where
         });
 
         // Start HotShot by changing the view to 1 and sending other needed events
-        // internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await; 
-        internal_event_stream.publish(SequencingHotShotEvent::QCFormed(QuorumCertificate::genesis())).await; 
+        // internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await;
+        internal_event_stream
+            .publish(SequencingHotShotEvent::QCFormed(
+                QuorumCertificate::genesis(),
+            ))
+            .await;
 
         handle
 

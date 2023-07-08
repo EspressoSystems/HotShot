@@ -147,6 +147,8 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
+
+            // ED Each network task is subscribed to all these message types.  Need filters per network task
             SequencingHotShotEvent::QuorumVoteSend(vote) => {
                 error!("HERE {:?}", vote.current_view());
                 (

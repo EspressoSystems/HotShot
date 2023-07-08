@@ -293,7 +293,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            info!("Sending vote to next leader {:?}", vote);
+                            error!("Sending vote to next leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -304,8 +304,6 @@ where
             }
 
             if let Some(cert) = self.certs.get(&proposal.get_view_number()) {
-                error!("In vote if able");
-
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -342,7 +340,7 @@ where
                         }
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            info!("Sending vote to next leader {:?}", vote);
+                            // error!("Sending vote to next leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
