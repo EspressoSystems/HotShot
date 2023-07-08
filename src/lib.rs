@@ -38,6 +38,7 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+use hotshot_task::event_stream::EventStream;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
@@ -890,6 +891,9 @@ where
         async_spawn(async move {
             task_runner.launch().await;
         });
+
+        // Start HotShot by changing the view to 1
+        internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await; 
 
         handle
 
