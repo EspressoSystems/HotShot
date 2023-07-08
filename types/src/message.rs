@@ -467,7 +467,7 @@ impl<
                         InternalTrigger::Timeout(time) => *time,
                     },
                     GeneralConsensusMessage::ViewSyncVote(_)
-                    | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                    | GeneralConsensusMessage::ViewSyncCertificate(_) => unimplemented!(),
                 }
             }
             Right(committee_message) => {

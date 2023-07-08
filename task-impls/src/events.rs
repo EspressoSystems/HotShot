@@ -36,5 +36,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewSyncCertificateRecv(Proposal<ViewSyncProposalType<TYPES, I>>),
     Timeout(ViewNumber),
     TransactionRecv(TYPES::Transaction),
+    TransactionSend(TYPES::Transaction),
+
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

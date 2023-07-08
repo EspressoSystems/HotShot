@@ -6,7 +6,8 @@ use hotshot_task::{
     task_impls::HSTWithEventAndMessage,
     GeneratedStream, Merge,
 };
-use hotshot_types::message::Message;
+use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::message::{Message, DataMessage};
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
@@ -109,8 +110,11 @@ impl<
             },
             MessageKind::Data(message) => {
                 match message {
-                    // ED Why do we need the view number in the transaction? 
-                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, view_number) => SequencingHotShotEvent::TransactionRecv(transaction),
+                    // ED Why do we need the view number in the transaction?
+                    hotshot_types::message::DataMessage::SubmitTransaction(
+                        transaction,
+                        view_number,
+                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
@@ -126,35 +130,59 @@ impl<
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (consensus_message, sender) = match event {
+        let (sender, message_kind, transmit_type) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
-                SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
                 sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
+                ),
+                TransmitType::Broadcast,
             ),
             SequencingHotShotEvent::QuorumVoteSend(vote) => (
-                SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
                 vote.signature_key(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
+                ),
+                TransmitType::Direct,
             ),
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
-                SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
-                    proposal.clone(),
-                ))),
                 sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
+                        proposal.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
-                SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
                 vote.signature_key(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
+                ),
+                TransmitType::Direct,
             ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
-                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
-                    certificate_proposal.clone(),
-                ))),
                 sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
+                        certificate_proposal.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
             ),
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
-                SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
                 vote.signature_key(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
+                ),
+                TransmitType::Direct,
+            ),
+            SequencingHotShotEvent::TransactionSend(transaction) => (
+                // TODO ED Get our own key
+                nll_todo(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(transaction, TYPES::Time::new(*self.view))),
+                TransmitType::Broadcast,
             ),
             SequencingHotShotEvent::ViewChange(view) => {
                 self.view = view;
@@ -168,13 +196,13 @@ impl<
                 return None;
             }
         };
-        let message_kind =
-            MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(consensus_message);
+
         let message = Message {
             sender,
             kind: message_kind,
             _phantom: PhantomData,
         };
+        // ED What about direct messages?
         self.channel
             .broadcast_message(message, membership)
             .await
