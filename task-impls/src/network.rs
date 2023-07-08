@@ -108,9 +108,10 @@ impl<
                 },
             },
             MessageKind::Data(message) => {
-                // TODO ED Need to handle TX messages here
-                panic!("Got unexpected message type in network task! {:?}", message);
-                return;
+                match message {
+                    // ED Why do we need the view number in the transaction? 
+                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, view_number) => SequencingHotShotEvent::TransactionRecv(transaction),
+                }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
         };

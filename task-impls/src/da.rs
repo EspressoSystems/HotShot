@@ -180,6 +180,14 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             // TODO ED Add transaction handling logic, looks like there isn't anywhere where DA proposals are created (e.g. create_da_proposal())
+            /* What should that logic look like? 
+            
+            Want the DA proposer to propose once they have enough transactions or a certain amount of time has passed
+            How to translate that into events? --> Will assume view number is associated
+            
+            See QuorumProposalRecv(view n) --> start building new DA Proposal (view n + 1) (with transactions you already have or wait for more) 
+            
+            */
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
