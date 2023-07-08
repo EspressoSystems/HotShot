@@ -179,6 +179,7 @@ where
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
+            // TODO ED Add transaction handling logic, looks like there isn't anywhere where DA proposals are created (e.g. create_da_proposal())
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
