@@ -107,8 +107,9 @@ impl<
                     }
                 },
             },
-            MessageKind::Data(_) => {
-                warn!("Got unexpected message type in network task!");
+            MessageKind::Data(message) => {
+                // TODO ED Need to handle TX messages here
+                panic!("Got unexpected message type in network task! {:?}", message);
                 return;
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
