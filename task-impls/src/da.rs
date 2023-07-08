@@ -4,7 +4,7 @@ use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
-
+use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use commit::Commitment;
@@ -413,36 +413,36 @@ where
         let receiver = consensus.transactions.subscribe().await;
 
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
-            // let txns = self.transactions.cloned().await;
-            // let unclaimed_txns: Vec<_> = txns
-            //     .iter()
-            //     .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-            //     .collect();
+            let txns = consensus.transactions.cloned().await;
+            let unclaimed_txns: Vec<_> = txns
+                .iter()
+                .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
+                .collect();
 
-            //     let time_past = task_start_time.elapsed();
-            //     if unclaimed_txns.len() < self.api.min_transactions()
-            //         && (time_past < self.api.propose_max_round_time())
-            //     {
-            //         let duration = self.api.propose_max_round_time() - time_past;
-            //         let result = async_timeout(duration, receiver.recv()).await;
-            //         match result {
-            //             Err(_) => {
-            //                 // Fall through below to updating new block
-            //                 info!("propose_max_round_time passed, sending transactions we have so far");
-            //             }
-            //             Ok(Err(e)) => {
-            //                 // Something unprecedented is wrong, and `transactions` has been dropped
-            //                 error!("Channel receiver error for SubscribableRwLock {:?}", e);
-            //                 return None;
-            //             }
-            //             Ok(Ok(_)) => continue,
-            //         }
-            //     }
-            //     let mut txns = vec![];
-            //     for (_hash, txn) in unclaimed_txns {
-            //         txns.push(txn.clone());
-            //     }
-            //     return Some(txns);
+                let time_past = task_start_time.elapsed();
+                if unclaimed_txns.len() < self.api.min_transactions()
+                    && (time_past < self.api.propose_max_round_time())
+                {
+                    let duration = self.api.propose_max_round_time() - time_past;
+                    let result = async_timeout(duration, receiver.recv()).await;
+                    match result {
+                        Err(_) => {
+                            // Fall through below to updating new block
+                            info!("propose_max_round_time passed, sending transactions we have so far");
+                        }
+                        Ok(Err(e)) => {
+                            // Something unprecedented is wrong, and `transactions` has been dropped
+                            error!("Channel receiver error for SubscribableRwLock {:?}", e);
+                            return None;
+                        }
+                        Ok(Ok(_)) => continue,
+                    }
+                }
+                let mut txns = vec![];
+                for (_hash, txn) in unclaimed_txns {
+                    txns.push(txn.clone());
+                }
+                return Some(txns);
         }
         None
     }
