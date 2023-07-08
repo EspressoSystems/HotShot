@@ -219,7 +219,6 @@ impl<
             _phantom: PhantomData,
         };
         match transmit_type {
-            // TODO ED We do not always want to send to the leader, update
             TransmitType::Direct => self
                 .channel
                 .direct_message(message, recipient.unwrap())

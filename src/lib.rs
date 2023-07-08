@@ -878,6 +878,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            handle.clone()
         )
         .await;
         let task_runner = add_view_sync_task::<TYPES, I>(

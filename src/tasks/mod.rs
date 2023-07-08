@@ -551,6 +551,7 @@ pub async fn add_da_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     committee_exchange: CommitteeEx<TYPES, I>,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -565,6 +566,8 @@ where
     let registry = task_runner.registry.clone();
     let da_state = DATaskState {
         registry: registry.clone(),
+        consensus: handle.hotshot.get_consensus(),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
         vote_collector: None,

@@ -69,8 +69,8 @@ impl Default for TestMetadata {
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
-                    // TODO ED Put a configurable time here
-                    duration: Duration::from_millis(100000000),
+                    // TODO ED Put a configurable time here - 10 seconds for now
+                    duration: Duration::from_millis(10000),
                 },
             ),
         }

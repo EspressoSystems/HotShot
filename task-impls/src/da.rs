@@ -1,11 +1,13 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_spawn;
+use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
+use hotshot_consensus::Consensus;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
@@ -13,6 +15,7 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
+use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
@@ -59,6 +62,12 @@ pub struct DATaskState<
 
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
+
+    /// Reference to consensus. Leader will require a read lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
+
+    /// The High QC.
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
 
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
@@ -180,17 +189,17 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             // TODO ED Add transaction handling logic, looks like there isn't anywhere where DA proposals are created (e.g. create_da_proposal())
-            /* What should that logic look like? 
-            
+            /* What should that logic look like?
+
             Want the DA proposer to propose once they have enough transactions or a certain amount of time has passed
             How to translate that into events? --> Will assume view number is associated
-            
-            See QuorumProposalRecv(view n) --> start building new DA Proposal (view n + 1) (with transactions you already have or wait for more) 
-            
+
+            See QuorumProposalRecv(view n) --> start building new DA Proposal (view n + 1) (with transactions you already have or wait for more)
+
             */
             SequencingHotShotEvent::TransactionRecv(transaction) => {
                 panic!("Received tx in DA task!");
-                return None
+                return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
@@ -301,6 +310,65 @@ where
             }
             SequencingHotShotEvent::ViewChange(view) => {
                 self.cur_view = view;
+
+                // If we are not the next leader (DA leader for this view) immediately exit
+                if self.committee_exchange.get_leader(self.cur_view + 1)
+                    != self.committee_exchange.public_key().clone()
+                {
+                    return None;
+                }
+
+                // ED Copy of parent_leaf() function from sequencing leader
+
+                let parent_view_number = &self.high_qc.view_number;
+                // let consensus = self.consensus.read().await;
+                // let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+                //     warn!("Couldn't find high QC parent in state map.");
+                //     return None;
+                // };
+                // let Some(leaf) = parent_view.get_leaf_commitment() else {
+                //     warn!(
+                //         ?parent_view_number,
+                //         ?parent_view,
+                //         "Parent of high QC points to a view without a proposal"
+                //     );
+                //     return None;
+                // };
+                // let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+                //     warn!("Failed to find high QC parent.");
+                //     return None;
+                // };
+                // Some(leaf.clone())
+
+                // Prepare the DA Proposal
+                //         let Some(parent_leaf) = self.parent_leaf().await else {
+                //     warn!("Couldn't find high QC parent in state map.");
+                //     return None;
+                // };
+
+                //         let mut block = <TYPES as NodeType>::StateType::next_block(None);
+                //         let txns = self.wait_for_transactions().await?;
+
+                //         for txn in txns {
+                //             if let Ok(new_block) = block.add_transaction_raw(&txn) {
+                //                 block = new_block;
+                //                 continue;
+                //             }
+                //         }
+                //         let block_commitment = block.commit();
+
+                //         let consensus = self.consensus.read().await;
+                //         let signature = self.committee_exchange.sign_da_proposal(&block.commit());
+                //         let data: DAProposal<TYPES> = DAProposal {
+                //             deltas: block.clone(),
+                //             view_number: self.cur_view,
+                //         };
+                //         let message = SequencingMessage::<TYPES, I>(Right(
+                //             CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
+                //         ));
+                // Brodcast DA proposal
+                // TODO ED Send event
+
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
