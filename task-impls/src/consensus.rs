@@ -186,6 +186,11 @@ where
             QuorumVote::Yes(vote) => {
                 error!("In vote handle");
 
+                // For the case where we receive votes after we've made a certificate
+                if state.accumulator.is_right() {
+                    return (None, state)
+                }
+
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -586,7 +591,8 @@ where
                             acc,
                             None,
                         );
-                        if vote.current_view > collection_view {
+                        
+                        if vote.current_view > collection_view || vote.current_view == ViewNumber::new(0) {
                             error!("HERE");
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
@@ -619,6 +625,9 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
+
+                // ED Need to update the view here?  What does otherwise? 
+                // self.update_view(self.cur_view + 1).await;
                 // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
                     return;
