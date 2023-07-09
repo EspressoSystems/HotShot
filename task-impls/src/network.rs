@@ -86,10 +86,12 @@ impl<
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        error!("Recved quorum proposal");
+                        // error!("Recved quorum proposal");
                         SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
+                        // error!("Recved quorum vote");
+
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
@@ -151,17 +153,14 @@ impl<
             ),
 
             // ED Each network task is subscribed to all these message types.  Need filters per network task
-            SequencingHotShotEvent::QuorumVoteSend(vote) => {
-                error!("HERE {:?}", vote.current_view());
-                (
-                    vote.signature_key(),
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
-                    ),
-                    TransmitType::Direct,
-                    Some(membership.get_leader(vote.current_view() + 1)),
-                )
-            }
+            SequencingHotShotEvent::QuorumVoteSend(vote) => (
+                vote.signature_key(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
+                ),
+                TransmitType::Direct,
+                Some(membership.get_leader(vote.current_view() + 1)),
+            ),
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,

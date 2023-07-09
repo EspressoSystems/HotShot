@@ -184,6 +184,8 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
+                error!("In vote handle");
+
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -271,7 +273,6 @@ where
         Some(leaf.clone())
     }
     async fn vote_if_able(&self) {
-        error!("In vote if able function");
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
             if proposal.justify_qc.is_genesis() {
@@ -367,7 +368,6 @@ where
                 if view < self.cur_view {
                     return;
                 }
-                
 
                 let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
@@ -375,7 +375,6 @@ where
                 }
                 // error!("After {:?}  sender: {:?}", *view, sender);
 
-                
                 self.current_proposal = Some(proposal.data.clone());
 
                 let vote_token = self.quorum_exchange.make_vote_token(view);
@@ -566,6 +565,7 @@ where
                         } else {
                             ViewNumber::new(0)
                         };
+
                         let acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
@@ -587,6 +587,7 @@ where
                             None,
                         );
                         if vote.current_view > collection_view {
+                            error!("HERE");
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -618,10 +619,9 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-
                 // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
-                    return
+                    return;
                 }
 
                 // update our high qc to the qc we just formed

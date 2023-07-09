@@ -282,7 +282,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         })
     }
 
+    /// "Starts" consensus by sending a QCFormed event on the genesis block
+    /// Should only need to be called on the leader node of the first view
     pub async fn start_consensus(&self) {
+        // self.inner
+        // .internal_event_stream
+        // .publish(SequencingHotShotEvent::ViewChange(
+        //     ViewNumber::new(1),
+        // ))
+        // .await;
         self.inner
         .internal_event_stream
         .publish(SequencingHotShotEvent::QCFormed(
@@ -837,23 +845,8 @@ where
     }
 
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
-        // let SystemContextInner {
-        //     public_key,
-        //     private_key,
-        //     config,
-        //     storage,
-        //     exchanges,
-        //     event_sender,
-        //     _metrics,
-        //     transactions,
-        //     consensus,
-        //     channel_maps,
-        //     send_network_lookup,
-        //     recv_network_lookup,
-        //     output_event_stream,
-        //     internal_event_stream,
-        //     id,
-        // } = self.inner.clone();
+
+        // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
 
