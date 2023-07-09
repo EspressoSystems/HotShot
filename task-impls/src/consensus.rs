@@ -452,10 +452,10 @@ where
                     }
                 }
             }
-            error!("Couldn't find DAC cert in certs, meaning we haven't received it yet");
+            error!("Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}", *self.cur_view);
             return false;
         }
-        error!("Could not vote because we don't have a proposal yet");
+        error!("Could not vote because we don't have a proposal yet for view {}", *self.cur_view);
         return false;
     }
 
@@ -968,7 +968,7 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
-                error!("DAC Recved! ");
+                error!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
