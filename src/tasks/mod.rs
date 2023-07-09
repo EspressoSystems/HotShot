@@ -323,7 +323,7 @@ pub fn quorum_filter<
     match event {
         SequencingHotShotEvent::QuorumProposalSend(_, _)
         | SequencingHotShotEvent::QuorumVoteSend(_)
-        | SequencingHotShotEvent::DACRecv(_)
+        | SequencingHotShotEvent::SendDABlockData(_)
         | SequencingHotShotEvent::Shutdown
         | SequencingHotShotEvent::ViewChange(_)=> true,
 

@@ -250,7 +250,8 @@ where
         },
         SequencingHotShotEvent::Shutdown => {
             error!("Shutting down vote handle");
-            return (Some(HotShotTaskCompleted::ShutDown), state)},
+            return (Some(HotShotTaskCompleted::ShutDown), state);
+        }
         _ => {}
     }
     (None, state)
@@ -325,7 +326,6 @@ where
                         info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-
                         let justify_qc = proposal.justify_qc.clone();
                         let parent = if justify_qc.is_genesis() {
                             self.genesis_leaf().await
@@ -461,7 +461,6 @@ where
 
     /// Must only update the view and GC if the view actually changes
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
-
         if *self.cur_view < *new_view {
             error!("Updating view from {} to {}", *self.cur_view, *new_view);
 
@@ -770,7 +769,10 @@ where
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
-                        error!("Recved quorum vote outside of vote handle for view {:?}", vote.current_view);
+                        error!(
+                            "Recved quorum vote outside of vote handle for view {:?}",
+                            vote.current_view
+                        );
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
@@ -818,7 +820,6 @@ where
                             let filter = FilterEvent(Arc::new(|event| {
                                 matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_))
                             }));
-                            // let stream = state.event_stream.subscribe(filter.clone()).await;
 
                             let builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
@@ -836,7 +837,6 @@ where
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
                             error!("Starting vote handle for view {:?}", vote.current_view);
-
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
@@ -918,10 +918,8 @@ where
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
-                // ED Where do we set self.block? --> Need to set it from DA task somehow
                 let block_commitment = self.block.commit();
                 if block_commitment == TYPES::BlockType::new().commit() {
-                    // TODO ED Can potentially use DAProposalRecv event to update this variable
                     error!("Block is generic block! {:?}", self.cur_view);
                 }
                 // error!(
@@ -1082,6 +1080,11 @@ where
                 // TODO ED In the future send a timeout vote
                 error!("We received a timeout event in the consensus task!")
             }
+            SequencingHotShotEvent::SendDABlockData(block) => {
+                // ED TODO Should make sure this is actually the most recent block
+                error!("Updating self . block!");
+                self.block = block;
+            }
             _ => {}
         }
     }
@@ -1176,6 +1179,7 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         | SequencingHotShotEvent::QCFormed(_)
         | SequencingHotShotEvent::DACRecv(_)
         | SequencingHotShotEvent::ViewChange(_)
+        | SequencingHotShotEvent::SendDABlockData(_)
         | SequencingHotShotEvent::Timeout(_) => true,
         _ => false,
     }
