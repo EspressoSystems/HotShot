@@ -184,11 +184,11 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                error!("In vote handle");
+                // error!("In vote handle");
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
-                    return (None, state)
+                    return (None, state);
                 }
 
                 let accumulator = state.accumulator.left().unwrap();
@@ -207,6 +207,11 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
+                        // state
+                        //     .event_stream
+                        //     .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*state.cur_view + 1)))
+                        //     .await;
+                        error!("QCFormed!");
                         state
                             .event_stream
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
@@ -378,6 +383,8 @@ where
                 if view_leader_key != sender {
                     return;
                 }
+
+                // self.update_view(view).await;
                 // error!("After {:?}  sender: {:?}", *view, sender);
 
                 self.current_proposal = Some(proposal.data.clone());
@@ -591,9 +598,11 @@ where
                             acc,
                             None,
                         );
-                        
-                        if vote.current_view > collection_view || vote.current_view == ViewNumber::new(0) {
-                            error!("HERE");
+
+                        if vote.current_view > collection_view
+                            || vote.current_view == ViewNumber::new(0)
+                        {
+                            // error!("HERE");
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -625,9 +634,8 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-
-                // ED Need to update the view here?  What does otherwise? 
-                // self.update_view(self.cur_view + 1).await;
+                
+                // ED Need to update the view here?  What does otherwise?
                 // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
                     return;
