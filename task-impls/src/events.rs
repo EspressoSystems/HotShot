@@ -24,7 +24,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     DAProposalSend(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     DAVoteSend(DAVote<TYPES>),
     QCFormed(QuorumCertificate<TYPES, I::Leaf>),
-    DACSend(DACertificate<TYPES>),
+    DACSend(DACertificate<TYPES>, TYPES::SignatureKey),
     ViewChange(ViewNumber),
     ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
     ViewSyncVoteSend(ViewSyncVote<TYPES>),

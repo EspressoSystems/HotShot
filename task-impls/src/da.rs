@@ -152,6 +152,11 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
+            // For the case where we receive votes after we've made a certificate
+            if state.accumulator.is_right() {
+                return (None, state);
+            }
+
             let accumulator = state.accumulator.left().unwrap();
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
@@ -168,11 +173,15 @@ where
                     return (None, state);
                 }
                 Right(dac) => {
+                    error!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
-                        .publish(SequencingHotShotEvent::DACSend(dac.clone()))
+                        .publish(SequencingHotShotEvent::DACSend(dac.clone(), state.committee_exchange.public_key().clone()))
                         .await;
+
                     state.accumulator = Right(dac);
+                    
+
                     return (None, state);
                 }
             }
@@ -209,7 +218,10 @@ where
             SequencingHotShotEvent::TransactionRecv(transaction) => {
                 // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
-                self.consensus.read().await.get_transactions()
+                self.consensus
+                    .read()
+                    .await
+                    .get_transactions()
                     .modify(|txns| {
                         let _new = txns.insert(transaction.commit(), transaction).is_none();
                     })
@@ -225,10 +237,8 @@ where
                 let block_commitment = proposal.data.deltas.commit();
                 let view_leader_key = self.committee_exchange.get_leader(view + 1);
                 if view_leader_key != sender {
-
                     return None;
                 }
-             
 
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
                     error!(?proposal.signature, "Could not verify proposal.");
@@ -253,11 +263,11 @@ where
                             vote_token,
                         );
 
-                        // ED Don't think this is necessary? 
+                        // ED Don't think this is necessary?
                         // self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            error!("Sending vote to the DA leader {:?}", vote);
+                            // error!("Sending vote to the DA leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
@@ -268,7 +278,8 @@ where
             SequencingHotShotEvent::DAVoteRecv(vote) => {
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
+                if &self.committee_exchange.get_leader(view + 1)
+                    != self.committee_exchange.public_key()
                 {
                     return None;
                 }

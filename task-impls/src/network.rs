@@ -101,7 +101,7 @@ impl<
                         SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                     }
                     _ => {
-                        warn!("Got unexpected message type in network task!");
+                        error!("Got unexpected message type in network task!");
                         return;
                     }
                 },
@@ -180,6 +180,17 @@ impl<
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view + 1)),
             ),
+            // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
+            SequencingHotShotEvent::DACSend(certificate, sender) => (
+                sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
+                        certificate.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
+                None,
+            ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -216,8 +227,8 @@ impl<
                 self.channel.shut_down().await;
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            _ => {
-                panic!("Receieved unexpected message in network task");
+            event=> {
+                // panic!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };

@@ -345,6 +345,7 @@ pub fn da_filter<
     match event {
         | SequencingHotShotEvent::DAProposalSend(_, _)
         | SequencingHotShotEvent::DAVoteSend(_)
+        | SequencingHotShotEvent::DACSend(_, _)
         | SequencingHotShotEvent::Shutdown
         | SequencingHotShotEvent::ViewChange(_)
         | SequencingHotShotEvent::TransactionSend(_) => true,
