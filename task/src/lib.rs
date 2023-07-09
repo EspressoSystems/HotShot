@@ -15,7 +15,6 @@ use either::Either;
 use event_stream::{EventStream, SendableStream};
 // The spawner of the task should be able to fire and forget the task if it makes sense.
 use futures::{future::BoxFuture, stream::Fuse, Future, Stream, StreamExt};
-use nll::nll_todo::nll_todo;
 use std::{
     marker::PhantomData,
     pin::Pin,

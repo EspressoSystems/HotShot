@@ -81,7 +81,6 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
-use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -303,26 +302,23 @@ where
     let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
     let registry = task_runner.registry.clone();
-    let consensus_state = SequencingConsensusTaskState::<
-        TYPES,
-        I,
-        HotShotSequencingConsensusApi<TYPES, I>,
-    > {
-        registry: registry.clone(),
-        consensus,
-        cur_view: TYPES::Time::new(0),
-        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
-        block: TYPES::BlockType::new(),
-        quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
-        api: c_api.clone(),
-        committee_exchange: committee_exchange.clone().into(),
-        _pd: PhantomData,
-        vote_collector: Some((TYPES::Time::new(0), nll_todo())), /* async_spawn(async move {})), */
-        timeout_task: async_spawn(async move {}),
-        event_stream: event_stream.clone(),
-        certs: HashMap::new(),
-        current_proposal: None,
-    };
+    let consensus_state =
+        SequencingConsensusTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>> {
+            registry: registry.clone(),
+            consensus,
+            cur_view: TYPES::Time::new(0),
+            high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
+            block: TYPES::BlockType::new(),
+            quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
+            api: c_api.clone(),
+            committee_exchange: committee_exchange.clone().into(),
+            _pd: PhantomData,
+            vote_collector: None,
+            timeout_task: async_spawn(async move {}),
+            event_stream: event_stream.clone(),
+            certs: HashMap::new(),
+            current_proposal: None,
+        };
     let consensus_event_handler = HandleEvent(Arc::new(
         move |event,
               mut state: SequencingConsensusTaskState<

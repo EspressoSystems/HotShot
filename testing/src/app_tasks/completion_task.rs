@@ -21,7 +21,6 @@ use hotshot_types::{
         consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::NodeType,
     },
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 
 use crate::test_runner::Node;

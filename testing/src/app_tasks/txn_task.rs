@@ -16,7 +16,6 @@ use hotshot_task::{
     GeneratedStream, Merge,
 };
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
-use nll::nll_todo::nll_todo;
 use rand::thread_rng;
 use snafu::Snafu;
 

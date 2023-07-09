@@ -24,8 +24,6 @@ use snafu::Snafu;
 use std::marker::PhantomData;
 use tracing::warn;
 
-use nll::nll_todo::nll_todo;
-
 pub struct NetworkTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -159,7 +157,6 @@ impl<
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
-                self.channel.shut_down().await;
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {
