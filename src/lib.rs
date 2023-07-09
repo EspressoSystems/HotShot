@@ -282,19 +282,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         })
     }
 
-    /// "Starts" consensus by sending a QCFormed event on the genesis block
-    /// Should only need to be called on the leader node of the first view
+    /// "Starts" consensus by sending a ViewChange event
     pub async fn start_consensus(&self) {
-        self.inner
-            .internal_event_stream
-            .publish(SequencingHotShotEvent::QCFormed(
-                QuorumCertificate::genesis(),
-            ))
-            .await;
         self.inner
             .internal_event_stream
             .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)))
             .await;
+
+        // ED This isn't ideal...
+        // async_sleep(Duration::new(1, 0)).await;
+
+        // self.inner
+        //     .internal_event_stream
+        //     .publish(SequencingHotShotEvent::QCFormed(
+        //         QuorumCertificate::genesis(),
+        //     ))
+        //     .await;
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
