@@ -341,6 +341,9 @@ where
             }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
+                if *self.cur_view >= *view {
+                    return None
+                }
                 self.cur_view = view;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
@@ -380,6 +383,8 @@ where
                 //     return None;
                 // };
 
+                drop(consensus);
+
                 let mut block = <TYPES as NodeType>::StateType::next_block(None);
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
@@ -402,6 +407,7 @@ where
                 ));
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
+
                 error!("Sending DA proposal for view {}", *self.cur_view);
                 if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
                     consensus.metrics.failed_to_send_messages.add(1);

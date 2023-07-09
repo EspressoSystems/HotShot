@@ -241,13 +241,16 @@ where
                 }
             }
             QuorumVote::Timeout(_vote) => {
+                panic!("The next leader has received an unexpected vote!");
                 return (None, state);
             }
             QuorumVote::No(_) => {
-                warn!("The next leader has received an unexpected vote!");
+                panic!("The next leader has received an unexpected vote!");
             }
         },
-        SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
+        SequencingHotShotEvent::Shutdown => {
+            error!("Shutting down vote handle");
+            return (Some(HotShotTaskCompleted::ShutDown), state)},
         _ => {}
     }
     (None, state)
@@ -285,23 +288,25 @@ where
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
-            warn!("Couldn't find genesis view in state map.");
+            error!("Couldn't find genesis view in state map.");
             return None;
         };
         let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            warn!(
+            error!(
                 ?genesis_view,
                 "Genesis view points to a view without a leaf"
             );
             return None;
         };
         let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-            warn!("Failed to find genesis leaf.");
+            error!("Failed to find genesis leaf.");
             return None;
         };
         Some(leaf.clone())
     }
     async fn vote_if_able(&self) -> bool {
+        error!("In vote if able");
+
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
             // // error!("in vote if able for proposal view {:?}", proposal.view_number);
@@ -320,7 +325,6 @@ where
                         info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        // error!("HERE!");
 
                         let justify_qc = proposal.justify_qc.clone();
                         let parent = if justify_qc.is_genesis() {
@@ -355,7 +359,6 @@ where
                         let message: GeneralConsensusMessage<TYPES, I>;
                         message = self.quorum_exchange.create_yes_message(
                             proposal.justify_qc.commit(),
-                            // ED Here is the problem
                             leaf.commit(),
                             view,
                             vote_token,
@@ -450,14 +453,20 @@ where
                 }
             }
             error!("Couldn't find DAC cert in certs, meaning we haven't received it yet");
+            return false;
         }
+        error!("Could not vote because we don't have a proposal yet");
         return false;
     }
 
     /// Must only update the view and GC if the view actually changes
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
+
         if *self.cur_view < *new_view {
+            error!("Updating view from {} to {}", *self.cur_view, *new_view);
+
             // Remove old certs, we won't vote on past views
+            // TODO ED Put back in once we fix other errors
             // for view in *self.cur_view..*new_view - 1 {
             //     let v = ViewNumber::new(view);
             //     self.certs.remove(&v);
@@ -471,6 +480,8 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                error!("Receved Quorum Propsoal");
+
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
                     return;
@@ -759,7 +770,7 @@ where
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
-                        error!("Recved quorum vote outside of vote handle");
+                        error!("Recved quorum vote outside of vote handle for view {:?}", vote.current_view);
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
@@ -797,7 +808,6 @@ where
                         );
 
                         if vote.current_view > collection_view {
-                            error!("Starting vote handle for view {:?}", vote.current_view);
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -808,6 +818,8 @@ where
                             let filter = FilterEvent(Arc::new(|event| {
                                 matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_))
                             }));
+                            // let stream = state.event_stream.subscribe(filter.clone()).await;
+
                             let builder =
                                 TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
                                     .register_event_stream(self.event_stream.clone(), filter)
@@ -820,18 +832,21 @@ where
 
                             self.vote_collector = Some((vote.current_view, id));
 
-                            // ED Is this main event handler receiving more votes before the vote handler can finish launching? 
                             let _task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
+                            error!("Starting vote handle for view {:?}", vote.current_view);
+
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
-                        error!("The next leader has received an unexpected vote!");
+                        panic!("The next leader has received an unexpected vote!");
                     }
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
+                error!("QC Formed event happened!");
+
                 self.high_qc = qc.clone();
                 // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
                 // self.event_stream
@@ -955,6 +970,8 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
+                error!("DAC Recved! ");
+
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
                 if view == self.cur_view {
@@ -963,6 +980,8 @@ where
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
+                error!("View Change event for view {}", *new_view);
+
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 if !self.update_view(new_view).await {
@@ -1061,6 +1080,7 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
+                error!("We received a timeout event in the consensus task!")
             }
             _ => {}
         }
