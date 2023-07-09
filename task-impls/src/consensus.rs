@@ -195,17 +195,17 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                error!("In vote handle with vote view: {}", *vote.current_view);
+                // error!("In vote handle with vote view: {}", *vote.current_view);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
                     return (None, state);
                 }
 
-                error!(
-                    "Vote leaf commitment is: {:?}",
-                    vote.leaf_commitment.clone()
-                );
+                // error!(
+                //     "Vote leaf commitment is: {:?}",
+                //     vote.leaf_commitment.clone()
+                // );
 
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
@@ -301,13 +301,14 @@ where
     async fn vote_if_able(&self) -> bool {
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
-            // error!("in vote if able for proposal view {:?}", proposal.view_number);
+            // // error!("in vote if able for proposal view {:?}", proposal.view_number);
 
             if proposal.justify_qc.is_genesis() && proposal.view_number == ViewNumber::new(1) {
-                error!("Proposal is genesis!");
+                // error!("Proposal is genesis!");
 
                 let view = TYPES::Time::new(*proposal.view_number);
                 let vote_token = self.quorum_exchange.make_vote_token(view);
+
                 match vote_token {
                     Err(e) => {
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
@@ -316,6 +317,38 @@ where
                         info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
+                        // error!("HERE!");
+
+                        let justify_qc = proposal.justify_qc.clone();
+                        let parent = if justify_qc.is_genesis() {
+                            self.genesis_leaf().await
+                        } else {
+                            self.consensus
+                                .read()
+                                .await
+                                .saved_leaves
+                                .get(&justify_qc.leaf_commitment())
+                                .cloned()
+                        };
+
+                        // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
+                        let Some(parent) = parent else {
+                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            return false;
+                        };
+                        let parent_commitment = parent.commit();
+
+                        let leaf: SequencingLeaf<_> = SequencingLeaf {
+                            view_number: view,
+                            height: proposal.height,
+                            justify_qc: proposal.justify_qc.clone(),
+                            parent_commitment,
+                            deltas: Right(proposal.block_commitment),
+                            rejected: Vec::new(),
+                            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                            proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
+                        };
+
                         let message: GeneralConsensusMessage<TYPES, I>;
                         message = self.quorum_exchange.create_yes_message(
                             proposal.justify_qc.commit(),
@@ -326,7 +359,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            // error!("Sending vote to next leader {:?}", vote);
+                            error!("Sending vote to next leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -349,6 +382,35 @@ where
                         info!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
+                        let justify_qc = proposal.justify_qc.clone();
+                        let parent = if justify_qc.is_genesis() {
+                            self.genesis_leaf().await
+                        } else {
+                            self.consensus
+                                .read()
+                                .await
+                                .saved_leaves
+                                .get(&justify_qc.leaf_commitment())
+                                .cloned()
+                        };
+
+                        // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
+                        let Some(parent) = parent else {
+                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            return false;
+                        };
+                        let parent_commitment = parent.commit();
+
+                        let leaf: SequencingLeaf<_> = SequencingLeaf {
+                            view_number: view,
+                            height: proposal.height,
+                            justify_qc: proposal.justify_qc.clone(),
+                            parent_commitment,
+                            deltas: Right(proposal.block_commitment),
+                            rejected: Vec::new(),
+                            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                            proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
+                        };
                         let message: GeneralConsensusMessage<TYPES, I>;
 
                         // Validate the DAC.
@@ -356,7 +418,7 @@ where
                             .committee_exchange
                             .is_valid_cert(&cert, proposal.block_commitment)
                         {
-                            warn!("Invalid DAC in proposal! Skipping proposal.");
+                            error!("Invalid DAC in proposal! Skipping proposal.");
 
                             message = self.quorum_exchange.create_no_message(
                                 proposal.justify_qc.commit(),
@@ -367,7 +429,7 @@ where
                         } else {
                             message = self.quorum_exchange.create_yes_message(
                                 proposal.justify_qc.commit(),
-                                proposal.justify_qc.leaf_commitment,
+                                leaf.commit(),
                                 cert.view_number,
                                 vote_token,
                             );
@@ -383,6 +445,7 @@ where
                     }
                 }
             }
+            error!("Couldn't find DAC cert in certs, meaning we haven't received it yet");
         }
         return false;
     }
@@ -417,9 +480,6 @@ where
                 // self.update_view(view).await;
                 // error!("After {:?}  sender: {:?}", *view, sender);
 
-                //  ED Temporary - Remove later TODO
-                // Need a better way to start hotshot at view 1
-                // self.update_view(view).await;
                 error!("Current view: {:?}", self.cur_view);
 
                 self.current_proposal = Some(proposal.data.clone());
@@ -467,7 +527,7 @@ where
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: sender.to_bytes(),
                         };
-                        error!("Leaf replica is voting on! {:?}", leaf.commit());
+                        // error!("Leaf replica is voting on! {:?}", leaf.commit());
                         let justify_qc_commitment = justify_qc.commit();
                         let leaf_commitment = leaf.commit();
 
@@ -640,21 +700,23 @@ where
                                 },
                             },
                         );
-                        error!("Inserting leaf into storage {:?}", leaf.commit());
+                        // error!("Inserting leaf into storage {:?}", leaf.commit());
                         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
 
+                        drop(consensus);
                         if !self.vote_if_able().await {
+
                             return;
                         }
+                       
+
                         // ED Only do this GC if we are able to vote
                         for view in *self.cur_view..*view - 1 {
                             let v = TYPES::Time::new(view);
                             self.certs.remove(&v);
                         }
-                        error!("Voting for view {}", *self.cur_view);
+                        // error!("Voting for view {}", *self.cur_view);
                         self.current_proposal = None;
-
-                        drop(consensus);
 
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(self.cur_view + 1).await;
@@ -769,7 +831,7 @@ where
             }
             SequencingHotShotEvent::QCFormed(qc) => {
                 self.high_qc = qc.clone();
-                error!("QC leaf commitment is {:?}", qc.leaf_commitment());
+                // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
                 // self.event_stream
                 //     .publish(SequencingHotShotEvent::ViewChange(qc.view_number() + 1))
                 //     .await;
@@ -788,7 +850,7 @@ where
                 // update our high qc to the qc we just formed
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
-                error!("Parent view number is {:?}", parent_view_number);
+                // error!("Parent view number is {:?}", parent_view_number);
                 let consensus = self.consensus.read().await;
                 let mut reached_decided = false;
 
@@ -807,11 +869,11 @@ where
                     return;
                 };
                 if leaf_commitment != self.high_qc.leaf_commitment() {
-                    error!(
-                        "They don't equal: {:?}   {:?}",
-                        leaf_commitment,
-                        self.high_qc.leaf_commitment()
-                    );
+                    // error!(
+                    //     "They don't equal: {:?}   {:?}",
+                    //     leaf_commitment,
+                    //     self.high_qc.leaf_commitment()
+                    // );
                 }
                 let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
                     error!("Failed to find high QC of parent.");
@@ -840,10 +902,10 @@ where
                 }
 
                 let block_commitment = self.block.commit();
-                error!(
-                    "leaf commitment of new qc: {:?}",
-                    self.high_qc.leaf_commitment()
-                );
+                // error!(
+                //     "leaf commitment of new qc: {:?}",
+                //     self.high_qc.leaf_commitment()
+                // );
                 let leaf = SequencingLeaf {
                     view_number: self.cur_view,
                     height: parent_leaf.height + 1,
@@ -856,7 +918,7 @@ where
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.api.public_key().to_bytes(),
                 };
-                error!("Leaf sent in proposal! {:?}", parent_leaf.commit());
+                // error!("Leaf sent in proposal! {:?}", parent_leaf.commit());
 
                 let signature = self
                     .quorum_exchange
