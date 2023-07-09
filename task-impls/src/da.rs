@@ -206,15 +206,6 @@ where
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            // TODO ED Add transaction handling logic, looks like there isn't anywhere where DA proposals are created (e.g. create_da_proposal())
-            /* What should that logic look like?
-
-            Want the DA proposer to propose once they have enough transactions or a certain amount of time has passed
-            How to translate that into events? --> Will assume view number is associated
-
-            See QuorumProposalRecv(view n) --> start building new DA Proposal (view n + 1) (with transactions you already have or wait for more)
-
-            */
             SequencingHotShotEvent::TransactionRecv(transaction) => {
                 // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
@@ -226,17 +217,21 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
+                // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
                     return None;
                 }
                 let block_commitment = proposal.data.deltas.commit();
-                let view_leader_key = self.committee_exchange.get_leader(view);
+                let view_leader_key = self.committee_exchange.get_leader(view + 1);
                 if view_leader_key != sender {
+
                     return None;
                 }
+             
+
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
-                    warn!(?proposal.signature, "Could not verify proposal.");
+                    error!(?proposal.signature, "Could not verify proposal.");
                     return None;
                 }
 
@@ -258,10 +253,11 @@ where
                             vote_token,
                         );
 
-                        self.cur_view = view;
+                        // ED Don't think this is necessary? 
+                        // self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            info!("Sending vote to the DA leader {:?}", vote);
+                            error!("Sending vote to the DA leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;

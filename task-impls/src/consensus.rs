@@ -948,6 +948,7 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
+                panic!("Received DAC!");
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
                 if view == self.cur_view {
