@@ -271,6 +271,7 @@ where
         Some(leaf.clone())
     }
     async fn vote_if_able(&self) {
+        error!("In vote if able function");
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
             if proposal.justify_qc.is_genesis() {
@@ -293,7 +294,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            error!("Sending vote to next leader {:?}", vote);
+                            // error!("Sending vote to next leader {:?}", vote);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -366,11 +367,15 @@ where
                 if view < self.cur_view {
                     return;
                 }
+                
+
                 let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
                     return;
                 }
+                // error!("After {:?}  sender: {:?}", *view, sender);
 
+                
                 self.current_proposal = Some(proposal.data.clone());
 
                 let vote_token = self.quorum_exchange.make_vote_token(view);
@@ -613,6 +618,12 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
+
+                // So we don't create a QC on the first view unless we are the leader
+                if !self.quorum_exchange.is_leader(self.cur_view) {
+                    return
+                }
+
                 // update our high qc to the qc we just formed
                 self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
@@ -703,6 +714,7 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // update the view in state to the one in the message
                 self.update_view(new_view);
+                // TODO ED Launch leader and next leader tasks in the case where a QC was not formed
             }
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout

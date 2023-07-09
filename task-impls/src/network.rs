@@ -79,12 +79,14 @@ impl<
     > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
     /// Handle the given message.
+    // ED NOTE: Perhaps we should have a different handle event function for each exchange?  Otherwise we are duplicating events like QuorumProposalRecv
     pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
         let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
+                        error!("Recved quorum proposal");
                         SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
@@ -216,6 +218,7 @@ impl<
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             _ => {
+                panic!("Receieved unexpected message in network task");
                 return None;
             }
         };

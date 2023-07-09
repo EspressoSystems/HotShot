@@ -10,6 +10,7 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey},
     },
 };
+use tracing::error;
 use jf_primitives::signatures::BLSSignatureScheme;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};

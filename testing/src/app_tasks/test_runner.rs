@@ -8,7 +8,10 @@ use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task::FilterEvent,
     task_launcher::TaskRunner,
 };
+use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -123,7 +126,7 @@ where
         task_runner = task_runner.add_task(id, "blah".to_string(), task);
 
         // self.launcher.txn_task_generator(self.nodes.clone())
-        for mut node in nodes {
+        for mut node in nodes.clone() {
             let safety_task_state = SafetyTask {
                 ctx: NodeCtx::default(),
             };
@@ -141,8 +144,13 @@ where
             task_runner = task_runner.add_task(id, id.to_string(), task);
         }
 
-        // TODO ED Here
+        // Start hotshot
+        for node in nodes {
+            node.handle.hotshot.start_consensus().await;
+        }
+
         task_runner.launch().await;
+
         // TODO turn errors into something sensible
         Ok(())
     }

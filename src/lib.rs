@@ -282,6 +282,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         })
     }
 
+    pub async fn start_consensus(&self) {
+        self.inner
+        .internal_event_stream
+        .publish(SequencingHotShotEvent::QCFormed(
+            QuorumCertificate::genesis(),
+        ))
+        .await;
+    }
+
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
@@ -904,13 +913,13 @@ where
             task_runner.launch().await;
         });
 
-        // Start HotShot by changing the view to 1 and sending other needed events
-        // internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await;
-        internal_event_stream
-            .publish(SequencingHotShotEvent::QCFormed(
-                QuorumCertificate::genesis(),
-            ))
-            .await;
+        // // Start HotShot by changing the view to 1 and sending other needed events
+        // // internal_event_stream.publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1))).await;
+        // internal_event_stream
+        //     .publish(SequencingHotShotEvent::QCFormed(
+        //         QuorumCertificate::genesis(),
+        //     ))
+        //     .await;
 
         handle
 
