@@ -195,10 +195,11 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                // error!("In vote handle with vote view: {}", *vote.current_view);
+                error!("In vote handle with vote view: {}", *vote.current_view);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
+                    error!("Already made qc");
                     return (None, state);
                 }
 
@@ -219,6 +220,8 @@ where
                     None,
                 ) {
                     Either::Left(acc) => {
+                        let total_votes = acc.total_vote_outcomes.len();
+                        error!("Not enough votes total votes: {}", total_votes);
                         state.accumulator = Either::Left(acc);
                         return (None, state);
                     }
@@ -359,7 +362,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            error!("Sending vote to next leader {:?}", vote);
+                            error!("Sending vote to next leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -370,7 +373,8 @@ where
             }
 
             // Only vote if you have the DA cert
-            if let Some(cert) = self.certs.get(&proposal.get_view_number()) {
+            // ED Need to update the view number this is stored under?
+            if let Some(cert) = self.certs.get(&(*&proposal.get_view_number() - 1)) {
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -418,14 +422,14 @@ where
                             .committee_exchange
                             .is_valid_cert(&cert, proposal.block_commitment)
                         {
-                            error!("Invalid DAC in proposal! Skipping proposal.");
-
-                            message = self.quorum_exchange.create_no_message(
-                                proposal.justify_qc.commit(),
-                                proposal.justify_qc.leaf_commitment,
-                                cert.view_number,
-                                vote_token,
-                            );
+                            error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert.view_number, self.cur_view );
+                            return false;
+                            // message = self.quorum_exchange.create_no_message(
+                            //     proposal.justify_qc.commit(),
+                            //     proposal.justify_qc.leaf_commitment,
+                            //     cert.view_number,
+                            //     vote_token,
+                            // );
                         } else {
                             message = self.quorum_exchange.create_yes_message(
                                 proposal.justify_qc.commit(),
@@ -454,10 +458,10 @@ where
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
             // Remove old certs, we won't vote on past views
-            for view in *self.cur_view..*new_view - 1 {
-                let v = ViewNumber::new(view);
-                self.certs.remove(&v);
-            }
+            // for view in *self.cur_view..*new_view - 1 {
+            //     let v = ViewNumber::new(view);
+            //     self.certs.remove(&v);
+            // }
             self.cur_view = new_view;
             self.current_proposal = None;
             return true;
@@ -480,7 +484,7 @@ where
                 // self.update_view(view).await;
                 // error!("After {:?}  sender: {:?}", *view, sender);
 
-                error!("Current view: {:?}", self.cur_view);
+                // error!("Current view: {:?}", self.cur_view);
 
                 self.current_proposal = Some(proposal.data.clone());
 
@@ -705,10 +709,8 @@ where
 
                         drop(consensus);
                         if !self.vote_if_able().await {
-
                             return;
                         }
-                       
 
                         // ED Only do this GC if we are able to vote
                         for view in *self.cur_view..*view - 1 {
@@ -716,10 +718,11 @@ where
                             self.certs.remove(&v);
                         }
                         // error!("Voting for view {}", *self.cur_view);
-                        self.current_proposal = None;
+                        // self.current_proposal = None;
+                        let new_view = self.current_proposal.clone().unwrap().view_number + 1;
 
                         // Update current view and publish a view change event so other tasks also update
-                        self.update_view(self.cur_view + 1).await;
+                        self.update_view(new_view).await;
                         self.event_stream
                             .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
                             .await;
@@ -756,6 +759,7 @@ where
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 match vote {
                     QuorumVote::Yes(vote) => {
+                        error!("Recved quorum vote outside of vote handle");
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
@@ -792,13 +796,8 @@ where
                             None,
                         );
 
-                        // ED Why are we getting votes for view zero?  This shouldn't happen
-                        if vote.current_view == ViewNumber::new(0) {
-                            panic!("HERE");
-                        }
-
                         if vote.current_view > collection_view {
-                            // error!("HERE");
+                            error!("Starting vote handle for view {:?}", vote.current_view);
                             let state = VoteCollectionTaskState {
                                 quorum_exchange: self.quorum_exchange.clone(),
                                 accumulator,
@@ -818,14 +817,17 @@ where
                                     .register_state(state)
                                     .register_event_handler(handle_event);
                             let id = builder.get_task_id().unwrap();
-                            let _task = async_spawn(async move {
-                                VoteCollectionTypes::build(builder).launch().await
-                            });
+
                             self.vote_collector = Some((vote.current_view, id));
+
+                            // ED Is this main event handler receiving more votes before the vote handler can finish launching? 
+                            let _task = async_spawn(async move {
+                                VoteCollectionTypes::build(builder).launch().await;
+                            });
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
-                        warn!("The next leader has received an unexpected vote!");
+                        error!("The next leader has received an unexpected vote!");
                     }
                 }
             }
@@ -901,7 +903,12 @@ where
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
+                // ED Where do we set self.block? --> Need to set it from DA task somehow
                 let block_commitment = self.block.commit();
+                if block_commitment == TYPES::BlockType::new().commit() {
+                    // TODO ED Can potentially use DAProposalRecv event to update this variable
+                    error!("Block is generic block! {:?}", self.cur_view);
+                }
                 // error!(
                 //     "leaf commitment of new qc: {:?}",
                 //     self.high_qc.leaf_commitment()

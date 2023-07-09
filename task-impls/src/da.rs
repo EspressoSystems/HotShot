@@ -267,7 +267,7 @@ where
                         // self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            // error!("Sending vote to the DA leader {:?}", vote);
+                            error!("Sending vote to the DA leader {:?}", vote.current_view);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
@@ -402,6 +402,7 @@ where
                 ));
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
+                error!("Sending DA proposal for view {}", *self.cur_view);
                 if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
                     consensus.metrics.failed_to_send_messages.add(1);
                     warn!(?message, ?e, "Could not broadcast leader proposal");
