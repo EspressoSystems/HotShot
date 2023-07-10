@@ -110,6 +110,7 @@ tokio-stream = "0.1.14"
 tracing = "0.1.37"
 void = "1.0.2"
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies

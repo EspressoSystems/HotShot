@@ -14,6 +14,7 @@ use crate::{
 };
 use commit::{Commitment, Committable};
 use either::Either;
+use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
@@ -22,7 +23,9 @@ use std::num::NonZeroU64;
 // Sishan Note: For QC signature aggregation
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
-use hotshot_primitives::{quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry}};
+use bitvec::prelude::*;
+use std::convert::TryInto;
+use hotshot_primitives::{quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams}};
 use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey}};
 use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
 
@@ -218,6 +221,13 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     pub failure_threshold: NonZeroU64,
+    // Sishan NOTE: For QC aggregation
+    // a list of entries in vec![]: including the public stake_key and stake_amount of the node
+    pub stake_entries: Vec<StakeTableEntry<QCVerKey>>,
+    // a list of signatures
+    pub sig_lists: Vec<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature>,
+    // bitvec to indicate which node is active
+    pub active_keys: BitVec,
 }
 
 impl<TOKEN, LEAF: Committable + Serialize + Clone>
@@ -239,16 +249,6 @@ where
         ),
     ) -> Either<Self, YesNoSignature<LEAF, TOKEN>> {
         let (commitment, (key, (sig, entry, vote_data, token))) = val;
-
-        // Sishan: Desereialize the sig? so that it can be assembeld into a QC
-        let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
-            = bincode_opts().deserialize(&sig.0).unwrap();
-        // Sishan NOTE: For QC Signature, checked after se&deserialization the signature is the same as before
-        // let ori_bytes = bincode_opts()
-        //     .serialize(&origianl_sig)
-        //     .expect("This serialization shouldn't be able to fail");
-        // let print_bytes = String::from_utf8_lossy(&ori_bytes);
-        // println!("In vote.rs, bytes_string = {:?}", print_bytes);
 
 
         let (total_stake_casted, total_vote_map) = self
@@ -274,11 +274,11 @@ where
         match vote_data {
             VoteData::DA(_) | VoteData::Yes(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data, token));
+                yes_vote_map.insert(key, (sig.clone(), vote_data, token));
             }
             VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data, token));
+                no_vote_map.insert(key, (sig.clone(), vote_data, token));
             }
             VoteData::Timeout(_) => {
                 unimplemented!()
@@ -288,18 +288,26 @@ where
 
         if *total_stake_casted >= u64::from(self.success_threshold) {
             if *yes_stake_casted >= u64::from(self.success_threshold) {
-                // Sishan NOTE: Do assemble, and return the different things...
-                /*
+
+                // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
+                let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
+                = bincode_opts().deserialize(&sig.clone().0).unwrap();
+
+                self.stake_entries.push(entry.clone());
+                self.active_keys.push(true);
+                self.sig_lists.push(origianl_sig.clone());
+                // Sishan NOTE: Do assemble here
                 let qc_pp = QCParams {
-                stake_entries: vec![entry1, entry2, entry3], // entry comes from itself
-                threshold: U256::from(10u8), // 2f + 1
-                agg_sig_pp, // &()
+                    stake_entries: self.stake_entries,
+                    threshold: U256::from(self.success_threshold.get()),
+                    agg_sig_pp: (),
                 };
-                let qc = BitvectorQuorumCertificate::<$aggsig>::assemble(
-                &qc_pp,
-                active_keys.as_bitslice(), // let active_keys = bitvec![0, 1, 1];
-                &[sig2.clone(), sig3.clone()],
-                ) */
+                let qc = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::assemble(
+                    &qc_pp,
+                    self.active_keys.as_bitslice(),
+                    &self.sig_lists[..],
+                );
+
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::Yes(valid_signatures));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {

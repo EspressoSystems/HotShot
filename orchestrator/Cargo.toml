@@ -64,6 +64,7 @@ libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
 
 
 tokio = { version = "1", optional = true, features = [

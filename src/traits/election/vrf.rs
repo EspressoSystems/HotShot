@@ -242,7 +242,6 @@ where
             // private_key: &&Self::PrivateKey, 
             key_pair_test: QCKeyPair, 
             data: &[u8]) -> EncodedSignature {
-        println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
         // Sishan NOTE: for QC Aggregation
         let mut generic_msg_test = GenericArray::from_slice(data);

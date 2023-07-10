@@ -42,6 +42,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use bitvec::prelude::*;
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
@@ -111,6 +112,9 @@ where
             // TODO ED Revisit this once Yes/No votes are in place for DA
             success_threshold: threshold,
             failure_threshold: threshold,
+            stake_entries: Vec::new(),
+            sig_lists: Vec::new(),
+            active_keys: bitvec![],
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -478,6 +482,9 @@ where
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
+            stake_entries: Vec::new(),
+            sig_lists: Vec::new(),
+            active_keys: bitvec![],
         };
 
         let lock = self.vote_collection_chan.lock().await;

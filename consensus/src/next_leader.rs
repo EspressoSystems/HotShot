@@ -27,6 +27,7 @@ use std::{
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
+use bitvec::prelude::*;
 
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
@@ -101,6 +102,9 @@ where
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),
             failure_threshold: self.exchange.failure_threshold(),
+            stake_entries: Vec::new(),
+            sig_lists: Vec::new(),
+            active_keys: bitvec![],
         };
 
         let lock = self.vote_collection_chan.lock().await;
