@@ -151,3 +151,97 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
         inner.subscribers.remove(&uid);
     }
 }
+
+pub mod test {
+    use crate::*;
+    use async_compatibility_layer::art::{async_sleep, async_spawn};
+    use std::time::Duration;
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub enum TestMessage {
+        One,
+        Two,
+        Three,
+    }
+
+    impl PassType for TestMessage {}
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 20)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_channel_stream_basic() {
+        use crate::task::FilterEvent;
+
+        use super::ChannelStream;
+
+        let channel_stream = ChannelStream::<TestMessage>::new();
+        let (mut stream, _) = channel_stream.subscribe(FilterEvent::default()).await;
+        let dup_channel_stream = channel_stream.clone();
+
+        let dup_dup_channel_stream = channel_stream.clone();
+
+        async_spawn(async move {
+            let (mut stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
+            assert!(stream.next().await.unwrap() == TestMessage::Three);
+            assert!(stream.next().await.unwrap() == TestMessage::One);
+            assert!(stream.next().await.unwrap() == TestMessage::Two);
+        });
+
+        async_spawn(async move {
+            dup_dup_channel_stream.publish(TestMessage::Three).await;
+            dup_dup_channel_stream.publish(TestMessage::One).await;
+            dup_dup_channel_stream.publish(TestMessage::Two).await;
+        });
+        async_sleep(Duration::new(3, 0)).await;
+
+        assert!(stream.next().await.unwrap() == TestMessage::Three);
+        assert!(stream.next().await.unwrap() == TestMessage::One);
+        assert!(stream.next().await.unwrap() == TestMessage::Two);
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 1)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_channel_stream_xtreme() {
+        use crate::task::FilterEvent;
+
+        use super::ChannelStream;
+
+        let channel_stream = ChannelStream::<TestMessage>::new();
+        let (mut stream, _) = channel_stream.subscribe(FilterEvent::default()).await;
+
+        let mut streams = Vec::new();
+
+        for _i in 0..1000 {
+            let dup_channel_stream = channel_stream.clone();
+            let (mut stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
+            streams.push(stream);
+        }
+
+        let dup_dup_channel_stream = channel_stream.clone();
+
+        for _i in 0..1000 {
+            let mut stream = streams.pop().unwrap();
+            async_spawn(async move {
+                for event in [TestMessage::One, TestMessage::Two, TestMessage::Three] {
+                    for _ in 0..100 {
+                        assert!(stream.next().await.unwrap() == event);
+                    }
+                }
+            });
+        }
+
+        async_spawn(async move {
+            for event in [TestMessage::One, TestMessage::Two, TestMessage::Three] {
+                for _ in 0..100 {
+                    dup_dup_channel_stream.publish(event.clone()).await;
+                }
+            }
+        });
+    }
+}
