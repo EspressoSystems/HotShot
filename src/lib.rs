@@ -870,7 +870,6 @@ where
             internal_event_stream.clone(),
             quorum_exchange,
             NetworkTaskKind::Quorum,
-            FilterEvent(Arc::new(quorum_filter)),
         )
         .await;
         let task_runner = add_network_task(
@@ -878,7 +877,6 @@ where
             internal_event_stream.clone(),
             committee_exchange.clone(),
             NetworkTaskKind::Committee,
-            FilterEvent(Arc::new(committee_filter)),
         )
         .await;
         let task_runner = add_network_task(
@@ -886,7 +884,6 @@ where
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
             NetworkTaskKind::ViewSync,
-            FilterEvent(Arc::new(view_sync_filter)),
         )
         .await;
         let task_runner =
