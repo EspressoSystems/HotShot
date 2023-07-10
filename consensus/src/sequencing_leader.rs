@@ -147,6 +147,7 @@ where
                         match self.committee_exchange.accumulate_vote(
                             &vote.signature.0,
                             &vote.signature.1,
+                            vote.signature.2,
                             vote.block_commitment,
                             vote.vote_data,
                             vote.vote_token.clone(),
@@ -279,7 +280,7 @@ where
                 data,
                 signature,
             })));
-        println!("Finished creating message in sequencing_leader.rs, msg = {:?}", message.clone());
+        // println!("Finished creating message in sequencing_leader.rs, msg = {:?}", message.clone());
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
@@ -499,6 +500,7 @@ where
                                 match self.quorum_exchange.accumulate_vote(
                                     &vote.signature.0,
                                     &vote.signature.1,
+                                    vote.signature.2,
                                     vote.leaf_commitment,
                                     vote.vote_data,
                                     vote.vote_token.clone(),

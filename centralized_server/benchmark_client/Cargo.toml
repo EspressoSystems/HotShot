@@ -37,3 +37,4 @@ hotshot-centralized-server = { path = ".." }
 hotshot-utils = { path = "../../utils" }
 hotshot-types = { path = "../../types" }
 tracing = "0.1.37"
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }

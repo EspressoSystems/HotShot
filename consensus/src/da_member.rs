@@ -85,14 +85,12 @@ where
         &self,
         view_leader_key: TYPES::SignatureKey,
     ) -> Option<TYPES::BlockType> {
-        println!("Inside find_valid_msg() of da_member.rs");
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
-            println!("recv-ed message of da_member.rs");
+            // println!("recv-ed message of da_member.rs");
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
-                println!("Inside if let Ok(msg) of da_member.rs");
                 // If the message is for a different view number, skip it.
                 if Into::<SequencingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
@@ -199,7 +197,6 @@ where
     /// Run one view of DA committee member.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
-        println!("Inside run_view() of da_member.rs");
         info!("DA Committee Member task started!");
         let view_leader_key = self.exchange.get_leader(self.cur_view);
 

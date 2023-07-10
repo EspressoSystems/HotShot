@@ -96,7 +96,7 @@ pub trait ExchangesType<
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
-        // entry: StakeTableEntry<VerKey>,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self;
@@ -175,13 +175,13 @@ where
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
-        // entry: StakeTableEntry<VerKey>,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
             quorum_exchange: QUORUMEXCHANGE::create(keys, configs.0, networks.0, pk, key_pair_test.clone(), 
-            // entry.clone(), 
+            entry.clone(), 
             sk, ek),
             _phantom: PhantomData,
         }
@@ -253,7 +253,7 @@ where
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
-        // entry: StakeTableEntry<VerKey>,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
@@ -263,12 +263,12 @@ where
             networks.0,
             pk.clone(),
             key_pair_test.clone(),
-            // entry.clone(),
+            entry.clone(),
             sk.clone(),
             ek.clone(),
         );
         let committee_exchange = COMMITTEEEXCHANGE::create(keys,  configs.1, networks.1, pk, key_pair_test.clone(), 
-        // entry.clone(), 
+        entry.clone(), 
         sk,
         ek);
         Self {

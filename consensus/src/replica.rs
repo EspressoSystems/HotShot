@@ -98,12 +98,11 @@ where
         RwLockUpgradableReadGuard<'a, Consensus<TYPES, ValidatingLeaf<TYPES>>>,
         Option<ValidatingLeaf<TYPES>>,
     ) {
-        println!("Inside find_valid_msg() in replica.rs");
         let lock = self.proposal_collection_chan.lock().await;
         let mut invalid_qcs = 0;
         let leaf = loop {
             let msg = lock.recv().await;
-            println!("recv-ed message {:?} in replica.rs", msg.clone());
+            // println!("recv-ed message {:?} in replica.rs", msg.clone());
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 println!("Inside if let Ok(msg) = msg in replica.rs");

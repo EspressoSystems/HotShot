@@ -266,7 +266,7 @@ pub trait Run<
             (network.clone(), ()),
             pk.clone(),
             key_pair_test.clone(),
-            // entry.clone(),
+            entry.clone(),
             sk.clone(),
             ek.clone(),
         );

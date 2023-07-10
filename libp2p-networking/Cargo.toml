@@ -109,6 +109,7 @@ tide = { version = "0.16", optional = true, default-features = false, features =
 tokio-stream = "0.1.14"
 tracing = "0.1.37"
 void = "1.0.2"
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies

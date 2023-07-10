@@ -19,7 +19,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 // NOTE Sishan: For signature aggregation
 use jf_primitives::signatures::AggregateableSignatureSchemes;
-use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 
 /// A `DACertificate` is a threshold signature that some data is available.
@@ -111,6 +111,8 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
+    /// Sishan NOTE: entry with public key for QC aggregation
+    pub entry: StakeTableEntry<VerKey>,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
     pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA

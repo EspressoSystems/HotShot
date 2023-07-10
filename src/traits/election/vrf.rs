@@ -266,7 +266,8 @@ where
         let bytes = bincode_opts()
             .serialize(&agg_signature_test)
             .expect("This serialization shouldn't be able to fail");
-        let print_bytes = String::from_utf8_lossy(&bytes);
+        // let print_bytes = String::from_utf8_lossy(&bytes);
+        // println!("In vrf.rs, bytes_string = {:?}", print_bytes);
         EncodedSignature(bytes)
     }
 
