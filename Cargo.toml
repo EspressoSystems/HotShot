@@ -169,7 +169,7 @@ rand_chacha = "0.3.1"
 serde = { version = "1.0.168", features = ["derive", "rc"] }
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
-time = "0.3.21"
+time = "0.3.23"
 toml = { version = "0.7.6", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
