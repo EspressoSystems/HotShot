@@ -194,18 +194,24 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                error!("In vote handle with vote view: {}", *vote.current_view);
+                error!("Received quroum vote: {:?}", vote);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
-                    error!("Already made qc");
+                    // error!("Already made qc");
                     return (None, state);
+                }
+
+                if vote.current_view != state.cur_view {
+                    panic!("Vote view does not match!")
                 }
 
                 // error!(
                 //     "Vote leaf commitment is: {:?}",
                 //     vote.leaf_commitment.clone()
                 // );
+
+                
 
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
@@ -305,7 +311,7 @@ where
         Some(leaf.clone())
     }
     async fn vote_if_able(&self) -> bool {
-        error!("In vote if able");
+        // error!("In vote if able");
 
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
@@ -376,7 +382,7 @@ where
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            if let Some(cert) = self.certs.get(&(*&proposal.get_view_number() - 1)) {
+            if let Some(cert) = self.certs.get(&(*&proposal.get_view_number())) {
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -451,16 +457,16 @@ where
                     }
                 }
             }
-            error!(
-                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
-                *self.cur_view
-            );
+            // error!(
+            //     // "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
+            //     // *self.cur_view
+            // );
             return false;
         }
-        error!(
-            "Could not vote because we don't have a proposal yet for view {}",
-            *self.cur_view
-        );
+        // error!(
+        //     // "Could not vote because we don't have a proposal yet for view {}",
+        //     // *self.cur_view
+        // );
         return false;
     }
 
@@ -555,7 +561,7 @@ where
                             .quorum_exchange
                             .is_valid_cert(&justify_qc, parent_commitment)
                         {
-                            error!("Invalid justify_qc in proposal!.");
+                            error!("Invalid justify_qc in proposal!. parent commitment is {:?} justify qc is {:?}", parent_commitment, justify_qc.clone());
 
                             message = self.quorum_exchange.create_no_message::<I>(
                                 justify_qc_commitment,
@@ -771,12 +777,14 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
+                error!("Received quroum vote: {:?}", vote);
+
                 match vote {
                     QuorumVote::Yes(vote) => {
-                        error!(
-                            "Recved quorum vote outside of vote handle for view {:?}",
-                            vote.current_view
-                        );
+                        // error!(
+                        //     "Recved quorum vote outside of vote handle for view {:?}",
+                        //     vote.current_view
+                        // );
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
@@ -962,7 +970,7 @@ where
                     signature,
                 };
                 // error!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                error!("Sending proposal for view {:?}", self.cur_view);
+                error!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(
@@ -972,13 +980,13 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
-                error!("DAC Recved for view ! {}", *cert.view_number);
+                // error!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
-                if view == self.cur_view {
-                    self.vote_if_able().await;
-                }
+
+                // TODO Make sure we aren't voting for an arbitrarily old round for no reason
+                self.vote_if_able().await;
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
@@ -1070,7 +1078,7 @@ where
                     signature,
                 };
                 // error!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                error!("Sending proposal for view {:?}", self.cur_view);
+                error!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(

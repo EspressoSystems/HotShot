@@ -24,6 +24,7 @@ use hotshot_types::{
     message::{CommitteeConsensusMessage, SequencingMessage},
     traits::election::SignedCertificate,
 };
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::marker::PhantomData;
 use tracing::error;
@@ -122,7 +123,6 @@ impl<
                         transaction,
                         view_number,
                     ) => {
-                        // panic!("Tx received");
                         SequencingHotShotEvent::TransactionRecv(transaction)
                     }
                 }

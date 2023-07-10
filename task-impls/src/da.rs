@@ -112,6 +112,7 @@ pub struct DAVoteCollectionTaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>,
+    // TODO ED Make this just "view" since it is only for this task
     pub cur_view: ViewNumber,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
@@ -164,7 +165,7 @@ where
                 vote.block_commitment,
                 vote.vote_data,
                 vote.vote_token.clone(),
-                state.cur_view,
+                state.cur_view + 1,
                 accumulator,
                 None,
             ) {
@@ -218,6 +219,7 @@ where
             SequencingHotShotEvent::TransactionRecv(transaction) => {
                 // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
+                
                 self.consensus
                     .read()
                     .await
@@ -226,6 +228,7 @@ where
                         let _new = txns.insert(transaction.commit(), transaction).is_none();
                     })
                     .await;
+
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
@@ -310,7 +313,7 @@ where
                     vote.block_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
-                    view,
+                    vote.current_view + 1,
                     acc,
                     None,
                 );
@@ -402,13 +405,14 @@ where
                     deltas: block.clone(),
                     view_number: self.cur_view,
                 };
+                error!("Sending DA proposal for view {:?}", data.deltas.commit());
+
                 let message = SequencingMessage::<TYPES, I>(Right(
                     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
                 ));
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
 
-                error!("Sending DA proposal for view {}", *self.cur_view);
                 self.event_stream.publish(SequencingHotShotEvent::SendDABlockData(block.clone())).await;
                 if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
                     consensus.metrics.failed_to_send_messages.add(1);
@@ -416,6 +420,7 @@ where
                 } else {
                     consensus.metrics.outgoing_broadcast_messages.add(1);
                 }
+
 
                 return None;
             }

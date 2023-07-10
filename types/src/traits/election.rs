@@ -299,6 +299,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let leaf_commitment = qc.leaf_commitment();
 
         if leaf_commitment != commit {
+            panic!("Leaf commitment does not equal parent commitment");
             return false;
         }
 
@@ -308,20 +309,25 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 let yes_votes = raw_signatures
                     .iter()
                     .filter(|signature| {
-                        self.is_valid_vote(
+                        let res = self.is_valid_vote(
                             signature.0,
                             &signature.1 .0,
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
+                        ); 
+                        // error!("Signature vote data {:?}", signature.1 .1);
+                        
+                        res && 
+                        // TODO Is this logic correct? 
+                        (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-                // error!(
-                //     "Yes votes are: {}",
-                //     self.success_threshold()
-                // );
+                error!(
+                    // "Yes votes are: {}",
+                    yes_votes
+                );
                 yes_votes >= u64::from(self.success_threshold())
             }
 
