@@ -32,6 +32,11 @@ pub mod types;
 
 pub mod tasks;
 
+use crate::tasks::committee_filter;
+use crate::tasks::view_sync_filter;
+use hotshot_task::task::FilterEvent;
+
+use crate::tasks::quorum_filter;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},
@@ -49,6 +54,7 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
+use hotshot_task::event_stream::EventStream;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
@@ -276,6 +282,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         })
     }
 
+    /// "Starts" consensus by sending a ViewChange event
+    pub async fn start_consensus(&self) {
+        self.inner
+            .internal_event_stream
+            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)))
+            .await;
+
+        // ED This isn't ideal...
+        // async_sleep(Duration::new(1, 0)).await;
+
+        // self.inner
+        //     .internal_event_stream
+        //     .publish(SequencingHotShotEvent::QCFormed(
+        //         QuorumCertificate::genesis(),
+        //     ))
+        //     .await;
+    }
+
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
@@ -424,6 +448,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
         let kind = kind.into();
+
         async_spawn_local(async move {
             if inner
                 .exchanges
@@ -821,23 +846,7 @@ where
     }
 
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
-        // let SystemContextInner {
-        //     public_key,
-        //     private_key,
-        //     config,
-        //     storage,
-        //     exchanges,
-        //     event_sender,
-        //     _metrics,
-        //     transactions,
-        //     consensus,
-        //     channel_maps,
-        //     send_network_lookup,
-        //     recv_network_lookup,
-        //     output_event_stream,
-        //     internal_event_stream,
-        //     id,
-        // } = self.inner.clone();
+        // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
 
@@ -857,18 +866,25 @@ where
         };
 
         // TODO (run_view) Restore the lines below after making all event types consistent.
-        let task_runner =
-            add_network_task(task_runner, internal_event_stream.clone(), quorum_exchange).await;
+        let task_runner = add_network_task(
+            task_runner,
+            internal_event_stream.clone(),
+            quorum_exchange,
+            FilterEvent(Arc::new(quorum_filter)),
+        )
+        .await;
         let task_runner = add_network_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            FilterEvent(Arc::new(committee_filter)),
         )
         .await;
         let task_runner = add_network_task(
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
+            FilterEvent(Arc::new(view_sync_filter)),
         )
         .await;
         let task_runner =
@@ -877,6 +893,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            handle.clone(),
         )
         .await;
         let task_runner = add_view_sync_task::<TYPES, I>(

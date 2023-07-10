@@ -10,6 +10,7 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use tracing::error;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
@@ -145,12 +146,14 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         commit: Commitment<LEAF>,
         relay: Option<u64>,
     ) -> Self {
-        QuorumCertificate {
+        let qc = QuorumCertificate {
             leaf_commitment: commit,
             view_number,
             signatures,
             is_genesis: false,
-        }
+        }; 
+        error!("QC commitment when formed is {:?}", qc.leaf_commitment);
+        qc
     }
 
     fn view_number(&self) -> TYPES::Time {

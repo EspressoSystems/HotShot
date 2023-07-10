@@ -534,7 +534,6 @@ where
                 self.api.send_view_error(self.cur_view, Arc::new(e)).await;
             }
         }
-        let high_qc = leaf.justify_qc.clone();
 
         let included_txns_set: HashSet<_> = if new_decide_reached {
             included_txns
@@ -648,6 +647,6 @@ where
 
             decide_sent.await;
         }
-        high_qc
+        self.high_qc
     }
 }

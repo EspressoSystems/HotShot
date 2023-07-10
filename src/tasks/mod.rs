@@ -309,6 +309,70 @@ pub enum GlobalEvent {
 }
 impl PassType for GlobalEvent {}
 
+pub fn quorum_filter<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
+    event: &SequencingHotShotEvent<TYPES, I>,
+) -> bool {
+    match event {
+        SequencingHotShotEvent::QuorumProposalSend(_, _)
+        | SequencingHotShotEvent::QuorumVoteSend(_)
+        | SequencingHotShotEvent::SendDABlockData(_)
+        | SequencingHotShotEvent::Shutdown
+        | SequencingHotShotEvent::ViewChange(_)=> true,
+
+
+        _ => false,
+    }
+}
+
+pub fn committee_filter<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
+    event: &SequencingHotShotEvent<TYPES, I>,
+) -> bool {
+    match event {
+        | SequencingHotShotEvent::DAProposalSend(_, _)
+        | SequencingHotShotEvent::DAVoteSend(_)
+        | SequencingHotShotEvent::DACSend(_, _)
+        | SequencingHotShotEvent::Shutdown
+        | SequencingHotShotEvent::ViewChange(_)
+        | SequencingHotShotEvent::TransactionSend(_) => true,
+
+        _ => false,
+    }
+}
+
+pub fn view_sync_filter<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+>(
+    event: &SequencingHotShotEvent<TYPES, I>,
+) -> bool {
+    match event {
+        | SequencingHotShotEvent::ViewSyncVoteSend(_)
+        | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
+        | SequencingHotShotEvent::Shutdown
+        | SequencingHotShotEvent::ViewChange(_) => true,
+
+        _ => false,
+    }
+}
+
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
@@ -333,6 +397,7 @@ pub async fn add_network_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
+    networking_event_filter: FilterEvent<SequencingHotShotEvent<TYPES, I>>,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
@@ -340,6 +405,7 @@ where
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
     let channel = exchange.network().clone();
+
     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let network = channel.clone();
         let closure = async move {
@@ -350,7 +416,7 @@ where
                     .expect("Failed to receive broadcast messages"),
             );
             async_sleep(Duration::new(0, 500)).await;
-            network.shut_down().await;
+            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
@@ -366,7 +432,7 @@ where
                     .expect("Failed to receive direct messages"),
             );
             async_sleep(Duration::new(0, 500)).await;
-            network.shut_down().await;
+            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
@@ -413,9 +479,6 @@ where
         },
     ));
     let networking_name = "Networking Task";
-    let networking_event_filter = FilterEvent(Arc::new(
-        NetworkTaskState::<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, EXCHANGE::Networking>::filter,
-    ));
 
     let networking_task_builder =
         TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
@@ -550,6 +613,7 @@ pub async fn add_da_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     committee_exchange: CommitteeEx<TYPES, I>,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -561,31 +625,43 @@ where
     >,
 {
     // build the da task
+    let c_api: HotShotSequencingConsensusApi<TYPES, I> = HotShotSequencingConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let registry = task_runner.registry.clone();
     let da_state = DATaskState {
         registry: registry.clone(),
+        api: c_api.clone(),
+        consensus: handle.hotshot.get_consensus(),
+        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
         vote_collector: None,
         event_stream: event_stream.clone(),
     };
-    let da_event_handler = HandleEvent(Arc::new(move |event, mut state: DATaskState<TYPES, I>| {
-        async move {
-            let completion_status = state.handle_event(event).await;
-            (completion_status, state)
-        }
-        .boxed()
-    }));
+    let da_event_handler = HandleEvent(Arc::new(
+        move |event, mut state: DATaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
+            async move {
+                let completion_status = state.handle_event(event).await;
+                (completion_status, state)
+            }
+            .boxed()
+        },
+    ));
     let da_name = "DA Task";
-    let da_event_filter = FilterEvent(Arc::new(DATaskState::<TYPES, I>::filter));
+    let da_event_filter = FilterEvent(Arc::new(
+        DATaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>::filter,
+    ));
 
-    let da_task_builder = TaskBuilder::<DATaskTypes<TYPES, I>>::new(da_name.to_string())
-        .register_event_stream(event_stream.clone(), da_event_filter)
-        .await
-        .register_registry(&mut registry.clone())
-        .await
-        .register_state(da_state)
-        .register_event_handler(da_event_handler);
+    let da_task_builder = TaskBuilder::<
+        DATaskTypes<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>,
+    >::new(da_name.to_string())
+    .register_event_stream(event_stream.clone(), da_event_filter)
+    .await
+    .register_registry(&mut registry.clone())
+    .await
+    .register_state(da_state)
+    .register_event_handler(da_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
     let da_task_id = da_task_builder.get_task_id().unwrap();

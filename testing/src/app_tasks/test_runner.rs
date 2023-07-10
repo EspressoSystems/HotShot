@@ -8,7 +8,10 @@ use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task::FilterEvent,
     task_launcher::TaskRunner,
 };
+use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -88,6 +91,7 @@ where
         >,
     {
         self.add_nodes(self.launcher.metadata.start_nodes).await;
+
         let TestRunner {
             launcher,
             nodes,
@@ -122,7 +126,7 @@ where
         task_runner = task_runner.add_task(id, "blah".to_string(), task);
 
         // self.launcher.txn_task_generator(self.nodes.clone())
-        for mut node in nodes {
+        for mut node in nodes.clone() {
             let safety_task_state = SafetyTask {
                 ctx: NodeCtx::default(),
             };
@@ -137,11 +141,19 @@ where
                 stream,
             )
             .await;
+            task_runner = task_runner.add_task(id, id.to_string(), task);
+        }
+
+        // Start hotshot
+        // Goes through all nodes, but really only needs to call this on the leader node of the first view
+        for node in nodes {
+            node.handle.hotshot.start_consensus().await;
         }
 
         task_runner.launch().await;
+
         // TODO turn errors into something sensible
-        nll_todo()
+        Ok(())
     }
 
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>

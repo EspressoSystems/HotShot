@@ -301,6 +301,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         if leaf_commitment != commit {
             return false;
         }
+
         // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
         match qc.signatures() {
             YesNoSignature::Yes(raw_signatures) => {
@@ -317,6 +318,10 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
+                // error!(
+                //     "Yes votes are: {}",
+                //     self.success_threshold()
+                // );
                 yes_votes >= u64::from(self.success_threshold())
             }
 
@@ -339,6 +344,12 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                             no_votes += u64::from(signature.1 .2.vote_count());
                         }
                     }
+                }
+
+                if no_votes > 0 {
+                    error!(
+                        "Too many no votes"
+                    );
                 }
 
                 no_votes >= u64::from(self.failure_threshold())
@@ -392,6 +403,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             // Ignoring deserialization errors below since we are getting rid of it soon
             Checked::Unchecked(vota_meta.vote_token.clone()),
         ) {
+            error!("Invalid vote!");
             return Either::Left(accumulator);
         }
 

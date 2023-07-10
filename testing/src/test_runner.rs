@@ -623,6 +623,8 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_basic() {
+        async_compatibility_layer::logging::setup_logging();
+        async_compatibility_layer::logging::setup_backtrace();
         let metadata = crate::app_tasks::test_builder::TestMetadata::default();
         metadata
             .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
