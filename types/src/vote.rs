@@ -293,10 +293,11 @@ where
                 let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
                 = bincode_opts().deserialize(&sig.clone().0).unwrap();
 
+                // update the stake_entries, active_keys and sig_lists
                 self.stake_entries.push(entry.clone());
                 self.active_keys.push(true);
                 self.sig_lists.push(origianl_sig.clone());
-                // Sishan NOTE: Do assemble here
+                // Sishan NOTE: Do assemble for QC here
                 let qc_pp = QCParams {
                     stake_entries: self.stake_entries,
                     threshold: U256::from(self.success_threshold.get()),
