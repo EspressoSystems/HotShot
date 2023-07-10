@@ -452,10 +452,16 @@ where
                     }
                 }
             }
-            error!("Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}", *self.cur_view);
+            error!(
+                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
+                *self.cur_view
+            );
             return false;
         }
-        error!("Could not vote because we don't have a proposal yet for view {}", *self.cur_view);
+        error!(
+            "Could not vote because we don't have a proposal yet for view {}",
+            *self.cur_view
+        );
         return false;
     }
 
@@ -754,15 +760,14 @@ where
                             }
                         });
 
-                        // Because we call the vote if able function above
-                        // if let GeneralConsensusMessage::Vote(vote) = message {
-                        //     info!("Sending vote to next leader {:?}", vote);
-                        //     error!("Vote is {:?}", vote.current_view());
+                        if let GeneralConsensusMessage::Vote(vote) = message {
+                            info!("Sending vote to next leader {:?}", vote);
+                            error!("Vote is {:?}", vote.current_view());
 
-                        //     self.event_stream
-                        //         .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
-                        //         .await;
-                        // };
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                                .await;
+                        };
                     }
                 }
             }

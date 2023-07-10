@@ -254,22 +254,6 @@ impl<
         return None;
     }
 
-    /// Filter network event.
-    pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
-            SequencingHotShotEvent::QuorumProposalSend(_, _)
-            | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::DAProposalSend(_, _)
-            | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_)
-            | SequencingHotShotEvent::TransactionSend(_) => true,
-
-            _ => false,
-        }
-    }
 }
 
 #[derive(Snafu, Debug)]

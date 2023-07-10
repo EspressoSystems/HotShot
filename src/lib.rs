@@ -32,7 +32,7 @@ pub mod types;
 
 pub mod tasks;
 
-use crate::tasks::da_filter;
+use crate::tasks::committee_filter;
 use crate::tasks::view_sync_filter;
 use hotshot_task::task::FilterEvent;
 
@@ -877,7 +877,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
-            FilterEvent(Arc::new(da_filter)),
+            FilterEvent(Arc::new(committee_filter)),
         )
         .await;
         let task_runner = add_network_task(

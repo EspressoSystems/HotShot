@@ -332,7 +332,7 @@ pub fn quorum_filter<
     }
 }
 
-pub fn da_filter<
+pub fn committee_filter<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
