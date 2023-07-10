@@ -34,9 +34,6 @@ pub mod tasks;
 
 use crate::tasks::committee_filter;
 use crate::tasks::view_sync_filter;
-use hotshot_task::task::FilterEvent;
-
-use crate::tasks::quorum_filter;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},
@@ -55,8 +52,10 @@ use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
+use hotshot_task::task::FilterEvent;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_task_impls::network::NetworkTaskKind;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
 
 use hotshot_consensus::{
@@ -870,6 +869,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             quorum_exchange,
+            NetworkTaskKind::Quorum,
             FilterEvent(Arc::new(quorum_filter)),
         )
         .await;
@@ -877,6 +877,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            NetworkTaskKind::Committee,
             FilterEvent(Arc::new(committee_filter)),
         )
         .await;
@@ -884,6 +885,7 @@ where
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
+            NetworkTaskKind::ViewSync,
             FilterEvent(Arc::new(view_sync_filter)),
         )
         .await;

@@ -25,6 +25,7 @@ use hotshot_task::{
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
+use hotshot_task_impls::network::NetworkTaskKind;
 use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
@@ -309,70 +310,6 @@ pub enum GlobalEvent {
 }
 impl PassType for GlobalEvent {}
 
-pub fn quorum_filter<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
->(
-    event: &SequencingHotShotEvent<TYPES, I>,
-) -> bool {
-    match event {
-        SequencingHotShotEvent::QuorumProposalSend(_, _)
-        | SequencingHotShotEvent::QuorumVoteSend(_)
-        | SequencingHotShotEvent::SendDABlockData(_)
-        | SequencingHotShotEvent::Shutdown
-        | SequencingHotShotEvent::ViewChange(_)=> true,
-
-
-        _ => false,
-    }
-}
-
-pub fn committee_filter<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
->(
-    event: &SequencingHotShotEvent<TYPES, I>,
-) -> bool {
-    match event {
-        | SequencingHotShotEvent::DAProposalSend(_, _)
-        | SequencingHotShotEvent::DAVoteSend(_)
-        | SequencingHotShotEvent::DACSend(_, _)
-        | SequencingHotShotEvent::Shutdown
-        | SequencingHotShotEvent::ViewChange(_)
-        | SequencingHotShotEvent::TransactionSend(_) => true,
-
-        _ => false,
-    }
-}
-
-pub fn view_sync_filter<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
->(
-    event: &SequencingHotShotEvent<TYPES, I>,
-) -> bool {
-    match event {
-        | SequencingHotShotEvent::ViewSyncVoteSend(_)
-        | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
-        | SequencingHotShotEvent::Shutdown
-        | SequencingHotShotEvent::ViewChange(_) => true,
-
-        _ => false,
-    }
-}
-
 /// add the networking task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
@@ -397,7 +334,7 @@ pub async fn add_network_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
-    networking_event_filter: FilterEvent<SequencingHotShotEvent<TYPES, I>>,
+    task_kind: NetworkTaskKind,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
@@ -438,6 +375,7 @@ where
         boxed_sync(closure)
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
+    let filter = NetworkTaskState::filter(task_kind);
     let channel = exchange.network().clone();
     let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
@@ -461,7 +399,7 @@ where
             };
             async move {
                 for message in messages.0 {
-                    state.handle_message(message).await;
+                    state.handle_message(task_kind, message).await;
                 }
                 (None, state)
             }
@@ -483,7 +421,7 @@ where
     let networking_task_builder =
         TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
             .register_message_stream(message_stream)
-            .register_event_stream(event_stream.clone(), networking_event_filter)
+            .register_event_stream(event_stream.clone(), filter)
             .await
             .register_registry(&mut registry.clone())
             .await

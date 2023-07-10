@@ -211,8 +211,6 @@ where
                 //     vote.leaf_commitment.clone()
                 // );
 
-                
-
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
