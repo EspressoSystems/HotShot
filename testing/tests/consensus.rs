@@ -125,6 +125,7 @@ async fn submit_validating_vote<
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
         TestableElection<TYPES>,
 {
+    println!("Inside submit_validating_vote()");
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
@@ -233,6 +234,7 @@ where
         TestableElection<TYPES>,
 {
     async move {
+        println!("Inside test_validating_vote_queueing_round_setup()");
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
@@ -324,6 +326,8 @@ where
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
+    println!("Inside test_validating_proposal_queueing_round_setup(), and prepare to call is_upcoming_validating_leader()");
+
     async move {
         let node_id = DEFAULT_NODE_ID;
 
@@ -358,6 +362,7 @@ where
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
+    println!("Inside test_bad_validating_proposal_round_setup(), and prepare to call is_upcoming_validating_leader()");
     async move {
         let node_id = DEFAULT_NODE_ID;
         for i in 0..NUM_VIEWS {
@@ -475,6 +480,7 @@ async fn test_validating_proposal_queueing() {
 #[instrument]
 #[ignore]
 async fn test_vote_queueing() {
+    println!("Inside test_vote_queueing()");
     let num_rounds = 10;
     let setup = RoundSetup(Arc::new(test_validating_vote_queueing_round_setup));
     let check = RoundSafetyCheck(Arc::new(test_validating_vote_queueing_post_safety_check));

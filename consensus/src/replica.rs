@@ -98,12 +98,15 @@ where
         RwLockUpgradableReadGuard<'a, Consensus<TYPES, ValidatingLeaf<TYPES>>>,
         Option<ValidatingLeaf<TYPES>>,
     ) {
+        println!("Inside find_valid_msg() in replica.rs");
         let lock = self.proposal_collection_chan.lock().await;
         let mut invalid_qcs = 0;
         let leaf = loop {
             let msg = lock.recv().await;
+            println!("recv-ed message {:?} in replica.rs", msg.clone());
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
+                println!("Inside if let Ok(msg) = msg in replica.rs");
                 // stale/newer view messages should never reach this specific task's receive channel
                 if Into::<ValidatingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
@@ -111,6 +114,9 @@ where
                 }
                 match msg {
                     ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
+
+                        println!("Inside match msg, ProcessedGeneralConsensusMessage::Proposal(p, sender).");
+
                         if view_leader_key != sender {
                             continue;
                         }
@@ -216,15 +222,18 @@ where
 
                         match vote_token {
                             Err(e) => {
+                                println!("Inside match vote_token, Failed to generate vote token.");
                                 error!(
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
                             }
                             Ok(None) => {
+                                println!("Inside match vote_token, We were not chosen for committee.");
                                 info!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
+                                println!("Inside match vote_token, We were chosen for committee.");
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote

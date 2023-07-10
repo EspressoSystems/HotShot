@@ -25,14 +25,14 @@ use jf_primitives::{
     // hash_to_group::TEHashToGroup,
     signatures::{
         // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme, SignatureScheme, //AggregateableSignatureSchemes,
+        BLSSignatureScheme, SignatureScheme, // bls_over_bn254, AggregateableSignatureSchemes,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 
 // Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
 use jf_primitives::signatures::AggregateableSignatureSchemes;
 
 use libp2p::core::PublicKey;
@@ -214,38 +214,59 @@ where
     type PrivateKey = (SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey);
 
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        return true; // Sishan TODO: change to qc-adaptive verification
+        // Sishan TODO: change to BLSOverBN254CurveSignatureScheme::Signature
+        // let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = bincode_opts().deserialize(&signature.0);
         let x: Result<SIGSCHEME::Signature, _> = bincode_opts().deserialize(&signature.0);
         match x {
             Ok(s) => {
                 // First hash the data into a constant sized digest
                 SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok()
+                //Sishan Note: This is the test for QC aggregation - signature verification before append().
+                //Sishan Todo: change to BLSOverBN254CurveSignatureScheme::verify
+                /*
+                let mut generic_msg_test = GenericArray::from_slice(data);
+                BLSOverBN254CurveSignatureScheme::verify(
+                    &(),
+                    &self.pk, 
+                    &generic_msg_test,
+                    &s,
+                ).is_ok() //unwrap();
+                 */
             }
             Err(_) => false,
         }
     }
 
-    fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
+    fn sign(
+            // private_key: &&Self::PrivateKey, 
+            key_pair_test: QCKeyPair, 
+            data: &[u8]) -> EncodedSignature {
         println!("Inside sign() of SignatureKey for JfPubKey.");
         // Sign it
         // Sishan NOTE: for QC Aggregation
         let mut generic_msg_test = GenericArray::from_slice(data);
-        println!("generic_msg_test = {:?}", generic_msg_test);
-        println!("data = {:?}", data);
         let agg_signature_test =
+            // SIGSCHEME::sign(
+            //     &(),
+            //     key_pair_test.sign_key_ref(),
+            //     &generic_msg_test,
+            //     &mut rand::thread_rng()
+            // ).unwrap();
             BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
                 &(),
                 &generic_msg_test,
                 // &msg_test.into(),
                 key_pair_test.sign_key_ref(),
-                &mut rand::thread_rng());
-        let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
-            .expect("This signature shouldn't be able to fail");
+                &mut rand::thread_rng()
+            ).unwrap();
+        // let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
+        //     .expect("This signature shouldn't be able to fail");
         // Encode it
         let bytes = bincode_opts()
-            .serialize(&signature)
+            .serialize(&agg_signature_test)
             .expect("This serialization shouldn't be able to fail");
-        // let print_bytes = String::from_utf8_lossy(&bytes);
-        // println!("Inside sign(), after encode into bytes, bytes = {}", print_bytes);
+        let print_bytes = String::from_utf8_lossy(&bytes);
         EncodedSignature(bytes)
     }
 

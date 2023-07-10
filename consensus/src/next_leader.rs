@@ -119,8 +119,10 @@ where
                                 continue;
                             }
                             match self.exchange.accumulate_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
+                                &vote.signature.0, // vote.signature.0.0
+                                //todo
+                                //todo
+                                &vote.signature.1, // vote.signature.0.1
                                 vote.leaf_commitment,
                                 vote.vote_data,
                                 vote.vote_token.clone(),

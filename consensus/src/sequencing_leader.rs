@@ -279,17 +279,21 @@ where
                 data,
                 signature,
             })));
+        println!("Finished creating message in sequencing_leader.rs, msg = {:?}", message.clone());
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
+            println!("Could not broadcast leader proposal");
             warn!(?message, ?e, "Could not broadcast leader proposal");
         } else {
             consensus.metrics.outgoing_broadcast_messages.add(1);
+            println!("Successfully broadcast leader proposal");
         }
 
         // Drop the lock on the consensus.
         drop(consensus);
 
+        println!("Waiting for DA votes in sequencing_leader.rs");
         // Wait for DA votes or Timeout
         if let Some(cert) = self
             .wait_for_votes(
@@ -299,6 +303,7 @@ where
             )
             .await
         {
+            println!("Successfully received DA votes in sequencing_leader.rs");
             return Some((cert, block, parent_leaf));
         }
         None

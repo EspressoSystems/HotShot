@@ -136,12 +136,15 @@ where
         RwLockUpgradableReadGuard<'a, Consensus<TYPES, SequencingLeaf<TYPES>>>,
         Option<SequencingLeaf<TYPES>>,
     ) {
+        println!("Inside find_valid_msg().");
         let lock = self.proposal_collection_chan.lock().await;
         let mut invalid_qc = false;
         let leaf = loop {
             let msg = lock.recv().await;
+            println!("recv-ed message {:?}", msg.clone());
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
+                println!("Inside find_valid_msg() if let Ok(msg) = msg.");
                 // stale/newer view messages should never reach this specific task's receive channel
                 if Into::<SequencingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
@@ -149,8 +152,10 @@ where
                 }
                 match msg {
                     Left(general_message) => {
+                        println!("Match Left, received general_message.");
                         match general_message {
                             ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
+                                println!("match general_message with ProcessedGeneralConsensusMessage::Proposal(p, sender).");
                                 if view_leader_key != sender {
                                     continue;
                                 }
@@ -331,6 +336,7 @@ where
                                 break valid_leaf;
                             }
                             ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => {
+                                println!("Match ProcessedGeneralConsensusMessage::InternalTrigger(trigger)");
                                 match trigger {
                                     InternalTrigger::Timeout(_) => {
                                         let next_leader =
@@ -406,6 +412,7 @@ where
                                 }
                             }
                             ProcessedGeneralConsensusMessage::Vote(_, _) => {
+                                println!("Match ProcessedGeneralConsensusMessage::Vote(_, _)");
                                 // should only be for leader, never replica
                                 warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                                 continue;
@@ -414,6 +421,7 @@ where
                         }
                     }
                     Right(committee_message) => {
+                        println!("Match Right, Received committee message");
                         match committee_message {
                             ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {
                                 warn!("Replica receieved a DA Proposal. This is not what the replica expects. Skipping.");

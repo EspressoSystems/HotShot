@@ -267,6 +267,18 @@ where
 
         if *total_stake_casted >= u64::from(self.success_threshold) {
             if *yes_stake_casted >= u64::from(self.success_threshold) {
+                // Do assemble, and return the different things...
+                /*
+                let qc_pp = QCParams {
+                stake_entries: vec![entry1, entry2, entry3], // entry comes from itself
+                threshold: U256::from(10u8), // 2f + 1
+                agg_sig_pp, // &()
+                };
+                let qc = BitvectorQuorumCertificate::<$aggsig>::assemble(
+                &qc_pp,
+                active_keys.as_bitslice(), // let active_keys = bitvec![0, 1, 1];
+                &[sig2.clone(), sig3.clone()],
+                ) */
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::Yes(valid_signatures));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {

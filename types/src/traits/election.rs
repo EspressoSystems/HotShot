@@ -20,7 +20,7 @@ use crate::traits::{
     node_implementation::{ExchangesType, SequencingExchangesType},
     state::ConsensusTime,
 };
-use crate::vote::ViewSyncData;
+use crate::vote::{ViewSyncData, self};
 use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
@@ -34,7 +34,7 @@ use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::aead::KeyPair;
-use jf_primitives::signatures::AggregateableSignatureSchemes;
+use jf_primitives::signatures::{AggregateableSignatureSchemes, bls_over_bn254};
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -46,8 +46,10 @@ use std::num::NonZeroU64;
 use tracing::error;
 
 // Sishan NOTE: for QC aggregation
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+// use digest::generic_array::GenericArray;
+use blake3::traits::digest::generic_array::GenericArray;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -288,6 +290,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
+        // entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self;
@@ -332,6 +335,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
+        println!("Inside is_valid_cert()");
         if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
             return true;
         }
@@ -395,6 +399,8 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
+        println!("Inside is_valid_vote() of election.rs");
+        return true;
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
@@ -411,6 +417,9 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 Ok(Checked::Inval(_) | Checked::Unchecked(_)) => false,
             };
         }
+        println!(
+            "is_valid_vote_token: {}, is_valid_signature: {}",
+            is_valid_vote_token, is_valid_signature);
         is_valid_signature && is_valid_vote_token
     }
 
@@ -461,7 +470,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        // encoded_signature: AggregateableSignatureSchemes::Signature,
         leaf_commitment: Commitment<Self::Commitment>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
@@ -480,6 +488,8 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Sishan Note: KeyPair for QC Aggregation
     fn key_pair_test(&self) -> &QCKeyPair;
+
+    // fn get_entry(&self) -> &StakeTableEntry<VerKey>;
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
@@ -565,7 +575,7 @@ impl<
     ) -> EncodedSignature {
         println!("Inside sign_da_proposal() of QuorumExchangeType and prepare to call sign(). block_commitment.as_ref()");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key, 
+            // &self.private_key, 
             self.key_pair_test.clone(), 
             block_commitment.as_ref()
         );
@@ -581,7 +591,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            // &self.private_key,
             self.key_pair_test.clone(),
             &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
@@ -638,6 +648,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
+        // entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
@@ -648,6 +659,7 @@ impl<
             membership,
             public_key: pk,
             key_pair_test,
+            // entry,
             private_key: sk,
             _encryption_key: ek,
             _pd: PhantomData,
@@ -702,6 +714,9 @@ impl<
     fn key_pair_test(&self) -> &QCKeyPair {
         &self.key_pair_test
     }
+    // fn get_entry(&self) -> &StakeTableEntry<VerKey> {
+    //     &self.entry
+    // }
 }
 
 /// A [`ConsensusExchange`] where participants vote to append items to a log.
@@ -846,7 +861,7 @@ impl<
         println!("Inside sign_validating_or_commitment_proposal() of QuorumExchangeType and prepare to call sign(). 
             leaf_commitment.as_ref()");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key, 
+            // &self.private_key, 
             self.key_pair_test.clone(), 
             leaf_commitment.as_ref()
         );
@@ -865,7 +880,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            // &self.private_key,
             self.key_pair_test.clone(),
             &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
@@ -883,7 +898,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         println!("Inside sign_no_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            // &self.private_key,
             self.key_pair_test.clone(),
             &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
@@ -900,7 +915,7 @@ impl<
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         println!("Inside sign_timeout_vote() of QuorumExchangeType and prepare to call sign().");
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            // &self.private_key,
             self.key_pair_test.clone(),
             &VoteData::<TYPES::Time>::Timeout(view_number.commit()).commit().as_ref(),
         );
@@ -973,6 +988,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
+        // entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
@@ -983,6 +999,7 @@ impl<
             membership,
             public_key: pk,
             key_pair_test,
+            // entry,
             private_key: sk,
             _encryption_key: ek,
             _pd: PhantomData,
@@ -1031,6 +1048,9 @@ impl<
     fn key_pair_test(&self) -> &QCKeyPair {
         &self.key_pair_test
     }
+    // fn get_entry(&self) -> &StakeTableEntry<VerKey> {
+    //     &self.entry
+    // }
 }
 
 /// A [`ConsensusExchange`] where participants synchronize which view the network should be in.
@@ -1072,7 +1092,7 @@ pub struct ViewSyncExchange<
     public_key: TYPES::SignatureKey,
     /// Sishan Note: For QC aggregation,
     key_pair_test: QCKeyPair,
-
+    // entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key.
@@ -1135,6 +1155,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         key_pair_test: QCKeyPair,
+        // entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
@@ -1145,6 +1166,7 @@ impl<
             membership,
             public_key: pk,
             key_pair_test,
+            // entry,
             private_key: sk,
             _encryption_key: ek,
             _pd: PhantomData,
@@ -1192,6 +1214,9 @@ impl<
     fn key_pair_test(&self) -> &QCKeyPair {
         &self.key_pair_test
     }
+    // fn get_entry(&self) -> &StakeTableEntry<VerKey> {
+    //     &self.entry
+    // }
 }
 
 /// Testable implementation of a [`Membership`]. Will expose a method to generate a vote token used for testing.

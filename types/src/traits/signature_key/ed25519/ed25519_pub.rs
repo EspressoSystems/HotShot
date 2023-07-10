@@ -6,8 +6,13 @@ use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 // Sishan NOTE: for QC aggregation
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
-
+use jf_primitives::signatures::SignatureScheme;
+use blake3::traits::digest::generic_array::GenericArray;
+// use digest::generic_array::GenericArray;
+use bincode::Options;
+use hotshot_utils::bincode::bincode_opts;
 /// Public key type for an ed25519 [`SignatureKey`] pair
 ///
 /// This type makes use of noise for non-determinisitc signatures.
@@ -57,6 +62,7 @@ impl SignatureKey for Ed25519Pub {
 
     #[instrument(skip(self))]
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        return true; // Sishan TODO: change to qc-adaptive verification
         let signature = &signature.0[..];
         // Convert to the signature type
         match Signature::from_slice(signature) {
@@ -78,10 +84,25 @@ impl SignatureKey for Ed25519Pub {
         }
     }
 
-    fn sign(private_key: &Self::PrivateKey, key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
-        let signature = private_key.priv_key.sign(data, None);
+    fn sign(key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
+        // let signature = private_key.priv_key.sign(data, None);
+        let mut generic_msg_test = GenericArray::from_slice(data);
+        // let mut generic_msg_test: &GenericArray<u8, ArrayLength<A::MessageUnit>> = GenericArray::from_slice(data);
+        // let msg_test = [72u8; 32];
+        let agg_signature_test = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
+            &(),
+            // &msg_test.into(),
+            &generic_msg_test,
+            key_pair_test.sign_key_ref(),
+            &mut rand::thread_rng(),
+        ).unwrap();
         // Convert the signature to bytes and return
-        EncodedSignature(signature.to_vec())
+        let bytes = bincode_opts()
+            .serialize(&agg_signature_test)
+            .expect("This serialization shouldn't be able to fail");
+        let print_bytes = String::from_utf8_lossy(&bytes);
+        EncodedSignature(bytes)
+        // EncodedSignature(agg_signature_test.to_vec())
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {

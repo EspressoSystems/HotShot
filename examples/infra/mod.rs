@@ -67,6 +67,7 @@ use tracing::error;
 
 // Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+use hotshot_primitives::quorum_certificate::StakeTableEntry;
 
 // ORCHESTRATOR
 
@@ -234,6 +235,10 @@ pub trait Run<
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         // Sishan Note: For QC Aggregation
         let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
+        let entry = StakeTableEntry {
+            stake_key: key_pair_test.ver_key(),
+            stake_amount: U256::from(1u8),
+        };
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
@@ -261,6 +266,7 @@ pub trait Run<
             (network.clone(), ()),
             pk.clone(),
             key_pair_test.clone(),
+            // entry.clone(),
             sk.clone(),
             ek.clone(),
         );

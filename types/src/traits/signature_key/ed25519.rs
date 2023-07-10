@@ -31,7 +31,7 @@ mod tests {
         let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
 
         // Sign the data with it
-        let signature = Ed25519Pub::sign(&priv_key, key_pair_test.clone(), &data);
+        let signature = Ed25519Pub::sign(key_pair_test.clone(), &data);
         // Verify the signature
         assert!(pub_key.validate(&signature, &data));
     }

@@ -30,6 +30,7 @@ use tracing::{debug, info, warn};
 
 // Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+use hotshot_primitives::quorum_certificate::StakeTableEntry;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -250,6 +251,10 @@ where
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         // Sishan Note: For QC Aggregation
         let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
+        // let entry = StakeTableEntry {
+        //     stake_key: key_pair_test.ver_key(),
+        //     stake_amount: U256::from(1u8),
+        // };
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
@@ -271,6 +276,7 @@ where
             (quorum_network, committee_network),
             public_key.clone(),
             key_pair_test.clone(),
+            // entry.clone(),
             private_key.clone(),
             ek.clone(),
         );

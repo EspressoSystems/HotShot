@@ -124,6 +124,8 @@ where
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
+        //Sishan TODO: change the pub_key to KeyPair::VerKey to meet QC aggregation requirement.
+        // let pub_key_qc = JfPubKey<BLSOverBN254CurveSignatureScheme as SIGSCHEME>::from_private(&key_pair_test.ver_key());
         if !self.committee_nodes.contains(&pub_key) {
             return Ok(None);
         }
@@ -131,7 +133,7 @@ where
         message.extend(view_number.to_le_bytes());
         // Sishan NOTE: change the length from 8 to 32, use defined constant? instead of 32.
         message.extend_from_slice(&[0u8; 32 - 8]);
-        let signature = PUBKEY::sign(private_key, key_pair_test.clone(), &message);
+        let signature = PUBKEY::sign(key_pair_test.clone(), &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 

@@ -3093,7 +3093,7 @@ dependencies = [
 [[package]]
 name = "hotshot-primitives"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-primitives?rev=dbbe462#dbbe4624e9867fad140af09629ea8c567faf05d7"
+source = "git+https://github.com/EspressoSystems/hotshot-primitives?rev=8899c04#8899c046d8fe545fd0c6717157d5d37c03cc75d8"
 dependencies = [
  "anyhow",
  "ark-bls12-381 0.4.0",

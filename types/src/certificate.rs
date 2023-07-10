@@ -20,6 +20,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 // NOTE Sishan: For signature aggregation
 use jf_primitives::signatures::AggregateableSignatureSchemes;
 use hotshot_primitives::quorum_certificate::BitvectorQuorumCertificate;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
