@@ -40,7 +40,7 @@ either = { version = "1.8.1" }
 futures = "0.3.28"
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
-snafu = "0.7.4"
+snafu = "0.7.5"
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
