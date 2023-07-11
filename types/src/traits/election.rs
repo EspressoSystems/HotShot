@@ -315,19 +315,16 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-);
-                        // error!("Signature vote data {:?}", signature.1 .1);
-
-                        res &&
-                        // TODO Is this logic correct? 
-                        (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
+                        );
+                        // TODO Is this logic correct?
+                        res && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-                error!(
-                    // "Yes votes are: {}",
-                    yes_votes
-                );
+                // error!(
+                //     // "Yes votes are: {}",
+                //     yes_votes
+                // );
                 yes_votes >= u64::from(self.success_threshold())
             }
 

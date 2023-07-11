@@ -311,7 +311,7 @@ where
 
         // Check for duplicate vote
         if total_vote_map.contains_key(&key) {
-            error!("Duplicate vote");
+            // error!("Duplicate vote");
             return Either::Left(self);
         }
 

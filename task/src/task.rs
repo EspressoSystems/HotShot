@@ -10,7 +10,7 @@ use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
-use crate::event_stream::SendableStream;
+use crate::event_stream::{SendableStream, StreamId};
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
@@ -59,6 +59,7 @@ pub trait HotShotTaskTypes: 'static {
 #[pin_project(project = ProjectedHST)]
 #[allow(clippy::type_complexity)]
 pub struct HST<HSTT: HotShotTaskTypes> {
+    pub(crate) stream_id: Option<StreamId>,
     /// the eventual return value, post-cleanup
     r_val: Option<HotShotTaskCompleted>,
     /// if we have a future for tracking shutdown progress
@@ -258,6 +259,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         Self {
             event_stream: Some(Box::pin(stream.fuse())),
             shutdown_fns,
+            stream_id: Some(uid),
             ..self
         }
     }
@@ -295,6 +297,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// create a new task
     pub(crate) fn new(name: String) -> Self {
         Self {
+            stream_id: None,
             r_val: None,
             name,
             status: TaskState::new(),
