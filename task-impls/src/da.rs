@@ -153,10 +153,12 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
+            error!("DA vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
+                error!("DA accumulator finished view: {:?}", state.cur_view);
                 return (None, state);
             }
 
@@ -289,6 +291,7 @@ where
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote) => {
+                error!("DA vote recv, Main Task {:?}, key: {:?}", vote.current_view, self.committee_exchange.public_key());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view)
@@ -303,7 +306,9 @@ where
                 }));
                 let collection_view =
                     if let Some((collection_view, collection_id)) = &self.vote_collector {
+                        // TODO: Is this correct for consecutive leaders?
                         if view > *collection_view {
+                            error!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
                         collection_view.clone()
@@ -336,7 +341,9 @@ where
                         event_stream: self.event_stream.clone(),
                     };
                     let name = "DA Vote Collection";
-                    let filter = FilterEvent::default();
+                    let filter = FilterEvent(Arc::new(|event| {
+                        matches!(event, SequencingHotShotEvent::DAVoteRecv(_))
+                    }));
                     let builder =
                         TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)

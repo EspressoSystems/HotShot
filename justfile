@@ -24,7 +24,7 @@ test_async_std_all:
 
 _test_basic:
   echo Testing with async std executor
-  RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1
+  RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 

@@ -292,7 +292,10 @@ where
         // ED: Added this in the DA task ^
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
+        error!("read");
         let consensus = self.consensus.read().await;
+        error!("read lock aquired");
+
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
             error!("Couldn't find genesis view in state map.");
             return None;
@@ -458,8 +461,8 @@ where
                 }
             }
             error!(
-                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
-                *self.cur_view
+                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
+                *proposal.get_view_number(),
             );
             return false;
         }
@@ -521,8 +524,9 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         info!("We were chosen for consensus committee on {:?}", view);
+                        error!("upgradalbe read");
                         let consensus = self.consensus.upgradable_read().await;
-
+                        error!("upgradalbe read lock aquired");
                         let message;
 
                         // Construct the leaf.
@@ -735,9 +739,9 @@ where
                         }
 
                         // ED Only do this GC if we are able to vote
-                        for view in *self.cur_view..*view - 1 {
-                            let v = TYPES::Time::new(view);
-                            self.certs.remove(&v);
+                        for v in *self.cur_view..*view + 1 {
+                            let time = TYPES::Time::new(v);
+                            self.certs.remove(&time);
                         }
                         // error!("Voting for view {}", *self.cur_view);
                         // self.current_proposal = None;
@@ -882,7 +886,9 @@ where
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
                 // error!("Parent view number is {:?}", parent_view_number);
+                error!("read");
                 let consensus = self.consensus.read().await;
+                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -922,6 +928,7 @@ where
 
                 // Walk back until we find a decide
                 if !reached_decided {
+                    error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -929,6 +936,7 @@ where
                         }
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
+                    error!("updated saved leaves");
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
@@ -983,13 +991,15 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
-                // error!("DAC Recved for view ! {}", *cert.view_number);
+                error!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
-                self.vote_if_able().await;
+                if self.vote_if_able().await {
+                    self.update_view(view + 1).await;
+                }
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
@@ -1011,7 +1021,9 @@ where
                 // update our high qc to the qc we just formed
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
+                error!("read consensus");
                 let consensus = self.consensus.read().await;
+                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1040,6 +1052,7 @@ where
                 let mut next_parent_hash = original_parent_hash;
 
                 if !reached_decided {
+                    error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -1048,6 +1061,7 @@ where
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
                     // TODO do some sort of sanity check on the view number that it matches decided
+                    error!("updated saved leaves");
                 }
 
                 let block_commitment = self.block.commit();
