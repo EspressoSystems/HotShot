@@ -324,10 +324,10 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-                error!(
-                    // "Yes votes are: {}",
-                    yes_votes
-                );
+                // error!(
+                //     // "Yes votes are: {}",
+                //     yes_votes
+                // );
                 yes_votes >= u64::from(self.success_threshold())
             }
 

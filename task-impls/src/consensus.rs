@@ -194,7 +194,7 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote: {:?}", vote);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
@@ -226,7 +226,7 @@ where
                 ) {
                     Either::Left(acc) => {
                         let total_votes = acc.total_vote_outcomes.len();
-                        error!("Not enough votes total votes: {}", total_votes);
+                        // error!("Not enough votes total votes: {}", total_votes);
                         state.accumulator = Either::Left(acc);
                         return (None, state);
                     }
@@ -448,7 +448,7 @@ where
                         }
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            error!("Sending vote to next leader {:?}", vote.current_view());
+                            // error!("Sending vote to next leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -457,16 +457,16 @@ where
                     }
                 }
             }
-            // error!(
-            //     // "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
-            //     // *self.cur_view
-            // );
+            error!(
+                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
+                *self.cur_view
+            );
             return false;
         }
-        // error!(
-        //     // "Could not vote because we don't have a proposal yet for view {}",
-        //     // *self.cur_view
-        // );
+        error!(
+            "Could not vote because we don't have a proposal yet for view {}",
+            *self.cur_view
+        );
         return false;
     }
 
@@ -490,7 +490,7 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!("Receved Quorum Propsoal");
+                error!("Receved Quorum Propsoal for view {}", *proposal.data.view_number);
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -499,6 +499,7 @@ where
 
                 let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
+                    panic!("Leader key does not match key in proposal");
                     return;
                 }
 
@@ -777,7 +778,7 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote: {:?}", vote);
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -857,7 +858,7 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-                error!("QC Formed event happened!");
+                // error!("QC Formed event happened!");
 
                 self.high_qc = qc.clone();
                 // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
@@ -873,6 +874,7 @@ where
 
                 // // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
+                    panic!("Somehow we formed a QC but are not the leader for the next view");
                     return;
                 }
 
@@ -930,6 +932,7 @@ where
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
+
                 let block_commitment = self.block.commit();
                 if block_commitment == TYPES::BlockType::new().commit() {
                     error!("Block is generic block! {:?}", self.cur_view);
@@ -969,8 +972,8 @@ where
                     data: proposal,
                     signature,
                 };
-                // error!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                error!("Sending proposal for view {:?}", message.data.clone());
+                error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+                // error!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(

@@ -112,6 +112,7 @@ impl<
                         SequencingHotShotEvent::DAVoteRecv(vote.clone())
                     }
                     CommitteeConsensusMessage::DACertificate(cert) => {
+                        panic!("Recevid DA C! ");
                         SequencingHotShotEvent::DACRecv(cert)
                     }
                 },
@@ -179,7 +180,9 @@ impl<
                 Some(membership.get_leader(vote.current_view + 1)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            SequencingHotShotEvent::DACSend(certificate, sender) => (
+            SequencingHotShotEvent::DACSend(certificate, sender) =>{ 
+                    panic!("Sending DAC!!!!!!!");
+                (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
                     SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
@@ -188,7 +191,7 @@ impl<
                 ),
                 TransmitType::Broadcast,
                 None,
-            ),
+            )},
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
