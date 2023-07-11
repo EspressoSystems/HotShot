@@ -32,8 +32,6 @@ pub mod types;
 
 pub mod tasks;
 
-use crate::tasks::committee_filter;
-use crate::tasks::view_sync_filter;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},

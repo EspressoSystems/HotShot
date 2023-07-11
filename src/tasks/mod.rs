@@ -13,7 +13,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_std::stream::Filter;
 use futures::FutureExt;
-use hotshot_consensus::SequencingConsensusApi;
+use hotshot_consensus::{Consensus, SequencingConsensusApi};
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -375,7 +375,14 @@ where
         boxed_sync(closure)
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
-    let filter = NetworkTaskState::filter(task_kind);
+    let filter = NetworkTaskState::<
+        TYPES,
+        I,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        <EXCHANGE as ConsensusExchange<_, _>>::Networking,
+    >::filter(task_kind);
     let channel = exchange.network().clone();
     let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
@@ -399,7 +406,7 @@ where
             };
             async move {
                 for message in messages.0 {
-                    state.handle_message(task_kind, message).await;
+                    state.handle_message(task_kind.clone(), message).await;
                 }
                 (None, state)
             }

@@ -30,6 +30,7 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 use tracing::warn;
 
+#[derive(Clone, Copy)]
 pub enum NetworkTaskKind {
     Quorum,
     Committee,
