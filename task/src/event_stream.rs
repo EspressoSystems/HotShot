@@ -41,6 +41,9 @@ impl EventStream for DummyStream {
     }
 
     async fn unsubscribe(&self, _id: StreamId) {}
+
+    async fn direct_message(&self, id: StreamId, event: Self::EventType) {}
+
 }
 
 impl SendableStream for DummyStream {}
@@ -73,6 +76,8 @@ pub trait EventStream: Clone + 'static + Sync + Send {
 
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
+
+    async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 
 /// Event stream implementation using channels as the underlying primitive.
@@ -117,6 +122,26 @@ impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {}
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
+
+    async fn direct_message(&self, id: StreamId, event: Self::EventType) {
+        let mut inner = self.inner.write().await;
+        match inner.subscribers.get(&id)
+        {
+            Some((filter, sender)) => {
+                if filter(&event) {
+                    match sender.send(event.clone()).await {
+                        Ok(_) => (),
+                        // error sending => stream is closed so remove it
+                        Err(_) => self.unsubscribe(id).await,
+                    }
+                }
+            },
+            None => {
+                tracing::error!("Requested stream id not found");
+
+            },
+        }
+    }
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType) {

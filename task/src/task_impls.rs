@@ -2,7 +2,7 @@ use futures::Stream;
 use std::marker::PhantomData;
 
 use crate::{
-    event_stream::{DummyStream, EventStream, SendableStream},
+    event_stream::{DummyStream, EventStream, SendableStream, StreamId},
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskHandler, HotShotTaskTypes, PassType,
@@ -30,6 +30,11 @@ impl<HSTT: HotShotTaskTypes> TaskBuilder<HSTT> {
             self.0
                 .register_handler(HotShotTaskHandler::HandleEvent(handler)),
         )
+    }
+
+    /// obtains stream id if it exists
+    pub fn get_stream_id(&self) -> Option<StreamId> {
+        self.0.stream_id
     }
 
     /// register a message handler
