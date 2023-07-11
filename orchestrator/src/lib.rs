@@ -64,9 +64,9 @@ struct OrchestratorState<KEY, ELECTION> {
 // Statistics struct
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct StatisticsStruct{
-    stat_viewtime: Vec<i64>,
-    stat_throughput: Vec<i64>,
-    stat_runduration: Vec<i64>, 
+    pub stat_viewtime: Vec<i64>,
+    pub stat_throughput: Vec<i64>,
+    pub stat_runduration: Vec<i64>, 
 }
 
 // Average Function
@@ -247,7 +247,7 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml")
+    let mut api = Api::<State, ServerError>::from_file("../orchestrator/api.toml")
         .expect("api.toml file is not found");
     api.post("postidentity", |req, state| {
         async move {
@@ -306,46 +306,3 @@ where
 }
 
 
-//Testing
-
-#[cfg(test)]
-mod test {
-    use crate::config::{
-        post_statistics_route, get_statistics_result
-    };
-
-    use super::*;
-    use async_compatibility_layer::art::async_spawn;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
-    use portpicker::pick_unused_port;
-    use surf_disco::error::ClientError;
-
-    type State = RwLock<WebServerState<Ed25519Pub>>;
-    type Error = ServerError;
-
-    async fn test_orchestrator() {
-        let port = pick_unused_port().unwrap();
-        let base_url = format!("0.0.0.0:{port}");
-        let options = Options::default();
-
-        run_orchestrator(options, base_url, port);
-
-        let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ClientError>::new(base_url);
-        assert!(client.connect(None).await);
-
-        // just need to test the stats (not really needed for another endpoint)
-        let mut stat_data = StatisticsStruct {
-            stat_runduration: vec![10],
-            stat_viewtime: vec![20],
-            stat_throughput: vec![30],
-        };
-        client
-            .post::<()>("results")
-            .body_auto(&stat_data)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-    }
-}
