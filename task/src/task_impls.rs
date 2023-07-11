@@ -264,7 +264,7 @@ pub mod test {
 
     #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
     pub struct CounterState {
-        num_events_recved: u64
+        num_events_recved: u64,
     }
 
     #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -292,7 +292,8 @@ pub mod test {
     // TODO fill in generics for stream
 
     pub type AppliedHSTWithEvent = HSTWithEvent<Error, Event, ChannelStream<Event>, State>;
-    pub type AppliedHSTWithEventCounterState = HSTWithEvent<Error, Event, ChannelStream<Event>, CounterState>;
+    pub type AppliedHSTWithEventCounterState =
+        HSTWithEvent<Error, Event, ChannelStream<Event>, CounterState>;
     pub type AppliedHSTWithMessage =
         HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
     pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<
@@ -341,7 +342,6 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_task_with_event_stream() {
-
         setup_logging();
         let event_stream: event_stream::ChannelStream<Event> = event_stream::ChannelStream::new();
         let mut registry = GlobalRegistry::new();
@@ -349,36 +349,33 @@ pub mod test {
         let mut task_runner = crate::task_launcher::TaskRunner::default();
 
         for i in 0..10000 {
-                let state = CounterState::default();
-                let event_handler = HandleEvent(Arc::new(move |event, mut state: CounterState| {
-                    async move {
-
-                        if let Event::Dummy = event {
-                            state.num_events_recved += 1;
-                        }
-
-
-                        if state.num_events_recved == 100 {
-                            (Some(HotShotTaskCompleted::ShutDown), state)
-                        } else {
-                            (None, state)
-                        }
+            let state = CounterState::default();
+            let event_handler = HandleEvent(Arc::new(move |event, mut state: CounterState| {
+                async move {
+                    if let Event::Dummy = event {
+                        state.num_events_recved += 1;
                     }
-                    .boxed()
-                }));
-                let name = format!("Test Task {:?}", i).to_string();
-                let built_task = TaskBuilder::<AppliedHSTWithEventCounterState>::new(name.clone())
-                    .register_event_stream(event_stream.clone(), FilterEvent::default())
-                    .await
-                    .register_registry(&mut registry)
-                    .await
-                    .register_state(state)
-                    .register_event_handler(event_handler);
-                let id = built_task.get_task_id().unwrap();
-                let result = AppliedHSTWithEventCounterState::build(built_task).launch();
-                task_runner = task_runner.add_task(id, name, result);
-        }
 
+                    if state.num_events_recved == 100 {
+                        (Some(HotShotTaskCompleted::ShutDown), state)
+                    } else {
+                        (None, state)
+                    }
+                }
+                .boxed()
+            }));
+            let name = format!("Test Task {:?}", i).to_string();
+            let built_task = TaskBuilder::<AppliedHSTWithEventCounterState>::new(name.clone())
+                .register_event_stream(event_stream.clone(), FilterEvent::default())
+                .await
+                .register_registry(&mut registry)
+                .await
+                .register_state(state)
+                .register_event_handler(event_handler);
+            let id = built_task.get_task_id().unwrap();
+            let result = AppliedHSTWithEventCounterState::build(built_task).launch();
+            task_runner = task_runner.add_task(id, name, result);
+        }
 
         async_spawn(async move {
             for _ in 0..100 {
@@ -390,9 +387,7 @@ pub mod test {
         for result in results {
             assert!(result.1 == HotShotTaskCompleted::ShutDown);
         }
-
     }
-
 
     #[cfg(test)]
     #[cfg_attr(

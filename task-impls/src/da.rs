@@ -90,7 +90,7 @@ pub struct DATaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// The view and ID of the current vote collection task, if there is one.
-    pub vote_collector: Option<(ViewNumber, usize)>,
+    pub vote_collector: Option<(ViewNumber, usize, usize)>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -182,11 +182,13 @@ where
                     error!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
-                        .publish(SequencingHotShotEvent::DACSend(dac.clone(), state.committee_exchange.public_key().clone()))
+                        .publish(SequencingHotShotEvent::DACSend(
+                            dac.clone(),
+                            state.committee_exchange.public_key().clone(),
+                        ))
                         .await;
 
                     state.accumulator = Right(dac);
-                    
 
                     return (None, state);
                 }
@@ -224,7 +226,7 @@ where
             SequencingHotShotEvent::TransactionRecv(transaction) => {
                 // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
-                
+
                 self.consensus
                     .read()
                     .await
@@ -237,7 +239,10 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                error!("DA proposal received for view: {:?}", proposal.data.get_view_number());
+                error!(
+                    "DA proposal received for view: {:?}",
+                    proposal.data.get_view_number()
+                );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
 
@@ -248,7 +253,7 @@ where
                 }
                 let block_commitment = proposal.data.deltas.commit();
 
-                // ED Is this the right leader? 
+                // ED Is this the right leader?
                 let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
                     panic!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
@@ -291,11 +296,14 @@ where
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote) => {
-                error!("DA vote recv, Main Task {:?}, key: {:?}", vote.current_view, self.committee_exchange.public_key());
+                error!(
+                    "DA vote recv, Main Task {:?}, key: {:?}",
+                    vote.current_view,
+                    self.committee_exchange.public_key()
+                );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if &self.committee_exchange.get_leader(view)
-                    != self.committee_exchange.public_key()
+                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
                 {
                     panic!("We are not the committee leader");
                     return None;
@@ -305,7 +313,7 @@ where
                     async move { vote_handle(state, event).await }.boxed()
                 }));
                 let collection_view =
-                    if let Some((collection_view, collection_id)) = &self.vote_collector {
+                    if let Some((collection_view, collection_id, _)) = &self.vote_collector {
                         // TODO: Is this correct for consecutive leaders?
                         if view > *collection_view {
                             error!("shutting down for view {:?}", collection_view);
@@ -327,7 +335,7 @@ where
                     &vote.signature.0,
                     &vote.signature.1,
                     vote.block_commitment,
-                    vote.vote_data,
+                    vote.vote_data.clone(),
                     vote.vote_token.clone(),
                     vote.current_view,
                     acc,
@@ -353,17 +361,28 @@ where
                             .register_state(state)
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
+                    let stream_id = builder.get_stream_id().unwrap();
                     let task =
                         async_spawn(
                             async move { DAVoteCollectionTypes::build(builder).launch().await },
                         );
-                    self.vote_collector = Some((view, id));
+                    self.vote_collector = Some((view, id, stream_id));
+                } else {
+                    if let Some((view, _, stream_id)) = self.vote_collector {
+                        error!(
+                            "directly sending vote to vote collection task. view {:?}",
+                            view
+                        );
+                        self.event_stream
+                            .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                            .await;
+                    };
                 }
             }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
                 if *self.cur_view >= *view {
-                    return None
+                    return None;
                 }
                 self.cur_view = view;
 
@@ -422,7 +441,7 @@ where
                 let signature = self.committee_exchange.sign_da_proposal(&block.commit());
                 let data: DAProposal<TYPES> = DAProposal {
                     deltas: block.clone(),
-                    // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1? 
+                    // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
                 };
                 error!("Sending DA proposal for view {:?}", data.view_number);
@@ -433,14 +452,15 @@ where
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
 
-                self.event_stream.publish(SequencingHotShotEvent::SendDABlockData(block.clone())).await;
+                self.event_stream
+                    .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
+                    .await;
                 if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
                     consensus.metrics.failed_to_send_messages.add(1);
                     warn!(?message, ?e, "Could not broadcast leader proposal");
                 } else {
                     consensus.metrics.outgoing_broadcast_messages.add(1);
                 }
-
 
                 return None;
             }

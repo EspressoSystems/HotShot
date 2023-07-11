@@ -10,12 +10,12 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey},
     },
 };
-use tracing::error;
 use jf_primitives::signatures::BLSSignatureScheme;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
+use tracing::error;
 
 /// Dummy implementation of [`Membership`]
 

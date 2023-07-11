@@ -211,8 +211,6 @@ where
                 //     vote.leaf_commitment.clone()
                 // );
 
-                
-
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -493,7 +491,10 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!("Receved Quorum Propsoal for view {}", *proposal.data.view_number);
+                error!(
+                    "Receved Quorum Propsoal for view {}",
+                    *proposal.data.view_number
+                );
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -939,7 +940,6 @@ where
                     error!("updated saved leaves");
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
-
 
                 let block_commitment = self.block.commit();
                 if block_commitment == TYPES::BlockType::new().commit() {

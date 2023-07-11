@@ -10,7 +10,6 @@ use crate::{
         state::ConsensusTime,
     },
 };
-use tracing::error;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
@@ -18,6 +17,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
+use tracing::error;
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -151,7 +151,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
             view_number,
             signatures,
             is_genesis: false,
-        }; 
+        };
         error!("QC commitment when formed is {:?}", qc.leaf_commitment);
         qc
     }

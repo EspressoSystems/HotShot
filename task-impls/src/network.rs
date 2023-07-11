@@ -124,9 +124,7 @@ impl<
                     hotshot_types::message::DataMessage::SubmitTransaction(
                         transaction,
                         view_number,
-                    ) => {
-                        SequencingHotShotEvent::TransactionRecv(transaction)
-                    }
+                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
@@ -181,18 +179,19 @@ impl<
                 Some(membership.get_leader(vote.current_view)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            SequencingHotShotEvent::DACSend(certificate, sender) =>{ 
-                    // panic!("Sending DAC!!!!!!!");
+            SequencingHotShotEvent::DACSend(certificate, sender) => {
+                // panic!("Sending DAC!!!!!!!");
                 (
-                sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                        certificate.clone(),
-                    ))),
-                ),
-                TransmitType::Broadcast,
-                None,
-            )},
+                    sender,
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
+                            certificate.clone(),
+                        ))),
+                    ),
+                    TransmitType::Broadcast,
+                    None,
+                )
+            }
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -228,7 +227,7 @@ impl<
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            event=> {
+            event => {
                 // panic!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
@@ -254,7 +253,6 @@ impl<
 
         return None;
     }
-
 }
 
 #[derive(Snafu, Debug)]
