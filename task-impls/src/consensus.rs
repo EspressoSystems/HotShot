@@ -194,7 +194,7 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote: {:?}", vote);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
@@ -211,8 +211,6 @@ where
                 //     vote.leaf_commitment.clone()
                 // );
 
-                
-
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -226,7 +224,7 @@ where
                 ) {
                     Either::Left(acc) => {
                         let total_votes = acc.total_vote_outcomes.len();
-                        error!("Not enough votes total votes: {}", total_votes);
+                        // error!("Not enough votes total votes: {}", total_votes);
                         state.accumulator = Either::Left(acc);
                         return (None, state);
                     }
@@ -292,7 +290,10 @@ where
         // ED: Added this in the DA task ^
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
+        error!("read");
         let consensus = self.consensus.read().await;
+        error!("read lock aquired");
+
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
             error!("Couldn't find genesis view in state map.");
             return None;
@@ -448,7 +449,7 @@ where
                         }
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            error!("Sending vote to next leader {:?}", vote.current_view());
+                            // error!("Sending vote to next leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -457,16 +458,16 @@ where
                     }
                 }
             }
-            // error!(
-            //     // "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {}",
-            //     // *self.cur_view
-            // );
+            error!(
+                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
+                *proposal.get_view_number(),
+            );
             return false;
         }
-        // error!(
-        //     // "Could not vote because we don't have a proposal yet for view {}",
-        //     // *self.cur_view
-        // );
+        error!(
+            "Could not vote because we don't have a proposal yet for view {}",
+            *self.cur_view
+        );
         return false;
     }
 
@@ -490,7 +491,10 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!("Receved Quorum Propsoal");
+                error!(
+                    "Receved Quorum Propsoal for view {}",
+                    *proposal.data.view_number
+                );
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -499,6 +503,7 @@ where
 
                 let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
+                    panic!("Leader key does not match key in proposal");
                     return;
                 }
 
@@ -520,8 +525,9 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         info!("We were chosen for consensus committee on {:?}", view);
+                        error!("upgradalbe read");
                         let consensus = self.consensus.upgradable_read().await;
-
+                        error!("upgradalbe read lock aquired");
                         let message;
 
                         // Construct the leaf.
@@ -734,9 +740,9 @@ where
                         }
 
                         // ED Only do this GC if we are able to vote
-                        for view in *self.cur_view..*view - 1 {
-                            let v = TYPES::Time::new(view);
-                            self.certs.remove(&v);
+                        for v in *self.cur_view..*view + 1 {
+                            let time = TYPES::Time::new(v);
+                            self.certs.remove(&time);
                         }
                         // error!("Voting for view {}", *self.cur_view);
                         // self.current_proposal = None;
@@ -777,7 +783,7 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote: {:?}", vote);
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -857,7 +863,7 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-                error!("QC Formed event happened!");
+                // error!("QC Formed event happened!");
 
                 self.high_qc = qc.clone();
                 // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
@@ -873,6 +879,7 @@ where
 
                 // // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
+                    panic!("Somehow we formed a QC but are not the leader for the next view");
                     return;
                 }
 
@@ -880,7 +887,9 @@ where
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
                 // error!("Parent view number is {:?}", parent_view_number);
+                error!("read");
                 let consensus = self.consensus.read().await;
+                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -920,6 +929,7 @@ where
 
                 // Walk back until we find a decide
                 if !reached_decided {
+                    error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -927,6 +937,7 @@ where
                         }
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
+                    error!("updated saved leaves");
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
@@ -969,8 +980,8 @@ where
                     data: proposal,
                     signature,
                 };
-                // error!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                error!("Sending proposal for view {:?}", message.data.clone());
+                error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+                // error!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(
@@ -980,13 +991,15 @@ where
                     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
-                // error!("DAC Recved for view ! {}", *cert.view_number);
+                error!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
-                self.vote_if_able().await;
+                if self.vote_if_able().await {
+                    self.update_view(view + 1).await;
+                }
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
@@ -1008,7 +1021,9 @@ where
                 // update our high qc to the qc we just formed
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
+                error!("read consensus");
                 let consensus = self.consensus.read().await;
+                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1037,6 +1052,7 @@ where
                 let mut next_parent_hash = original_parent_hash;
 
                 if !reached_decided {
+                    error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -1045,6 +1061,7 @@ where
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
                     // TODO do some sort of sanity check on the view number that it matches decided
+                    error!("updated saved leaves");
                 }
 
                 let block_commitment = self.block.commit();

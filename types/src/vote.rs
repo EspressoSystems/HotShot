@@ -12,13 +12,13 @@ use crate::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use tracing::error;
 use commit::{Commitment, Committable};
 use either::Either;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use tracing::error;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
@@ -311,10 +311,9 @@ where
 
         // Check for duplicate vote
         if total_vote_map.contains_key(&key) {
-            error!("Duplicate vote");
+            // error!("Duplicate vote");
             return Either::Left(self);
         }
-
 
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
@@ -343,7 +342,7 @@ where
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 match vote_data {
-                    VoteData::DA(_) | VoteData::Yes(_)  => {
+                    VoteData::DA(_) | VoteData::Yes(_) => {
                         return Either::Right(YesNoSignature::Yes(valid_signatures))
                     }
                     VoteData::ViewSyncPreCommit(_) => unimplemented!(),
@@ -353,7 +352,7 @@ where
                     VoteData::ViewSyncFinalize(_) => {
                         return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures))
                     }
-                    _ => unimplemented!()
+                    _ => unimplemented!(),
                 }
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;

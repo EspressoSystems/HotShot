@@ -324,8 +324,7 @@ pub fn quorum_filter<
         | SequencingHotShotEvent::QuorumVoteSend(_)
         | SequencingHotShotEvent::SendDABlockData(_)
         | SequencingHotShotEvent::Shutdown
-        | SequencingHotShotEvent::ViewChange(_)=> true,
-
+        | SequencingHotShotEvent::ViewChange(_) => true,
 
         _ => false,
     }
@@ -342,7 +341,7 @@ pub fn committee_filter<
     event: &SequencingHotShotEvent<TYPES, I>,
 ) -> bool {
     match event {
-        | SequencingHotShotEvent::DAProposalSend(_, _)
+        SequencingHotShotEvent::DAProposalSend(_, _)
         | SequencingHotShotEvent::DAVoteSend(_)
         | SequencingHotShotEvent::DACSend(_, _)
         | SequencingHotShotEvent::Shutdown
@@ -364,7 +363,7 @@ pub fn view_sync_filter<
     event: &SequencingHotShotEvent<TYPES, I>,
 ) -> bool {
     match event {
-        | SequencingHotShotEvent::ViewSyncVoteSend(_)
+        SequencingHotShotEvent::ViewSyncVoteSend(_)
         | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
         | SequencingHotShotEvent::Shutdown
         | SequencingHotShotEvent::ViewChange(_) => true,
