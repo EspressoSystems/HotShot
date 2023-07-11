@@ -153,7 +153,7 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
-            panic!("Vote handle received DA vote for view {}", *vote.current_view);
+            // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
