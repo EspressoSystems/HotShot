@@ -132,11 +132,11 @@ impl<
                         },
                         Either::Right(committee_message) => match committee_message {
                             CommitteeConsensusMessage::DAProposal(proposal) => {
-                                SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                                SequencingHotShotEvent::DAProposalRecv(proposal, sender)
                             }
                             CommitteeConsensusMessage::DAVote(vote) => {
                                 error!("DA Vote message recv {:?}", vote.current_view);
-                                SequencingHotShotEvent::DAVoteRecv(vote.clone())
+                                SequencingHotShotEvent::DAVoteRecv(vote)
                             }
                             CommitteeConsensusMessage::DACertificate(cert) => {
                                 SequencingHotShotEvent::DACRecv(cert)
