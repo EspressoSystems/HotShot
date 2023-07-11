@@ -81,6 +81,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -316,6 +317,7 @@ where
             vote_collector: None,
             timeout_task: async_spawn(async move {}),
             event_stream: event_stream.clone(),
+            output_event_stream: nll_todo(),
             certs: HashMap::new(),
             current_proposal: None,
         };

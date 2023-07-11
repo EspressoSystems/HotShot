@@ -122,9 +122,7 @@ impl<
                     hotshot_types::message::DataMessage::SubmitTransaction(
                         transaction,
                         view_number,
-                    ) => {
-                        SequencingHotShotEvent::TransactionRecv(transaction)
-                    }
+                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),
@@ -224,7 +222,7 @@ impl<
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            event=> {
+            event => {
                 // panic!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
@@ -250,7 +248,6 @@ impl<
 
         return None;
     }
-
 }
 
 #[derive(Snafu, Debug)]

@@ -859,7 +859,7 @@ where
 
         let handle = SystemContextHandle {
             registry,
-            output_event_stream,
+            output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
@@ -887,8 +887,13 @@ where
             FilterEvent(Arc::new(view_sync_filter)),
         )
         .await;
-        let task_runner =
-            add_consensus_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+        let task_runner = add_consensus_task(
+            task_runner,
+            internal_event_stream.clone(),
+            output_event_stream.clone(),
+            handle.clone(),
+        )
+        .await;
         let task_runner = add_da_task(
             task_runner,
             internal_event_stream.clone(),

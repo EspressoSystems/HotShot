@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
+use bincode::config::Options;
 use commit::Commitment;
 use commit::Committable;
 use core::time::Duration;
@@ -30,6 +31,7 @@ use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::LeafType;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::event::{Event, EventType};
 use hotshot_types::message::Message;
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -50,6 +52,7 @@ use hotshot_types::{
     },
     vote::{QuorumVote, VoteAccumulator},
 };
+use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::alloc::GlobalAlloc;
 use std::collections::HashMap;
@@ -124,6 +127,9 @@ pub struct SequencingConsensusTaskState<
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+
+    /// Event stream to publish events to the application layer
+    pub output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// All the DA certs we've received for current and future views.
     pub certs: HashMap<ViewNumber, DACertificate<TYPES>>,
@@ -210,8 +216,6 @@ where
                 //     "Vote leaf commitment is: {:?}",
                 //     vote.leaf_commitment.clone()
                 // );
-
-                
 
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
@@ -642,78 +646,81 @@ where
 
                         self.high_qc = leaf.justify_qc.clone();
 
-                        //             let mut new_anchor_view = consensus.last_decided_view;
-                        //             let mut new_locked_view = consensus.locked_view;
-                        //             let mut last_view_number_visited = self.cur_view;
-                        //             let mut new_commit_reached: bool = false;
-                        //             let mut new_decide_reached = false;
-                        //             let mut new_decide_qc = None;
-                        //             let mut leaf_views = Vec::new();
-                        //             let mut included_txns = HashSet::new();
-                        //             let old_anchor_view = consensus.last_decided_view;
-                        //             let parent_view = leaf.justify_qc.view_number;
-                        //             let mut current_chain_length = 0usize;
-                        //             if parent_view + 1 == self.cur_view {
-                        //                 current_chain_length += 1;
-                        //                 if let Err(e) = consensus.visit_leaf_ancestors(
-                        //     parent_view,
-                        //     Terminator::Exclusive(old_anchor_view),
-                        //     true,
-                        //     |leaf| {
-                        //         if !new_decide_reached {
-                        //             if last_view_number_visited == leaf.view_number + 1 {
-                        //                 last_view_number_visited = leaf.view_number;
-                        //                 current_chain_length += 1;
-                        //                 if current_chain_length == 2 {
-                        //                     new_locked_view = leaf.view_number;
-                        //                     new_commit_reached = true;
-                        //                     // The next leaf in the chain, if there is one, is decided, so this
-                        //                     // leaf's justify_qc would become the QC for the decided chain.
-                        //                     new_decide_qc = Some(leaf.justify_qc.clone());
-                        //                 } else if current_chain_length == 3 {
-                        //                     new_anchor_view = leaf.view_number;
-                        //                     new_decide_reached = true;
-                        //                 }
-                        //             } else {
-                        //                 // nothing more to do here... we don't have a new chain extension
-                        //                 return false;
-                        //             }
-                        //         }
-                        //         // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-                        //         if new_decide_reached {
-                        //             let mut leaf = leaf.clone();
+                        let mut new_anchor_view = consensus.last_decided_view;
+                        let mut new_locked_view = consensus.locked_view;
+                        let mut last_view_number_visited = self.cur_view;
+                        let mut new_commit_reached: bool = false;
+                        let mut new_decide_reached = false;
+                        let mut new_decide_qc = None;
+                        let mut leaf_views = Vec::new();
+                        let mut included_txns = HashSet::new();
+                        let old_anchor_view = consensus.last_decided_view;
+                        let parent_view = leaf.justify_qc.view_number;
+                        let mut current_chain_length = 0usize;
+                        if parent_view + 1 == self.cur_view {
+                            current_chain_length += 1;
+                            if let Err(e) = consensus.visit_leaf_ancestors(
+                            parent_view,
+                            Terminator::Exclusive(old_anchor_view),
+                            true,
+                            |leaf| {
+                                if !new_decide_reached {
+                                    if last_view_number_visited == leaf.view_number + 1 {
+                                        last_view_number_visited = leaf.view_number;
+                                        current_chain_length += 1;
+                                        if current_chain_length == 2 {
+                                            new_locked_view = leaf.view_number;
+                                            new_commit_reached = true;
+                                            // The next leaf in the chain, if there is one, is decided, so this
+                                            // leaf's justify_qc would become the QC for the decided chain.
+                                            new_decide_qc = Some(leaf.justify_qc.clone());
+                                        } else if current_chain_length == 3 {
+                                            new_anchor_view = leaf.view_number;
+                                            new_decide_reached = true;
+                                        }
+                                    } else {
+                                        // nothing more to do here... we don't have a new chain extension
+                                        return false;
+                                    }
+                                }
+                                // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
+                                if new_decide_reached {
+                                    let mut leaf = leaf.clone();
 
-                        //             // If the full block is available for this leaf, include it in the leaf
-                        //             // chain that we send to the client.
-                        //             if let Some(block) =
-                        //                 consensus.saved_blocks.get(leaf.get_deltas_commitment())
-                        //             {
-                        //                 if let Err(err) = leaf.fill_deltas(block.clone()) {
-                        //                     warn!("unable to fill leaf {} with block {}, block will not be available: {}",
-                        //                         leaf.commit(), block.commit(), err);
-                        //                 }
-                        //             }
+                                    // If the full block is available for this leaf, include it in the leaf
+                                    // chain that we send to the client.
+                                    if let Some(block) =
+                                        consensus.saved_blocks.get(leaf.get_deltas_commitment())
+                                    {
+                                        if let Err(err) = leaf.fill_deltas(block.clone()) {
+                                            warn!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                                leaf.commit(), block.commit(), err);
+                                        }
+                                    }
 
-                        //             leaf_views.push(leaf.clone());
-                        //             if let Left(block) = &leaf.deltas {
-                        //                 let txns = block.contained_transactions();
-                        //                 for txn in txns {
-                        //                     included_txns.insert(txn);
-                        //                 }
-                        //             }
-                        //         }
-                        //         true
-                        //     },
-                        // ) {
-                        //     self.api.send_view_error(self.cur_view, Arc::new(e)).await;
-                        // }
-                        //             }
+                                    leaf_views.push(leaf.clone());
+                                    if let Left(block) = &leaf.deltas {
+                                        let txns = block.contained_transactions();
+                                        for txn in txns {
+                                            included_txns.insert(txn);
+                                        }
+                                    }
+                                }
+                                true
+                            },
+                        ) {
+                            self.output_event_stream.publish(Event {
+                                view_number: self.cur_view,
+                                event: EventType::Error { error: e.into() },
+                            }).await;
+                        }
+                        }
 
-                        //             let included_txns_set: HashSet<_> = if new_decide_reached {
-                        //                 included_txns
-                        //             } else {
-                        //                 HashSet::new()
-                        //             };
+                        let included_txns_set: HashSet<_> = if new_decide_reached {
+                            included_txns
+                        } else {
+                            HashSet::new()
+                        };
 
                         // promote lock here to add proposal to statemap
                         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
@@ -725,8 +732,54 @@ where
                                 },
                             },
                         );
-                        // error!("Inserting leaf into storage {:?}", leaf.commit());
                         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+                        if new_commit_reached {
+                            consensus.locked_view = new_locked_view;
+                        }
+                        #[allow(clippy::cast_precision_loss)]
+                        if new_decide_reached {
+                            let mut included_txn_size = 0;
+                            consensus
+                                .transactions
+                                .modify(|txns| {
+                                    *txns = txns
+                                        .drain()
+                                        .filter(|(txn_hash, txn)| {
+                                            if included_txns_set.contains(txn_hash) {
+                                                included_txn_size += bincode_opts()
+                                                    .serialized_size(txn)
+                                                    .unwrap_or_default();
+                                                false
+                                            } else {
+                                                true
+                                            }
+                                        })
+                                        .collect();
+                                })
+                                .await;
+
+                            let decide_sent = self.output_event_stream.publish(Event {
+                                view_number: consensus.last_decided_view,
+                                event: EventType::Decide {
+                                    leaf_chain: Arc::new(leaf_views),
+                                    qc: Arc::new(new_decide_qc.unwrap()),
+                                },
+                            });
+                            let old_anchor_view = consensus.last_decided_view;
+                            consensus
+                                .collect_garbage(old_anchor_view, new_anchor_view)
+                                .await;
+                            consensus.last_decided_view = new_anchor_view;
+                            consensus.invalid_qc = 0;
+
+                            // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+                            if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
+                                error!("Could not insert new anchor into the storage API: {:?}", e);
+                            }
+
+                            // error!("Inserting leaf into storage {:?}", leaf.commit());
+                            decide_sent.await;
+                        }
 
                         drop(consensus);
                         if !self.vote_if_able().await {
