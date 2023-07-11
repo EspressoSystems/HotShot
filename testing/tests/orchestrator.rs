@@ -1,7 +1,8 @@
+use async_compatibility_layer::art::async_spawn;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::types::ed25519::Ed25519Pub;
-use hotshot_orchestrator::run_orchestrator;
 use hotshot_orchestrator::config::NetworkConfig;
+use hotshot_orchestrator::run_orchestrator;
 use portpicker::pick_unused_port;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use surf_disco::error::ClientError;
@@ -17,11 +18,15 @@ use hotshot_orchestrator::StatisticsStruct;
 async fn test_orchestrator() {
     let config = NetworkConfig::<Ed25519Pub, StaticElectionConfig>::default();
     let port = 7777; //pick_unused_port().unwrap();
-    let ipaddr = IpAddr::V4(Ipv4Addr::new(0,0,0,0));
+    let ipaddr = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
     let base_url = format!("127.0.0.1:{port}");
-    let task = run_orchestrator::<Ed25519Pub, StaticElectionConfig>(config,ipaddr,port);
+
+    async_spawn(async move {
+        run_orchestrator::<Ed25519Pub, StaticElectionConfig>(config, ipaddr, port).await;
+    });
 
     let base_url = format!("http://{base_url}").parse().unwrap();
+    println!("base url: {}", base_url);
     let client = surf_disco::Client::<ClientError>::new(base_url);
     assert!(client.connect(None).await);
 
@@ -41,6 +46,4 @@ async fn test_orchestrator() {
         .send()
         .await
         .unwrap();
-    
-    task.await;
 }
