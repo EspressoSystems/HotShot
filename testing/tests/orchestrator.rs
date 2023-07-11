@@ -18,12 +18,14 @@ async fn test_orchestrator() {
     let config = NetworkConfig::<Ed25519Pub, StaticElectionConfig>::default();
     let port = 7777; //pick_unused_port().unwrap();
     let ipaddr = IpAddr::V4(Ipv4Addr::new(0,0,0,0));
-    let base_url = format!("0.0.0.0:{port}");
-    run_orchestrator::<Ed25519Pub, StaticElectionConfig>(config,ipaddr,port).await;
+    let base_url = format!("127.0.0.1:{port}");
+    let task = run_orchestrator::<Ed25519Pub, StaticElectionConfig>(config,ipaddr,port);
 
     let base_url = format!("http://{base_url}").parse().unwrap();
     let client = surf_disco::Client::<ClientError>::new(base_url);
     assert!(client.connect(None).await);
+
+    panic!("Panic");
 
     // just need to test the stats (not really needed for another endpoint)
     let stat_data = StatisticsStruct {
@@ -31,6 +33,7 @@ async fn test_orchestrator() {
         stat_viewtime: vec![20],
         stat_throughput: vec![30],
     };
+
     client
         .post::<()>("results")
         .body_json(&stat_data)
@@ -38,5 +41,6 @@ async fn test_orchestrator() {
         .send()
         .await
         .unwrap();
-    assert!(true)
+    
+    task.await;
 }

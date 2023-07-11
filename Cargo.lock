@@ -3000,10 +3000,12 @@ dependencies = [
  "hotshot-utils",
  "jf-primitives",
  "nll",
+ "portpicker",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
  "snafu",
+ "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
  "tokio",
  "tracing",
 ]
