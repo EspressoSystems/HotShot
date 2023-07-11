@@ -14,7 +14,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 
 use hotshot_types::{
-    certificate::{QuorumCertificate, YesNoSignature},
+    certificate::{QuorumCertificate, YesNoSignature, QCYesNoSignature},
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
@@ -579,7 +579,8 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
         // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        // signatures: YesNoSignature::Yes(BTreeMap::default()),
+        signatures: unimplemented!("random_quorum_certificate"),
         is_genesis: rng.gen(),
     }
 }

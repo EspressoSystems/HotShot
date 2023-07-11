@@ -214,8 +214,8 @@ where
     type PrivateKey = (SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey);
 
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
-        return true; // Sishan TODO: change to qc-adaptive verification
-        // Sishan TODO: change to BLSOverBN254CurveSignatureScheme::Signature
+        return true; // Sishan NOTE TODO: change to qc-adaptive verification
+        // Sishan NOTE TODO: change to BLSOverBN254CurveSignatureScheme::Signature
         // let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = bincode_opts().deserialize(&signature.0);
         let x: Result<SIGSCHEME::Signature, _> = bincode_opts().deserialize(&signature.0);
         match x {
@@ -223,7 +223,7 @@ where
                 // First hash the data into a constant sized digest
                 SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok()
                 //Sishan Note: This is the test for QC aggregation - signature verification before append().
-                //Sishan Todo: change to BLSOverBN254CurveSignatureScheme::verify
+                //Sishan NOTE Todo: change to BLSOverBN254CurveSignatureScheme::verify
                 /*
                 let mut generic_msg_test = GenericArray::from_slice(data);
                 BLSOverBN254CurveSignatureScheme::verify(

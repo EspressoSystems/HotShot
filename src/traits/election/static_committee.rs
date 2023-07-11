@@ -124,7 +124,7 @@ where
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
-        //Sishan TODO: change the pub_key to KeyPair::VerKey to meet QC aggregation requirement.
+        //Sishan NOTE TODO: change the pub_key to KeyPair::VerKey to meet QC aggregation requirement.
         // let pub_key_qc = JfPubKey<BLSOverBN254CurveSignatureScheme as SIGSCHEME>::from_private(&key_pair_test.ver_key());
         if !self.committee_nodes.contains(&pub_key) {
             return Ok(None);

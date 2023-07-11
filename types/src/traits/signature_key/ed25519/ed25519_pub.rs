@@ -62,7 +62,7 @@ impl SignatureKey for Ed25519Pub {
 
     #[instrument(skip(self))]
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
-        return true; // Sishan TODO: change to qc-adaptive verification
+        return true; // Sishan NOTE TODO: change to qc-adaptive verification
         let signature = &signature.0[..];
         // Convert to the signature type
         match Signature::from_slice(signature) {

@@ -5,7 +5,7 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::ViewSyncCertificate;
+use crate::certificate::{ViewSyncCertificate, QCYesNoSignature};
 use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
@@ -181,8 +181,8 @@ where
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        // agg_signatures: AggregateableSignatureSchemes::Signature,
-        signatures: YesNoSignature<COMMITTABLE, TOKEN>,
+        // signatures: YesNoSignature<COMMITTABLE, TOKEN>,
+        signatures: QCYesNoSignature,
         commit: Commitment<COMMITTABLE>,
     ) -> Self;
 
@@ -190,7 +190,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<COMMITTABLE, TOKEN>;
+    fn signatures(&self) -> QCYesNoSignature;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -335,58 +335,59 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let leaf_commitment = qc.leaf_commitment();
+        return true; // Sishan NOTE TODO: change this validation to qc aggregation adapted
+        // if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+        //     return true;
+        // }
+        // let leaf_commitment = qc.leaf_commitment();
 
-        if leaf_commitment != commit {
-            return false;
-        }
+        // if leaf_commitment != commit {
+        //     return false;
+        // }
         // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
-        match qc.signatures() {
-            YesNoSignature::Yes(raw_signatures) => {
-                let yes_votes = raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        self.is_valid_vote(
-                            signature.0,
-                            &signature.1 .0,
-                            signature.1 .1.clone(),
-                            qc.view_number(),
-                            Checked::Unchecked(signature.1 .2.clone()),
-                        ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
-                    })
-                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+        // match qc.signatures() {
+        //     YesNoSignature::Yes(raw_signatures) => {
+        //         let yes_votes = raw_signatures
+        //             .iter()
+        //             .filter(|signature| {
+        //                 self.is_valid_vote(
+        //                     signature.0,
+        //                     &signature.1 .0,
+        //                     signature.1 .1.clone(),
+        //                     qc.view_number(),
+        //                     Checked::Unchecked(signature.1 .2.clone()),
+        //                 ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
+        //             })
+        //             .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-                yes_votes >= u64::from(self.success_threshold())
-            }
+        //         yes_votes >= u64::from(self.success_threshold())
+        //     }
 
-            YesNoSignature::No(raw_signatures) => {
-                let mut yes_votes = 0;
-                let mut no_votes = 0;
-                for signature in &raw_signatures {
-                    if self.is_valid_vote(
-                        signature.0,
-                        &signature.1 .0,
-                        signature.1 .1.clone(),
-                        qc.view_number(),
-                        Checked::Unchecked(signature.1 .2.clone()),
-                    ) {
-                        if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-                        {
-                            yes_votes += u64::from(signature.1 .2.vote_count());
-                        } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-                        {
-                            no_votes += u64::from(signature.1 .2.vote_count());
-                        }
-                    }
-                }
+        //     YesNoSignature::No(raw_signatures) => {
+        //         let mut yes_votes = 0;
+        //         let mut no_votes = 0;
+        //         for signature in &raw_signatures {
+        //             if self.is_valid_vote(
+        //                 signature.0,
+        //                 &signature.1 .0,
+        //                 signature.1 .1.clone(),
+        //                 qc.view_number(),
+        //                 Checked::Unchecked(signature.1 .2.clone()),
+        //             ) {
+        //                 if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+        //                 {
+        //                     yes_votes += u64::from(signature.1 .2.vote_count());
+        //                 } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+        //                 {
+        //                     no_votes += u64::from(signature.1 .2.vote_count());
+        //                 }
+        //             }
+        //         }
 
-                no_votes >= u64::from(self.failure_threshold())
-                    && yes_votes + no_votes >= u64::from(self.success_threshold())
-            }
-        }
+        //         no_votes >= u64::from(self.failure_threshold())
+        //             && yes_votes + no_votes >= u64::from(self.success_threshold())
+        //     }
+        // }
     }
 
     /// Validate a vote by checking its signature and token.
@@ -398,7 +399,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        return true;
+        return true; // Sishan NOTE TODO: remove this line, change to qc-adaptive verification
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {

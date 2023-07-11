@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, YesNoSignature, QCYesNoSignature},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -28,6 +28,14 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
+// NOTE Sishan: For signature aggregation
+use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use bincode::Options;
+use hotshot_utils::bincode::bincode_opts;
+use bitvec::prelude::*;
+use bit_vec::BitVec;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -753,22 +761,36 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
-        let signatures = match &self.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) => {
+        let signatures: Option<
+        (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
+            <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
+            QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &self.justify_qc.signatures {
+            QCYesNoSignature::Yes(signatures) => {
                 signatures_bytes.extend("Yes".as_bytes());
-                signatures
+                Some(signatures.clone())
             }
-            YesNoSignature::No(signatures) => {
+            QCYesNoSignature::No(signatures) => {
                 signatures_bytes.extend("No".as_bytes());
-                signatures
+                Some(signatures.clone())
+            }
+            QCYesNoSignature::Genesis() => {
+                None
             }
         };
-        for (k, v) in signatures {
-            signatures_bytes.extend(&k.0);
-            signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(&v.1.as_bytes());
-            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
+        if signatures != None {
+            let (sig, proof) = signatures.unwrap();
+            signatures_bytes.extend("bitvec proof".as_bytes());
+            // Sishan NOTE TODO: uncomment this line later
+            // signatures_bytes.extend(proof.storage().iter().map(|b| *b as u8).collect()); 
+            let sig_bytes = bincode_opts()
+                .serialize(&sig)
+                .expect("This serialization shouldn't be able to fail");
+            signatures_bytes.extend("aggregated signature".as_bytes());
+            signatures_bytes.extend(sig_bytes.as_slice());
+        } else {
+            signatures_bytes.extend("genesis".as_bytes());
         }
+
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .u64_field("view_number", *self.view_number)
             .u64_field("height", self.height)
@@ -800,24 +822,38 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
             Either::Right(commitment) => *commitment,
         };
         let mut signatures_bytes = vec![];
-        let signatures = match &self.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) => {
+
+        let signatures: Option<
+        (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
+            <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
+            QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &self.justify_qc.signatures {
+            QCYesNoSignature::Yes(signatures) => {
                 signatures_bytes.extend("Yes".as_bytes());
-
-                signatures
+                Some(signatures.clone())
             }
-            YesNoSignature::No(signatures) => {
+            QCYesNoSignature::No(signatures) => {
                 signatures_bytes.extend("No".as_bytes());
-
-                signatures
+                Some(signatures.clone())
+            }
+            QCYesNoSignature::Genesis() => {
+                None
             }
         };
-        for (k, v) in signatures {
-            signatures_bytes.extend(&k.0);
-            signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(&v.1.as_bytes());
-            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
+        if signatures != None {
+            let (sig, proof) = signatures.unwrap();
+            signatures_bytes.extend("bitvec proof".as_bytes());
+            // Sishan NOTE TODO: uncomment this line later
+            // signatures_bytes.extend(proof.as_bytes());
+            let sig_bytes = bincode_opts()
+                .serialize(&sig)
+                .expect("This serialization shouldn't be able to fail");
+            signatures_bytes.extend("aggregated signature".as_bytes());
+            signatures_bytes.extend(sig_bytes.as_slice());
+        } else {
+            signatures_bytes.extend("genesis".as_bytes());
         }
+
+
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .u64_field("view_number", *self.view_number)
             .u64_field("height", self.height)

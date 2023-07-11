@@ -21,7 +21,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, YesNoSignature, QCYesNoSignature},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
@@ -163,8 +163,8 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    YesNoSignature::Yes(map) => {
-                                        info!("Number of DA signatures in this QC: {}", map.len());
+                                    QCYesNoSignature::Yes(signature) => {
+                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
                                 };
@@ -519,9 +519,9 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            YesNoSignature::Yes(map) => info!(
+                                            QCYesNoSignature::Yes(signature) => info!(
                                                 "Number of qurorum signatures in this QC: {}",
-                                                map.len()
+                                                signature.1.len()
                                             ),
                                             _ => unimplemented!(),
                                         };
