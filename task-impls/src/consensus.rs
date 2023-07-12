@@ -229,10 +229,6 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
-                        // state
-                        //     .event_stream
-                        //     .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*state.cur_view + 1)))
-                        //     .await;
                         error!("QCFormed! {:?}", qc.view_number);
                         state
                             .event_stream
@@ -484,6 +480,11 @@ where
             // }
             self.cur_view = new_view;
             self.current_proposal = None;
+
+            self.event_stream
+                    .publish(SequencingHotShotEvent::ViewChange(new_view))
+                    .await;
+
             return true;
         }
         false
@@ -750,9 +751,6 @@ where
 
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(new_view).await;
-                        self.event_stream
-                            .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
-                            .await;
 
                         self.timeout_task = async_spawn({
                             // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -762,7 +760,7 @@ where
                             let stream = self.event_stream.clone();
                             let view_number = self.cur_view.clone();
                             async move {
-                                async_sleep(Duration::from_millis(10000)).await;
+                                async_sleep(Duration::from_millis(20000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
