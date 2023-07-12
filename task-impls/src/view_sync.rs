@@ -427,22 +427,27 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
+                    error!(
+                        "Change from view {} to view {} in view sync task",
+                        *self.current_view, *new_view
+                    );
+
                     self.current_view = TYPES::Time::new(*new_view);
                     self.num_timeouts_tracked = 0;
                 }
                 return;
             }
             SequencingHotShotEvent::Timeout(view_number) => {
-
                 // This is an old timeout and we can ignore it
                 if view_number < ViewNumber::new(*self.current_view) {
-                    return
+                    return;
                 }
                 // TODO ED Combine this code with other replica code since some of it is repeated
                 self.num_timeouts_tracked += 1;
+                error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 // TODO ED Make this a configurable variable
-                if self.num_timeouts_tracked == 2 {
+                if self.num_timeouts_tracked >= 2 {
                     // panic!("Starting view sync!");
                     // Spawn replica task
                     let mut replica_state = ViewSyncReplicaTaskState {
@@ -505,7 +510,7 @@ where
                     });
                 } else {
                     // If this is the first timeout we've seen advance to the next view
-                    self.current_view + 1;
+                    self.current_view += 1;
                     self.event_stream
                         .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
                             *self.current_view,
