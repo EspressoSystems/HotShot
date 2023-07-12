@@ -1,5 +1,6 @@
 //! Provides two types of cerrtificates and their accumulators.
 
+use crate::data::serialize_signature;
 use crate::vote::ViewSyncData;
 use crate::{
     data::{fake_commitment, LeafType},
@@ -18,12 +19,16 @@ use std::marker::PhantomData;
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 // NOTE Sishan: For signature aggregation
-use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use bincode::Options;
-use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
+use hotshot_primitives::quorum_certificate::{
+    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry,
+};
+use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::signatures::bls_over_bn254::{
+    BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey,
+};
+use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -37,7 +42,6 @@ pub struct DACertificate<TYPES: NodeType> {
 
     /// committment to the block
     pub block_commitment: Commitment<TYPES::BlockType>,
-
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -195,43 +199,13 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     for QuorumCertificate<TYPES, LEAF>
 {
     fn commit(&self) -> Commitment<Self> {
-        let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
+        let signatures_bytes = serialize_signature(&self.signatures);
 
-        builder = builder
-            .field("Leaf commitment", self.leaf_commitment)
-            .u64_field("View number", *self.view_number.deref());
-
-        let signatures: Option<
-        (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-            <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
-            QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)> = match self.signatures.clone() {
-            QCYesNoSignature::Yes(signatures) => {
-                builder = builder.var_size_field("QC Type", "Yes".as_bytes());
-                Some(signatures)
-            }
-            QCYesNoSignature::No(signatures) => {
-                builder = builder.var_size_field("QC Type", "No".as_bytes());
-                Some(signatures)
-            }
-            QCYesNoSignature::Genesis() => {
-                builder = builder.var_size_field("QC Type", "Yes".as_bytes());
-                None
-            }
-        };
-        if signatures != None {
-            let (sig, proof) = signatures.unwrap();
-            let proof_bytes = bincode_opts()
-                .serialize(&proof.as_bitslice())
-                .expect("This serialization shouldn't be able to fail"); 
-            builder = builder.var_size_field("bitvec proof", proof_bytes.as_slice());
-            let sig_bytes = bincode_opts()
-                .serialize(&sig)
-                .expect("This serialization shouldn't be able to fail");
-            builder = builder.var_size_field("aggregated signature", sig_bytes.as_slice());
-        }
-
-        builder
-            .u64_field("Is genesis", self.is_genesis.into())
+        commit::RawCommitmentBuilder::new("Quorum Certificate Commitment")
+            .field("leaf commitment", self.leaf_commitment)
+            .u64_field("view number", *self.view_number.deref())
+            .constant_str("justify_qc signatures")
+            .var_size_bytes(&signatures_bytes)
             .finalize()
     }
 
