@@ -94,6 +94,7 @@ impl<
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                        error!("Recevied view sync vote!");
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
                     GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
@@ -202,14 +203,19 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
-            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
-                vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
-                ),
-                TransmitType::Direct,
-                Some(membership.get_leader(vote.round() + vote.relay())),
-            ),
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
+                error!("Sending ViewSyncVote");
+                (
+                    vote.signature_key(),
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
+                            vote.clone(),
+                        ))),
+                    ),
+                    TransmitType::Direct,
+                    Some(membership.get_leader(vote.round() + vote.relay())),
+                )
+            }
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),
