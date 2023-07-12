@@ -274,8 +274,6 @@ where
                     return;
                 }
 
-                // let maybe_replica_task = self.replica_task_map.get(certificate_internal.round);
-
                 if let Some(replica_task) = self.replica_task_map.get(&certificate_internal.round) {
                     // Forward event then return
                     self.event_stream
@@ -332,12 +330,17 @@ where
                 let task_id = builder.get_task_id().unwrap();
                 let event_stream_id = builder.get_stream_id().unwrap();
 
-                self.replica_task_map.insert(certificate_internal.round, ViewSyncTaskInfo {task_id, event_stream_id});
+                self.replica_task_map.insert(
+                    certificate_internal.round,
+                    ViewSyncTaskInfo {
+                        task_id,
+                        event_stream_id,
+                    },
+                );
 
                 let _view_sync_replica_task = async_spawn(async move {
                     ViewSyncReplicaTaskStateTypes::build(builder).launch().await
                 });
-
             }
 
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
@@ -347,68 +350,78 @@ where
                     ViewSyncVote::Finalize(vote_internal) => vote_internal,
                 };
 
-                let (_, is_relay_running) = self
-                    .task_map
-                    .entry(vote_internal.round)
-                    .or_insert_with(|| (false, false));
+                if let Some(relay_task) = self.relay_task_map.get(&vote_internal.round) {
+                    // Forward event then return
+                    self.event_stream
+                        .direct_message(relay_task.event_stream_id, event)
+                        .await;
+                    return;
+                }
 
                 // We do not have a relay task already running, so start one
-                if !*is_relay_running {
-                    *is_relay_running = true;
 
-                    if !self
-                        .exchange
-                        .is_leader(vote_internal.round + vote_internal.relay)
-                    {
-                        return;
-                    }
-
-                    let mut accumulator = VoteAccumulator {
-                        total_vote_outcomes: HashMap::new(),
-                        yes_vote_outcomes: HashMap::new(),
-                        no_vote_outcomes: HashMap::new(),
-                        viewsync_precommit_vote_outcomes: HashMap::new(),
-                        success_threshold: self.exchange.success_threshold(),
-                        failure_threshold: self.exchange.failure_threshold(),
-                    };
-
-                    let mut relay_state = ViewSyncRelayTaskState {
-                        event_stream: self.event_stream.clone(),
-                        exchange: self.exchange.clone(),
-                        accumulator: either::Left(accumulator),
-                    };
-
-                    let result = relay_state.handle_event(event).await;
-
-                    if result.0 == Some(HotShotTaskCompleted::ShutDown) {
-                        // The protocol has finished
-                        return;
-                    }
-
-                    relay_state = result.1;
-
-                    let name = format!("View Sync Relay Task for view {:?}", vote_internal.round);
-
-                    let relay_handle_event = HandleEvent(Arc::new(
-                        move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
-                            async move { state.handle_event(event).await }.boxed()
-                        },
-                    ));
-
-                    let filter = FilterEvent::default();
-                    let builder = TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
-                        .register_event_stream(relay_state.event_stream.clone(), filter)
-                        .await
-                        .register_registry(&mut self.registry.clone())
-                        .await
-                        .register_state(relay_state)
-                        .register_event_handler(relay_handle_event);
-
-                    // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
-                    let _view_sync_relay_task = async_spawn(async move {
-                        ViewSyncRelayTaskStateTypes::build(builder).launch().await
-                    });
+                if !self
+                    .exchange
+                    .is_leader(vote_internal.round + vote_internal.relay)
+                {
+                    return;
                 }
+
+                let mut accumulator = VoteAccumulator {
+                    total_vote_outcomes: HashMap::new(),
+                    yes_vote_outcomes: HashMap::new(),
+                    no_vote_outcomes: HashMap::new(),
+                    viewsync_precommit_vote_outcomes: HashMap::new(),
+                    success_threshold: self.exchange.success_threshold(),
+                    failure_threshold: self.exchange.failure_threshold(),
+                };
+
+                let mut relay_state = ViewSyncRelayTaskState {
+                    event_stream: self.event_stream.clone(),
+                    exchange: self.exchange.clone(),
+                    accumulator: either::Left(accumulator),
+                };
+
+                let result = relay_state.handle_event(event).await;
+
+                if result.0 == Some(HotShotTaskCompleted::ShutDown) {
+                    // The protocol has finished
+                    return;
+                }
+
+                relay_state = result.1;
+
+                let name = format!("View Sync Relay Task for view {:?}", vote_internal.round);
+
+                let relay_handle_event = HandleEvent(Arc::new(
+                    move |event, mut state: ViewSyncRelayTaskState<TYPES, I>| {
+                        async move { state.handle_event(event).await }.boxed()
+                    },
+                ));
+
+                let filter = FilterEvent::default();
+                let builder = TaskBuilder::<ViewSyncRelayTaskStateTypes<TYPES, I>>::new(name)
+                    .register_event_stream(relay_state.event_stream.clone(), filter)
+                    .await
+                    .register_registry(&mut self.registry.clone())
+                    .await
+                    .register_state(relay_state)
+                    .register_event_handler(relay_handle_event);
+
+                let task_id = builder.get_task_id().unwrap();
+                let event_stream_id = builder.get_stream_id().unwrap();
+
+                self.relay_task_map.insert(
+                    vote_internal.round,
+                    ViewSyncTaskInfo {
+                        task_id,
+                        event_stream_id,
+                    },
+                );
+                // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
+                let _view_sync_relay_task = async_spawn(async move {
+                    ViewSyncRelayTaskStateTypes::build(builder).launch().await
+                });
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
@@ -426,13 +439,7 @@ where
 
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked == 2 {
-                    let (is_replica_running, _) = self
-                        .task_map
-                        .entry(TYPES::Time::new(*view_number))
-                        .or_insert_with(|| (false, false));
-
-                    *is_replica_running = true;
-
+                    // Spawn replica task
                     let mut replica_state = ViewSyncReplicaTaskState {
                         current_view: self.current_view,
                         next_view: TYPES::Time::new(*view_number),
@@ -475,6 +482,17 @@ where
                             .await
                             .register_state(replica_state)
                             .register_event_handler(replica_handle_event);
+
+                    let task_id = builder.get_task_id().unwrap();
+                    let event_stream_id = builder.get_stream_id().unwrap();
+
+                    self.replica_task_map.insert(
+                        TYPES::Time::new(*view_number + 1),
+                        ViewSyncTaskInfo {
+                            task_id,
+                            event_stream_id,
+                        },
+                    );
 
                     // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                     let _view_sync_replica_task = async_spawn(async move {
