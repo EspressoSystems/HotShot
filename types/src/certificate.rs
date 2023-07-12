@@ -220,8 +220,10 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
         };
         if signatures != None {
             let (sig, proof) = signatures.unwrap();
-            // Sishan NOTE TODO: uncomment this line later
-            // builder = builder.var_size_field("bitvec proof", proof.as_bytes());
+            let proof_bytes = bincode_opts()
+                .serialize(&proof.as_bitslice())
+                .expect("This serialization shouldn't be able to fail"); 
+            builder = builder.var_size_field("bitvec proof", proof_bytes.as_slice());
             let sig_bytes = bincode_opts()
                 .serialize(&sig)
                 .expect("This serialization shouldn't be able to fail");
