@@ -113,7 +113,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: Option<(ViewNumber, usize)>,
+    pub vote_collector: Option<(ViewNumber, usize, usize)>,
 
     /// Have we already sent a proposal for a particular view
     /// since proposal can be sent either on QCFormed event or ViewChange event
@@ -480,8 +480,8 @@ where
             self.current_proposal = None;
 
             self.event_stream
-                    .publish(SequencingHotShotEvent::ViewChange(new_view))
-                    .await;
+                .publish(SequencingHotShotEvent::ViewChange(new_view))
+                .await;
 
             return true;
         }
@@ -788,7 +788,7 @@ where
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
-                        let collection_view = if let Some((collection_view, collection_task)) =
+                        let collection_view = if let Some((collection_view, collection_task, _)) =
                             &self.vote_collector
                         {
                             if vote.current_view > *collection_view {
@@ -814,7 +814,7 @@ where
                             &vote.signature.0,
                             &vote.signature.1,
                             vote.leaf_commitment,
-                            vote.vote_data,
+                            vote.vote_data.clone(),
                             vote.vote_token.clone(),
                             vote.current_view,
                             acc,
@@ -842,13 +842,21 @@ where
                                     .register_state(state)
                                     .register_event_handler(handle_event);
                             let id = builder.get_task_id().unwrap();
+                            let stream_id = builder.get_stream_id().unwrap();
 
-                            self.vote_collector = Some((vote.current_view, id));
+                            self.vote_collector = Some((vote.current_view, id, stream_id));
 
                             let _task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
                             error!("Starting vote handle for view {:?}", vote.current_view);
+                        } else {
+                            if let Some((view, _, stream_id)) = self.vote_collector {
+                                self.event_stream.direct_message(
+                                    stream_id,
+                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(vote)),
+                                );
+                            }
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
