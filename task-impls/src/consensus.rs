@@ -762,7 +762,8 @@ where
                             let stream = self.event_stream.clone();
                             let view_number = self.cur_view.clone();
                             async move {
-                                async_sleep(Duration::from_millis(10000)).await;
+                                // ED: Changing to 1 second to test timeout logic 
+                                async_sleep(Duration::from_millis(1000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,

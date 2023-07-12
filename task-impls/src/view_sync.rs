@@ -433,12 +433,17 @@ where
                 return;
             }
             SequencingHotShotEvent::Timeout(view_number) => {
-                panic!("timeout!");
+
+                // This is an old timeout and we can ignore it
+                if view_number < ViewNumber::new(*self.current_view) {
+                    return
+                }
                 // TODO ED Combine this code with other replica code since some of it is repeated
                 self.num_timeouts_tracked += 1;
 
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked == 2 {
+                    // panic!("Starting view sync!");
                     // Spawn replica task
                     let mut replica_state = ViewSyncReplicaTaskState {
                         current_view: self.current_view,
