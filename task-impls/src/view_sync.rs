@@ -406,6 +406,10 @@ where
             SequencingHotShotEvent::Timeout(view_number) => {
                 // panic!("timeout!");
                 // TODO ED Combine this code with other replica code since some of it is repeated
+                if view_number < ViewNumber::new(*self.current_view) {
+                    error!("Got old timeout");
+                    return;
+                }
                 self.num_timeouts_tracked += 1;
 
                 // TODO ED Make this a configurable variable
