@@ -286,9 +286,7 @@ where
         // ED: Added this in the DA task ^
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
-        error!("read");
         let consensus = self.consensus.read().await;
-        error!("read lock aquired");
 
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
             error!("Couldn't find genesis view in state map.");
@@ -526,9 +524,7 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         info!("We were chosen for consensus committee on {:?}", view);
-                        error!("upgradalbe read");
                         let consensus = self.consensus.upgradable_read().await;
-                        error!("upgradalbe read lock aquired");
                         let message;
 
                         // Construct the leaf.
@@ -861,7 +857,7 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-                // error!("QC Formed event happened!");
+                error!("QC Formed event happened!");
 
                 self.high_qc = qc.clone();
                 // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
@@ -885,9 +881,7 @@ where
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
                 // error!("Parent view number is {:?}", parent_view_number);
-                error!("read");
                 let consensus = self.consensus.read().await;
-                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1019,9 +1013,7 @@ where
                 // update our high qc to the qc we just formed
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
-                error!("read consensus");
                 let consensus = self.consensus.read().await;
-                error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
