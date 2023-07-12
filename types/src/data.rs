@@ -782,11 +782,15 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
                 None
             }
         };
+        // TODO (Keyao) this is the same for both leaf types. It's better to extract the common
+        // part.
         if signatures != None {
             let (sig, proof) = signatures.unwrap();
+            let proof_bytes = bincode_opts()
+                .serialize(&proof.as_bitslice())
+                .expect("This serialization shouldn't be able to fail"); 
             signatures_bytes.extend("bitvec proof".as_bytes());
-            // Sishan NOTE TODO: uncomment this line later
-            // signatures_bytes.extend(proof.storage().iter().map(|b| *b as u8).collect()); 
+            signatures_bytes.extend(proof_bytes.as_slice());
             let sig_bytes = bincode_opts()
                 .serialize(&sig)
                 .expect("This serialization shouldn't be able to fail");
@@ -844,11 +848,15 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
                 None
             }
         };
+        // TODO (Keyao) this is the same for both leaf types. It's better to extract the common
+        // part.
         if signatures != None {
             let (sig, proof) = signatures.unwrap();
+            let proof_bytes = bincode_opts()
+                .serialize(&proof.as_bitslice())
+                .expect("This serialization shouldn't be able to fail"); 
             signatures_bytes.extend("bitvec proof".as_bytes());
-            // Sishan NOTE TODO: uncomment this line later
-            // signatures_bytes.extend(proof.as_bytes());
+            signatures_bytes.extend(proof_bytes.as_slice());
             let sig_bytes = bincode_opts()
                 .serialize(&sig)
                 .expect("This serialization shouldn't be able to fail");
