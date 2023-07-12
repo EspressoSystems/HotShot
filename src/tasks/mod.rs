@@ -11,7 +11,6 @@ use async_compatibility_layer::{
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use async_std::stream::Filter;
 use futures::FutureExt;
 use hotshot_consensus::{Consensus, SequencingConsensusApi};
 use hotshot_task::{
