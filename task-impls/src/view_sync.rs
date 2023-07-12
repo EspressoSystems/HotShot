@@ -404,7 +404,7 @@ where
                 return;
             }
             SequencingHotShotEvent::Timeout(view_number) => {
-                panic!("timeout!");
+                // panic!("timeout!");
                 // TODO ED Combine this code with other replica code since some of it is repeated
                 self.num_timeouts_tracked += 1;
 
