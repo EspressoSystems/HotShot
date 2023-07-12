@@ -163,7 +163,7 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    QCYesNoSignature::Yes(signature) => {
+                                    QCYesNoSignature::Yes(signature, qc_pp) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
@@ -523,7 +523,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            QCYesNoSignature::Yes(signature) => info!(
+                                            QCYesNoSignature::Yes(signature, qc_pp) => info!(
                                                 "Number of qurorum signatures in this QC: {}",
                                                 signature.1.len()
                                             ),

@@ -313,12 +313,12 @@ where
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::Yes(valid_signatures));
-                return Either::Right(QCYesNoSignature::Yes(qc_sig));
+                return Either::Right(QCYesNoSignature::Yes(qc_sig, qc_pp));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::No(valid_signatures));
-                return Either::Right(QCYesNoSignature::No(qc_sig));
+                return Either::Right(QCYesNoSignature::No(qc_sig, qc_pp));
             }
         }
         Either::Left(self)

@@ -19,7 +19,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 // NOTE Sishan: For signature aggregation
 use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry};
+use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
@@ -111,9 +111,13 @@ pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken>
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
 pub enum QCYesNoSignature {
     /// These signatures are for a 'Yes' QC
-    Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
+    Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
+        QCParams<VerKey, ()>),
     /// These signatures are for a 'No' QC
-    No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
+    No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
+        QCParams<VerKey, ()>),
     /// These signatures are for genesis QC
     Genesis(),
 }
@@ -205,11 +209,11 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
         (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
             <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
             QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)> = match self.signatures.clone() {
-            QCYesNoSignature::Yes(signatures) => {
+            QCYesNoSignature::Yes(signatures, qc_pp) => {
                 builder = builder.var_size_field("QC Type", "Yes".as_bytes());
                 Some(signatures)
             }
-            QCYesNoSignature::No(signatures) => {
+            QCYesNoSignature::No(signatures, qc_pp) => {
                 builder = builder.var_size_field("QC Type", "No".as_bytes());
                 Some(signatures)
             }

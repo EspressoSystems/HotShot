@@ -35,7 +35,7 @@ use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
-use bit_vec::BitVec;
+// use bit_vec::BitVec;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -770,11 +770,11 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
         (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
             <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
             QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &self.justify_qc.signatures {
-            QCYesNoSignature::Yes(signatures) => {
+            QCYesNoSignature::Yes(signatures, qc_pp) => {
                 signatures_bytes.extend("Yes".as_bytes());
                 Some(signatures.clone())
             }
-            QCYesNoSignature::No(signatures) => {
+            QCYesNoSignature::No(signatures, qc_pp) => {
                 signatures_bytes.extend("No".as_bytes());
                 Some(signatures.clone())
             }
@@ -832,11 +832,11 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
         (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
             <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as 
             QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &self.justify_qc.signatures {
-            QCYesNoSignature::Yes(signatures) => {
+            QCYesNoSignature::Yes(signatures, qc_pp) => {
                 signatures_bytes.extend("Yes".as_bytes());
                 Some(signatures.clone())
             }
-            QCYesNoSignature::No(signatures) => {
+            QCYesNoSignature::No(signatures, qc_pp) => {
                 signatures_bytes.extend("No".as_bytes());
                 Some(signatures.clone())
             }

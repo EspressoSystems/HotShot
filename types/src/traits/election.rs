@@ -340,57 +340,30 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
-        return true; // Sishan NOTE TODO: change this validation to qc aggregation adapted
-        // if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-        //     return true;
-        // }
-        // let leaf_commitment = qc.leaf_commitment();
+        // return true; // Sishan NOTE TODO: change this validation to qc aggregation adapted
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+            return true;
+        }
+        let leaf_commitment = qc.leaf_commitment();
 
-        // if leaf_commitment != commit {
-        //     return false;
-        // }
+        if leaf_commitment != commit {
+            return false;
+        }
+        return true;
         // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
-        // match qc.signatures() {
-        //     YesNoSignature::Yes(raw_signatures) => {
-        //         let yes_votes = raw_signatures
-        //             .iter()
-        //             .filter(|signature| {
-        //                 self.is_valid_vote(
-        //                     signature.0,
-        //                     &signature.1 .0,
-        //                     signature.1 .1.clone(),
-        //                     qc.view_number(),
-        //                     Checked::Unchecked(signature.1 .2.clone()),
-        //                 ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
-        //             })
-        //             .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
-
-        //         yes_votes >= u64::from(self.success_threshold())
+        // match qc.signatures() { 
+        //     QCYesNoSignature::Yes((qc_signatures, bitvec_proof), qc_pp) => {
+        //         BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+        //             qc_pp,
+        //             message,
+        //             &qc_signatures,
+        //             &bitvec_proof).is_ok()
         //     }
-
-        //     YesNoSignature::No(raw_signatures) => {
-        //         let mut yes_votes = 0;
-        //         let mut no_votes = 0;
-        //         for signature in &raw_signatures {
-        //             if self.is_valid_vote(
-        //                 signature.0,
-        //                 &signature.1 .0,
-        //                 signature.1 .1.clone(),
-        //                 qc.view_number(),
-        //                 Checked::Unchecked(signature.1 .2.clone()),
-        //             ) {
-        //                 if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-        //                 {
-        //                     yes_votes += u64::from(signature.1 .2.vote_count());
-        //                 } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-        //                 {
-        //                     no_votes += u64::from(signature.1 .2.vote_count());
-        //                 }
-        //             }
-        //         }
-
-        //         no_votes >= u64::from(self.failure_threshold())
-        //             && yes_votes + no_votes >= u64::from(self.success_threshold())
+        //     QCYesNoSignature::No((qc_signatures, bitvec_proof), qc_pp) => {
+            
+        //     }
+        //     QCYesNoSignature::Genesis() => {
+        //         return true;
         //     }
         // }
     }
