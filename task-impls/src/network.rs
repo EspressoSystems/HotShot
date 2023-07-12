@@ -30,7 +30,7 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 use tracing::warn;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
     Quorum,
     Committee,
@@ -85,96 +85,63 @@ impl<
     > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
     /// Handle the message for the given type of network task.
-    pub async fn handle_message(&mut self, task: NetworkTaskKind, message: Message<TYPES, I>) {
+    pub async fn handle_message(
+        &mut self,
+        task: NetworkTaskKind,
+        message: Message<TYPES, I>,
+        id: u64,
+    ) {
         let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        // error!("Recved quorum proposal");
+                        error!(
+                            "ID = {} Recved quorum proposal on {:?} view {:?}",
+                            id,
+                            task,
+                            proposal.data.get_view_number()
+                        );
                         SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
-                        // error!("Recved quorum vote");
-
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                        error!("Recevied view sync vote!");
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
-                },
-                MessageKind::Data(message) => {
-                    return;
-                }
-                MessageKind::_Unreachable(_) => unimplemented!(),
-            },
-            NetworkTaskKind::Committee => {
-                match message.kind {
-                    MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                        Either::Left(general_message) => match general_message {
-                            GeneralConsensusMessage::Proposal(_)
-                            | GeneralConsensusMessage::Vote(_)
-                            | GeneralConsensusMessage::ViewSyncVote(_)
-                            | GeneralConsensusMessage::ViewSyncCertificate(_) => {
-                                return;
-                            }
-                            _ => {
-                                error!("Got unexpected message type in network task!");
-                                return;
-                            }
-                        },
-                        Either::Right(committee_message) => match committee_message {
-                            CommitteeConsensusMessage::DAProposal(proposal) => {
-                                SequencingHotShotEvent::DAProposalRecv(proposal, sender)
-                            }
-                            CommitteeConsensusMessage::DAVote(vote) => {
-                                error!("DA Vote message recv {:?}", vote.current_view);
-                                SequencingHotShotEvent::DAVoteRecv(vote)
-                            }
-                            CommitteeConsensusMessage::DACertificate(cert) => {
-                                SequencingHotShotEvent::DACRecv(cert)
-                            }
-                        },
-                    },
-                    MessageKind::Data(message) => {
-                        match message {
-                            // ED Why do we need the view number in the transaction?
-                            hotshot_types::message::DataMessage::SubmitTransaction(
-                                transaction,
-                                view_number,
-                            ) => SequencingHotShotEvent::TransactionRecv(transaction),
-                        }
+                    GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                     }
-                    MessageKind::_Unreachable(_) => unimplemented!(),
-                }
-            }
-            NetworkTaskKind::ViewSync => match message.kind {
-                MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                    Either::Left(general_message) => match general_message {
-                        GeneralConsensusMessage::Proposal(_) | GeneralConsensusMessage::Vote(_) => {
-                            return;
-                        }
-                        GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                            SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
-                        }
-                        GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
-                            SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
-                        }
-                        _ => {
-                            error!("Got unexpected message type in network task!");
-                            return;
-                        }
-                    },
                     _ => {
+                        error!("Got unexpected message type in network task!");
                         return;
                     }
                 },
-                MessageKind::Data(message) => {
-                    return;
-                }
-                MessageKind::_Unreachable(_) => unimplemented!(),
+                Either::Right(committee_message) => match committee_message {
+                    CommitteeConsensusMessage::DAProposal(proposal) => {
+                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                    }
+                    CommitteeConsensusMessage::DAVote(vote) => {
+                        // error!("DA Vote message recv {:?}", vote.current_view);
+                        SequencingHotShotEvent::DAVoteRecv(vote.clone())
+                    }
+                    CommitteeConsensusMessage::DACertificate(cert) => {
+                        // panic!("Recevid DA C! ");
+                        SequencingHotShotEvent::DACRecv(cert)
+                    }
+                },
             },
+            MessageKind::Data(message) => {
+                match message {
+                    // ED Why do we need the view number in the transaction?
+                    hotshot_types::message::DataMessage::SubmitTransaction(
+                        transaction,
+                        view_number,
+                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
+                }
+            }
+            MessageKind::_Unreachable(_) => unimplemented!(),
         };
         self.event_stream.publish(event).await;
     }
@@ -249,19 +216,14 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
-            SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
-                error!("Sending ViewSyncVote");
-                (
-                    vote.signature_key(),
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
-                            vote.clone(),
-                        ))),
-                    ),
-                    TransmitType::Direct,
-                    Some(membership.get_leader(vote.round() + vote.relay())),
-                )
-            }
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
+                vote.signature_key(),
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
+                ),
+                TransmitType::Direct,
+                Some(membership.get_leader(vote.round() + vote.relay())),
+            ),
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),

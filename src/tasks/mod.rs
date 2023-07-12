@@ -11,7 +11,6 @@ use async_compatibility_layer::{
     channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use async_std::stream::Filter;
 use futures::FutureExt;
 use hotshot_consensus::{Consensus, SequencingConsensusApi};
 use hotshot_task::{
@@ -335,6 +334,7 @@ pub async fn add_network_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
     task_kind: NetworkTaskKind,
+    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
@@ -404,9 +404,10 @@ where
             let messages = match messages {
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
+            let id = handle.hotshot.inner.id;
             async move {
                 for message in messages.0 {
-                    state.handle_message(task_kind.clone(), message).await;
+                    state.handle_message(task_kind.clone(), message, id).await;
                 }
                 (None, state)
             }
