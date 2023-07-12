@@ -90,7 +90,7 @@ pub struct DATaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// The view and ID of the current vote collection task, if there is one.
-    pub vote_collector: Option<(ViewNumber, usize)>,
+    pub vote_collector: Option<(ViewNumber, usize, usize)>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -153,8 +153,12 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
+            error!("DA vote recv, collection task {:?}", vote.current_view);
+            // panic!("Vote handle received DA vote for view {}", *vote.current_view);
+
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
+                error!("DA accumulator finished view: {:?}", state.cur_view);
                 return (None, state);
             }
 
@@ -165,12 +169,13 @@ where
                 vote.block_commitment,
                 vote.vote_data,
                 vote.vote_token.clone(),
-                state.cur_view + 1,
+                state.cur_view,
                 accumulator,
                 None,
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
+                    error!("Not enough DA votes! ");
                     return (None, state);
                 }
                 Right(dac) => {
@@ -234,19 +239,29 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
+                error!(
+                    "DA proposal received for view: {:?}",
+                    proposal.data.get_view_number()
+                );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
+
+                // This should still be fine to do because we shouldn't be receiving a DA proposal for a view less than the one we are currently in
                 if view < self.cur_view {
+                    panic!("Throwing away DA proposal");
                     return None;
                 }
                 let block_commitment = proposal.data.deltas.commit();
-                let view_leader_key = self.committee_exchange.get_leader(view + 1);
+
+                // ED Is this the right leader?
+                let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
+                    panic!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
                 }
 
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
-                    error!(?proposal.signature, "Could not verify proposal.");
+                    panic!("Could not verify proposal.");
                     return None;
                 }
 
@@ -281,11 +296,16 @@ where
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote) => {
+                error!(
+                    "DA vote recv, Main Task {:?}, key: {:?}",
+                    vote.current_view,
+                    self.committee_exchange.public_key()
+                );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if &self.committee_exchange.get_leader(view + 1)
-                    != self.committee_exchange.public_key()
+                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
                 {
+                    panic!("We are not the committee leader");
                     return None;
                 }
 
@@ -293,8 +313,10 @@ where
                     async move { vote_handle(state, event).await }.boxed()
                 }));
                 let collection_view =
-                    if let Some((collection_view, collection_id)) = &self.vote_collector {
+                    if let Some((collection_view, collection_id, _)) = &self.vote_collector {
+                        // TODO: Is this correct for consecutive leaders?
                         if view > *collection_view {
+                            error!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
                         collection_view.clone()
@@ -313,9 +335,9 @@ where
                     &vote.signature.0,
                     &vote.signature.1,
                     vote.block_commitment,
-                    vote.vote_data,
+                    vote.vote_data.clone(),
                     vote.vote_token.clone(),
-                    vote.current_view + 1,
+                    vote.current_view,
                     acc,
                     None,
                 );
@@ -327,7 +349,9 @@ where
                         event_stream: self.event_stream.clone(),
                     };
                     let name = "DA Vote Collection";
-                    let filter = FilterEvent::default();
+                    let filter = FilterEvent(Arc::new(|event| {
+                        matches!(event, SequencingHotShotEvent::DAVoteRecv(_))
+                    }));
                     let builder =
                         TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)
@@ -337,11 +361,22 @@ where
                             .register_state(state)
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
+                    let stream_id = builder.get_stream_id().unwrap();
                     let task =
                         async_spawn(
                             async move { DAVoteCollectionTypes::build(builder).launch().await },
                         );
-                    self.vote_collector = Some((view, id));
+                    self.vote_collector = Some((view, id, stream_id));
+                } else {
+                    if let Some((view, _, stream_id)) = self.vote_collector {
+                        error!(
+                            "directly sending vote to vote collection task. view {:?}",
+                            view
+                        );
+                        self.event_stream
+                            .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                            .await;
+                    };
                 }
             }
             // TODO ED Update high QC through QCFormed event
@@ -357,6 +392,7 @@ where
                 if self.committee_exchange.get_leader(self.cur_view + 1)
                     != self.committee_exchange.public_key().clone()
                 {
+                    // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
 
@@ -365,11 +401,11 @@ where
                 let parent_view_number = &self.high_qc.view_number;
                 let consensus = self.consensus.read().await;
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    warn!("Couldn't find high QC parent in state map.");
+                    error!("Couldn't find high QC parent in state map.");
                     return None;
                 };
                 let Some(leaf) = parent_view.get_leaf_commitment() else {
-                    warn!(
+                    error!(
                         ?parent_view_number,
                         ?parent_view,
                         "Parent of high QC points to a view without a proposal"
@@ -377,7 +413,7 @@ where
                     return None;
                 };
                 let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-                    warn!("Failed to find high QC parent.");
+                    error!("Failed to find high QC parent.");
                     return None;
                 };
                 let parent_leaf = leaf.clone();
@@ -405,9 +441,10 @@ where
                 let signature = self.committee_exchange.sign_da_proposal(&block.commit());
                 let data: DAProposal<TYPES> = DAProposal {
                     deltas: block.clone(),
-                    view_number: self.cur_view,
+                    // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
+                    view_number: self.cur_view + 1,
                 };
-                error!("Sending DA proposal for view {:?}", data.deltas.commit());
+                error!("Sending DA proposal for view {:?}", data.view_number);
 
                 let message = SequencingMessage::<TYPES, I>(Right(
                     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
