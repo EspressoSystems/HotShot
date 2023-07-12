@@ -999,6 +999,10 @@ where
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
                     self.update_view(view + 1).await;
+                    // TODO ED We should make the event publishing part of update_view function
+                    self.event_stream
+                        .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
+                        .await;
                 }
             }
 
