@@ -119,7 +119,7 @@ blake3 = { version = "1.4.1", optional = true, features = ["traits-preview"] }
 clap = { version = "4.3", features = ["derive", "env"], optional = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
-dashmap = "5.3.4"
+dashmap = "5.5.0"
 derivative = { version = "2.2.0", optional = true }
 digest = "0.10.7"
 either = { version = "1.8.1", features = [ "serde" ] }
