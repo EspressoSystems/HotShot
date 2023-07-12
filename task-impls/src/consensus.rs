@@ -194,7 +194,7 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                // error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote in collector: {:?}", vote);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
@@ -777,7 +777,7 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                // error!("Received quroum vote: {:?}", vote);
+                error!("Received quroum vote: {:?}", vote.current_view());
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -846,16 +846,20 @@ where
 
                             self.vote_collector = Some((vote.current_view, id, stream_id));
 
-                            let _task = async_spawn(async move {
+                            let task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
                             error!("Starting vote handle for view {:?}", vote.current_view);
                         } else {
                             if let Some((view, _, stream_id)) = self.vote_collector {
+                                error!(
+                                    "directly sending vote to vote collection task. view {:?}",
+                                    view
+                                );
                                 self.event_stream.direct_message(
                                     stream_id,
                                     SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(vote)),
-                                );
+                                ).await;
                             }
                         }
                     }

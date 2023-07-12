@@ -175,7 +175,7 @@ where
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
-                    error!("Not enough DA votes! ");
+                    // error!("Not enough DA votes! ");
                     return (None, state);
                 }
                 Right(dac) => {
@@ -239,10 +239,10 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                error!(
-                    "DA proposal received for view: {:?}",
-                    proposal.data.get_view_number()
-                );
+                // error!(
+                //     "DA proposal received for view: {:?}",
+                //     proposal.data.get_view_number()
+                // );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
 
@@ -296,11 +296,11 @@ where
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote) => {
-                error!(
-                    "DA vote recv, Main Task {:?}, key: {:?}",
-                    vote.current_view,
-                    self.committee_exchange.public_key()
-                );
+                // error!(
+                //     "DA vote recv, Main Task {:?}, key: {:?}",
+                //     vote.current_view,
+                //     self.committee_exchange.public_key()
+                // );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
@@ -369,10 +369,10 @@ where
                     self.vote_collector = Some((view, id, stream_id));
                 } else {
                     if let Some((view, _, stream_id)) = self.vote_collector {
-                        error!(
-                            "directly sending vote to vote collection task. view {:?}",
-                            view
-                        );
+                        // error!(
+                        //     "directly sending vote to vote collection task. view {:?}",
+                        //     view
+                        // );
                         self.event_stream
                             .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
                             .await;
@@ -444,7 +444,7 @@ where
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
                 };
-                error!("Sending DA proposal for view {:?}", data.view_number);
+                // error!("Sending DA proposal for view {:?}", data.view_number);
 
                 // let message = SequencingMessage::<TYPES, I>(Right(
                 //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),

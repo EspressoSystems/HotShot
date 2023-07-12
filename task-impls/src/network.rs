@@ -123,7 +123,7 @@ impl<
                         SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
                     }
                     CommitteeConsensusMessage::DAVote(vote) => {
-                        error!("DA Vote message recv {:?}", vote.current_view);
+                        // error!("DA Vote message recv {:?}", vote.current_view);
                         SequencingHotShotEvent::DAVoteRecv(vote.clone())
                     }
                     CommitteeConsensusMessage::DACertificate(cert) => {
