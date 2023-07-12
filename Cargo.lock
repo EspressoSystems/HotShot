@@ -3026,6 +3026,7 @@ dependencies = [
  "tokio",
  "toml 0.7.5",
  "tracing",
+ "typenum",
 ]
 
 [[package]]
@@ -3068,8 +3069,10 @@ dependencies = [
  "either",
  "ethereum-types",
  "futures",
+ "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
+ "jf-primitives",
  "snafu",
  "time 0.3.22",
  "tokio",
@@ -3256,6 +3259,7 @@ dependencies = [
  "time 0.3.22",
  "tokio",
  "tracing",
+ "typenum",
 ]
 
 [[package]]

@@ -228,6 +228,7 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
 
     /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+    // fn get_leader_qc(&self, view_number: TYPES::Time) -> VerKey;
 
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
@@ -302,6 +303,10 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.membership().get_leader(view_number)
     }
+
+    // fn get_leader_qc(&self, view_number: TYPES::Time) -> VerKey {
+    //     self.membership().get_leader_qc(view_number)
+    // }
 
     /// Whether this participant is leader at time `view_number`.
     fn is_leader(&self, view_number: TYPES::Time) -> bool {
@@ -393,17 +398,17 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// Validate a vote by checking its signature and token.
     fn is_valid_vote(
         &self,
+        ver_key: VerKey,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         data: VoteData<Self::Commitment>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        return true; // Sishan NOTE TODO: remove this line, change to qc-adaptive verification
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, &data.commit().as_ref());
+            is_valid_signature = key.validate(ver_key, encoded_signature, &data.commit().as_ref());
             let valid_vote_token =
                 self.membership()
                     .validate_vote_token(view_number, key, vote_token);
@@ -430,6 +435,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         // Sishan NOTE TODO: change this is_valid_vote to QC signature - adapted.
         if !self.is_valid_vote(
+            vota_meta.ver_key,
             &vota_meta.encoded_key,
             &vota_meta.encoded_signature,
             vota_meta.data.clone(),
@@ -500,7 +506,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
-        -> EncodedSignature;
+        -> (EncodedSignature, VerKey);
 
     /// Sign a vote on DA proposal.
     ///
@@ -575,14 +581,14 @@ impl<
     fn sign_da_proposal(
         &self,
         block_commitment: &Commitment<TYPES::BlockType>,
-    ) -> EncodedSignature {
+    ) -> (EncodedSignature, VerKey) {
         println!("Inside sign_da_proposal() of QuorumExchangeType and prepare to call sign(). block_commitment.as_ref()");
         let signature = TYPES::SignatureKey::sign(
             // &self.private_key, 
             self.key_pair_test.clone(), 
             block_commitment.as_ref()
         );
-        signature
+        (signature, self.key_pair_test.ver_key())
     }
     /// Sign a vote on DA proposal.
     ///
@@ -700,6 +706,7 @@ impl<
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
             entry: entry.clone(),
+            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,
@@ -744,7 +751,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-    ) -> EncodedSignature;
+    ) -> (EncodedSignature, VerKey);
 
     /// Sign a positive vote on validating or commitment proposal.
     ///
@@ -862,7 +869,7 @@ impl<
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-    ) -> EncodedSignature {
+    ) -> (EncodedSignature, VerKey) {
         println!("Inside sign_validating_or_commitment_proposal() of QuorumExchangeType and prepare to call sign(). 
             leaf_commitment.as_ref()");
         let signature = TYPES::SignatureKey::sign(
@@ -870,7 +877,7 @@ impl<
             self.key_pair_test.clone(), 
             leaf_commitment.as_ref()
         );
-        signature
+        (signature, self.key_pair_test.ver_key().clone())
     }
 
     /// Sign a positive vote on validating or commitment proposal.
@@ -1036,6 +1043,7 @@ impl<
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
             entry: entry.clone(),
+            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,
@@ -1203,6 +1211,7 @@ impl<
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
             entry: entry.clone(),
+            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,

@@ -130,7 +130,7 @@ where
                                 // println!("Step2 of ProcessedCommitteeConsensusMessage::DAProposal(p, sender) of da_member.rs");
                                 let block_commitment = p.data.deltas.commit();
                                 if !view_leader_key
-                                    .validate(&p.signature, block_commitment.as_ref())
+                                    .validate(p.ver_key, &p.signature, block_commitment.as_ref())
                                 {
                                     // println!("Inside if !view_leader_key.validate(&p.signature, block_commitment.as_ref()) of da_member.rs");
                                     warn!(?p.signature, "Could not verify proposal.");

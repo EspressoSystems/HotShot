@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
 // Sishan NOTE: for QC aggregation
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, self};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, self, VerKey};
 use jf_primitives::signatures::SignatureScheme;
 
 #[cfg(feature = "demo")]
@@ -64,7 +64,7 @@ pub trait SignatureKey:
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature
-    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool;
+    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
     fn sign(key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature;
     /// Produce a public key from a private key

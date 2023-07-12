@@ -92,10 +92,11 @@ async fn submit_validating_proposal<
     let mut leaf = random_validating_leaf::<TYPES>(genesis, &mut rng);
     leaf.view_number = view_number;
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
-    let signature = handle.sign_validating_or_commitment_proposal(&leaf.commit());
+    let (signature, ver_key) = handle.sign_validating_or_commitment_proposal(&leaf.commit());
     let msg = GeneralConsensusMessage::Proposal(Proposal {
         data: leaf.into(),
         signature,
+        ver_key,
     });
 
     // Send proposal

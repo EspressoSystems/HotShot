@@ -7,9 +7,10 @@ use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 // Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
+use typenum::U32;
 // use digest::generic_array::GenericArray;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
@@ -61,8 +62,23 @@ impl SignatureKey for Ed25519Pub {
     type PrivateKey = Ed25519Priv;
 
     #[instrument(skip(self))]
-    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
-        return true; // Sishan NOTE TODO: change to qc-adaptive verification
+    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
+            bincode_opts().deserialize(&signature.0);
+            match x {
+                Ok(s) => {
+                    //Sishan Note: This is the validation for QC partial signature before append().
+                    let mut generic_msg_test: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                    BLSOverBN254CurveSignatureScheme::verify(
+                        &(),
+                        &ver_key, 
+                        &generic_msg_test,
+                        &s,
+                    ).is_ok() //unwrap();
+                }
+                Err(_) => false,
+            }
+            /*
         let signature = &signature.0[..];
         // Convert to the signature type
         match Signature::from_slice(signature) {
@@ -81,7 +97,7 @@ impl SignatureKey for Ed25519Pub {
                 debug!(?e, "signature was structurally invalid");
                 false
             }
-        }
+        } */
     }
 
     fn sign(key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {

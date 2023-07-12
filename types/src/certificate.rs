@@ -121,12 +121,13 @@ pub enum QCYesNoSignature {
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
     /// Voter's public key
-    /// Sishan NOTE TODO: this encoded_key is not the correct public key, it should be changed to the QC public key later
+    /// Sishan NOTE TODO: this encoded_key is substitued by the ver_key, should be discarded later
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
     /// Sishan NOTE: entry with public key for QC aggregation
     pub entry: StakeTableEntry<VerKey>,
+    pub ver_key: VerKey,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
     pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA

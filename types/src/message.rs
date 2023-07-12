@@ -20,6 +20,7 @@ use crate::{
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -514,4 +515,6 @@ pub struct Proposal<PROPOSAL: ProposalType> {
     pub data: PROPOSAL,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
+    /// The proposer's public key
+    pub ver_key: VerKey,
 }

@@ -182,7 +182,7 @@ where
                             continue;
                         };
 
-                        if !view_leader_key.validate(&p.signature, leaf.commit().as_ref()) {
+                        if !view_leader_key.validate(p.ver_key, &p.signature, leaf.commit().as_ref()) {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }
@@ -221,18 +221,15 @@ where
 
                         match vote_token {
                             Err(e) => {
-                                println!("Inside match vote_token, Failed to generate vote token.");
                                 error!(
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
                             }
                             Ok(None) => {
-                                println!("Inside match vote_token, We were not chosen for committee.");
                                 info!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                println!("Inside match vote_token, We were chosen for committee.");
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
