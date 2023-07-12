@@ -705,7 +705,8 @@ where
         exchange: (*api.inner.exchanges.view_sync_exchange()).clone().into(),
         api,
         num_timeouts_tracked: 0,
-        task_map: HashMap::default(),
+        replica_task_map: HashMap::default(),
+        relay_task_map: HashMap::default(),
         view_sync_timeout: Duration::new(10, 0),
     };
     let registry = task_runner.registry.clone();

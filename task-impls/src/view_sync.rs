@@ -62,6 +62,12 @@ pub enum ViewSyncPhase {
     Finalize,
 }
 
+#[derive(Default)]
+pub struct ViewSyncTaskInfo {
+    task_id: usize,
+    event_stream_id: usize,
+}
+
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
 impl TaskErr for ViewSyncTaskError {}
@@ -97,8 +103,11 @@ pub struct ViewSyncTaskState<
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
-    /// Represents if replica task is running, if relay task is running
-    pub task_map: HashMap<TYPES::Time, (bool, bool)>,
+    /// Represents if replica task is running,
+    pub replica_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
+
+    /// Represents if relay task is running
+    pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
     pub view_sync_timeout: Duration,
 }
@@ -265,63 +274,70 @@ where
                     return;
                 }
 
-                let (is_replica_running, _) = self
-                    .task_map
-                    .entry(certificate_internal.round)
-                    .or_insert_with(|| (false, false));
+                // let maybe_replica_task = self.replica_task_map.get(certificate_internal.round);
+
+                if let Some(replica_task) = self.replica_task_map.get(&certificate_internal.round) {
+                    // Forward event then return
+                    self.event_stream
+                        .direct_message(replica_task.event_stream_id, event)
+                        .await;
+                    return;
+                }
 
                 // We do not have a replica task already running, so start one
-                if !*is_replica_running {
-                    *is_replica_running = true;
 
-                    // TODO ED Need to GC old entries in task map once we know we don't need them anymore
-                    let mut replica_state = ViewSyncReplicaTaskState {
-                        current_view: certificate_internal.round,
-                        next_view: certificate_internal.round,
-                        relay: 0,
-                        finalized: false,
-                        sent_view_change_event: false,
-                        phase: ViewSyncPhase::None,
-                        exchange: self.exchange.clone(),
-                        api: self.api.clone(),
-                        event_stream: self.event_stream.clone(),
-                        view_sync_timeout: self.view_sync_timeout,
-                    };
+                // TODO ED Need to GC old entries in task map once we know we don't need them anymore
+                let mut replica_state = ViewSyncReplicaTaskState {
+                    current_view: certificate_internal.round,
+                    next_view: certificate_internal.round,
+                    relay: 0,
+                    finalized: false,
+                    sent_view_change_event: false,
+                    phase: ViewSyncPhase::None,
+                    exchange: self.exchange.clone(),
+                    api: self.api.clone(),
+                    event_stream: self.event_stream.clone(),
+                    view_sync_timeout: self.view_sync_timeout,
+                };
 
-                    let result = replica_state.handle_event(event).await;
+                let result = replica_state.handle_event(event).await;
 
-                    if result.0 == Some(HotShotTaskCompleted::ShutDown) {
-                        // The protocol has finished
-                        return;
-                    }
-
-                    replica_state = result.1;
-
-                    let name = format!(
-                        "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
-                        self.next_view, self.current_view
-                    );
-
-                    let replica_handle_event = HandleEvent(Arc::new(
-                        move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
-                            async move { state.handle_event(event).await }.boxed()
-                        },
-                    ));
-
-                    let filter = FilterEvent::default();
-                    let builder =
-                        TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
-                            .register_event_stream(replica_state.event_stream.clone(), filter)
-                            .await
-                            .register_registry(&mut self.registry.clone())
-                            .await
-                            .register_state(replica_state)
-                            .register_event_handler(replica_handle_event);
-
-                    let _view_sync_replica_task = async_spawn(async move {
-                        ViewSyncReplicaTaskStateTypes::build(builder).launch().await
-                    });
+                if result.0 == Some(HotShotTaskCompleted::ShutDown) {
+                    // The protocol has finished
+                    return;
                 }
+
+                replica_state = result.1;
+
+                let name = format!(
+                    "View Sync Replica Task: Attempting to enter view {:?} from view {:?}",
+                    self.next_view, self.current_view
+                );
+
+                let replica_handle_event = HandleEvent(Arc::new(
+                    move |event, mut state: ViewSyncReplicaTaskState<TYPES, I, A>| {
+                        async move { state.handle_event(event).await }.boxed()
+                    },
+                ));
+
+                let filter = FilterEvent::default();
+                let builder = TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
+                    .register_event_stream(replica_state.event_stream.clone(), filter)
+                    .await
+                    .register_registry(&mut self.registry.clone())
+                    .await
+                    .register_state(replica_state)
+                    .register_event_handler(replica_handle_event);
+
+                let task_id = builder.get_task_id().unwrap();
+                let event_stream_id = builder.get_stream_id().unwrap();
+
+                self.replica_task_map.insert(certificate_internal.round, ViewSyncTaskInfo {task_id, event_stream_id});
+
+                let _view_sync_replica_task = async_spawn(async move {
+                    ViewSyncReplicaTaskStateTypes::build(builder).launch().await
+                });
+
             }
 
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
