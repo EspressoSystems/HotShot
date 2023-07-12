@@ -868,6 +868,7 @@ where
             internal_event_stream.clone(),
             quorum_exchange,
             NetworkTaskKind::Quorum,
+            handle.clone(),
         )
         .await;
         let task_runner = add_network_task(
@@ -875,6 +876,7 @@ where
             internal_event_stream.clone(),
             committee_exchange.clone(),
             NetworkTaskKind::Committee,
+            handle.clone(),
         )
         .await;
         let task_runner = add_network_task(
@@ -882,6 +884,7 @@ where
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
             NetworkTaskKind::ViewSync,
+            handle.clone(),
         )
         .await;
         let task_runner =

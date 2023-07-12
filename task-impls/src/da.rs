@@ -446,21 +446,28 @@ where
                 };
                 error!("Sending DA proposal for view {:?}", data.view_number);
 
-                let message = SequencingMessage::<TYPES, I>(Right(
-                    CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
-                ));
+                // let message = SequencingMessage::<TYPES, I>(Right(
+                //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
+                // ));
+                let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;
-                if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
-                    consensus.metrics.failed_to_send_messages.add(1);
-                    warn!(?message, ?e, "Could not broadcast leader proposal");
-                } else {
-                    consensus.metrics.outgoing_broadcast_messages.add(1);
-                }
+                // if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
+                //     consensus.metrics.failed_to_send_messages.add(1);
+                //     warn!(?message, ?e, "Could not broadcast leader proposal");
+                // } else {
+                //     consensus.metrics.outgoing_broadcast_messages.add(1);
+                // }
+                self.event_stream
+                    .publish(SequencingHotShotEvent::DAProposalSend(
+                        message,
+                        self.committee_exchange.public_key().clone(),
+                    ))
+                    .await;
 
                 return None;
             }
