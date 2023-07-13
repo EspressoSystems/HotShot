@@ -203,7 +203,11 @@ where
                 }
 
                 if vote.current_view != state.cur_view {
-                    panic!("Vote view does not match!")
+                    error!(
+                        "Vote view does not match! vote view is {} current view is {}",
+                        *vote.current_view, *state.cur_view
+                    );
+                    return (None, state);
                 }
 
                 // error!(
@@ -235,7 +239,7 @@ where
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
-                        return (None, state);
+                        return (Some(HotShotTaskCompleted::ShutDown), state);
                     }
                 }
             }
@@ -365,7 +369,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            error!("Sending vote to next leader {:?}", vote.current_view());
+                            // error!("Sending vote to next leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -452,23 +456,23 @@ where
                     }
                 }
             }
-            error!(
-                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
-                *proposal.get_view_number(),
-            );
+            // error!(
+            //     "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
+            //     *proposal.get_view_number(),
+            // );
             return false;
         }
-        error!(
-            "Could not vote because we don't have a proposal yet for view {}",
-            *self.cur_view
-        );
+        // error!(
+        //     "Could not vote because we don't have a proposal yet for view {}",
+        //     *self.cur_view
+        // );
         return false;
     }
 
     /// Must only update the view and GC if the view actually changes
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
-            error!("Updating view from {} to {}", *self.cur_view, *new_view);
+            // error!("Updating view from {} to {}", *self.cur_view, *new_view);
 
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
@@ -490,10 +494,10 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!(
-                    "Receved Quorum Propsoal for view {}",
-                    *proposal.data.view_number
-                );
+                // error!(
+                //     "Receved Quorum Propsoal for view {}",
+                //     *proposal.data.view_number
+                // );
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -756,7 +760,8 @@ where
                             let stream = self.event_stream.clone();
                             let view_number = self.cur_view.clone();
                             async move {
-                                async_sleep(Duration::from_millis(20000)).await;
+                                // ED: Changing to 1 second to test timeout logic
+                                async_sleep(Duration::from_millis(1000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
@@ -767,7 +772,7 @@ where
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
-                            error!("Vote is {:?}", vote.current_view());
+                            // error!("Vote is {:?}", vote.current_view());
 
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
@@ -933,7 +938,7 @@ where
 
                 // Walk back until we find a decide
                 if !reached_decided {
-                    error!("not reached decide fro view {:?}", self.cur_view);
+                    // error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -941,7 +946,7 @@ where
                         }
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
-                    error!("updated saved leaves");
+                    // error!("updated saved leaves");
                     // TODO do some sort of sanity check on the view number that it matches decided
                 }
 
@@ -1003,17 +1008,39 @@ where
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
                     self.update_view(view + 1).await;
+                    // TODO ED We should make the event publishing part of update_view function
+                    self.event_stream
+                        .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
+                        .await;
                 }
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                error!("View Change event for view {}", *new_view);
-
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 if !self.update_view(new_view).await {
                     return;
                 }
+                // error!("View Change event for view {}", *new_view);
+
+                // Spawn a timeout task if we did actually update view
+                self.timeout_task = async_spawn({
+                    // let next_view_timeout = hotshot.inner.config.next_view_timeout;
+                    // let next_view_timeout = next_view_timeout;
+                    // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+                    // TODO(bf): get the real timeout from the config.
+                    let stream = self.event_stream.clone();
+                    let view_number = self.cur_view.clone();
+                    async move {
+                        // ED: Changing to 1 second to test timeout logic
+                        async_sleep(Duration::from_millis(1000)).await;
+                        stream
+                            .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                                *view_number,
+                            )))
+                            .await;
+                    }
+                });
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1054,7 +1081,7 @@ where
                 let mut next_parent_hash = original_parent_hash;
 
                 if !reached_decided {
-                    error!("not reached decide fro view {:?}", self.cur_view);
+                    // error!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -1063,7 +1090,7 @@ where
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
                     // TODO do some sort of sanity check on the view number that it matches decided
-                    error!("updated saved leaves");
+                    // error!("updated saved leaves");
                 }
 
                 let block_commitment = self.block.commit();
@@ -1109,11 +1136,14 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
-                error!("We received a timeout event in the consensus task!")
+                error!(
+                    "We received a timeout event in the consensus task for view {}!",
+                    *view
+                )
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
-                error!("Updating self . block!");
+                // error!("Updating self . block!");
                 self.block = block;
             }
             _ => {}
