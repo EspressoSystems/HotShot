@@ -332,13 +332,13 @@ where
     /// Replica's vote on a proposal.
     Vote(QuorumVote<TYPES, I::Leaf>),
 
-    /// Internal ONLY message indicating a view interrupt.
-    #[serde(skip)]
-    InternalTrigger(InternalTrigger<TYPES>),
-
     ViewSyncVote(ViewSyncVote<TYPES>),
 
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
+
+    /// Internal ONLY message indicating a view interrupt.
+    #[serde(skip)]
+    InternalTrigger(InternalTrigger<TYPES>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
@@ -466,8 +466,10 @@ impl<
                     GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                         InternalTrigger::Timeout(time) => *time,
                     },
-                    GeneralConsensusMessage::ViewSyncVote(_)
-                    | GeneralConsensusMessage::ViewSyncCertificate(_) => unimplemented!(),
+                    GeneralConsensusMessage::ViewSyncVote(message) => message.round(),
+                    GeneralConsensusMessage::ViewSyncCertificate(message) => {
+                        message.data.get_view_number()
+                    }
                 }
             }
             Right(committee_message) => {

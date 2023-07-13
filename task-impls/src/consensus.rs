@@ -207,7 +207,11 @@ where
                 }
 
                 if vote.current_view != state.cur_view {
-                    panic!("Vote view does not match!")
+                    error!(
+                        "Vote view does not match! vote view is {} current view is {}",
+                        *vote.current_view, *state.cur_view
+                    );
+                    return (None, state);
                 }
 
                 // warn!(
@@ -239,7 +243,7 @@ where
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
                         state.accumulator = Either::Right(qc);
-                        return (None, state);
+                        return (Some(HotShotTaskCompleted::ShutDown), state);
                     }
                 }
             }
@@ -811,7 +815,8 @@ where
                             let stream = self.event_stream.clone();
                             let view_number = self.cur_view.clone();
                             async move {
-                                async_sleep(Duration::from_millis(20000)).await;
+                                // ED: Changing to 1 second to test timeout logic
+                                async_sleep(Duration::from_millis(1000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
@@ -1064,6 +1069,10 @@ where
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
                     self.update_view(view + 1).await;
+                    // TODO ED We should make the event publishing part of update_view function
+                    self.event_stream
+                        .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
+                        .await;
                 }
             }
 
@@ -1075,6 +1084,26 @@ where
                 if !self.update_view(new_view).await {
                     return;
                 }
+                // error!("View Change event for view {}", *new_view);
+
+                // Spawn a timeout task if we did actually update view
+                self.timeout_task = async_spawn({
+                    // let next_view_timeout = hotshot.inner.config.next_view_timeout;
+                    // let next_view_timeout = next_view_timeout;
+                    // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+                    // TODO(bf): get the real timeout from the config.
+                    let stream = self.event_stream.clone();
+                    let view_number = self.cur_view.clone();
+                    async move {
+                        // ED: Changing to 1 second to test timeout logic
+                        async_sleep(Duration::from_millis(1000)).await;
+                        stream
+                            .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                                *view_number,
+                            )))
+                            .await;
+                    }
+                });
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1170,7 +1199,10 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
-                error!("We received a timeout event in the consensus task!")
+                error!(
+                    "We received a timeout event in the consensus task for view {}!",
+                    *view
+                )
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block

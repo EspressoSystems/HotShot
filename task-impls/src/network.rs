@@ -193,19 +193,16 @@ impl<
                 Some(membership.get_leader(vote.current_view)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            SequencingHotShotEvent::DACSend(certificate, sender) => {
-                // panic!("Sending DAC!!!!!!!");
-                (
-                    sender,
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                            certificate.clone(),
-                        ))),
-                    ),
-                    TransmitType::Broadcast,
-                    None,
-                )
-            }
+            SequencingHotShotEvent::DACSend(certificate, sender) => (
+                sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
+                        certificate.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
+                None,
+            ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -216,14 +213,19 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
-            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
-                vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
-                ),
-                TransmitType::Direct,
-                Some(membership.get_leader(vote.round() + vote.relay())),
-            ),
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
+                // error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
+                (
+                    vote.signature_key(),
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
+                            vote.clone(),
+                        ))),
+                    ),
+                    TransmitType::Direct,
+                    Some(membership.get_leader(vote.round() + vote.relay())),
+                )
+            }
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),
@@ -242,7 +244,7 @@ impl<
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             event => {
-                // panic!("Receieved unexpected message in network task {:?}", event);
+                error!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };

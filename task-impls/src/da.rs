@@ -187,7 +187,8 @@ where
 
                     state.accumulator = Right(dac);
 
-                    return (None, state);
+                    // Return completed at this point
+                    return (Some(HotShotTaskCompleted::ShutDown), state);
                 }
             }
         }
