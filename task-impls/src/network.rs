@@ -108,6 +108,7 @@ impl<
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                        error!("recieving view sync vote");
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
                     GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
@@ -216,14 +217,16 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
-            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
+                error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
+                (
                 vote.signature_key(),
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
                     SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
                 ),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.round() + vote.relay())),
-            ),
+            )},
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),
@@ -242,7 +245,7 @@ impl<
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             event => {
-                // panic!("Receieved unexpected message in network task {:?}", event);
+                error!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };

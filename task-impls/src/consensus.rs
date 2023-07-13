@@ -988,12 +988,12 @@ where
                 error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
                 // error!("Sending proposal for view {:?}", message.data.clone());
 
-                // self.event_stream
-                //     .publish(SequencingHotShotEvent::QuorumProposalSend(
-                //         message,
-                //         self.quorum_exchange.public_key().clone(),
-                //     ))
-                //     .await;
+                self.event_stream
+                    .publish(SequencingHotShotEvent::QuorumProposalSend(
+                        message,
+                        self.quorum_exchange.public_key().clone(),
+                    ))
+                    .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
                 error!("DAC Recved for view ! {}", *cert.view_number);
@@ -1124,12 +1124,12 @@ where
                 // error!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 error!("Sending proposal for view {:?}", message.data.clone());
 
-                // self.event_stream
-                //     .publish(SequencingHotShotEvent::QuorumProposalSend(
-                //         message,
-                //         self.quorum_exchange.public_key().clone(),
-                //     ))
-                //     .await;
+                self.event_stream
+                    .publish(SequencingHotShotEvent::QuorumProposalSend(
+                        message,
+                        self.quorum_exchange.public_key().clone(),
+                    ))
+                    .await;
             }
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout

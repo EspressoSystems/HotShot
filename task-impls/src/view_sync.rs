@@ -256,8 +256,6 @@ where
         // TODO ED Match on &event
         match event.clone() {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                panic!("Received VS cert!");
-
                 let (certificate_internal, last_seen_certificate) = match message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
@@ -269,15 +267,19 @@ where
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
+                error!("Received view sync cert for phase {:?}", last_seen_certificate);
+
 
                 // This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
                 if self.current_view > certificate_internal.round {
+                    error!("Already in a higher view than the view sync message");
                     return;
                 }
 
                 if let Some(replica_task) = self.replica_task_map.get(&certificate_internal.round) {
                     // Forward event then return
+                    error!("Forwarding message");
                     self.event_stream
                         .direct_message(replica_task.event_stream_id, event)
                         .await;
@@ -586,8 +588,12 @@ where
                     }
                 };
 
+                error!("received cert in handle_event for replica");
+
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
+                    error!("We're already in a higher round");
+
                     return (None, self);
                 }
 
@@ -595,7 +601,8 @@ where
                     .exchange
                     .get_leader(certificate_internal.round + certificate_internal.relay);
 
-                if !relay_key.validate(&message.signature, &message.data.as_bytes()) {
+                if !relay_key.validate(&message.signature, &message.data.commit().as_ref()) {
+                    error!("Key does not validate for certificate sender");
                     return (None, self);
                 }
 
@@ -604,6 +611,8 @@ where
                     .exchange
                     .is_valid_view_sync_cert(message.data, certificate_internal.round.clone())
                 {
+                    error!("Not valid view sync cert!");
+
                     return (None, self);
                 }
 
@@ -624,6 +633,7 @@ where
 
                 // Send ViewChange event if necessary
                 if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
+                    error!("Updating view from view sync to view {}", *self.next_view);
                     self.event_stream
                         .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
                             *self.next_view,
@@ -735,7 +745,7 @@ where
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {
-                            self.relay = self.relay + 1;
+                            self.relay = self.relay;
                             let message = 
                                 self.exchange.create_precommit_message::<I>(
                                     self.next_view,
@@ -877,6 +887,10 @@ where
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => return (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
 
+                if self.accumulator.is_right() {
+                    return (Some(HotShotTaskCompleted::ShutDown), self)
+                }
+
                 let (vote_internal, phase) = match vote {
                     ViewSyncVote::PreCommit(vote_internal) => {
                         (vote_internal, ViewSyncPhase::PreCommit)
@@ -895,6 +909,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
+                    error!("We are not the correct relay");
                     return (None, self);
                 }
 
@@ -930,7 +945,17 @@ where
                                 self.exchange.public_key().clone(),
                             ))
                             .await;
-                        Either::Right(certificate)
+                        
+                        // Reset accumulator for new certificate
+                        either::Left(VoteAccumulator {
+                            total_vote_outcomes: HashMap::new(),
+                            yes_vote_outcomes: HashMap::new(),
+                            no_vote_outcomes: HashMap::new(),
+                            viewsync_precommit_vote_outcomes: HashMap::new(),
+
+                            success_threshold: self.exchange.success_threshold(),
+                            failure_threshold: self.exchange.failure_threshold(),
+                        })
                     }
                 };
 
@@ -940,7 +965,7 @@ where
                     return (None, self);
                 }
             }
-            _ => todo!(),
+            _ => return (None, self),
         }
         return (None, self);
     }
