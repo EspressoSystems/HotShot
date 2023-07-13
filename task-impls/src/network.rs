@@ -108,7 +108,7 @@ impl<
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                        error!("recieving view sync vote");
+                        // error!("recieving view sync vote");
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
                     GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
@@ -195,7 +195,6 @@ impl<
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             SequencingHotShotEvent::DACSend(certificate, sender) => {
-                // panic!("Sending DAC!!!!!!!");
                 (
                     sender,
                     MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -218,7 +217,7 @@ impl<
                 None,
             ),
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
-                error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
+                // error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
                 (
                 vote.signature_key(),
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(

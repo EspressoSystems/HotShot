@@ -654,7 +654,7 @@ where
         num_timeouts_tracked: 0,
         replica_task_map: HashMap::default(),
         relay_task_map: HashMap::default(),
-        view_sync_timeout: Duration::new(10, 0),
+        view_sync_timeout: Duration::new(1, 0),
     };
     let registry = task_runner.registry.clone();
     let view_sync_event_handler =
