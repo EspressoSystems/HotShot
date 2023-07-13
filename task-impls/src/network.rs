@@ -96,7 +96,7 @@ impl<
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        error!(
+                        warn!(
                             "ID = {} Recved quorum proposal on {:?} view {:?}",
                             id,
                             task,

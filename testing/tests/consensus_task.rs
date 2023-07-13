@@ -308,7 +308,6 @@ where
             registry: registry.clone(),
             consensus,
             cur_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
             block: TYPES::BlockType::new(),
             quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
             api: c_api.clone(),
