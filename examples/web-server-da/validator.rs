@@ -1,4 +1,4 @@
-use async_compatibility_layer::logging::setup_logging;
+use async_compatibility_layer::logging::{setup_logging, setup_backtrace};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
@@ -22,6 +22,7 @@ pub mod infra_da;
 #[instrument]
 async fn main() {
     setup_logging();
+    setup_backtrace();
     let args = ValidatorArgs::parse();
     tracing::error!(
         "connecting to orchestrator at {:?}:{:?}",
