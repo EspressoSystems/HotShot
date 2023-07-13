@@ -22,7 +22,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 use bincode::Options;
 use bitvec::prelude::*;
 use hotshot_primitives::quorum_certificate::{
-    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry,
+    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::bls_over_bn254::{
