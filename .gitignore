@@ -1,6 +1,7 @@
 /target
 /result
 /out*.txt
+/out*.json
 .idea
 /*.pdf
 /target_dirs

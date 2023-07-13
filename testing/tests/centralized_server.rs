@@ -28,7 +28,7 @@ struct VrfCentralizedImp {}
 type VrfMembership = VrfImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    BLSSignatureScheme<Param381>,
+    BLSSignatureScheme,
     BLSVRFScheme<Param381>,
     Hasher,
     Param381,

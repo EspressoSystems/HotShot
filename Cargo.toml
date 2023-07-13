@@ -105,6 +105,8 @@ path = "examples/web-server/validator.rs"
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
+# TODO ED We should upgrade other ark libraries accordingly with the one below
+ark-ed-on-bls12-381 = "0.4.0"
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.2.0", default-features = false, features = [ "logging-utils" ] }
@@ -131,7 +133,8 @@ hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-featu
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 itertools = "0.10"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
+hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
         "std",
 ] }
 libp2p-swarm-derive = { version = "=0.32.0" }
