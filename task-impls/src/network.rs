@@ -96,7 +96,7 @@ impl<
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        error!(
+                        warn!(
                             "ID = {} Recved quorum proposal on {:?} view {:?}",
                             id,
                             task,
@@ -108,7 +108,6 @@ impl<
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
                     GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
@@ -194,18 +193,16 @@ impl<
                 Some(membership.get_leader(vote.current_view)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            SequencingHotShotEvent::DACSend(certificate, sender) => {
-                (
-                    sender,
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                            certificate.clone(),
-                        ))),
-                    ),
-                    TransmitType::Broadcast,
-                    None,
-                )
-            }
+            SequencingHotShotEvent::DACSend(certificate, sender) => (
+                sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
+                        certificate.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
+                None,
+            ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -219,13 +216,16 @@ impl<
             SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
                 // error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
                 (
-                vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
-                ),
-                TransmitType::Direct,
-                Some(membership.get_leader(vote.round() + vote.relay())),
-            )},
+                    vote.signature_key(),
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
+                            vote.clone(),
+                        ))),
+                    ),
+                    TransmitType::Direct,
+                    Some(membership.get_leader(vote.round() + vote.relay())),
+                )
+            }
             SequencingHotShotEvent::TransactionSend(transaction) => (
                 // TODO ED Get our own key
                 nll_todo(),

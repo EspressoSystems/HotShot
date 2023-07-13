@@ -223,7 +223,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                         // TODO how to do this counting
                                         state.ctx.round_results.insert(
                                             view_number,
-                                            ViewStatus::ViewSuccess(nll_todo()),
+                                            ViewStatus::ViewSuccess(ViewSuccess {
+                                                txns: Vec::new(),
+                                                agreed_state: None,
+                                                agreed_block: None,
+                                                agreed_leaf: None,
+                                            }),
                                         );
                                     }
                                     // these aren't failures

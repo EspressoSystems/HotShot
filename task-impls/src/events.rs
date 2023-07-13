@@ -34,7 +34,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ),
     ViewSyncVoteRecv(ViewSyncVote<TYPES>),
     ViewSyncCertificateRecv(Proposal<ViewSyncProposalType<TYPES, I>>),
-    ViewSyncTrigger(ViewNumber), 
+    ViewSyncTrigger(ViewNumber),
     Timeout(ViewNumber),
     TransactionRecv(TYPES::Transaction),
     TransactionSend(TYPES::Transaction),

@@ -1158,7 +1158,9 @@ impl<
             ViewSyncCertificate::PreCommit(certificate_internal) => {
                 let vote_data = VoteData::ViewSyncPreCommit(
                     ViewSyncData::<TYPES> {
-                        relay: self.get_leader(round + certificate_internal.relay).to_bytes(),
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
                         round,
                     }
                     .commit(),
@@ -1168,7 +1170,9 @@ impl<
             ViewSyncCertificate::Commit(certificate_internal) => {
                 let vote_data = VoteData::ViewSyncCommit(
                     ViewSyncData::<TYPES> {
-                        relay: self.get_leader(round + certificate_internal.relay).to_bytes(),
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
                         round,
                     }
                     .commit(),
@@ -1178,7 +1182,9 @@ impl<
             ViewSyncCertificate::Finalize(certificate_internal) => {
                 let vote_data = VoteData::ViewSyncFinalize(
                     ViewSyncData::<TYPES> {
-                        relay: self.get_leader(round + certificate_internal.relay).to_bytes(),
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
                         round,
                     }
                     .commit(),

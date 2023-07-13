@@ -267,8 +267,10 @@ where
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
-                error!("Received view sync cert for phase {:?}", last_seen_certificate);
-
+                error!(
+                    "Received view sync cert for phase {:?}",
+                    last_seen_certificate
+                );
 
                 // This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
@@ -457,8 +459,6 @@ where
 
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked >= 2 {
-
-                
                     // panic!("Starting view sync!");
                     // Spawn replica task
                     let mut replica_state = ViewSyncReplicaTaskState {
@@ -475,7 +475,9 @@ where
                     };
 
                     // TODO ED Make all these view numbers into a single variable to avoid errors
-                    let result = replica_state.handle_event(SequencingHotShotEvent::ViewSyncTrigger(view_number + 1)).await;
+                    let result = replica_state
+                        .handle_event(SequencingHotShotEvent::ViewSyncTrigger(view_number + 1))
+                        .await;
 
                     if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                         // The protocol has finished
@@ -743,53 +745,51 @@ where
             SequencingHotShotEvent::ViewSyncTrigger(view_number) => {
                 // Trigger protocol by sending the first precommit vote, assumes view number passed in is the next view we want to enter
                 let maybe_vote_token = self
-                        .exchange
-                        .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key());
+                    .exchange
+                    .membership()
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
 
-                    match maybe_vote_token {
-                        Ok(Some(vote_token)) => {
-                            self.relay = self.relay;
-                            let message = 
-                                self.exchange.create_precommit_message::<I>(
-                                    self.next_view,
-                                    self.relay,
-                                    vote_token.clone(),
-                                );
-                    
-                        
-                
+                match maybe_vote_token {
+                    Ok(Some(vote_token)) => {
+                        self.relay = self.relay;
+                        let message = self.exchange.create_precommit_message::<I>(
+                            self.next_view,
+                            self.relay,
+                            vote_token.clone(),
+                        );
 
-                            if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                                error!("Sending precommit vote to start protocol for next view = {}", *vote.round());
+                        if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
+                            error!(
+                                "Sending precommit vote to start protocol for next view = {}",
+                                *vote.round()
+                            );
 
-                                self.event_stream
-                                    .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
+                                .await;
+                        }
+
+                        // TODO ED Add event to shutdown this task
+                        async_spawn({
+                            let stream = self.event_stream.clone();
+                            async move {
+                                async_sleep(self.view_sync_timeout).await;
+                                stream
+                                    .publish(SequencingHotShotEvent::ViewSyncTimeout(
+                                        ViewNumber::new(*self.next_view),
+                                        self.relay,
+                                        ViewSyncPhase::None,
+                                    ))
                                     .await;
                             }
-
-                            // TODO ED Add event to shutdown this task
-                            async_spawn({
-                                let stream = self.event_stream.clone();
-                                async move {
-                                    async_sleep(self.view_sync_timeout).await;
-                                    stream
-                                        .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                            ViewNumber::new(*self.next_view),
-                                            self.relay,
-                                            ViewSyncPhase::None,
-                                        ))
-                                        .await;
-                                }
-                            });
-                            return (None, self)
-                        }
-                        _ => {
-                            error!("Problem generating vote token");
-                            return (None, self)
-                        }
+                        });
+                        return (None, self);
                     }
-
+                    _ => {
+                        error!("Problem generating vote token");
+                        return (None, self);
+                    }
+                }
             }
 
             SequencingHotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) => {
@@ -890,9 +890,8 @@ where
         match event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => return (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
-
                 if self.accumulator.is_right() {
-                    return (Some(HotShotTaskCompleted::ShutDown), self)
+                    return (Some(HotShotTaskCompleted::ShutDown), self);
                 }
 
                 let (vote_internal, phase) = match vote {
@@ -905,8 +904,10 @@ where
                     }
                 };
 
-                error!("Recved vote for next view {}, and relay {}, and phase {:?}", *vote_internal.round, vote_internal.relay, phase);
-
+                error!(
+                    "Recved vote for next view {}, and relay {}, and phase {:?}",
+                    *vote_internal.round, vote_internal.relay, phase
+                );
 
                 // Ignore this vote if we are not the correct relay
                 if !self
@@ -949,7 +950,7 @@ where
                                 self.exchange.public_key().clone(),
                             ))
                             .await;
-                        
+
                         // Reset accumulator for new certificate
                         either::Left(VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),

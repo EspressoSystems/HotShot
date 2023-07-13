@@ -38,6 +38,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
+use hotshot_types::event::Event;
 use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::ViewSyncEx;
@@ -464,6 +465,7 @@ pub async fn add_consensus_task<
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    output_stream: ChannelStream<Event<TYPES, I::Leaf>>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
@@ -492,7 +494,6 @@ where
         registry: registry.clone(),
         consensus,
         cur_view: ViewNumber::new(0),
-        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         block: TYPES::BlockType::new(),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
@@ -501,6 +502,7 @@ where
         vote_collector: None,
         timeout_task: async_spawn(async move {}),
         event_stream: event_stream.clone(),
+        output_event_stream: output_stream,
         certs: HashMap::new(),
         current_proposal: None,
     };
@@ -579,7 +581,6 @@ where
         registry: registry.clone(),
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
-        high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
         cur_view: TYPES::Time::new(0),
         committee_exchange: committee_exchange.into(),
         vote_collector: None,

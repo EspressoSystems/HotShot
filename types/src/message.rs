@@ -332,7 +332,6 @@ where
     /// Replica's vote on a proposal.
     Vote(QuorumVote<TYPES, I::Leaf>),
 
-
     ViewSyncVote(ViewSyncVote<TYPES>),
 
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
@@ -467,8 +466,10 @@ impl<
                     GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                         InternalTrigger::Timeout(time) => *time,
                     },
-                    GeneralConsensusMessage::ViewSyncVote(message)=> message.round(),
-                    GeneralConsensusMessage::ViewSyncCertificate(message ) => message.data.get_view_number(),
+                    GeneralConsensusMessage::ViewSyncVote(message) => message.round(),
+                    GeneralConsensusMessage::ViewSyncCertificate(message) => {
+                        message.data.get_view_number()
+                    }
                 }
             }
             Right(committee_message) => {
