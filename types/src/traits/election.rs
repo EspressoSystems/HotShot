@@ -596,7 +596,6 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign().");
-        println!("block_commitment: {:?}", block_commitment);
         let signature = TYPES::SignatureKey::sign(
             // &self.private_key,
             self.key_pair_test.clone(),
@@ -724,9 +723,6 @@ impl<
     fn key_pair_test(&self) -> &QCKeyPair {
         &self.key_pair_test
     }
-    // fn get_entry(&self) -> &StakeTableEntry<VerKey> {
-    //     &self.entry
-    // }
 }
 
 /// A [`ConsensusExchange`] where participants vote to append items to a log.

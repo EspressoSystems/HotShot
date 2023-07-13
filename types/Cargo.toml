@@ -54,8 +54,7 @@ espresso-systems-common = { git = "https://github.com/espressosystems/espresso-s
 futures = "0.3.28"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
-hotshot-primitives = { path = "/Users/sishanlong/Internship/Espresso/hotshot-primitives"}
-# hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "c99b58d"} # rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "c99b58d"} # rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "c07a87f"} # downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
