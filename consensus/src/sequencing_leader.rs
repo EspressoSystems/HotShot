@@ -108,6 +108,7 @@ where
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             // TODO ED Revisit this once Yes/No votes are in place for DA
@@ -165,6 +166,9 @@ where
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
                                     QCYesNoSignature::Yes(signature, qc_pp) => {
+                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
+                                    }
+                                    QCYesNoSignature::DA(signature, qc_pp) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
@@ -482,6 +486,7 @@ where
 
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),

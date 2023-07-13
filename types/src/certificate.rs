@@ -115,13 +115,17 @@ pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken>
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
-pub enum QCYesNoSignature {
+pub enum QCYesNoSignature { // Sishan NOTE TODO: change to a better name
     /// These signatures are for a 'Yes' QC
     Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
         <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
         QCParams<VerKey, ()>),
     /// These signatures are for a 'No' QC
     No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
+        QCParams<VerKey, ()>),
+    /// These signatures are for a 'DA' QC
+    DA((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
         <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
         QCParams<VerKey, ()>),
     /// These signatures are for genesis QC

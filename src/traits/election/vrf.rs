@@ -257,7 +257,7 @@ where
                 &mut rand::thread_rng()
             ).unwrap();
         
-        println!("In sign(), generic_msg_test: {:?}, individual_signature: {:?}", generic_msg_test, individual_signature);
+        // println!("In sign(), generic_msg_test: {:?}, individual_signature: {:?}", generic_msg_test, individual_signature);
 
         // let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
         //     .expect("This signature shouldn't be able to fail");

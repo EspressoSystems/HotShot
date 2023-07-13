@@ -776,6 +776,10 @@ pub fn serialize_signature(signature: &QCYesNoSignature) -> Vec<u8> {
         (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature,
             <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as
             QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &signature {
+            QCYesNoSignature::DA(signatures, qc_pp) => {
+                signatures_bytes.extend("DA".as_bytes());
+                Some(signatures.clone())
+            }
             QCYesNoSignature::Yes(signatures, qc_pp) => {
                 signatures_bytes.extend("Yes".as_bytes());
                 Some(signatures.clone())

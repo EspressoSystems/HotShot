@@ -352,11 +352,22 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
 
-        // Sishan NOTE TODO: change this validation to qc aggregation adapted
         match qc.signatures() { 
+            QCYesNoSignature::DA((qc_signatures, bitvec_proof), qc_pp) => {
+                let real_commit = VoteData::DA(leaf_commitment).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                // println!("In check()::Yes, msg: {:?}, bitvec_proof: {:?}, qc_pp_len: {:?}", msg, bitvec_proof, qc_pp.stake_entries.len());
+                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                    &qc_pp,
+                    &msg,
+                    &qc_signatures,
+                    &bitvec_proof
+                ).is_ok()
+            }
             QCYesNoSignature::Yes((qc_signatures, bitvec_proof), qc_pp) => {
-                let msg = GenericArray::from_slice(commit.as_ref());
-                println!("In check(), msg: {:?}, bitvec_proof: {:?}, qc_pp_len: {:?}", msg, bitvec_proof, qc_pp.stake_entries.len());
+                let real_commit = VoteData::Yes(leaf_commitment).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                // println!("In check()::Yes, msg: {:?}, bitvec_proof: {:?}, qc_pp_len: {:?}", msg, bitvec_proof, qc_pp.stake_entries.len());
                 BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
                     &qc_pp,
                     &msg,
@@ -365,9 +376,18 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 ).is_ok()
             }
             QCYesNoSignature::No((qc_signatures, bitvec_proof), qc_pp) => {
-                return true; // Sishan NOTE TODO
+                let real_commit = VoteData::No(leaf_commitment).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                // println!("In check()::No, msg: {:?}, bitvec_proof: {:?}, qc_pp_len: {:?}", msg, bitvec_proof, qc_pp.stake_entries.len());
+                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                    &qc_pp,
+                    &msg,
+                    &qc_signatures,
+                    &bitvec_proof
+                ).is_ok()
             }
             QCYesNoSignature::Genesis() => {
+                // println!("In check()::Genesis");
                 return true;
             }
         }
@@ -411,7 +431,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         vota_meta: VoteMetaData<Self::Commitment, TYPES::VoteTokenType, TYPES::Time>,
         accumulator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
-        // Sishan NOTE TODO: change this is_valid_vote to QC signature - adapted.
         if !self.is_valid_vote(
             vota_meta.ver_key,
             &vota_meta.encoded_key,
@@ -577,6 +596,7 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         println!("Inside sign_da_vote() of QuorumExchangeType and prepare to call sign().");
+        println!("block_commitment: {:?}", block_commitment);
         let signature = TYPES::SignatureKey::sign(
             // &self.private_key,
             self.key_pair_test.clone(),
@@ -869,6 +889,7 @@ impl<
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         println!("Inside sign_yes_vote() of QuorumExchangeType and prepare to call sign().");
+        println!("leaf_commitment: {:?}", leaf_commitment);
         let signature = TYPES::SignatureKey::sign(
             // &self.private_key,
             self.key_pair_test.clone(),

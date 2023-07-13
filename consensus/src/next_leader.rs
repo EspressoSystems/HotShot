@@ -98,6 +98,7 @@ where
 
         let mut accumlator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),

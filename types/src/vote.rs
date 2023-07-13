@@ -213,6 +213,8 @@ type VoteMap<C, TOKEN> = HashMap<
 pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
     pub total_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// Map of all da signatures accumlated so far
+    pub da_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// Map of all yes signatures accumlated so far
     pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// Map of all no signatures accumlated so far
@@ -265,6 +267,11 @@ where
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
 
+        let (da_stake_casted, da_vote_map) = self
+            .da_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
         let (yes_stake_casted, yes_vote_map) = self
             .yes_vote_outcomes
             .entry(commitment)
@@ -274,6 +281,7 @@ where
             .no_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
+
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
@@ -281,7 +289,11 @@ where
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
-            VoteData::DA(_) | VoteData::Yes(_) => {
+            VoteData::DA(_) => {
+                *da_stake_casted += u64::from(token.vote_count());
+                da_vote_map.insert(key, (sig.clone(), vote_data, token));
+            }
+            VoteData::Yes(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
                 yes_vote_map.insert(key, (sig.clone(), vote_data, token));
             }
@@ -312,7 +324,12 @@ where
                 &self.sig_lists[..],
             ).unwrap();
 
-            if *yes_stake_casted >= u64::from(self.success_threshold) {
+            if *da_stake_casted >= u64::from(self.success_threshold) {
+                self.da_vote_outcomes.remove(&commitment).unwrap().1;
+                // let valid_signatures = self.da_vote_outcomes.remove(&commitment).unwrap().1;
+                // return Either::Right(YesNoSignature::DA(valid_signatures));
+                return Either::Right(QCYesNoSignature::DA(qc_sig, qc_pp));
+            } else if *yes_stake_casted >= u64::from(self.success_threshold) {
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::Yes(valid_signatures));
