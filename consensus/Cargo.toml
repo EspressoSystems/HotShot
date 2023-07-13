@@ -62,3 +62,4 @@ ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
 hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "c99b58d"} # rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "c07a87f"} # downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
+blake3 = { version = "1.3.3", features = ["traits-preview"] }

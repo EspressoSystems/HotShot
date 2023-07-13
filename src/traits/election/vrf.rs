@@ -240,8 +240,9 @@ where
             data: &[u8]) -> EncodedSignature {
         // Sign it
         // Sishan NOTE: for QC Aggregation
-        let mut generic_msg_test = GenericArray::from_slice(data);
-        let agg_signature_test =
+        let generic_msg_test = GenericArray::from_slice(data);
+        
+        let individual_signature =
             // SIGSCHEME::sign(
             //     &(),
             //     key_pair_test.sign_key_ref(),
@@ -255,14 +256,17 @@ where
                 key_pair_test.sign_key_ref(),
                 &mut rand::thread_rng()
             ).unwrap();
+        
+        println!("In sign(), generic_msg_test: {:?}, individual_signature: {:?}", generic_msg_test, individual_signature);
+
         // let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
         //     .expect("This signature shouldn't be able to fail");
         // Encode it
         let bytes = bincode_opts()
-            .serialize(&agg_signature_test)
+            .serialize(&individual_signature)
             .expect("This serialization shouldn't be able to fail");
         // let print_bytes = String::from_utf8_lossy(&bytes);
-        // println!("In vrf.rs, bytes_string = {:?}", print_bytes);
+        // println!("In vrf.rs, signature bytes_string = {:?}", print_bytes);
         EncodedSignature(bytes)
     }
 

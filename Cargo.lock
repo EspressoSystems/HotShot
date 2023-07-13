@@ -3063,6 +3063,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
+ "blake3",
  "commit",
  "custom_debug",
  "derivative",
@@ -3149,6 +3150,7 @@ dependencies = [
  "async-trait",
  "atomic_enum",
  "bitvec",
+ "blake3",
  "either",
  "ethereum-types",
  "futures",
@@ -3268,6 +3270,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "bitvec",
+ "blake3",
  "ethereum-types",
 ]
 
@@ -3282,6 +3285,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
+ "blake3",
  "clap",
  "ethereum-types",
  "futures",

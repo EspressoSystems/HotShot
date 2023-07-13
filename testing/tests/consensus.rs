@@ -1,5 +1,6 @@
 use async_lock::Mutex;
 
+use blake3::traits::digest::generic_array::GenericArray;
 use hotshot_testing::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
     round_builder::RoundSafetyCheckBuilder,

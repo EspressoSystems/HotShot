@@ -50,6 +50,7 @@ use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumC
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 // use digest::generic_array::GenericArray;
 use blake3::traits::digest::generic_array::GenericArray;
+use typenum::U32;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -340,7 +341,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
-        // return true; // Sishan NOTE TODO: change this validation to qc aggregation adapted
+        
         if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
             return true;
         }
@@ -349,23 +350,27 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         if leaf_commitment != commit {
             return false;
         }
-        return true;
-        // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
-        // match qc.signatures() { 
-        //     QCYesNoSignature::Yes((qc_signatures, bitvec_proof), qc_pp) => {
-        //         BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
-        //             qc_pp,
-        //             message,
-        //             &qc_signatures,
-        //             &bitvec_proof).is_ok()
-        //     }
-        //     QCYesNoSignature::No((qc_signatures, bitvec_proof), qc_pp) => {
-            
-        //     }
-        //     QCYesNoSignature::Genesis() => {
-        //         return true;
-        //     }
-        // }
+
+
+        // Sishan NOTE TODO: change this validation to qc aggregation adapted
+        match qc.signatures() { 
+            QCYesNoSignature::Yes((qc_signatures, bitvec_proof), qc_pp) => {
+                let msg = GenericArray::from_slice(commit.as_ref());
+                println!("In check(), msg: {:?}, bitvec_proof: {:?}, qc_pp_len: {:?}", msg, bitvec_proof, qc_pp.stake_entries.len());
+                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                    &qc_pp,
+                    &msg,
+                    &qc_signatures,
+                    &bitvec_proof
+                ).is_ok()
+            }
+            QCYesNoSignature::No((qc_signatures, bitvec_proof), qc_pp) => {
+                return true; // Sishan NOTE TODO
+            }
+            QCYesNoSignature::Genesis() => {
+                return true;
+            }
+        }
     }
 
     /// Validate a vote by checking its signature and token.

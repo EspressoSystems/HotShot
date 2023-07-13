@@ -11,6 +11,7 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use blake3::traits::digest::generic_array::GenericArray;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,7 @@ use jf_primitives::signatures::bls_over_bn254::{
     BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey,
 };
 use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
+use typenum::U32;
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -129,7 +131,7 @@ pub enum QCYesNoSignature {
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
     /// Voter's public key
-    /// Sishan NOTE TODO: this encoded_key is substitued by the ver_key, should be discarded later
+    /// Sishan NOTE TODO: In qc aggregation, this encoded_key is substitued by the ver_key, should be discarded later
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,

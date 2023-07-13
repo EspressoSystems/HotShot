@@ -29,6 +29,7 @@ use hotshot_types::{
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use blake3::traits::digest::generic_array::GenericArray;
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
@@ -200,7 +201,7 @@ where
             let (signature, ver_key) = self
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
-            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
+            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.clone().into();
             let message =
                 ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
                     data,

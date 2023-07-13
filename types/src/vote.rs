@@ -298,6 +298,9 @@ where
         if *total_stake_casted >= u64::from(self.success_threshold) {
             
             // Sishan NOTE: Do assemble for QC here
+
+            println!("In append(), active_keys: {:?}, sig_lists: {:?}", self.active_keys, self.sig_lists);
+
             let qc_pp = QCParams {
                 stake_entries: self.stake_entries.clone(),
                 threshold: U256::from(self.success_threshold.get()),

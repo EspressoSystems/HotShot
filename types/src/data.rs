@@ -40,6 +40,9 @@ use jf_primitives::signatures::bls_over_bn254::{
     BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey,
 };
 use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
+use typenum::U32;
+use blake3::traits::digest::generic_array::GenericArray;
+// use generic_array::{ArrayLength, GenericArray};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(

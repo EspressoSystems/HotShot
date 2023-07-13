@@ -43,6 +43,7 @@ use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 use bitvec::prelude::*;
+use blake3::traits::digest::generic_array::GenericArray;
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
@@ -401,7 +402,6 @@ where
             proposer_id: leaf.proposer_id,
             ver_key: ver_key,
         };
-
         let message =
             SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
