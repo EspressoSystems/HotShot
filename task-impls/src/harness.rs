@@ -11,6 +11,7 @@ use hotshot_task::{
 };
 
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -80,13 +81,14 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
-        event_stream.publish(event);
+        let _ = event_stream.publish(event);
     }
+    // TODO fix type weirdness btwn tokio and async-std
+    todo!();
 
-    let results = runner.await;
-    for (_task_name, result) in results {
-        assert!(matches!(result, HotShotTaskCompleted::ShutDown));
-    }
+    // for (_task_name, result) in runner.await.into_iter() {
+    //     assert!(matches!(result, HotShotTaskCompleted::ShutDown));
+    // }
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(

@@ -113,7 +113,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: Option<(ViewNumber, usize)>,
+    pub vote_collector: Option<(ViewNumber, usize, usize)>,
 
     /// Have we already sent a proposal for a particular view
     /// since proposal can be sent either on QCFormed event or ViewChange event
@@ -194,7 +194,7 @@ where
     match event {
         SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote {
             QuorumVote::Yes(vote) => {
-                // error!("Received quroum vote: {:?}", vote);
+                // error!("Received quroum vote in collector: {:?}", vote);
 
                 // For the case where we receive votes after we've made a certificate
                 if state.accumulator.is_right() {
@@ -233,11 +233,7 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
-                        // state
-                        //     .event_stream
-                        //     .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(*state.cur_view + 1)))
-                        //     .await;
-                        // error!("QCFormed! {:?}", qc.view_number);
+                        error!("QCFormed! {:?}", qc.view_number);
                         state
                             .event_stream
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
@@ -294,9 +290,7 @@ where
         // ED: Added this in the DA task ^
     }
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
-        // error!("read");
         let consensus = self.consensus.read().await;
-        // error!("read lock aquired");
 
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
             error!("Couldn't find genesis view in state map.");
@@ -488,6 +482,11 @@ where
             // }
             self.cur_view = new_view;
             self.current_proposal = None;
+
+            self.event_stream
+                .publish(SequencingHotShotEvent::ViewChange(new_view))
+                .await;
+
             return true;
         }
         false
@@ -529,9 +528,7 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         info!("We were chosen for consensus committee on {:?}", view);
-                        // error!("upgradalbe read");
                         let consensus = self.consensus.upgradable_read().await;
-                        // error!("upgradalbe read lock aquired");
                         let message;
 
                         // Construct the leaf.
@@ -754,9 +751,6 @@ where
 
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(new_view).await;
-                        self.event_stream
-                            .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
-                            .await;
 
                         self.timeout_task = async_spawn({
                             // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -788,7 +782,7 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                // error!("Received quroum vote: {:?}", vote);
+                error!("Received quroum vote: {:?}", vote.current_view());
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -799,7 +793,7 @@ where
                         let handle_event = HandleEvent(Arc::new(move |event, state| {
                             async move { vote_handle(state, event).await }.boxed()
                         }));
-                        let collection_view = if let Some((collection_view, collection_task)) =
+                        let collection_view = if let Some((collection_view, collection_task, _)) =
                             &self.vote_collector
                         {
                             if vote.current_view > *collection_view {
@@ -825,7 +819,7 @@ where
                             &vote.signature.0,
                             &vote.signature.1,
                             vote.leaf_commitment,
-                            vote.vote_data,
+                            vote.vote_data.clone(),
                             vote.vote_token.clone(),
                             vote.current_view,
                             acc,
@@ -853,13 +847,25 @@ where
                                     .register_state(state)
                                     .register_event_handler(handle_event);
                             let id = builder.get_task_id().unwrap();
+                            let stream_id = builder.get_stream_id().unwrap();
 
-                            self.vote_collector = Some((vote.current_view, id));
+                            self.vote_collector = Some((vote.current_view, id, stream_id));
 
-                            let _task = async_spawn(async move {
+                            let task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
                             error!("Starting vote handle for view {:?}", vote.current_view);
+                        } else {
+                            if let Some((view, _, stream_id)) = self.vote_collector {
+                                error!(
+                                    "directly sending vote to vote collection task. view {:?}",
+                                    view
+                                );
+                                self.event_stream.direct_message(
+                                    stream_id,
+                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(vote)),
+                                ).await;
+                            }
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
@@ -868,7 +874,7 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-                // error!("QC Formed event happened!");
+                error!("QC Formed event happened!");
 
                 self.high_qc = qc.clone();
                 // error!("QC leaf commitment is {:?}", qc.leaf_commitment());
@@ -892,9 +898,7 @@ where
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
                 // error!("Parent view number is {:?}", parent_view_number);
-                // error!("read");
                 let consensus = self.consensus.read().await;
-                // error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1048,9 +1052,7 @@ where
                 // update our high qc to the qc we just formed
                 // self.high_qc = qc;
                 let parent_view_number = &self.high_qc.view_number();
-                // error!("read consensus");
                 let consensus = self.consensus.read().await;
-                // error!("read lock aquired");
                 let mut reached_decided = false;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {

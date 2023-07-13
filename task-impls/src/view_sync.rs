@@ -448,6 +448,10 @@ where
                     return;
                 }
                 // TODO ED Combine this code with other replica code since some of it is repeated
+                if view_number < ViewNumber::new(*self.current_view) {
+                    error!("Got old timeout");
+                    return;
+                }
                 self.num_timeouts_tracked += 1;
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 

@@ -108,7 +108,7 @@ impl<
                         SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                        // error!("recieving view sync vote");
+
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
                     }
                     GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
