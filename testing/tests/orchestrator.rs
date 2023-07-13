@@ -30,20 +30,19 @@ async fn test_orchestrator() {
     let client = surf_disco::Client::<ClientError>::new(base_url);
     assert!(client.connect(None).await);
 
-    panic!("Panic");
-
     // just need to test the stats (not really needed for another endpoint)
     let stat_data = StatisticsStruct {
         stat_runduration: vec![10],
+        stat_throughput: vec![15],
         stat_viewtime: vec![20],
-        stat_throughput: vec![30],
     };
 
     client
-        .post::<()>("results")
+        .post::<()>("api/results/1")
         .body_json(&stat_data)
         .unwrap()
         .send()
         .await
         .unwrap();
+    assert!(true)
 }

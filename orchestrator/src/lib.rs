@@ -55,23 +55,23 @@ struct OrchestratorState<KEY, ELECTION> {
 
 
     // Statistics Variables: track statistics for benchmarking
-    pub stat_viewtime: Vec<i64>,
-    pub stat_throughput: Vec<i64>,
-    pub stat_runduration: Vec<i64>,
+    pub stat_viewtime: Vec<u64>,
+    pub stat_throughput: Vec<u64>,
+    pub stat_runduration: Vec<u64>,
     pub stat_nodes_collected: u64,
 }
 
 // Statistics struct
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct StatisticsStruct{
-    pub stat_viewtime: Vec<i64>,
-    pub stat_throughput: Vec<i64>,
-    pub stat_runduration: Vec<i64>, 
+    pub stat_viewtime: Vec<u64>,
+    pub stat_throughput: Vec<u64>,
+    pub stat_runduration: Vec<u64>, 
 }
 
 // Average Function
-fn average(numbers: &mut Vec<i64>) -> i64 {
-    numbers.iter().sum::<i64>() as i64 / numbers.len() as i64
+fn average(numbers: &mut Vec<u64>) -> u64 {
+    numbers.iter().sum::<u64>() as u64 / numbers.len() as u64
 }    
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -220,7 +220,7 @@ where
         //2. save the nodes data into the struct creatd (results_struct)
         let _ = &self.stat_viewtime.append(&mut data_cloned.stat_viewtime);
         let _= &self.stat_runduration.append(&mut data_cloned.stat_runduration);
-        let _= &self.stat_runduration.append(&mut data_cloned.stat_throughput);
+        let _= &self.stat_throughput.append(&mut data_cloned.stat_throughput);
 
         // All nodes have completed there protocol and sent statistics
         if self.stat_nodes_collected >= self.config.config.known_nodes.len().try_into().unwrap(){
@@ -230,9 +230,9 @@ where
             let avg_throughput = average(&mut self.stat_throughput);
 
             //4. print out the statistics average 
-            println!("Statistics: ViewTime -- {:.32}", avg_viewtime);
-            println!("Statistics: Run Duration -- {:.32}", avg_runduration);
-            println!("Statistics: Throuput -- {:.32}", avg_throughput);
+            println!("Statistics: ViewTime -- {:.?}", avg_viewtime);
+            println!("Statistics: Run Duration -- {:.?}", avg_runduration);
+            println!("Statistics: Throuput -- {:.?}", avg_throughput);
         }
 
         Ok(())
