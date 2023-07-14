@@ -557,7 +557,7 @@ impl<
         Self: 'b,
     {
         let closure = async move {
-            <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
+            <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
                 Message<TYPES, I>,
                 TYPES::SignatureKey,
             >>::recv_msgs(&self.0, transmit_type)

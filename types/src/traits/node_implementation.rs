@@ -16,8 +16,8 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use crate::vote::ViewSyncVote;
 use crate::traits::election::Membership;
+use crate::vote::ViewSyncVote;
 use crate::{data::TestableLeaf, message::Message};
 use crate::{
     data::{LeafType, SequencingLeaf, ValidatingLeaf},
@@ -316,8 +316,6 @@ pub struct SequencingExchanges<
 
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
-
-    
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,

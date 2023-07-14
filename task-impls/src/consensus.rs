@@ -705,13 +705,19 @@ where
                                     }
 
                                     leaf_views.push(leaf.clone());
-                                    if let Left(block) = &leaf.deltas {
+                                    match &leaf.deltas {
+                                        Left(block) => {
                                         let txns = block.contained_transactions();
+                                        error!("removing {} transactions", txns.len());
                                         for txn in txns {
                                             included_txns.insert(txn);
                                         }
                                     }
+                                    Right(commit) => {
+
+                                    }
                                 }
+                            }
                                 true
                             },
                         ) {
@@ -787,6 +793,7 @@ where
                             }
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
+                            error!("Sending Decide for view {:?}", consensus.last_decided_view);
                             decide_sent.await;
                         }
 
@@ -1199,7 +1206,7 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
-                error!(
+                warn!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view
                 )
