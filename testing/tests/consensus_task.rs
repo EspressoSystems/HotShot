@@ -5,7 +5,7 @@ use hotshot_testing::{
     round_builder::RoundSafetyCheckBuilder,
     test_builder::{TestBuilder, TestMetadata, TimingData},
     test_errors::ConsensusTestError,
-    test_types::{AppliedTestRunner, StandardNodeImplType, StaticNodeImplType, VrfTestTypes},
+    test_types::{AppliedTestRunner, StandardNodeImplType, StaticNodeImplType},
 };
 
 use commit::Committable;
@@ -109,7 +109,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -199,7 +199,7 @@ async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
+        SignatureKey = JfPubKey<BLSSignatureScheme>,
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -218,6 +218,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Networks = (StaticQuroumComm, StaticViewSyncComm, StaticDAComm),
+        ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
     >,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -247,7 +248,7 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
+        JfPubKey<BLSSignatureScheme>,
     >: Membership<TYPES>,
 {
     let builder = TestBuilder::default_multiple_rounds();
@@ -268,15 +269,25 @@ where
     let public_key = TYPES::SignatureKey::from_private(&private_key);
     let ek =
         jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
-    let election_config = config.election_config.clone().unwrap_or_else(|| {
+    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<TYPES,I> as ConsensusExchange<
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
+    });
+
+    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <CommitteeEx<TYPES,I> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
     });
     let exchanges = I::Exchanges::create(
         known_nodes.clone(),
-        election_config.clone(),
+        (
+            quorum_election_config,
+            committee_election_config,
+        ),
         (quorum_network, view_sync_network, committee_network),
         public_key.clone(),
         private_key.clone(),

@@ -57,7 +57,7 @@ impl Default for TestMetadata {
             start_nodes: 5,
             // failure_threshold: 10,
             num_bootstrap_nodes: 5,
-            da_committee_size: 0,
+            da_committee_size: 5,
             per_node_safety_properties: NodeSafetyPropertiesDescription {
                 // TODO Update these numbers
                 num_failed_views: Some(5),
@@ -110,7 +110,7 @@ impl TestMetadata {
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
+        // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
@@ -119,7 +119,7 @@ impl TestMetadata {
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_nodes,
+            da_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -136,7 +136,9 @@ impl TestMetadata {
             )),
         };
         let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+    let secondary_network_generator =
+        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,
@@ -164,6 +166,7 @@ impl TestMetadata {
         TestLauncher {
             resource_generator: ResourceGenerators {
                 network_generator,
+                secondary_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 view_sync_network: I::view_sync_comm_channel_generator(),

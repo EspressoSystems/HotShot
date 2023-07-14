@@ -240,6 +240,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) {
     info!("Launching network lookup task");
     let networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
+
     let inner = hotshot.inner.clone();
 
     let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
