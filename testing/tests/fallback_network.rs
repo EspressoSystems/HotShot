@@ -24,8 +24,6 @@ type StaticMembership =
 type StaticCommunication = WebServerWithFallbackCommChannel<
     StaticCommitteeTestTypes,
     FallbackImpl,
-    ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-    QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
