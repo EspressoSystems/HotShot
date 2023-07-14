@@ -88,6 +88,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         self.add_nodes(self.launcher.metadata.start_nodes).await;
@@ -169,6 +170,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let mut results = vec![];
@@ -226,6 +228,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let node_id = self.next_node_id;
@@ -237,15 +240,21 @@ where
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
-        let election_config = config.election_config.clone().unwrap_or_else(|| {
+        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
-                        TYPES,
-                        Message<TYPES, I>,
-                        >>::Membership::default_election_config(config.total_nodes.get() as u64)
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+
+        let committee_election_config = I::committee_election_config_generator();
+
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (
+                quorum_election_config,
+                committee_election_config(config.da_committee_size as u64),
+            ),
             (quorum_network, view_sync_network, committee_network),
             public_key.clone(),
             private_key.clone(),

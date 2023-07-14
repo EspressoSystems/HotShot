@@ -282,7 +282,6 @@ impl<
         match event {
             SequencingHotShotEvent::QuorumProposalSend(_, _)
             | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::SendDABlockData(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_) => true,
 

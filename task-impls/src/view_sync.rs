@@ -440,6 +440,7 @@ where
                     );
 
                     self.current_view = TYPES::Time::new(*new_view);
+                    self.next_view = self.current_view; 
                     self.num_timeouts_tracked = 0;
                 }
                 return;

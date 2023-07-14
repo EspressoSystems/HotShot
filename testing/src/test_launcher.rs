@@ -32,9 +32,13 @@ pub struct ResourceGenerators<
 {
     /// generate the underlying quorum network used for each node
     pub network_generator: Generator<QuorumNetwork<TYPES, I>>,
+
+    // TODO ED Make this a committee network; is a quorum network for now to get things working
+    pub secondary_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate a new quorum network for each node
     pub quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
+    // TODO ED Should be generic over any network, not quorum network specifically
     pub committee_network:
         CommitteeNetworkGenerator<QuorumNetwork<TYPES, I>, I::CommitteeCommChannel>,
 
@@ -95,13 +99,13 @@ where
             da_committee_size,
             ..
         } = metadata;
+
         let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
             .map(|id| {
                 let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -109,7 +113,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_nodes,
+            da_committee_size, 
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -144,11 +148,15 @@ where
                 a.propose_max_round_time = propose_max_round_time;
             };
 
+        // TODO ED This should call a secondary_network_generator function in the future
         let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+        let secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         Self {
             generator: ResourceGenerators {
                 network_generator,
+                secondary_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 view_sync_network: I::view_sync_comm_channel_generator(),

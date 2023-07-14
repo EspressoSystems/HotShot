@@ -61,6 +61,7 @@ pub struct Messages<TYPES: NodeType, I: NodeImplementation<TYPES>>(pub Vec<Messa
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Messages<TYPES, I> {}
 
 /// A message type agnostic description of a messages purpose
+#[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
     /// Message contains a proposal
     Proposal,

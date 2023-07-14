@@ -269,10 +269,10 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for DA committee on {:?}", view);
+                        error!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        info!("We were chosen for DA committee on {:?}", view);
+                        error!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
                         let message = self.committee_exchange.create_da_message(
@@ -443,7 +443,7 @@ where
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
                 };
-                // warn!("Sending DA proposal for view {:?}", data.view_number);
+                warn!("Sending DA proposal for view {:?}", data.view_number);
 
                 // let message = SequencingMessage::<TYPES, I>(Right(
                 //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
