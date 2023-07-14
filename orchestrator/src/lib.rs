@@ -4,6 +4,7 @@ use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
 use std::io;
+use std::vec::Vec;
 use std::io::ErrorKind;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -15,6 +16,7 @@ use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
+use serde::{Deserialize, Serialize};
 
 use futures::FutureExt;
 
@@ -50,7 +52,27 @@ struct OrchestratorState<KEY, ELECTION> {
     pub nodes_connected: u64,
     /// connection to the web server
     client: Option<surf_disco::Client<ClientError>>,
+
+
+    // Statistics Variables: track statistics for benchmarking
+    pub stat_viewtime: Vec<u64>,
+    pub stat_throughput: Vec<u64>,
+    pub stat_runduration: Vec<u64>,
+    pub stat_nodes_collected: u64,
 }
+
+// Statistics struct
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+pub struct StatisticsStruct{
+    pub stat_viewtime: Vec<u64>,
+    pub stat_throughput: Vec<u64>,
+    pub stat_runduration: Vec<u64>, 
+}
+
+// Average Function
+fn average(numbers: &mut Vec<u64>) -> u64 {
+    numbers.iter().sum::<u64>() as u64 / numbers.len() as u64
+}    
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     OrchestratorState<KEY, ELECTION>
@@ -67,7 +89,14 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             start: false,
             nodes_connected: 0,
             client: web_client,
+
+            // Statistics variables
+            stat_viewtime: Vec::new(),
+            stat_throughput: Vec::new(),
+            stat_runduration: Vec::new(),
+            stat_nodes_collected: 0,
         }
+        
     }
 }
 
@@ -79,7 +108,7 @@ pub trait OrchestratorApi<KEY, ELECTION> {
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
-    fn post_run_results(&mut self) -> Result<(), ServerError>;
+    fn post_run_results(&mut self, _data: StatisticsStruct) -> Result<(), ServerError>;
 }
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
@@ -180,7 +209,32 @@ where
         Ok(())
     }
 
-    fn post_run_results(&mut self) -> Result<(), ServerError> {
+    fn post_run_results(&mut self, _data: StatisticsStruct) -> Result<(), ServerError> {
+
+        //1. continue to gather the node data until all nodes have passed the data (Option datatype)
+        self.stat_nodes_collected += 1;
+        println!("Nodes statistics collected: {}", self.stat_nodes_collected);
+        
+        let mut data_cloned =  _data.clone();
+        //For reference, we are assuming that 0th index: view time, 1th index: run duration, 2nd index: throughput
+        //2. save the nodes data into the struct creatd (results_struct)
+        let _ = &self.stat_viewtime.append(&mut data_cloned.stat_viewtime);
+        let _= &self.stat_runduration.append(&mut data_cloned.stat_runduration);
+        let _= &self.stat_throughput.append(&mut data_cloned.stat_throughput);
+
+        // All nodes have completed there protocol and sent statistics
+        if self.stat_nodes_collected >= self.config.config.known_nodes.len().try_into().unwrap(){
+            //3. average the statistics 
+            let avg_viewtime = average(&mut self.stat_viewtime);
+            let avg_runduration = average(&mut self.stat_runduration);
+            let avg_throughput = average(&mut self.stat_throughput);
+
+            //4. print out the statistics average 
+            println!("Statistics: ViewTime -- {:.?}", avg_viewtime);
+            println!("Statistics: Run Duration -- {:.?}", avg_runduration);
+            println!("Statistics: Throuput -- {:.?}", avg_throughput);
+        }
+
         Ok(())
     }
 }
@@ -193,7 +247,7 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml")
+    let mut api = Api::<State, ServerError>::from_file("../orchestrator/api.toml")
         .expect("api.toml file is not found");
     api.post("postidentity", |req, state| {
         async move {
@@ -222,7 +276,10 @@ where
         async move { state.get_start() }.boxed()
     })?
     .post("postresults", |_req, state| {
-        async move { state.post_run_results() }.boxed()
+        async move { 
+            let data = _req.body_auto().unwrap();
+            state.post_run_results(data) 
+        }.boxed()
     })?;
     Ok(api)
 }
