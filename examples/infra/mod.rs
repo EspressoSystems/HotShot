@@ -23,7 +23,7 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_types::data::ViewNumber;
+use hotshot_types::{data::ViewNumber, vote::ViewSyncVote};
 use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::state::ConsensusTime;
@@ -32,7 +32,7 @@ use hotshot_types::{
     message::ValidatingMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
-        election::Membership,
+        election::{Membership, ViewSyncExchange},
         metrics::NoMetrics,
         network::CommunicationChannel,
         node_implementation::{ExchangesType, NodeType, ValidatingExchanges},
@@ -126,6 +126,13 @@ pub async fn run_orchestrator<
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+        TYPES,
+        Message<TYPES, NODE>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncVote<TYPES>,
+        MEMBERSHIP,
+    > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -140,6 +147,7 @@ pub async fn run_orchestrator<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
+            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -170,12 +178,12 @@ pub async fn run_orchestrator<
 /// Arguments passed to the validator
 pub struct ValidatorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// This node's public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
-    public_ip: Option<IpAddr>,
+    pub public_ip: Option<IpAddr>,
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -190,6 +198,13 @@ pub trait Run<
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+        TYPES,
+        Message<TYPES, NODE>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncVote<TYPES>,
+        MEMBERSHIP,
+    > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -204,6 +219,7 @@ pub trait Run<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
+            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -525,6 +541,18 @@ impl<
                     >,
                     Message<TYPES, NODE>,
                 >,
+                ViewSyncExchange<
+                    TYPES, 
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
+                    MEMBERSHIP, 
+                    Libp2pCommChannel<
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        ViewSyncVote<TYPES>,
+                        MEMBERSHIP,
+                    >,
+                Message<TYPES, NODE>>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
             ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -538,6 +566,13 @@ impl<
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        Libp2pCommChannel<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         >,
         NODE,
@@ -714,7 +749,6 @@ where
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
 type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
     TYPES,
     I,
     Proposal<TYPES>,
@@ -748,7 +782,6 @@ impl<
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
                     WebCommChannel<
-                        ValidatingConsensus,
                         TYPES,
                         NODE,
                         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -757,6 +790,18 @@ impl<
                     >,
                     Message<TYPES, NODE>,
                 >,
+                ViewSyncExchange<
+                    TYPES, 
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
+                    MEMBERSHIP, 
+                    WebCommChannel<
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        ViewSyncVote<TYPES>,
+                        MEMBERSHIP,
+                    >,
+                Message<TYPES, NODE>>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
             ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -766,11 +811,17 @@ impl<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        WebCommChannel<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         >,
         NODE,
@@ -816,7 +867,6 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
-        ValidatingConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,
@@ -838,7 +888,7 @@ pub struct OrchestratorClient {
 
 impl OrchestratorClient {
     /// Creates the client that connects to the orchestrator
-    async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
+    pub async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
@@ -848,7 +898,7 @@ impl OrchestratorClient {
 
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
-    async fn identify_with_orchestrator(&self, identity: String) -> u16 {
+    pub async fn identify_with_orchestrator(&self, identity: String) -> u16 {
         let identity = identity.as_str();
         let f = |client: Client<ClientError>| {
             async move {
@@ -865,7 +915,7 @@ impl OrchestratorClient {
 
     /// Returns the run configuration from the orchestrator
     /// Will block until the configuration is returned
-    async fn get_config_from_orchestrator<TYPES: NodeType>(
+    pub async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
         node_index: u16,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
@@ -887,7 +937,7 @@ impl OrchestratorClient {
 
     /// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
-    async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
+    pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<ClientError>| {
             async move {
                 let result: Result<_, ClientError> = client
@@ -941,6 +991,13 @@ pub async fn main_entry_point<
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+        TYPES,
+        Message<TYPES, NODE>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncVote<TYPES>,
+        MEMBERSHIP,
+    > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -955,11 +1012,12 @@ pub async fn main_entry_point<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
+            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
     >,
-    RUN: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
+    RUN: Run<TYPES, MEMBERSHIP, NETWORK, VIEWSYNCNETWORK, NODE>,
 >(
     args: ValidatorArgs,
 ) where

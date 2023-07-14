@@ -5,13 +5,27 @@
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
-use std::{collections::HashSet, fmt::Display, ops::Deref};
+use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    ops::Deref,
+};
 
 use commit::{Commitment, Committable};
+use derivative::Derivative;
+use either::Either;
 use hotshot_types::{
-    data::{fake_commitment, ViewNumber},
+    certificate::{QuorumCertificate, YesNoSignature},
+    constants::genesis_proposer_id,
+    data::{fake_commitment, random_commitment, LeafType, SequencingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::Membership,
+        node_implementation::NodeType,
+        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
@@ -270,5 +284,103 @@ impl TestableState for SDemoState {
             id: rng.gen_range(0..10),
             padding: vec![0; padding as usize],
         }
+    }
+}
+/// Implementation of [`NodeType`] for [`VDemoNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct SDemoTypes;
+
+impl NodeType for SDemoTypes {
+    type ConsensusType = SequencingConsensus;
+    type Time = ViewNumber;
+    type BlockType = SDemoBlock;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
+    type Transaction = SDemoTransaction;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = SDemoState;
+}
+
+/// The node implementation for the sequencing demo
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct SDemoNode<MEMBERSHIP>(PhantomData<MEMBERSHIP>)
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug;
+
+impl<MEMBERSHIP> SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    /// Create a new `SDemoNode`
+    #[must_use]
+    pub fn new() -> Self {
+        SDemoNode(PhantomData)
+    }
+}
+
+impl<MEMBERSHIP> Debug for SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SDemoNode")
+            .field("_phantom", &"phantom")
+            .finish()
+    }
+}
+
+impl<MEMBERSHIP> Default for SDemoNode<MEMBERSHIP>
+where
+    MEMBERSHIP: Membership<SDemoTypes> + std::fmt::Debug,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Provides a random [`QuorumCertificate`]
+pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
+    rng: &mut dyn rand::RngCore,
+) -> QuorumCertificate<TYPES, LEAF> {
+    QuorumCertificate {
+        // block_commitment: random_commitment(rng),
+        leaf_commitment: random_commitment(rng),
+        view_number: TYPES::Time::new(rng.gen()),
+        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        is_genesis: rng.gen(),
+    }
+}
+
+/// Provides a random [`SequencingLeaf`]
+pub fn random_sequencing_leaf<TYPES: NodeType<ConsensusType = SequencingConsensus>>(
+    deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
+    rng: &mut dyn rand::RngCore,
+) -> SequencingLeaf<TYPES> {
+    let justify_qc = random_quorum_certificate(rng);
+    // let state = TYPES::StateType::default()
+    //     .append(&deltas, &TYPES::Time::new(42))
+    //     .unwrap_or_default();
+    SequencingLeaf {
+        view_number: justify_qc.view_number,
+        height: rng.next_u64(),
+        justify_qc,
+        parent_commitment: random_commitment(rng),
+        deltas,
+        rejected: Vec::new(),
+        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+        proposer_id: genesis_proposer_id(),
     }
 }
