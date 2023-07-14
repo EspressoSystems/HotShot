@@ -50,9 +50,9 @@ use libp2p::{
     multiaddr::{self, Protocol},
     Multiaddr,
 };
+use nll::nll_todo::nll_todo;
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
@@ -277,7 +277,8 @@ pub trait Run<
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-            (network.clone(), ()),
+            //Kaley todo: add view sync network
+            (network.clone(), nll_todo(), ()),
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -456,6 +457,9 @@ pub trait Run<
     /// Returns the network for this run
     fn get_network(&self) -> NETWORK;
 
+    /// Returns view sync network for this run KALEY TODO
+    //fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
+
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 }
@@ -483,6 +487,13 @@ pub struct Libp2pRun<
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
     >,
+    // view_sync_network: Libp2pCommChannel<
+    //     TYPES,
+    //     I,
+    //     Proposal<TYPES>,
+    //     ViewSyncVote<TYPES>,
+    //     MEMBERSHIP,
+    // >,
     config:
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
@@ -852,7 +863,6 @@ where
 
         // Create the network
         let network: WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,

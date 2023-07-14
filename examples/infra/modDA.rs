@@ -7,7 +7,7 @@ use either::Either;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
-        NodeImplementation,
+        NodeImplementation, Storage,
     },
     types::{SystemContextHandle, SignatureKey},
     SystemContext, ViewRunner,
@@ -41,7 +41,10 @@ use hotshot_web_server::config::DEFAULT_WEB_SERVER_DA_PORT;
 use hotshot_types::{
     message::Message,
     traits::election::{CommitteeExchange, QuorumExchange},
+    certificate::ViewSyncCertificate,
 };
+use nll::nll_todo::nll_todo;
+use futures::StreamExt;
 // use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -157,7 +160,7 @@ pub trait RunDA<
     VIEWSYNCNETWORK: CommunicationChannel<
         TYPES,
         Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncCertificate<TYPES>,
         ViewSyncVote<TYPES>,
         MEMBERSHIP,
     > + Debug,
@@ -176,7 +179,7 @@ pub trait RunDA<
                 Message<TYPES, NODE>,
             >,
             CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
-            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
+            ViewSyncExchange<TYPES, ViewSyncCertificate<TYPES>,  MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, SequencingLeaf<TYPES>>,
         ConsensusMessage = SequencingMessage<TYPES, NODE>,
@@ -186,7 +189,7 @@ pub trait RunDA<
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
     SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-    Self: Sync,
+    Self: Sync, 
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
@@ -225,7 +228,7 @@ pub trait RunDA<
             >>::Membership::default_election_config(config.config.total_nodes.get() as u64)
         });
 
-        let committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
+        let _committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
@@ -234,8 +237,9 @@ pub trait RunDA<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, committee_election_config),
-            (quorum_network.clone(), da_network.clone()),
+            quorum_election_config,
+            //Kaley TODO: add view sync network
+            (quorum_network.clone(), nll_todo(), da_network.clone()),
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -445,7 +449,7 @@ type StaticQuorumComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
 type StaticViewSyncComm<TYPES, I, MEMBERSHIP> = WebCommChannel<
     TYPES,
     I,
-    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+    ViewSyncCertificate<TYPES>,
     ViewSyncVote<TYPES>,
     MEMBERSHIP,
 >;
@@ -499,12 +503,12 @@ impl<
                 >,
                 ViewSyncExchange<
                     TYPES, 
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
+                    ViewSyncCertificate<TYPES>, 
                     MEMBERSHIP, 
                     WebCommChannel<
                         TYPES,
                         NODE,
-                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        ViewSyncCertificate<TYPES>,
                         ViewSyncVote<TYPES>,
                         MEMBERSHIP,
                     >,
@@ -548,8 +552,8 @@ where
 
         let known_nodes = config.config.known_nodes.clone();
 
-        let mut committee_nodes = known_nodes.clone();
-        committee_nodes.truncate(config.config.da_committee_size.into());
+        let mut _committee_nodes = known_nodes.clone();
+        //committee_nodes.truncate(config.config.da_committee_nodes.into());
 
         // Create the network
         let quorum_network: WebCommChannel<
@@ -564,7 +568,6 @@ where
                 port,
                 wait_between_polls,
                 pub_key.clone(),
-                known_nodes,
             )
             .into(),
         );
@@ -573,7 +576,7 @@ where
             TYPES,
             NODE,
             DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
+            DAVote<TYPES>,
             MEMBERSHIP,
         > = WebCommChannel::new(
             WebServerNetwork::create(
@@ -581,7 +584,6 @@ where
                 DEFAULT_WEB_SERVER_DA_PORT,
                 wait_between_polls,
                 pub_key,
-                committee_nodes,
             )
             .into(),
         );
@@ -644,7 +646,7 @@ pub async fn main_entry_point<
     VIEWSYNCNETWORK: CommunicationChannel<
         TYPES,
         Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncCertificate<TYPES>,
         ViewSyncVote<TYPES>,
         MEMBERSHIP,
     > + Debug,
@@ -665,7 +667,7 @@ pub async fn main_entry_point<
             CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
             ViewSyncExchange<
                 TYPES, 
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
+                ViewSyncCertificate<TYPES>,
                 MEMBERSHIP, 
                 VIEWSYNCNETWORK,
                 Message<TYPES, NODE>>,

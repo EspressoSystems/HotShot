@@ -1,20 +1,19 @@
 use crate::infra_da::WebServerDARun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
-    demos::sdemo::SDemoTypes, demos::vdemo::VDemoTypes,
+    demos::sdemo::SDemoTypes, 
     traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
 };
 use hotshot_types::data::{ValidatingProposal, ValidatingLeaf};
 use hotshot_types::message::Message;
-use hotshot_types::traits::node_implementation::ViewSyncProposalType;
 use hotshot_types::traits::{
     election::{CommitteeExchange, QuorumExchange},
     node_implementation::{NodeImplementation, SequencingExchanges},
 };
 use hotshot_types::{
-    data::{DAProposal, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
-    traits::{node_implementation::NodeType, election::ViewSyncExchange, consensus_type::{validating_consensus::ValidatingConsensus, sequencing_consensus::SequencingConsensus}},
+    traits::{node_implementation::{NodeType, ChannelMaps}, election::ViewSyncExchange, consensus_type::{validating_consensus::ValidatingConsensus, sequencing_consensus::SequencingConsensus}},
     vote::{DAVote, QuorumVote, ViewSyncVote},
     certificate::ViewSyncCertificate,
 };
@@ -65,7 +64,7 @@ impl NodeImplementation<SDemoTypes> for NodeImpl {
     fn new_channel_maps(
         start_view: ViewNumber,
     ) -> (
-        ChannelMaps<VDemoTypes, Self>,
+        ChannelMaps<SDemoTypes, Self>,
         Option<ChannelMaps<SDemoTypes, Self>>,
     ) {
         (ChannelMaps::new(start_view), None)
