@@ -136,9 +136,9 @@ impl TestMetadata {
             )),
         };
         let network_generator =
-        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
-    let secondary_network_generator =
-        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+        let secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,

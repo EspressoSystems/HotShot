@@ -434,13 +434,13 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
-                    error!(
+                    warn!(
                         "Change from view {} to view {} in view sync task",
                         *self.current_view, *new_view
                     );
 
                     self.current_view = TYPES::Time::new(*new_view);
-                    self.next_view = self.current_view; 
+                    self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
                 }
                 return;
@@ -450,11 +450,7 @@ where
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
                 }
-                // TODO ED Combine this code with other replica code since some of it is repeated
-                if view_number < ViewNumber::new(*self.current_view) {
-                    error!("Got old timeout");
-                    return;
-                }
+
                 self.num_timeouts_tracked += 1;
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 

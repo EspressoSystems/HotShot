@@ -11,8 +11,10 @@ use commit::Committable;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
+use hotshot_consensus::utils::ViewInner;
 use hotshot_consensus::Consensus;
 use hotshot_consensus::SequencingConsensusApi;
+use hotshot_consensus::View;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
@@ -222,7 +224,6 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::TransactionRecv(transaction) => {
-                // warn!("Received tx in DA task!");
                 // TODO ED Add validation checks
 
                 self.consensus
@@ -272,7 +273,7 @@ where
                         error!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        error!("We were chosen for DA committee on {:?}", view);
+                        warn!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
                         let message = self.committee_exchange.create_da_message(
@@ -290,6 +291,19 @@ where
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
                         }
+                        let mut consensus = self.consensus.write().await;
+
+                        // Ensure this view is in the view map for garbage collection, but do not overwrite if
+                        // there is already a view there: the replica task may have inserted a `Leaf` view which
+                        // contains strictly more information.
+                        consensus.state_map.entry(view).or_insert(View {
+                            view_inner: ViewInner::DA {
+                                block: block_commitment,
+                            },
+                        });
+
+                        // Record the block we have promised to make available.
+                        consensus.saved_blocks.insert(proposal.data.deltas);
                     }
                 }
             }

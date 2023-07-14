@@ -519,7 +519,8 @@ pub mod test {
                 vrf::JfPubKey,
             },
             implementations::{
-                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
+                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+                WebCommChannel,
             },
             NodeImplementation,
         },
@@ -656,18 +657,6 @@ pub mod test {
             .await
             .unwrap();
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
     #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
     pub struct SequencingWebImpl {}
