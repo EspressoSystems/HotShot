@@ -10,16 +10,16 @@ use hotshot::{
         NodeImplementation, Storage,
     },
     types::{SystemContextHandle, SignatureKey},
-    SystemContext, ViewRunner,
+    SystemContext, ViewRunner, HotShotType,
 };
 use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
 };
-use hotshot_types::traits::{
+use hotshot_types::{traits::{
     election::{ConsensusExchange, ViewSyncExchange},
     node_implementation::{CommitteeEx, QuorumEx}, consensus_type::validating_consensus::ValidatingConsensus,
-};
+}, data::ViewNumber};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::event::{Event, EventType};
 use hotshot_task::task::FilterEvent;
@@ -141,7 +141,7 @@ pub async fn run_orchestrator_da<
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -189,7 +189,7 @@ pub trait RunDA<
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
     SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-    Self: Sync, 
+    Self: Sync, SystemContext<SequencingConsensus, TYPES, NODE>: HotShotType<TYPES, NODE>,
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
@@ -467,7 +467,7 @@ pub struct WebServerDARun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -627,7 +627,7 @@ where
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
