@@ -113,6 +113,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             .unwrap()
             .send()
             .await;
+        error!("POST message error for endpoint {} is {:?}", &message.get_endpoint(), result.clone());
         result.map_err(|_e| NetworkError::WebServer {
             source: WebServerNetworkError::ClientError,
         })
@@ -358,6 +359,13 @@ impl<
 
         // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
+
+        // let healthcheck = format!("{base_url_string}/api");
+        // // Healthcheck
+        // if client.get(&healthcheck).send().await.is_err() {
+        //     panic!("healthcheck is not right");
+        // }
+
         let on_committee = _committee_nodes.contains(&key);
 
         let inner = Arc::new(Inner {
@@ -462,8 +470,8 @@ impl<
             MessagePurpose::Vote => config::post_vote_route(*view_number),
             MessagePurpose::Data => config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
-            MessagePurpose::ViewSyncProposal => config::post_view_sync_proposal_route(),
-            MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(),
+            MessagePurpose::ViewSyncProposal => config::post_view_sync_proposal_route(*view_number),
+            MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {

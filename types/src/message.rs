@@ -495,8 +495,8 @@ impl<
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-                GeneralConsensusMessage::ViewSyncVote(_)
-                | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                GeneralConsensusMessage::ViewSyncVote(_) => MessagePurpose::ViewSyncVote,
+                GeneralConsensusMessage::ViewSyncCertificate(_) => MessagePurpose::ViewSyncProposal,
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,

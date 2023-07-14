@@ -102,7 +102,7 @@ Send a view sync vote
 """
 
 # GET a view sync vote, where the view number is passed as an argument
-[route.getviewsyncvote]
+[route.getviewsyncvotes]
 PATH = ["view_sync_vote/:view_number"]
 ":view_number" = "Integer"
 METHOD = "GET"
