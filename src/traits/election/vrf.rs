@@ -1,7 +1,7 @@
 // // Needed to avoid the non-biding `let` warning.
 // #![allow(clippy::let_underscore_untyped)]
 
-// use ark_ed_on_bls12_381::EdwardsConfig as Param381;
+use ark_ed_on_bls12_381::EdwardsConfig as Param381;
 // use ark_bls12_381::Parameters as Param381;
 // use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
@@ -73,7 +73,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
 }
 
 /// concrete type for bls public key
-pub type BlsPubKey = JfPubKey<BLSSignatureScheme>;
+pub type BlsPubKey = JfPubKey<BLSSignatureScheme<Param381>>;
 
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]

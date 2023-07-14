@@ -69,8 +69,8 @@ hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
-hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
+# hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
   "std",
 ] }
 # nll = { git = "https://github.com/EspressoSystems/nll.git" }

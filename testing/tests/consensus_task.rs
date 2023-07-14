@@ -1,4 +1,5 @@
 use async_lock::Mutex;
+use ark_bls12_381::Parameters as Param381;
 
 use hotshot_testing::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
@@ -17,7 +18,7 @@ use hotshot::{
     HotShotType, SystemContext,
 };
 
-use ark_bls12_381::Parameters as Param381;
+// use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot::demos::sdemo::SDemoState;
@@ -109,7 +110,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -199,7 +200,7 @@ async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme>,
+        SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>,
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -248,7 +249,7 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSSignatureScheme>,
+        JfPubKey<BLSSignatureScheme<Param381>>,
     >: Membership<TYPES>,
 {
     let builder = TestBuilder::default_multiple_rounds();

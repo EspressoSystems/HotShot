@@ -13,6 +13,8 @@ use hotshot::{
     types::{Message, SystemContextHandle},
     HotShotError, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
+use ark_bls12_381::Parameters as Param381;
+
 use hotshot_types::{
     certificate::QuorumCertificate,
     traits::{
@@ -559,7 +561,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = JfPubKey<BLSSignatureScheme>;
+        type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;

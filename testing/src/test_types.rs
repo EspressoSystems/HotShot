@@ -1,5 +1,5 @@
 use crate::test_runner::TestRunner;
-// use ark_bls12_381::Parameters as Param381;
+use ark_bls12_381::Parameters as Param381;
 // use blake3::Hasher;
 use hotshot::{
     demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction},
@@ -76,8 +76,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
