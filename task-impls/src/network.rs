@@ -84,24 +84,13 @@ impl<
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
     > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
-    /// Handle the message for the given type of network task.
-    pub async fn handle_message(
-        &mut self,
-        task: NetworkTaskKind,
-        message: Message<TYPES, I>,
-        id: u64,
-    ) {
+    /// Handle the message.
+    pub async fn handle_message(&mut self, message: Message<TYPES, I>, id: u64) {
         let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        warn!(
-                            "ID = {} Recved quorum proposal on {:?} view {:?}",
-                            id,
-                            task,
-                            proposal.data.get_view_number()
-                        );
                         SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
