@@ -792,7 +792,10 @@ where
                             }
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
-                            error!("Sending Decide for view {:?}", consensus.last_decided_view);
+                            if *view % 10 == 0 && self.quorum_exchange.is_leader(view){
+                                error!("Sending Decide for view {:?}", consensus.last_decided_view);
+                                error!("Decided txns {:?}", included_txns_set)
+                            }
                             decide_sent.await;
                         }
 
