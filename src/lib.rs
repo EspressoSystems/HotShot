@@ -353,12 +353,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // Wrap up a message
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
-        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
-        let api = self.clone();
-        async_spawn(async move {
-            let _result = api.send_broadcast_message(message).await.is_err();
-        });
+        // let api = self.clone();
+        self.inner
+            .internal_event_stream
+            .publish(SequencingHotShotEvent::TransactionSend(
+                transaction,
+                self.inner.public_key.clone(),
+            ))
+            .await;
+        // async_spawn(async move {
+        //     let _result = api.send_broadcast_message(message).await.is_err();
+        // });
         Ok(())
     }
 

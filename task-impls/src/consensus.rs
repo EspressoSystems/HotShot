@@ -708,7 +708,6 @@ where
                                     match &leaf.deltas {
                                         Left(block) => {
                                         let txns = block.contained_transactions();
-                                        error!("removing {} transactions", txns.len());
                                         for txn in txns {
                                             included_txns.insert(txn);
                                         }

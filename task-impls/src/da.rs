@@ -224,7 +224,6 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::TransactionRecv(transaction) => {
-                // warn!("Received tx in DA task!");
                 // TODO ED Add validation checks
 
                 self.consensus
