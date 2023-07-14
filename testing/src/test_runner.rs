@@ -519,7 +519,7 @@ pub mod test {
                 vrf::JfPubKey,
             },
             implementations::{
-                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
             },
             NodeImplementation,
         },
@@ -651,6 +651,106 @@ pub mod test {
         let metadata = crate::app_tasks::test_builder::TestMetadata::default();
         metadata
             .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
+            .launch()
+            .run_test()
+            .await
+            .unwrap();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+    pub struct SequencingWebImpl {}
+
+    type StaticWebDAComm = WebCommChannel<
+        SequencingTestTypes,
+        SequencingWebImpl,
+        DAProposal<SequencingTestTypes>,
+        DAVote<SequencingTestTypes>,
+        StaticMembership,
+    >;
+
+    type StaticWebQuroumComm = WebCommChannel<
+        SequencingTestTypes,
+        SequencingWebImpl,
+        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        StaticMembership,
+    >;
+
+    type StaticWebViewSyncComm = WebCommChannel<
+        SequencingTestTypes,
+        SequencingWebImpl,
+        ViewSyncCertificate<SequencingTestTypes>,
+        ViewSyncVote<SequencingTestTypes>,
+        StaticMembership,
+    >;
+
+    impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
+        type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+        type Leaf = SequencingLeaf<SequencingTestTypes>;
+        type Exchanges = SequencingExchanges<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, Self>,
+            QuorumExchange<
+                SequencingTestTypes,
+                Self::Leaf,
+                QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                StaticMembership,
+                StaticWebQuroumComm,
+                Message<SequencingTestTypes, Self>,
+            >,
+            CommitteeExchange<
+                SequencingTestTypes,
+                StaticMembership,
+                StaticWebDAComm,
+                Message<SequencingTestTypes, Self>,
+            >,
+            ViewSyncExchange<
+                SequencingTestTypes,
+                ViewSyncCertificate<SequencingTestTypes>,
+                StaticMembership,
+                StaticWebViewSyncComm,
+                Message<SequencingTestTypes, Self>,
+            >,
+        >;
+        type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+        fn new_channel_maps(
+            start_view: ViewNumber,
+        ) -> (
+            ChannelMaps<SequencingTestTypes, Self>,
+            Option<ChannelMaps<SequencingTestTypes, Self>>,
+        ) {
+            (
+                ChannelMaps::new(start_view),
+                Some(ChannelMaps::new(start_view)),
+            )
+        }
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_basic_web_server() {
+        async_compatibility_layer::logging::setup_logging();
+        async_compatibility_layer::logging::setup_backtrace();
+        let metadata = crate::app_tasks::test_builder::TestMetadata::default();
+        metadata
+            .gen_launcher::<SequencingTestTypes, SequencingWebImpl>()
             .launch()
             .run_test()
             .await
