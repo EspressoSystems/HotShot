@@ -4,6 +4,7 @@ use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_lock::RwLock;
+use hotshot_types::traits::network::CommunicationChannel;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Commitment;
@@ -303,7 +304,7 @@ where
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
                 {
-                    panic!("We are not the committee leader");
+                    error!("We are not the committee leader");
                     return None;
                 }
 
@@ -383,6 +384,15 @@ where
                     return None;
                 }
                 self.cur_view = view;
+                // Inject view info into network
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((
+                        (*view),
+                        self.committee_exchange.is_leader(TYPES::Time::new(*view)),
+                        self.committee_exchange.is_leader(TYPES::Time::new(*view) + 1),
+                    ))
+                    .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 

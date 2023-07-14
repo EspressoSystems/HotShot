@@ -951,7 +951,7 @@ where
 
                 // // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(self.cur_view) {
-                    panic!("Somehow we formed a QC but are not the leader for the next view");
+                    error!("Somehow we formed a QC but are not the leader for the next view");
                     return;
                 }
 

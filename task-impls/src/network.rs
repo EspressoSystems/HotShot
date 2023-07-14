@@ -237,6 +237,7 @@ impl<
                 None,
             ),
             SequencingHotShotEvent::ViewChange(view) => {
+                // only if view actually changes
                 self.view = view;
                 return None;
             }
