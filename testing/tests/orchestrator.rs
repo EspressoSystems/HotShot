@@ -15,9 +15,9 @@ use hotshot_orchestrator::StatisticsStruct;
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 
-async fn test_orchestrator() {
+async fn test_simple_orchestrator() {
     let config = NetworkConfig::<Ed25519Pub, StaticElectionConfig>::default();
-    let port = 7777; //pick_unused_port().unwrap();
+    let port = pick_unused_port().unwrap();
     let ipaddr = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
     let base_url = format!("127.0.0.1:{port}");
 
@@ -30,11 +30,11 @@ async fn test_orchestrator() {
     let client = surf_disco::Client::<ClientError>::new(base_url);
     assert!(client.connect(None).await);
 
-    // just need to test the stats (not really needed for another endpoint)
+    // Simple Tests (Test 1) Testing the functionality of the orchestrator
     let stat_data = StatisticsStruct {
-        stat_runduration: vec![10],
-        stat_throughput: vec![15],
-        stat_viewtime: vec![20],
+        stat_runduration: vec![10,15,20],
+        stat_throughput: vec![10,20,30],
+        stat_viewtime: vec![10,20,35],
     };
 
     client
@@ -46,3 +46,4 @@ async fn test_orchestrator() {
         .unwrap();
     assert!(true)
 }
+
