@@ -54,7 +54,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -318,13 +318,13 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             };
 
             let possible_message = self.get_message_from_web_server(endpoint).await;
-            error!("Polling for view {}", view_number);
+            // error!("Polling for view {}", view_number);
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
                         MessagePurpose::Proposal => {
-                            error!(
+                            warn!(
                                 "Received proposal from web server for view {} {}",
                                 view_number, self.is_da
                             );
@@ -527,7 +527,22 @@ impl<
             }
 
             // We are polling for regular consensus events
-            false => {}
+            false => {
+                let quorum_proposal_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(proposal_receiver, MessagePurpose::Proposal)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+            }
         }
 
         // async_spawn({

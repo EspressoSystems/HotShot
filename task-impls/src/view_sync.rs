@@ -23,6 +23,7 @@ use hotshot_types::message::GeneralConsensusMessage::ViewSyncCertificate as View
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::VoteData;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::certificate::ViewSyncCertificate;
@@ -440,16 +441,16 @@ where
                     );
 
                     self.current_view = TYPES::Time::new(*new_view);
-                    self.next_view = self.current_view; 
+                    self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
 
                     // Inject view info into network
-                    // self.exchange.network().inject_consensus_info((
-                    //     (*new_view),
-                    //     self.exchange.is_leader(TYPES::Time::new(*new_view)),
-                    //     self.exchange.is_leader(TYPES::Time::new(*new_view) + 1),
-                    // ))
-                    // .await;
+                    self.exchange
+                        .network()
+                            .inject_consensus_info(
+                                (ConsensusIntentEvent::PollForProposal(*self.current_view)),
+                            )
+                            .await;
                 }
                 return;
             }
