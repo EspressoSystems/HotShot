@@ -10,10 +10,15 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+use async_compatibility_layer::channel::UnboundedReceiver; 
+use async_compatibility_layer::channel::UnboundedSender; 
+use async_compatibility_layer::channel::unbounded;
+
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
@@ -131,6 +136,8 @@ pub struct ConsensusInfo {
     is_next_leader: bool,
 }
 
+
+
 /// Represents the core of web server networking
 #[derive(Debug)]
 struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
@@ -158,7 +165,15 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
     is_da: bool,
+
+    /// Channel for consensus to send the web server information about what it should poll
+    consensus_intent_sender: UnboundedSender<ConsensusIntentEvent>,
+
+    /// Channel to receive polling intents from consensus
+    consensus_intent_receiver: UnboundedReceiver<ConsensusIntentEvent>,
 }
+
+
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
     Inner<M, KEY, ELECTIONCONFIG, TYPES>
@@ -387,6 +402,7 @@ impl<
         // }
 
         let on_committee = _committee_nodes.contains(&key);
+        let (consensus_intent_sender, consensus_intent_receiver) = unbounded();
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
@@ -401,6 +417,8 @@ impl<
             wait_between_polls,
             _own_key: key,
             is_da: is_da_server,
+            consensus_intent_sender, 
+            consensus_intent_receiver
         });
         inner.connected.store(true, Ordering::Relaxed);
 
@@ -728,11 +746,11 @@ impl<
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(&self.0, tuple)
+        >>::inject_consensus_info(&self.0, event)
         .await
     }
 }
@@ -846,29 +864,32 @@ impl<
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        let (view_number, is_current_leader, is_next_leader) = tuple;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
+        todo!()
+        // let (view_number, is_current_leader, is_next_leader) = tuple;
 
-        let new_consensus_info = ConsensusInfo {
-            view_number,
-            is_current_leader,
-            is_next_leader,
-        };
+        // let new_consensus_info = ConsensusInfo {
+        //     view_number,
+        //     is_current_leader,
+        //     is_next_leader,
+        // };
 
-        let mut result = Ok(());
-        self.inner
-            .consensus_info
-            .modify(|old_consensus_info| {
-                if new_consensus_info.view_number <= old_consensus_info.view_number {
-                    result = Err(NetworkError::WebServer {
-                        source: WebServerNetworkError::IncorrectConsensusData,
-                    });
-                }
-                *old_consensus_info = new_consensus_info;
-            })
-            .await;
-        result
+        // let mut result = Ok(());
+        // self.inner
+        //     .consensus_info
+        //     .modify(|old_consensus_info| {
+        //         if new_consensus_info.view_number <= old_consensus_info.view_number {
+        //             result = Err(NetworkError::WebServer {
+        //                 source: WebServerNetworkError::IncorrectConsensusData,
+        //             });
+        //         }
+        //         *old_consensus_info = new_consensus_info;
+        //     })
+        //     .await;
+        // result
     }
+
+
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>

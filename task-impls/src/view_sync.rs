@@ -444,12 +444,12 @@ where
                     self.num_timeouts_tracked = 0;
 
                     // Inject view info into network
-                    self.exchange.network().inject_consensus_info((
-                        (*new_view),
-                        self.exchange.is_leader(TYPES::Time::new(*new_view)),
-                        self.exchange.is_leader(TYPES::Time::new(*new_view) + 1),
-                    ))
-                    .await;
+                    // self.exchange.network().inject_consensus_info((
+                    //     (*new_view),
+                    //     self.exchange.is_leader(TYPES::Time::new(*new_view)),
+                    //     self.exchange.is_leader(TYPES::Time::new(*new_view) + 1),
+                    // ))
+                    // .await;
                 }
                 return;
             }

@@ -23,6 +23,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -845,7 +846,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -974,7 +975,7 @@ where
         .await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }

@@ -129,6 +129,21 @@ pub enum NetworkError {
     UnableToCancel,
 }
 
+// Storing view number as a u64 to avoid the need TYPES generic
+pub enum ConsensusIntentEvent {
+    /// Poll for votes for a particular view
+    PollForVote(u64),
+    /// Poll for a proposal for a particular view
+    PollForProposal(u64),
+    /// Poll for a DAC for a particular view
+    PollForDAC(u64),
+    /// Poll for view sync votes starting at a particular view
+    PollForViewSyncVotes(u64), 
+    /// Poll for view sync proposals (certificates) for a particular view
+    PollForViewSyncCertificate(u64),
+
+}
+
 /// common traits we would like our network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
@@ -207,7 +222,7 @@ pub trait CommunicationChannel<
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError>;
 }
 
 /// represents a networking implmentration
@@ -263,7 +278,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError>;
 }
 
 /// Describes additional functionality needed by the test network implementation

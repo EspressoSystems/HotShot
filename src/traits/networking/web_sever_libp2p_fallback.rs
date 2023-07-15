@@ -24,6 +24,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
@@ -292,11 +293,11 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(self.network(), tuple)
+        >>::inject_consensus_info(self.network(), event)
         .await
     }
 }

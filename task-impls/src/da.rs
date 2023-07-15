@@ -385,14 +385,14 @@ where
                 }
                 self.cur_view = view;
                 // Inject view info into network
-                self.committee_exchange
-                    .network()
-                    .inject_consensus_info((
-                        (*view),
-                        self.committee_exchange.is_leader(TYPES::Time::new(*view)),
-                        self.committee_exchange.is_leader(TYPES::Time::new(*view) + 1),
-                    ))
-                    .await;
+                // self.committee_exchange
+                //     .network()
+                //     .inject_consensus_info((
+                //         (*view),
+                //         self.committee_exchange.is_leader(TYPES::Time::new(*view)),
+                //         self.committee_exchange.is_leader(TYPES::Time::new(*view) + 1),
+                //     ))
+                //     .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 
