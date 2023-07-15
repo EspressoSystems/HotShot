@@ -35,7 +35,7 @@ pub mod tasks;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{
-        add_consensus_task, add_da_task, add_network_task_out_msg, add_network_task_in_msg,
+        add_consensus_task, add_da_task, add_network_task_in_msg, add_network_task_out_msg,
         add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},

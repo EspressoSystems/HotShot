@@ -39,7 +39,7 @@ use hotshot_task_impls::{
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::event::Event;
-use hotshot_types::message::{Message, Messages, SequencingMessage};
+use hotshot_types::message::{self, Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
@@ -375,6 +375,8 @@ where
         boxed_sync(closure)
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
+    // // We don't handle incoming events in this task.
+    // let filter = FilterEvent(Arc::new(|_| false));
     let channel = exchange.network().clone();
     let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
         channel,
@@ -406,15 +408,24 @@ where
             .boxed()
         },
     ));
+    // let network_event_handler = HandleEvent(Arc::new(
+    //     move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
+    //         // We don't handle incoming events in this task.
+    //         async move { (None, state) }.boxed()
+    //     },
+    // ));
     let networking_name = "Networking Task";
 
     let networking_task_builder =
         TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
             .register_message_stream(message_stream)
+            // .register_event_stream(event_stream.clone(), filter)
+            // .await
             .register_registry(&mut registry.clone())
             .await
             .register_state(network_state)
             .register_message_handler(network_message_handler);
+    // .register_event_handler(network_event_handler);
 
     // impossible for unwraps to fail
     // we *just* registered
@@ -462,6 +473,27 @@ where
     EXCHANGE::Networking:
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
+    let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let closure = async move {
+            // We don't handle incoming message in this task.
+            let msgs = Messages(Vec::new());
+            async_sleep(Duration::new(0, 500)).await;
+            // network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+        let closure = async move {
+            // We don't handle incoming message in this task.
+            let msgs = Messages(Vec::new());
+            async_sleep(Duration::new(0, 500)).await;
+            // network.shut_down().await;
+            msgs
+        };
+        boxed_sync(closure)
+    }));
+    let message_stream = Merge::new(broadcast_stream, direct_stream);
     let filter = NetworkTaskState::<
         TYPES,
         I,
@@ -478,6 +510,10 @@ where
         phantom: PhantomData,
     };
     let registry = task_runner.registry.clone();
+    // let network_message_handler = HandleMessage(Arc::new(move |_, mut state| {
+    //     // We don't handle incoming messages in this task.
+    //     async move { (None, state) }.boxed()
+    // }));
     let network_event_handler = HandleEvent(Arc::new(
         move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
             let membership = exchange.membership().clone();
@@ -492,11 +528,13 @@ where
 
     let networking_task_builder =
         TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
+            // .register_message_stream(message_stream)
             .register_event_stream(event_stream.clone(), filter)
             .await
             .register_registry(&mut registry.clone())
             .await
             .register_state(network_state)
+            // .register_message_handler(network_message_handler)
             .register_event_handler(network_event_handler);
 
     // impossible for unwraps to fail
