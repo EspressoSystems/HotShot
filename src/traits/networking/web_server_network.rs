@@ -865,28 +865,12 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
-        todo!()
-        // let (view_number, is_current_leader, is_next_leader) = tuple;
+        let result = self.inner.consensus_intent_sender.send(event).await;
 
-        // let new_consensus_info = ConsensusInfo {
-        //     view_number,
-        //     is_current_leader,
-        //     is_next_leader,
-        // };
-
-        // let mut result = Ok(());
-        // self.inner
-        //     .consensus_info
-        //     .modify(|old_consensus_info| {
-        //         if new_consensus_info.view_number <= old_consensus_info.view_number {
-        //             result = Err(NetworkError::WebServer {
-        //                 source: WebServerNetworkError::IncorrectConsensusData,
-        //             });
-        //         }
-        //         *old_consensus_info = new_consensus_info;
-        //     })
-        //     .await;
-        // result
+        // Should use a better error type here
+        result.map_err(|_e| NetworkError::WebServer {
+            source: WebServerNetworkError::ClientError,
+        })
     }
 
 
