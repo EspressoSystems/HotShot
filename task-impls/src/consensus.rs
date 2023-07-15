@@ -1,6 +1,5 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-
 use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
@@ -36,6 +35,8 @@ use hotshot_types::message::Message;
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::traits::Block;
@@ -490,6 +491,22 @@ where
             self.event_stream
                 .publish(SequencingHotShotEvent::ViewChange(new_view))
                 .await;
+
+            // Start polling for proposals for the new view
+            error!("Polling for quorum proposal for view {}", *new_view);
+
+            self.quorum_exchange
+                .network()
+                .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view)))
+                .await;
+
+            if self.quorum_exchange.is_leader(self.cur_view + 1) {
+                error!("Polling for quorum votes for view {}", *self.cur_view);
+                self.quorum_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
+                    .await;
+            }
 
             return true;
         }
@@ -947,6 +964,19 @@ where
                 // TODO ED We should separate leader state from replica state, they shouldn't share the same view
                 // Leader task should only run for a specific view, and never update its current view, but instead spawn another task
                 let _res = self.update_view(qc.view_number + 1).await;
+
+                // Start polling for votes for the next view
+                if _res {
+                    if self.quorum_exchange.is_leader(self.cur_view + 1) {
+                        self.quorum_exchange
+                            .network()
+                            .inject_consensus_info(
+                                (ConsensusIntentEvent::PollForVotes(*qc.view_number + 1)),
+                            )
+                            .await;
+                    }
+                }
+
                 // warn!("Handle qc formed event!");
 
                 // // So we don't create a QC on the first view unless we are the leader
@@ -1070,9 +1100,9 @@ where
                 if self.vote_if_able().await {
                     self.update_view(view + 1).await;
                     // TODO ED We should make the event publishing part of update_view function
-                    self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
-                        .await;
+                    // self.event_stream
+                    //     .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
+                    //     .await;
                 }
             }
 
@@ -1084,6 +1114,15 @@ where
                 if !self.update_view(new_view).await {
                     return;
                 }
+
+                // If we are next leader poll for votes
+                // if self.quorum_exchange.is_leader(new_view) {
+                //     self.quorum_exchange
+                //     .network()
+                //     .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*new_view)))
+                //     .await;
+                // }
+
                 // error!("View Change event for view {}", *new_view);
 
                 // Spawn a timeout task if we did actually update view
@@ -1104,6 +1143,15 @@ where
                             .await;
                     }
                 });
+
+                // If we are the next leader start polling for votes for this view
+                // if self.quorum_exchange.is_leader(self.cur_view + 1) {
+                //     error!("Polling for quorum votes for view {}", *self.cur_view);
+                //     self.quorum_exchange
+                //         .network()
+                //         .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
+                //         .await;
+                // }
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;

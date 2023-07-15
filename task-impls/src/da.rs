@@ -4,12 +4,10 @@ use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_lock::RwLock;
-use hotshot_types::traits::network::CommunicationChannel;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use commit::Commitment;
 use commit::Committable;
-use hotshot_types::traits::network::ConsensusIntentEvent;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
@@ -27,6 +25,8 @@ use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
@@ -305,7 +305,7 @@ where
                 let view = vote.current_view;
                 if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
                 {
-                    error!("We are not the committee leader");
+                    error!("We are not the committee leader for view {}", *view);
                     return None;
                 }
 
@@ -388,9 +388,7 @@ where
                 // Inject view info into network
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((
-                        ConsensusIntentEvent::PollForProposal(*self.cur_view)
-                    ))
+                    .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)))
                     .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
@@ -402,6 +400,13 @@ where
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
+                error!("Polling for DA votes for view {}", *self.cur_view + 1);
+
+                // Start polling for DA votes for the "next view"
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view + 1)))
+                    .await;
 
                 // ED Copy of parent_leaf() function from sequencing leader
 

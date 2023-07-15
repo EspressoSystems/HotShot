@@ -133,26 +133,31 @@ pub enum NetworkError {
 // Storing view number as a u64 to avoid the need TYPES generic
 pub enum ConsensusIntentEvent {
     /// Poll for votes for a particular view
-    PollForVote(u64),
+    PollForVotes(u64),
     /// Poll for a proposal for a particular view
     PollForProposal(u64),
     /// Poll for a DAC for a particular view
     PollForDAC(u64),
     /// Poll for view sync votes starting at a particular view
-    PollForViewSyncVotes(u64), 
+    PollForViewSyncVotes(u64),
     /// Poll for view sync proposals (certificates) for a particular view
     PollForViewSyncCertificate(u64),
-
+    /// Cancel polling for votes
+    CancelPollForVotes(u64),
+    /// Cancel polling for votes
+    CancelPollForViewSyncVotes(u64),
 }
 
 impl ConsensusIntentEvent {
-    pub fn view_number (&self) -> u64 {
+    pub fn view_number(&self) -> u64 {
         match &self {
-            ConsensusIntentEvent::PollForVote(view_number) 
-            | ConsensusIntentEvent::PollForProposal(view_number) 
+            ConsensusIntentEvent::PollForVotes(view_number)
+            | ConsensusIntentEvent::PollForProposal(view_number)
             | ConsensusIntentEvent::PollForDAC(view_number)
-            | ConsensusIntentEvent::PollForViewSyncVotes(view_number) 
-            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number
+            | ConsensusIntentEvent::PollForViewSyncVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForVotes(view_number)
+            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number,
         }
     }
 }

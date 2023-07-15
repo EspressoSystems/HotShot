@@ -445,12 +445,13 @@ where
                     self.num_timeouts_tracked = 0;
 
                     // Inject view info into network
-                    self.exchange
-                        .network()
-                            .inject_consensus_info(
-                                (ConsensusIntentEvent::PollForProposal(*self.current_view)),
-                            )
-                            .await;
+                    // Move this to consensus task probably
+                    // self.exchange
+                    //     .network()
+                    //         .inject_consensus_info(
+                    //             (ConsensusIntentEvent::PollForProposal(*self.current_view)),
+                    //         )
+                    //         .await;
                 }
                 return;
             }

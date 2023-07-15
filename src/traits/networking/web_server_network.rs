@@ -342,6 +342,19 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 }
                             }
                         }
+                        MessagePurpose::Vote => {
+                            error!(
+                                "Received {} votes from web server for view {} is da {}",
+                                deserialized_messages.len(),
+                                view_number,
+                                self.is_da
+                            );
+                            let mut direct_poll_queue = self.direct_poll_queue.write().await;
+                            for vote in &deserialized_messages {
+                                vote_index += 1;
+                                direct_poll_queue.push(vote.clone());
+                            }
+                        }
 
                         _ => todo!(),
                     }
@@ -356,7 +369,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             let maybe_event = receiver.try_recv();
             view_number = match maybe_event {
                 Ok(event) => {
-                    error!("Received event!");
+                    // error!("Received event!");
                     vote_index = 0;
                     event.view_number()
                 }
@@ -504,7 +517,6 @@ impl<
 
         inner.connected.store(true, Ordering::Relaxed);
 
-
         match is_da_server {
             // We are polling for DA-related events
             true => {
@@ -513,6 +525,20 @@ impl<
                     async move {
                         if let Err(e) = inner_clone
                             .poll_web_server_new(proposal_receiver, MessagePurpose::Proposal)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+                let da_vote_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(vote_receiver, MessagePurpose::Vote)
                             .await
                         {
                             error!(
@@ -533,6 +559,21 @@ impl<
                     async move {
                         if let Err(e) = inner_clone
                             .poll_web_server_new(proposal_receiver, MessagePurpose::Proposal)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+
+                let quorum_vote_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(vote_receiver, MessagePurpose::Vote)
                             .await
                         {
                             error!(
@@ -1013,15 +1054,18 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
-        // let result = self.inner.consensus_intent_sender.send(event).await;
-        error!("Injecting event: {:?}", event.clone());
-      
+        error!("Injecting event: {:?} is da {}", event.clone(), self.inner.is_da);
+
         let result = match &event {
-            ConsensusIntentEvent::PollForVote(_) => self.inner.vote_sender.send(event).await,
-            ConsensusIntentEvent::PollForProposal(_) => self.inner.proposal_sender.send(event).await,
+            ConsensusIntentEvent::PollForVotes(_) => self.inner.vote_sender.send(event).await,
+            ConsensusIntentEvent::PollForProposal(_) => {
+                self.inner.proposal_sender.send(event).await
+            }
             ConsensusIntentEvent::PollForDAC(_) => todo!(),
             ConsensusIntentEvent::PollForViewSyncVotes(_) => todo!(),
             ConsensusIntentEvent::PollForViewSyncCertificate(_) => todo!(),
+            ConsensusIntentEvent::CancelPollForVotes(_) => todo!(),
+            ConsensusIntentEvent::CancelPollForViewSyncVotes(_) => todo!(),
         };
 
         // // Should use a better error type here
