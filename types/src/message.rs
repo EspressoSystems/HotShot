@@ -74,6 +74,8 @@ pub enum MessagePurpose {
 
     ViewSyncVote,
     ViewSyncProposal,
+
+    DAC
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -501,7 +503,7 @@ impl<
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
-                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::Proposal,
+                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
             },
         }
     }

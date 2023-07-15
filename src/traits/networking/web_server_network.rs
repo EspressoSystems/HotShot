@@ -179,11 +179,16 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             let view_number = consensus_info.view_number + num_views_ahead;
             let endpoint = match message_purpose {
                 MessagePurpose::Proposal => config::get_proposal_route(view_number),
-                MessagePurpose::Vote => config::get_vote_route(view_number, vote_index),
+                MessagePurpose::Vote => config::get_vote_route((view_number).wrapping_sub(1), vote_index),
                 MessagePurpose::Data => config::get_transactions_route(tx_index),
                 MessagePurpose::Internal => unimplemented!(),
-                MessagePurpose::ViewSyncProposal => config::get_view_sync_proposal_route(view_number),
-                MessagePurpose::ViewSyncVote => config::get_view_sync_vote_route(view_number, vote_index),
+                MessagePurpose::ViewSyncProposal => {
+                    config::get_view_sync_proposal_route(view_number)
+                }
+                MessagePurpose::ViewSyncVote => {
+                    config::get_view_sync_vote_route(view_number, vote_index)
+                }
+                MessagePurpose::DAC => config::get_da_certificate_route(view_number),
             };
 
             // TODO ED To account for DA, this logic polls all votes if a node
@@ -194,11 +199,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 && (!consensus_info.is_current_leader && !consensus_info.is_next_leader)
             {
                 Ok(None)
-            } 
-            
-            else {
-                // Poll for regular votes if you are next leader and this isn't a da server
-                // Poll for DA votes if you are next leader
+            } else {
                 self.get_message_from_web_server(endpoint).await
             };
 
@@ -206,7 +207,10 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
                         MessagePurpose::Proposal => {
-                            info!("Received proposal for view {}", view_number);
+                            error!(
+                                "Received proposal from web server for view {} {}",
+                                view_number, self.is_da
+                            );
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
@@ -216,10 +220,11 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             consensus_info = consensus_update.recv().await.unwrap();
                         }
                         MessagePurpose::Vote => {
-                            info!(
-                                "Received {} votes for view {}",
+                            error!(
+                                "Received {} votes from web server for view {} is da {}",
                                 deserialized_messages.len(),
-                                view_number
+                                view_number,
+                                self.is_da
                             );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
@@ -228,12 +233,20 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
                         }
                         MessagePurpose::Data => {
-                            info!("Received new transaction");
+                            info!("Received new from web server transaction");
                             let mut lock = self.broadcast_poll_queue.write().await;
                             for tx in &deserialized_messages {
                                 tx_index += 1;
                                 lock.push(tx.clone());
                             }
+                        }
+                        MessagePurpose::DAC => {
+                            error!("Received DAC from web server");
+                            let mut lock = self.broadcast_poll_queue.write().await;
+                            lock.push(deserialized_messages[0].clone());
+                            // TODO ED Wait until next view?
+                            consensus_info = consensus_update.recv().await.unwrap();
+
                         }
                         MessagePurpose::Internal => {
                             unimplemented!()
@@ -357,7 +370,7 @@ impl<
         is_da_server: bool,
     ) -> Self {
         let base_url_string = format!("http://{host}:{port}");
-        error!("Connecting to web server at {base_url_string:?}");
+        error!("Connecting to web server at {base_url_string:?} is da: {is_da_server}");
 
         let base_url = base_url_string.parse();
         if base_url.is_err() {
@@ -387,7 +400,7 @@ impl<
             client,
             wait_between_polls,
             _own_key: key,
-            is_da: is_da_server
+            is_da: is_da_server,
         });
         inner.connected.store(true, Ordering::Relaxed);
 
@@ -423,10 +436,6 @@ impl<
                 let quorum_proposal_handle = async_spawn({
                     let inner_clone = inner.clone();
                     async move {
-                        // Exit task if we are not on committee
-                        if !inner_clone.on_committee {
-                            return;
-                        }
                         if let Err(e) = inner_clone
                             .poll_web_server(MessagePurpose::Proposal, 0)
                             .await
@@ -450,13 +459,23 @@ impl<
                         }
                     }
                 });
+                let quorum_vote_handle = async_spawn({
+                    let inner_clone = inner.clone();
+
+                    async move {
+                        if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 1).await {
+                            error!(
+                                "Background receive vote polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
                 let view_sync_proposal_handle = async_spawn({
                     let inner_clone = inner.clone();
                     async move {
                         // Exit task if we are not on committee
-                        if !inner_clone.on_committee {
-                            return;
-                        }
+
                         if let Err(e) = inner_clone
                             .poll_web_server(MessagePurpose::ViewSyncProposal, 1)
                             .await
@@ -472,7 +491,35 @@ impl<
                     let inner_clone = inner.clone();
 
                     async move {
-                        if let Err(e) = inner_clone.poll_web_server(MessagePurpose::ViewSyncVote, 1).await {
+                        if let Err(e) = inner_clone
+                            .poll_web_server(MessagePurpose::ViewSyncVote, 2)
+                            .await
+                        {
+                            error!(
+                                "Background receive vote polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+                let da_cert_handle = async_spawn({
+                    let inner_clone = inner.clone();
+
+                    async move {
+                        if let Err(e) = inner_clone.poll_web_server(MessagePurpose::DAC, 0).await {
+                            error!(
+                                "Background receive vote polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+
+                let da_handle_2 = async_spawn({
+                    let inner_clone = inner.clone();
+
+                    async move {
+                        if let Err(e) = inner_clone.poll_web_server(MessagePurpose::DAC, 1).await {
                             error!(
                                 "Background receive vote polling encountered an error: {:?}",
                                 e
@@ -486,6 +533,8 @@ impl<
                     quorum_vote_handle,
                     view_sync_proposal_handle,
                     view_sync_vote_handle, // committee_transaction_handle,
+                    da_cert_handle,
+                    da_handle_2,
                 ];
 
                 let _children_finished = futures::future::join_all(task_handles).await;
@@ -533,10 +582,23 @@ impl<
                         }
                     }
                 });
+                let committee_vote_handle2 = async_spawn({
+                    let inner_clone = inner.clone();
+
+                    async move {
+                        if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 0).await {
+                            error!(
+                                "Background receive vote polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
                 let task_handles = vec![
                     committee_proposal_handle,
                     committee_vote_handle,
                     committee_transaction_handle,
+                    committee_vote_handle2
                 ];
 
                 let _children_finished = futures::future::join_all(task_handles).await;
@@ -557,6 +619,7 @@ impl<
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
             MessagePurpose::ViewSyncProposal => config::post_view_sync_proposal_route(*view_number),
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
+            MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
@@ -717,7 +780,11 @@ impl<
     ) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
         match network_msg {
-            Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
+            Ok(network_msg) => {
+                // error!("network msg is {:?}", network_msg.clone());
+
+                self.post_message_to_web_server(network_msg).await
+            }
             Err(network_msg) => Err(NetworkError::WebServer {
                 source: network_msg,
             }),
