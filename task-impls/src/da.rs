@@ -9,6 +9,7 @@ use hotshot_types::traits::network::CommunicationChannel;
 use async_std::task::JoinHandle;
 use commit::Commitment;
 use commit::Committable;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
@@ -385,14 +386,12 @@ where
                 }
                 self.cur_view = view;
                 // Inject view info into network
-                // self.committee_exchange
-                //     .network()
-                //     .inject_consensus_info((
-                //         (*view),
-                //         self.committee_exchange.is_leader(TYPES::Time::new(*view)),
-                //         self.committee_exchange.is_leader(TYPES::Time::new(*view) + 1),
-                //     ))
-                //     .await;
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((
+                        ConsensusIntentEvent::PollForProposal(*self.cur_view)
+                    ))
+                    .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 

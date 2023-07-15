@@ -434,7 +434,7 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
-                    error!(
+                    warn!(
                         "Change from view {} to view {} in view sync task",
                         *self.current_view, *new_view
                     );
@@ -460,11 +460,11 @@ where
                 }
                 // TODO ED Combine this code with other replica code since some of it is repeated
                 if view_number < ViewNumber::new(*self.current_view) {
-                    error!("Got old timeout");
+                    warn!("Got old timeout");
                     return;
                 }
                 self.num_timeouts_tracked += 1;
-                error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
+                warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked >= 2 {
@@ -603,11 +603,11 @@ where
                     }
                 };
 
-                error!("received cert in handle_event for replica");
+                warn!("received cert in handle_event for replica");
 
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
-                    error!("We're already in a higher round");
+                    warn!("We're already in a higher round");
 
                     return (None, self);
                 }
@@ -768,7 +768,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                            error!(
+                            warn!(
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
@@ -913,7 +913,7 @@ where
                     }
                 };
 
-                error!(
+                warn!(
                     "Recved vote for next view {}, and relay {}, and phase {:?}",
                     *vote_internal.round, vote_internal.relay, phase
                 );

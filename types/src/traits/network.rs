@@ -129,6 +129,7 @@ pub enum NetworkError {
     UnableToCancel,
 }
 
+#[derive(Clone, Debug)]
 // Storing view number as a u64 to avoid the need TYPES generic
 pub enum ConsensusIntentEvent {
     /// Poll for votes for a particular view
@@ -142,6 +143,18 @@ pub enum ConsensusIntentEvent {
     /// Poll for view sync proposals (certificates) for a particular view
     PollForViewSyncCertificate(u64),
 
+}
+
+impl ConsensusIntentEvent {
+    pub fn view_number (&self) -> u64 {
+        match &self {
+            ConsensusIntentEvent::PollForVote(view_number) 
+            | ConsensusIntentEvent::PollForProposal(view_number) 
+            | ConsensusIntentEvent::PollForDAC(view_number)
+            | ConsensusIntentEvent::PollForViewSyncVotes(view_number) 
+            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number
+        }
+    }
 }
 
 /// common traits we would like our network messages to implement
