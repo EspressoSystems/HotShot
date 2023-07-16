@@ -460,7 +460,7 @@ where
                 warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 // TODO ED Make this a configurable variable
-                if self.num_timeouts_tracked >= 2 {
+                if self.num_timeouts_tracked == 2 {
                     // Start polling for view sync certificates
                     self.exchange
                         .network()
@@ -699,6 +699,8 @@ where
                         };
 
                         if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
+                            error!("Sending vs vote {:?}", vote.clone());
+
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                 .await;
@@ -722,7 +724,10 @@ where
                                 ),
                                 ViewSyncPhase::Finalize => unimplemented!(),
                             };
+                            error!("Sending vs vote {:?}", message.clone());
                             if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
+                                error!("Sending vs vote {:?}", vote.clone());
+
                                 self.event_stream
                                     .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
                                     .await;
@@ -780,6 +785,7 @@ where
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
+                            // error!("Sending vs vote {:?}", vote.clone());
 
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
@@ -908,7 +914,7 @@ where
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => return (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 if self.accumulator.is_right() {
-                    return (None, self);
+                    return (Some(HotShotTaskCompleted::ShutDown), self);
                 }
 
                 let (vote_internal, phase) = match vote {
@@ -940,6 +946,8 @@ where
                     relay: self.exchange.public_key().to_bytes(),
                 }
                 .commit();
+
+                error!("Accumulating view sync vote {} relay {}", *vote_internal.round, vote_internal.relay);
 
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
