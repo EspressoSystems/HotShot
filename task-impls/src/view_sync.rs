@@ -371,7 +371,8 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    panic!("View sync vote send to wrong leader");
+                    // This will occur because everyone is pulling down votes for now, will fix soon ED
+                    warn!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -446,12 +447,6 @@ where
 
                     // Inject view info into network
                     // Move this to consensus task probably
-                    // self.exchange
-                    //     .network()
-                    //         .inject_consensus_info(
-                    //             (ConsensusIntentEvent::PollForProposal(*self.current_view)),
-                    //         )
-                    //         .await;
                 }
                 return;
             }
@@ -460,18 +455,29 @@ where
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
                 }
-                // TODO ED Combine this code with other replica code since some of it is repeated
-                if view_number < ViewNumber::new(*self.current_view) {
-                    warn!("Got old timeout");
-                    return;
-                }
+
                 self.num_timeouts_tracked += 1;
                 warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked >= 2 {
+                    // Start polling for view sync certificates
+                    self.exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::PollForViewSyncCertificate(*view_number + 1)),
+                        )
+                        .await;
+
+                    self.exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::PollForViewSyncVotes(*view_number + 1)),
+                        )
+                        .await;
                     // panic!("Starting view sync!");
                     // Spawn replica task
+
                     let mut replica_state = ViewSyncReplicaTaskState {
                         current_view: self.current_view,
                         next_view: TYPES::Time::new(*view_number + 1),
@@ -902,7 +908,7 @@ where
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => return (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 if self.accumulator.is_right() {
-                    return (Some(HotShotTaskCompleted::ShutDown), self);
+                    return (None, self);
                 }
 
                 let (vote_internal, phase) = match vote {
@@ -955,6 +961,7 @@ where
                             data: certificate.clone(),
                             signature,
                         };
+                        error!("Sending view sync cert {:?}", message.clone());
                         self.event_stream
                             .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
                                 message,

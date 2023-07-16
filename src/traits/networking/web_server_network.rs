@@ -178,6 +178,10 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     vote_sender: UnboundedSender<ConsensusIntentEvent>,
 
     dac_sender: UnboundedSender<ConsensusIntentEvent>,
+
+    view_sync_vote_sender: UnboundedSender<ConsensusIntentEvent>,
+    view_sync_certificate_sender: UnboundedSender<ConsensusIntentEvent>,
+
 }
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
@@ -205,7 +209,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 MessagePurpose::Data => config::get_transactions_route(tx_index),
                 MessagePurpose::Internal => unimplemented!(),
                 MessagePurpose::ViewSyncProposal => {
-                    config::get_view_sync_proposal_route(view_number)
+                    config::get_view_sync_proposal_route(view_number, vote_index)
                 }
                 MessagePurpose::ViewSyncVote => {
                     config::get_view_sync_vote_route(view_number, vote_index)
@@ -309,9 +313,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 MessagePurpose::Data => config::get_transactions_route(tx_index),
                 MessagePurpose::Internal => unimplemented!(),
                 MessagePurpose::ViewSyncProposal => {
-                    config::get_view_sync_proposal_route(view_number)
+                    // error!("View sync prop config route is {}",  config::get_view_sync_proposal_route(view_number, vote_index));
+                    config::get_view_sync_proposal_route(view_number, vote_index)
                 }
                 MessagePurpose::ViewSyncVote => {
+                    // error!("View sync vote config route is {}",  config::get_view_sync_vote_route(view_number, vote_index));
+
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
@@ -374,6 +381,34 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 }
                             }
                         }
+                        MessagePurpose::ViewSyncVote => {
+                            error!(
+                                "Received {} view sync votes from web server for view {} is da {}",
+                                deserialized_messages.len(),
+                                view_number,
+                                self.is_da
+                            );
+                            let mut direct_poll_queue = self.direct_poll_queue.write().await;
+                            for vote in &deserialized_messages {
+                                vote_index += 1;
+                                direct_poll_queue.push(vote.clone());
+                            }
+                        }
+                        MessagePurpose::ViewSyncProposal => {
+                            error!(
+                                "Received {} view sync certs from web server for view {} is da {}",
+                                deserialized_messages.len(),
+                                view_number,
+                                self.is_da
+                            );
+                            let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
+                            // TODO ED Special case this for view sync
+                            // TODO ED Need to add vote indexing to web server for view sync certs
+                            for cert in &deserialized_messages {
+                                vote_index += 1;
+                                broadcast_poll_queue.push(cert.clone());
+                            }
+                        }
 
                         _ => todo!(),
                     }
@@ -382,6 +417,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     async_sleep(self.wait_between_polls).await;
                 }
                 Err(_e) => {
+                    // error!("error is {:?}", _e);
                     async_sleep(self.wait_between_polls).await;
                 }
             }
@@ -517,6 +553,10 @@ impl<
         let (vote_sender, vote_receiver) = unbounded::<ConsensusIntentEvent>();
         let (proposal_sender, proposal_receiver) = unbounded::<ConsensusIntentEvent>();
         let (dac_sender, dac_receiver) = unbounded::<ConsensusIntentEvent>();
+        let (view_sync_vote_sender, view_sync_vote_receiver) = unbounded::<ConsensusIntentEvent>();
+
+        let (view_sync_certificate_sender, view_sync_certificate_receiver) = unbounded::<ConsensusIntentEvent>();
+
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
@@ -534,6 +574,8 @@ impl<
             proposal_sender: proposal_sender.clone(),
             vote_sender: vote_sender.clone(),
             dac_sender: dac_sender.clone(),
+            view_sync_certificate_sender: view_sync_certificate_sender.clone(),
+            view_sync_vote_sender: view_sync_vote_sender.clone()
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -610,6 +652,34 @@ impl<
                     async move {
                         if let Err(e) = inner_clone
                             .poll_web_server_new(dac_receiver, MessagePurpose::DAC)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+                let view_sync_proposal_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(view_sync_certificate_receiver, MessagePurpose::ViewSyncProposal)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+                let view_sync_vote_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(view_sync_vote_receiver, MessagePurpose::ViewSyncVote)
                             .await
                         {
                             error!(
@@ -860,7 +930,10 @@ impl<
             MessagePurpose::Vote => config::post_vote_route(*view_number),
             MessagePurpose::Data => config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
-            MessagePurpose::ViewSyncProposal => config::post_view_sync_proposal_route(*view_number),
+            MessagePurpose::ViewSyncProposal => {
+                
+                    // error!("Posting view sync proposal route is: {}", config::post_view_sync_proposal_route(*view_number));
+                config::post_view_sync_proposal_route(*view_number)},
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
         };
@@ -1024,8 +1097,6 @@ impl<
         let network_msg = Self::parse_post_message(message);
         match network_msg {
             Ok(network_msg) => {
-                // error!("network msg is {:?}", network_msg.clone());
-
                 self.post_message_to_web_server(network_msg).await
             }
             Err(network_msg) => Err(NetworkError::WebServer {
@@ -1039,7 +1110,10 @@ impl<
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
         match network_msg {
-            Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
+            Ok(network_msg) => {
+                // error!("network msg is {:?}", network_msg.clone());
+
+                self.post_message_to_web_server(network_msg).await }
             Err(network_msg) => Err(NetworkError::WebServer {
                 source: network_msg,
             }),
@@ -1102,8 +1176,8 @@ impl<
                 self.inner.proposal_sender.send(event).await
             }
             ConsensusIntentEvent::PollForDAC(_) => self.inner.dac_sender.send(event).await,
-            ConsensusIntentEvent::PollForViewSyncVotes(_) => todo!(),
-            ConsensusIntentEvent::PollForViewSyncCertificate(_) => todo!(),
+            ConsensusIntentEvent::PollForViewSyncVotes(_) => self.inner.view_sync_vote_sender.send(event).await,
+            ConsensusIntentEvent::PollForViewSyncCertificate(_) => self.inner.view_sync_certificate_sender.send(event).await,
             ConsensusIntentEvent::CancelPollForVotes(_) => todo!(),
             ConsensusIntentEvent::CancelPollForViewSyncVotes(_) => todo!(),
         };

@@ -451,8 +451,9 @@ where
                             );
                         }
 
+                        // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            // warn!("Sending vote to next leader {:?}", vote.current_view());
+                            warn!("Sending vote to next leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -839,7 +840,7 @@ where
                             let view_number = self.cur_view.clone();
                             async move {
                                 // ED: Changing to 1 second to test timeout logic
-                                async_sleep(Duration::from_millis(10000)).await;
+                                async_sleep(Duration::from_millis(1000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
@@ -852,9 +853,9 @@ where
                             info!("Sending vote to next leader {:?}", vote);
                             warn!("Vote is {:?}", vote.current_view());
 
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
-                                .await;
+                            // self.event_stream
+                            //     .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                            //     .await;
                         };
                     }
                 }
@@ -1146,7 +1147,7 @@ where
                     let view_number = self.cur_view.clone();
                     async move {
                         // ED: Changing to 1 second to test timeout logic
-                        async_sleep(Duration::from_millis(10000)).await;
+                        async_sleep(Duration::from_millis(1000)).await;
                         stream
                             .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                 *view_number,
