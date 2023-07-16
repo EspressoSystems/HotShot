@@ -303,9 +303,9 @@ where
                 // );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
+                if !self.committee_exchange.is_leader(view)
                 {
-                    error!("We are not the committee leader for view {}", *view);
+                    error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1)) ;
                     return None;
                 }
 
@@ -394,8 +394,8 @@ where
                 // TODO ED Make this a new task so it doesn't block main DA task
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if self.committee_exchange.get_leader(self.cur_view + 1)
-                    != self.committee_exchange.public_key().clone()
+                if !self.committee_exchange.is_leader(self.cur_view + 1)
+              
                 {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;

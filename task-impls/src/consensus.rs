@@ -488,16 +488,18 @@ where
             self.cur_view = new_view;
             self.current_proposal = None;
 
-            self.event_stream
-                .publish(SequencingHotShotEvent::ViewChange(new_view))
-                .await;
 
             // Start polling for proposals for the new view
-            error!("Polling for quorum proposal for view {}", *new_view);
+            // error!("Polling for quorum proposal for view {}", *new_view);
 
             self.quorum_exchange
                 .network()
                 .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view)))
+                .await;
+
+            self.quorum_exchange
+                .network()
+                .inject_consensus_info((ConsensusIntentEvent::PollForDAC(*self.cur_view)))
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
@@ -507,6 +509,10 @@ where
                     .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
                     .await;
             }
+
+            self.event_stream
+            .publish(SequencingHotShotEvent::ViewChange(new_view))
+            .await;
 
             return true;
         }
@@ -833,7 +839,7 @@ where
                             let view_number = self.cur_view.clone();
                             async move {
                                 // ED: Changing to 1 second to test timeout logic
-                                async_sleep(Duration::from_millis(1000)).await;
+                                async_sleep(Duration::from_millis(10000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
@@ -855,6 +861,11 @@ where
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 warn!("Received quroum vote: {:?}", vote.current_view());
+
+                if !self.quorum_exchange.is_leader(vote.current_view() + 1) {
+                    error!("We are not the leader for view {} are we the leader for view + 1? {}", *vote.current_view() + 1, self.quorum_exchange.is_leader(vote.current_view() + 2));
+                    return 
+                }
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -966,21 +977,21 @@ where
                 let _res = self.update_view(qc.view_number + 1).await;
 
                 // Start polling for votes for the next view
-                if _res {
-                    if self.quorum_exchange.is_leader(self.cur_view + 1) {
-                        self.quorum_exchange
-                            .network()
-                            .inject_consensus_info(
-                                (ConsensusIntentEvent::PollForVotes(*qc.view_number + 1)),
-                            )
-                            .await;
-                    }
-                }
+                // if _res {
+                // if self.quorum_exchange.is_leader(qc.view_number + 2) {
+                //     self.quorum_exchange
+                //         .network()
+                //         .inject_consensus_info(
+                //             (ConsensusIntentEvent::PollForVotes(*qc.view_number + 1)),
+                //         )
+                //         .await;
+                // }
+                // }
 
                 // warn!("Handle qc formed event!");
-
+                // TODO ED Why isn't cur view correct here? 
                 // // So we don't create a QC on the first view unless we are the leader
-                if !self.quorum_exchange.is_leader(self.cur_view) {
+                if !self.quorum_exchange.is_leader(qc.view_number + 1) {
                     error!("Somehow we formed a QC but are not the leader for the next view");
                     return;
                 }
@@ -1135,7 +1146,7 @@ where
                     let view_number = self.cur_view.clone();
                     async move {
                         // ED: Changing to 1 second to test timeout logic
-                        async_sleep(Duration::from_millis(1000)).await;
+                        async_sleep(Duration::from_millis(10000)).await;
                         stream
                             .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                 *view_number,

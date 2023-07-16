@@ -176,6 +176,8 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
 
     // vote_receiver: UnboundedReceiver<ConsensusIntentEvent>,
     vote_sender: UnboundedSender<ConsensusIntentEvent>,
+
+    dac_sender: UnboundedSender<ConsensusIntentEvent>,
 }
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
@@ -303,9 +305,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_purpose {
                 MessagePurpose::Proposal => config::get_proposal_route(view_number),
-                MessagePurpose::Vote => {
-                    config::get_vote_route((view_number).wrapping_sub(1), vote_index)
-                }
+                MessagePurpose::Vote => config::get_vote_route(view_number, vote_index),
                 MessagePurpose::Data => config::get_transactions_route(tx_index),
                 MessagePurpose::Internal => unimplemented!(),
                 MessagePurpose::ViewSyncProposal => {
@@ -353,6 +353,25 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             for vote in &deserialized_messages {
                                 vote_index += 1;
                                 direct_poll_queue.push(vote.clone());
+                            }
+                        }
+                        MessagePurpose::DAC => {
+                            warn!(
+                                "Received DAC from web server for view {} {}",
+                                view_number, self.is_da
+                            );
+                            // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                            self.broadcast_poll_queue
+                                .write()
+                                .await
+                                .push(deserialized_messages[0].clone());
+                            // Wait for the view to change before polling for dacs again
+                            let event = receiver.recv().await;
+                            match event {
+                                Ok(event) => view_number = event.view_number(),
+                                Err(_r) => {
+                                    error!("Proposal receiver error!  It was likely shutdown")
+                                }
                             }
                         }
 
@@ -497,6 +516,7 @@ impl<
         // let (consensus_intent_sender, consensus_intent_receiver) = unbounded();
         let (vote_sender, vote_receiver) = unbounded::<ConsensusIntentEvent>();
         let (proposal_sender, proposal_receiver) = unbounded::<ConsensusIntentEvent>();
+        let (dac_sender, dac_receiver) = unbounded::<ConsensusIntentEvent>();
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
@@ -513,6 +533,7 @@ impl<
             is_da: is_da_server,
             proposal_sender: proposal_sender.clone(),
             vote_sender: vote_sender.clone(),
+            dac_sender: dac_sender.clone(),
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -574,6 +595,21 @@ impl<
                     async move {
                         if let Err(e) = inner_clone
                             .poll_web_server_new(vote_receiver, MessagePurpose::Vote)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
+
+                let dac_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(dac_receiver, MessagePurpose::DAC)
                             .await
                         {
                             error!(
@@ -1054,14 +1090,18 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
-        error!("Injecting event: {:?} is da {}", event.clone(), self.inner.is_da);
+        error!(
+            "Injecting event: {:?} is da {}",
+            event.clone(),
+            self.inner.is_da
+        );
 
         let result = match &event {
             ConsensusIntentEvent::PollForVotes(_) => self.inner.vote_sender.send(event).await,
             ConsensusIntentEvent::PollForProposal(_) => {
                 self.inner.proposal_sender.send(event).await
             }
-            ConsensusIntentEvent::PollForDAC(_) => todo!(),
+            ConsensusIntentEvent::PollForDAC(_) => self.inner.dac_sender.send(event).await,
             ConsensusIntentEvent::PollForViewSyncVotes(_) => todo!(),
             ConsensusIntentEvent::PollForViewSyncCertificate(_) => todo!(),
             ConsensusIntentEvent::CancelPollForVotes(_) => todo!(),
