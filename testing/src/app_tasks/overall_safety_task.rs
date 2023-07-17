@@ -14,10 +14,6 @@ use crate::{test_runner::Node};
 
 use super::{GlobalTestEvent, node_ctx::ViewStatus};
 
-// TODO
-#[derive(Clone, Debug)]
-pub struct OverallSafetyPropertiesDescription {}
-
 #[derive(Snafu, Debug)]
 pub enum OverallSafetyTaskErr {
     // TODO make this more detailed
@@ -111,7 +107,8 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Consen
     pub total_successful_views: usize,
 }
 
-pub struct OverallSafetyTaskDescription {
+#[derive(Clone, Debug)]
+pub struct OverallSafetyPropertiesDescription {
     /// number of out of sync nodes before considered failed
     pub num_out_of_sync: usize,
     /// whether or not to check the leaf
@@ -128,7 +125,7 @@ pub struct OverallSafetyTaskDescription {
     pub num_failed_rounds_total: usize,
 }
 
-impl Default for OverallSafetyTaskDescription {
+impl Default for OverallSafetyPropertiesDescription {
     fn default() -> Self {
         Self {
             num_out_of_sync: 5,
@@ -142,7 +139,7 @@ impl Default for OverallSafetyTaskDescription {
     }
 }
 
-impl OverallSafetyTaskDescription {
+impl OverallSafetyPropertiesDescription {
     /// build a task
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(self) -> Box<
         dyn FnOnce(

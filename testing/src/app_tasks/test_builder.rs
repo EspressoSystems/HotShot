@@ -64,7 +64,7 @@ impl Default for TestMetadata {
                 num_failed_views: Some(5),
                 num_decide_events: Some(5),
             },
-            overall_safety_properties: OverallSafetyPropertiesDescription {},
+            overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
@@ -102,6 +102,7 @@ impl TestMetadata {
             txn_description,
             completion_task_description,
             per_node_safety_properties,
+            overall_safety_properties,
             ..
         } = self.clone();
 
@@ -162,6 +163,7 @@ impl TestMetadata {
         let per_node_safety_task_description =
             PerNodeSafetyTaskDescription::<TYPES, I>::GenProperties(per_node_safety_properties);
         let per_node_safety_task_generator = per_node_safety_task_description.build();
+        let overall_safety_task_generator = overall_safety_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 network_generator,
@@ -175,6 +177,7 @@ impl TestMetadata {
             txn_task_generator,
             per_node_safety_task_generator,
             completion_task_generator,
+            overall_safety_task_generator
         }
         .modify_default_config(mod_config)
     }

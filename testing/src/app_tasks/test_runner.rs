@@ -28,10 +28,11 @@ use nll::nll_todo::nll_todo;
 
 use crate::{test_errors::ConsensusTestError, test_runner::Node};
 
+use super::overall_safety_task::OverallSafetyTask;
+use super::per_node_safety_task::PerNodeSafetyTask;
 use super::{
     completion_task::{self, CompletionTask},
     node_ctx::NodeCtx,
-    per_node_safety_task::SafetyTask,
     test_launcher::TestLauncher,
     txn_task::TxnTask,
 };
@@ -111,6 +112,7 @@ where
             test_event_stream.clone(),
         )
         .await;
+        // TODO (jr) fix this to have a better name
         task_runner = task_runner.add_task(id, "blah".to_string(), task);
 
         let completion_task_state = CompletionTask {
@@ -127,7 +129,7 @@ where
 
         // self.launcher.txn_task_generator(self.nodes.clone())
         for mut node in nodes.clone() {
-            let safety_task_state = SafetyTask {
+            let safety_task_state = PerNodeSafetyTask {
                 ctx: NodeCtx::default(),
             };
             let (stream, stream_id) = node
