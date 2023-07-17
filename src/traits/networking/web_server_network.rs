@@ -1222,7 +1222,14 @@ impl<
                 }
             }
 
-            _ => panic!("HERE"),
+            // ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => {
+
+            // }
+            // ConsensusIntentEvent::PollForViewSyncVotes(view_number) => {
+
+            // }
+
+            _ => panic!("View sync triggered!"),
         };
         //     ConsensusIntentEvent::PollForVotes(_) => self.inner.vote_sender.send(event).await,
         //     ConsensusIntentEvent::PollForProposal(_) => {

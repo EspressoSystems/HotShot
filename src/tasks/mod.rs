@@ -506,7 +506,8 @@ where
         output_event_stream: output_stream,
         certs: HashMap::new(),
         current_proposal: None,
-        id: handle.hotshot.inner.id
+        id: handle.hotshot.inner.id,
+        qc: None, 
     };
     let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";

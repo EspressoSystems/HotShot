@@ -56,7 +56,6 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::alloc::GlobalAlloc;
-use std::arch::aarch64::uint16x8x4_t;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -140,6 +139,8 @@ pub struct SequencingConsensusTaskState<
 
     // ED Should replace this with config information since we need it anyway
     pub id: u64,
+
+    pub qc: Option<QuorumCertificate<TYPES, I::Leaf>>,
 }
 
 pub struct VoteCollectionTaskState<
@@ -843,6 +844,9 @@ where
                             return;
                         }
 
+
+
+
                         // ED Only do this GC if we are able to vote
                         for v in *self.cur_view..*view + 1 {
                             let time = TYPES::Time::new(v);
@@ -854,6 +858,14 @@ where
 
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(new_view).await;
+
+                        if let Some(qc) = &self.qc {
+                            if qc.view_number == new_view {
+                                self.publish_proposal_if_able(qc.clone()).await;
+                            }
+                        }
+
+                      
 
                         self.timeout_task = async_spawn({
                             // let next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -995,7 +1007,11 @@ where
 
                 let mut consensus = self.consensus.write().await;
                 consensus.high_qc = qc.clone();
+
                 drop(consensus);
+
+                self.qc = Some(qc.clone());
+
                 // warn!("QC leaf commitment is {:?}", qc.leaf_commitment());
                 // self.event_stream
                 //     .publish(SequencingHotShotEvent::ViewChange(qc.view_number() + 1))
@@ -1021,115 +1037,120 @@ where
                 // warn!("Handle qc formed event!");
                 // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
-                if !self.quorum_exchange.is_leader(qc.view_number + 1) {
-                    error!("Somehow we formed a QC but are not the leader for the next view");
-                    return;
-                }
 
-                // update our high qc to the qc we just formed
-                // self.high_qc = qc;
-                let consensus = self.consensus.read().await;
-                let parent_view_number = &consensus.high_qc.view_number();
-                // error!("Parent view number is {:?}", parent_view_number);
-                let mut reached_decided = false;
 
-                let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    // This should have been added by the replica? 
-                    error!("Couldn't find parent view in state map.");
-                    return;
-                };
-                // Leaf hash in view inner does not match high qc hash - Why?
-                let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
-                    error!(
-                        ?parent_view_number,
-                        ?parent_view,
-                        "Parent of high QC points to a view without a proposal"
-                    );
-                    return;
-                };
-                if leaf_commitment != consensus.high_qc.leaf_commitment() {
-                    // error!(
-                    //     "They don't equal: {:?}   {:?}",
-                    //     leaf_commitment,
-                    //     self.high_qc.leaf_commitment()
-                    // );
-                }
-                let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
-                    error!("Failed to find high QC of parent.");
-                    return;
-                };
-                if leaf.view_number == consensus.last_decided_view {
-                    reached_decided = true;
-                }
+                self.publish_proposal_if_able(qc.clone()).await; 
 
-                let parent_leaf = leaf.clone();
 
-                let original_parent_hash = parent_leaf.commit();
+                // if !self.quorum_exchange.is_leader(qc.view_number + 1) {
+                //     error!("Somehow we formed a QC but are not the leader for the next view");
+                //     return;
+                // }
 
-                let mut next_parent_hash = original_parent_hash;
+                // // update our high qc to the qc we just formed
+                // // self.high_qc = qc;
+                // let consensus = self.consensus.read().await;
+                // let parent_view_number = &consensus.high_qc.view_number();
+                // // error!("Parent view number is {:?}", parent_view_number);
+                // let mut reached_decided = false;
 
-                // Walk back until we find a decide
-                if !reached_decided {
-                    warn!("not reached decide fro view {:?}", self.cur_view);
-                    while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
-                    {
-                        if next_parent_leaf.view_number <= consensus.last_decided_view {
-                            break;
-                        }
-                        next_parent_hash = next_parent_leaf.parent_commitment;
-                    }
-                    warn!("updated saved leaves");
-                    // TODO do some sort of sanity check on the view number that it matches decided
-                }
+                // let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+                //     // This should have been added by the replica? 
+                //     error!("Couldn't find parent view in state map, waiting for replica to see proposal");
+                //     return;
+                // };
+                // // Leaf hash in view inner does not match high qc hash - Why?
+                // let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
+                //     error!(
+                //         ?parent_view_number,
+                //         ?parent_view,
+                //         "Parent of high QC points to a view without a proposal"
+                //     );
+                //     return;
+                // };
+                // if leaf_commitment != consensus.high_qc.leaf_commitment() {
+                //     // error!(
+                //     //     "They don't equal: {:?}   {:?}",
+                //     //     leaf_commitment,
+                //     //     self.high_qc.leaf_commitment()
+                //     // );
+                // }
+                // let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
+                //     error!("Failed to find high QC of parent.");
+                //     return;
+                // };
+                // if leaf.view_number == consensus.last_decided_view {
+                //     reached_decided = true;
+                // }
 
-                let block_commitment = self.block.commit();
-                if block_commitment == TYPES::BlockType::new().commit() {
-                    error!("Block is generic block! {:?}", self.cur_view);
-                }
-                // warn!(
-                //     "leaf commitment of new qc: {:?}",
-                //     self.high_qc.leaf_commitment()
-                // );
-                let leaf = SequencingLeaf {
-                    view_number: self.cur_view,
-                    height: parent_leaf.height + 1,
-                    justify_qc: consensus.high_qc.clone(),
-                    parent_commitment: parent_leaf.commit(),
-                    // Use the block commitment rather than the block, so that the replica can construct
-                    // the same leaf with the commitment.
-                    deltas: Right(block_commitment),
-                    rejected: vec![],
-                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                    proposer_id: self.api.public_key().to_bytes(),
-                };
-                // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
+                // let parent_leaf = leaf.clone();
 
-                let signature = self
-                    .quorum_exchange
-                    .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
-                // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-                let proposal = QuorumProposal {
-                    block_commitment,
-                    view_number: leaf.view_number,
-                    height: leaf.height,
-                    justify_qc: consensus.high_qc.clone(),
-                    proposer_id: leaf.proposer_id,
-                    dac: None,
-                };
+                // let original_parent_hash = parent_leaf.commit();
 
-                let message = Proposal {
-                    data: proposal,
-                    signature,
-                };
-                warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
-                // warn!("Sending proposal for view {:?}", message.data.clone());
+                // let mut next_parent_hash = original_parent_hash;
 
-                self.event_stream
-                    .publish(SequencingHotShotEvent::QuorumProposalSend(
-                        message,
-                        self.quorum_exchange.public_key().clone(),
-                    ))
-                    .await;
+                // // Walk back until we find a decide
+                // if !reached_decided {
+                //     warn!("not reached decide fro view {:?}", self.cur_view);
+                //     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
+                //     {
+                //         if next_parent_leaf.view_number <= consensus.last_decided_view {
+                //             break;
+                //         }
+                //         next_parent_hash = next_parent_leaf.parent_commitment;
+                //     }
+                //     warn!("updated saved leaves");
+                //     // TODO do some sort of sanity check on the view number that it matches decided
+                // }
+
+                // let block_commitment = self.block.commit();
+                // if block_commitment == TYPES::BlockType::new().commit() {
+                //     error!("Block is generic block! {:?}", self.cur_view);
+                // }
+                // // warn!(
+                // //     "leaf commitment of new qc: {:?}",
+                // //     self.high_qc.leaf_commitment()
+                // // );
+                // let leaf = SequencingLeaf {
+                //     view_number: self.cur_view,
+                //     height: parent_leaf.height + 1,
+                //     justify_qc: consensus.high_qc.clone(),
+                //     parent_commitment: parent_leaf.commit(),
+                //     // Use the block commitment rather than the block, so that the replica can construct
+                //     // the same leaf with the commitment.
+                //     deltas: Right(block_commitment),
+                //     rejected: vec![],
+                //     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                //     proposer_id: self.api.public_key().to_bytes(),
+                // };
+                // // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
+
+                // let signature = self
+                //     .quorum_exchange
+                //     .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
+                // // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
+                // let proposal = QuorumProposal {
+                //     block_commitment,
+                //     view_number: leaf.view_number,
+                //     height: leaf.height,
+                //     justify_qc: consensus.high_qc.clone(),
+                //     proposer_id: leaf.proposer_id,
+                //     dac: None,
+                // };
+
+                // let message = Proposal {
+                //     data: proposal,
+                //     signature,
+                // };
+                // warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+                // // warn!("Sending proposal for view {:?}", message.data.clone());
+
+                // self.event_stream
+                //     .publish(SequencingHotShotEvent::QuorumProposalSend(
+                //         message,
+                //         self.quorum_exchange.public_key().clone(),
+                //     ))
+                //     .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
                 warn!("DAC Recved for view ! {}", *cert.view_number);
@@ -1305,7 +1326,121 @@ where
             _ => {}
         }
     }
+
+    pub async fn publish_proposal_if_able (&self, qc: QuorumCertificate<TYPES, I::Leaf>) {
+        if !self.quorum_exchange.is_leader(qc.view_number + 1) {
+            error!("Somehow we formed a QC but are not the leader for the next view");
+            return;
+        }
+
+        // update our high qc to the qc we just formed
+        // self.high_qc = qc;
+        let consensus = self.consensus.read().await;
+        let parent_view_number = &consensus.high_qc.view_number();
+        // error!("Parent view number is {:?}", parent_view_number);
+        let mut reached_decided = false;
+
+        let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+            // This should have been added by the replica? 
+            error!("Couldn't find parent view in state map, waiting for replica to see proposal");
+            return;
+        };
+        // Leaf hash in view inner does not match high qc hash - Why?
+        let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
+            error!(
+                ?parent_view_number,
+                ?parent_view,
+                "Parent of high QC points to a view without a proposal"
+            );
+            return;
+        };
+        if leaf_commitment != consensus.high_qc.leaf_commitment() {
+            // error!(
+            //     "They don't equal: {:?}   {:?}",
+            //     leaf_commitment,
+            //     self.high_qc.leaf_commitment()
+            // );
+        }
+        let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
+            error!("Failed to find high QC of parent.");
+            return;
+        };
+        if leaf.view_number == consensus.last_decided_view {
+            reached_decided = true;
+        }
+
+        let parent_leaf = leaf.clone();
+
+        let original_parent_hash = parent_leaf.commit();
+
+        let mut next_parent_hash = original_parent_hash;
+
+        // Walk back until we find a decide
+        if !reached_decided {
+            warn!("not reached decide fro view {:?}", self.cur_view);
+            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
+            {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                    break;
+                }
+                next_parent_hash = next_parent_leaf.parent_commitment;
+            }
+            warn!("updated saved leaves");
+            // TODO do some sort of sanity check on the view number that it matches decided
+        }
+
+        let block_commitment = self.block.commit();
+        if block_commitment == TYPES::BlockType::new().commit() {
+            error!("Block is generic block! {:?}", self.cur_view);
+        }
+        // warn!(
+        //     "leaf commitment of new qc: {:?}",
+        //     self.high_qc.leaf_commitment()
+        // );
+        let leaf = SequencingLeaf {
+            view_number: self.cur_view,
+            height: parent_leaf.height + 1,
+            justify_qc: consensus.high_qc.clone(),
+            parent_commitment: parent_leaf.commit(),
+            // Use the block commitment rather than the block, so that the replica can construct
+            // the same leaf with the commitment.
+            deltas: Right(block_commitment),
+            rejected: vec![],
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: self.api.public_key().to_bytes(),
+        };
+        // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
+
+        let signature = self
+            .quorum_exchange
+            .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
+        // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
+        let proposal = QuorumProposal {
+            block_commitment,
+            view_number: leaf.view_number,
+            height: leaf.height,
+            justify_qc: consensus.high_qc.clone(),
+            proposer_id: leaf.proposer_id,
+            dac: None,
+        };
+
+        let message = Proposal {
+            data: proposal,
+            signature,
+        };
+        warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+        // warn!("Sending proposal for view {:?}", message.data.clone());
+
+        self.event_stream
+            .publish(SequencingHotShotEvent::QuorumProposalSend(
+                message,
+                self.quorum_exchange.public_key().clone(),
+            ))
+            .await;
+    }
 }
+
+
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,

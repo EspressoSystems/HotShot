@@ -285,7 +285,7 @@ where
                         error!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        error!("We were chosen for DA committee on {:?}", view);
+                        // error!("We were chosen for DA committee on {:?}", view);
 
                         // Generate and send vote
                         let message = self.committee_exchange.create_da_message(

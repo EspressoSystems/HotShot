@@ -330,7 +330,8 @@ where
             output_event_stream: nll_todo(),
             certs: HashMap::new(),
             current_proposal: None,
-            id: nll_todo()
+            id: nll_todo(), 
+            qc: None, 
         };
     let consensus_event_handler = HandleEvent(Arc::new(
         move |event,
