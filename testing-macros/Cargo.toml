@@ -89,7 +89,7 @@ serde = { version = "1.0.171", features = ["derive"] }
 # proc macro stuff
 quote = "1.0.31"
 syn = { version = "2.0.26", features = ["full", "extra-traits"] }
-proc-macro2 = "1.0.64"
+proc-macro2 = "1.0.66"
 derive_builder = "0.12.0"
 
 [dev-dependencies]
