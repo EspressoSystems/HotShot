@@ -306,6 +306,9 @@ impl<
 pub struct NetworkTaskError {}
 impl TaskErr for NetworkTaskError {}
 
+// TODO (Keyao run_view) add task types to handle incoming and outgoing messages separately. It
+// should be `HSTWithMessage` for the former and `HSTWithEvent` for the latter. Neither should
+// handle both events and messages.
 pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
     HSTWithEventAndMessage<
         NetworkTaskError,
