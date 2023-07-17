@@ -225,6 +225,8 @@ impl<
         Self: Sized,
     {
         builder.0.base_check();
+        // TODO (Keyao run_view) after refactoring the network task to handle incoming and outgoing
+        // messages separately by different task types, restore the checks below.
         // builder.0.message_check();
         // builder.0.event_check();
         builder.0
