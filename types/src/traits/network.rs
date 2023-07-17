@@ -146,6 +146,12 @@ pub enum ConsensusIntentEvent {
     CancelPollForVotes(u64),
     /// Cancel polling for votes
     CancelPollForViewSyncVotes(u64),
+
+    CancelPollForProposal(u64), 
+
+    CancelPollForDAC(u64),
+
+    CancelPollForViewSyncCertificate(u64), 
 }
 
 impl ConsensusIntentEvent {
@@ -157,6 +163,9 @@ impl ConsensusIntentEvent {
             | ConsensusIntentEvent::PollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForDAC(view_number)
+            | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number,
         }
     }
