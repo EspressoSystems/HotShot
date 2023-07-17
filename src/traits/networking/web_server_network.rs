@@ -331,10 +331,10 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
                         MessagePurpose::Proposal => {
-                            warn!(
-                                "Received proposal from web server for view {} {}",
-                                view_number, self.is_da
-                            );
+                            // warn!(
+                            //     "Received proposal from web server for view {} {}",
+                            //     view_number, self.is_da
+                            // );
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()

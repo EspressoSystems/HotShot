@@ -390,8 +390,13 @@ where
                 if *self.cur_view >= *view {
                     return None;
                 }
+
+                if *view - *self.cur_view > 1 {
+                    error!("View changed by more than 1");
+                }
                 self.cur_view = view;
                 // Inject view info into network
+                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view? 
                 self.committee_exchange
                     .network()
                     .inject_consensus_info(
