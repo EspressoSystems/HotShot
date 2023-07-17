@@ -99,7 +99,7 @@ pub struct ViewSyncTaskState<
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub api: A,
-    pub id: u64, 
+    pub id: u64,
 
     // pub task_runner: TaskRunner,
     /// How many timeouts we've seen in a row; is reset upon a successful view change
@@ -216,7 +216,7 @@ pub struct ViewSyncRelayTaskState<
         VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         ViewSyncCertificate<TYPES>,
     >,
-    pub id: u64
+    pub id: u64,
 }
 
 impl<
@@ -308,7 +308,7 @@ where
                     api: self.api.clone(),
                     event_stream: self.event_stream.clone(),
                     view_sync_timeout: self.view_sync_timeout,
-                    id: self.id
+                    id: self.id,
                 };
 
                 let result = replica_state.handle_event(event).await;
@@ -395,7 +395,7 @@ where
                     event_stream: self.event_stream.clone(),
                     exchange: self.exchange.clone(),
                     accumulator: either::Left(accumulator),
-                    id: self.id
+                    id: self.id,
                 };
 
                 let result = relay_state.handle_event(event).await;
@@ -496,7 +496,7 @@ where
                         api: self.api.clone(),
                         event_stream: self.event_stream.clone(),
                         view_sync_timeout: self.view_sync_timeout,
-                        id: self.id
+                        id: self.id,
                     };
 
                     // TODO ED Make all these view numbers into a single variable to avoid errors
@@ -677,6 +677,20 @@ where
 
                 // The protocol has ended
                 if self.phase == ViewSyncPhase::Finalize {
+                    self.exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::CancelPollForViewSyncCertificate(
+                                *self.next_view,
+                            )),
+                        )
+                        .await;
+                    self.exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::CancelPollForViewSyncVotes(*self.next_view)),
+                        )
+                        .await;
                     return ((Some(HotShotTaskCompleted::ShutDown)), self);
                 }
 
@@ -959,7 +973,10 @@ where
                 }
                 .commit();
 
-                warn!("Accumulating view sync vote {} relay {}", *vote_internal.round, vote_internal.relay);
+                warn!(
+                    "Accumulating view sync vote {} relay {}",
+                    *vote_internal.round, vote_internal.relay
+                );
 
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,

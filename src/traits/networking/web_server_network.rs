@@ -305,7 +305,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             let maybe_event = receiver.try_recv();
             match maybe_event {
                 Ok(event) => {
-                   
                     match event {
                         // TODO ED Should add extra error checking here to make sure we are intending to cancel a task
                         ConsensusIntentEvent::CancelPollForVotes(event_view)
@@ -1215,21 +1214,108 @@ impl<
                         .send(ConsensusIntentEvent::CancelPollForVotes((view_number)))
                         .await;
                     Ok(())
-                }
-                else {
-                    // ED - Do we want to return an err here? 
+                } else {
+                    // ED - Do we want to return an err here?
                     Ok(())
                 }
             }
 
-            // ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => {
+            ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => {
+                let mut task_map = self.inner.view_sync_cert_task_map.write().await;
+                if !task_map.contains_key(&view_number) {
+                    // create new task
+                    let (sender, receiver) = unbounded();
+                    task_map.insert(view_number, sender);
+                    async_spawn({
+                        let inner_clone = self.inner.clone();
+                        async move {
+                            if let Err(e) = inner_clone
+                                .poll_web_server_new(
+                                    receiver,
+                                    MessagePurpose::ViewSyncProposal,
+                                    view_number,
+                                )
+                                .await
+                            {
+                                error!(
+                                                "Background receive proposal polling encountered an error: {:?}",
+                                                e
+                                            );
+                            }
+                        }
+                    });
+                } else {
+                    error!("Somehow task already existed!")
+                }
 
-            // }
-            // ConsensusIntentEvent::PollForViewSyncVotes(view_number) => {
+                // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
 
-            // }
+                Ok(())
+            }
+            ConsensusIntentEvent::PollForViewSyncVotes(view_number) => {
+                let mut task_map = self.inner.view_sync_vote_task_map.write().await;
+                if !task_map.contains_key(&view_number) {
+                    // create new task
+                    let (sender, receiver) = unbounded();
+                    task_map.insert(view_number, sender);
+                    async_spawn({
+                        let inner_clone = self.inner.clone();
+                        async move {
+                            if let Err(e) = inner_clone
+                                .poll_web_server_new(
+                                    receiver,
+                                    MessagePurpose::ViewSyncVote,
+                                    view_number,
+                                )
+                                .await
+                            {
+                                error!(
+                                                "Background receive proposal polling encountered an error: {:?}",
+                                                e
+                                            );
+                            }
+                        }
+                    });
+                } else {
+                    error!("Somehow task already existed!")
+                }
+                Ok(())
+            }
 
-            _ => panic!("View sync triggered!"),
+            ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number) => {
+                let mut task_map = self.inner.view_sync_cert_task_map.write().await;
+
+                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                    // Send task cancel message to old task
+
+                    // If task already exited we expect an error
+                    let _res = sender
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate((view_number)))
+                        .await;
+                    Ok(())
+                } else {
+                    // ED - Do we want to return an err here?
+                    Ok(())
+                }
+            }
+            ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number) => {
+                let mut task_map = self.inner.view_sync_vote_task_map.write().await;
+
+                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                    // Send task cancel message to old task
+
+                    // If task already exited we expect an error
+                    let _res = sender
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncVotes((view_number)))
+                        .await;
+                    Ok(())
+                } else {
+                    // ED - Do we want to return an err here?
+                    Ok(())
+                }
+            }
+
+            _ => panic!("Unexpected event!"),
         };
         //     ConsensusIntentEvent::PollForVotes(_) => self.inner.vote_sender.send(event).await,
         //     ConsensusIntentEvent::PollForProposal(_) => {

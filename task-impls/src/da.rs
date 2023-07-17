@@ -182,14 +182,14 @@ where
                     return (None, state);
                 }
                 Right(dac) => {
-                    warn!("Sending DAC! {:?}", dac.view_number);
-                    state
-                        .event_stream
-                        .publish(SequencingHotShotEvent::DACSend(
-                            dac.clone(),
-                            state.committee_exchange.public_key().clone(),
-                        ))
-                        .await;
+                    // warn!("Sending DAC! {:?}", dac.view_number);
+                    // state
+                    //     .event_stream
+                    //     .publish(SequencingHotShotEvent::DACSend(
+                    //         dac.clone(),
+                    //         state.committee_exchange.public_key().clone(),
+                    //     ))
+                    //     .await;
 
                     state.accumulator = Right(dac.clone());
                     state.committee_exchange
