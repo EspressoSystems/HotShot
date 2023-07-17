@@ -34,27 +34,23 @@ use super::{
     GlobalTestEvent,
 };
 
-// TODO
-#[derive(Clone, Debug)]
-pub struct OverallSafetyPropertiesDescription {}
-
-/// Data Availability task error
 #[derive(Snafu, Debug)]
-pub enum SafetyTaskErr {
+pub enum PerNodeSafetyTaskErr {
     // TODO make this more detailed
     TooManyFailures,
     NotEnoughDecides,
 }
-impl TaskErr for SafetyTaskErr {}
+impl TaskErr for PerNodeSafetyTaskErr {}
 
 /// Data availability task state
+///
 #[derive(Debug)]
-pub struct SafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct PerNodeSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub(crate) ctx: NodeCtx<TYPES, I>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
-    for SafetyTask<TYPES, I>
+    for PerNodeSafetyTask<TYPES, I>
 {
     fn default() -> Self {
         Self {
@@ -64,23 +60,23 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for SafetyTask<TYPES, I>
+    for PerNodeSafetyTask<TYPES, I>
 {
 }
 
 /// builder describing custom safety properties
 #[derive(Clone)]
-pub enum SafetyTaskDescription<
+pub enum PerNodeSafetyTaskDescription<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
 > {
-    GenProperties(NodeSafetyPropertiesDescription),
-    CustomProperties(SafetyFinisher<TYPES, I>),
+    GenProperties(PerNodeSafetyPropertiesDescription),
+    CustomProperties(PerNodeSafetyFinisher<TYPES, I>),
 }
 
 /// properties used for gen
 #[derive(Clone, Debug)]
-pub struct NodeSafetyPropertiesDescription {
+pub struct PerNodeSafetyPropertiesDescription {
     /// number failed views
     pub num_failed_views: Option<usize>,
     /// number decide events
@@ -92,12 +88,12 @@ pub struct NodeSafetyPropertiesDescription {
 /// runs at end of all tasks
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
-pub struct SafetyFinisher<
+pub struct PerNodeSafetyFinisher<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
 >(
     pub  Arc<
-        dyn for<'a> Fn(&'a mut NodeCtx<TYPES, I>) -> BoxFuture<'a, Result<(), SafetyTaskErr>>
+        dyn for<'a> Fn(&'a mut NodeCtx<TYPES, I>) -> BoxFuture<'a, Result<(), PerNodeSafetyTaskErr>>
             + Send
             + 'static
             + Sync,
@@ -105,9 +101,9 @@ pub struct SafetyFinisher<
 );
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
-    for SafetyFinisher<TYPES, I>
+    for PerNodeSafetyFinisher<TYPES, I>
 {
-    type Target = dyn for<'a> Fn(&'a mut NodeCtx<TYPES, I>) -> BoxFuture<'a, Result<(), SafetyTaskErr>>
+    type Target = dyn for<'a> Fn(&'a mut NodeCtx<TYPES, I>) -> BoxFuture<'a, Result<(), PerNodeSafetyTaskErr>>
         + Send
         + 'static
         + Sync;
@@ -118,15 +114,15 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-    SafetyTaskDescription<TYPES, I>
+    PerNodeSafetyTaskDescription<TYPES, I>
 {
-    fn gen_finisher(self) -> SafetyFinisher<TYPES, I> {
+    fn gen_finisher(self) -> PerNodeSafetyFinisher<TYPES, I> {
         match self {
-            SafetyTaskDescription::CustomProperties(finisher) => finisher,
-            SafetyTaskDescription::GenProperties(NodeSafetyPropertiesDescription {
+            PerNodeSafetyTaskDescription::CustomProperties(finisher) => finisher,
+            PerNodeSafetyTaskDescription::GenProperties(PerNodeSafetyPropertiesDescription {
                 num_failed_views,
                 num_decide_events,
-            }) => SafetyFinisher(Arc::new(move |ctx: &mut NodeCtx<TYPES, I>| {
+            }) => PerNodeSafetyFinisher(Arc::new(move |ctx: &mut NodeCtx<TYPES, I>| {
                 async move {
                     let mut num_failed = 0;
                     let mut num_decided = 0;
@@ -143,13 +139,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                     }
                     if let Some(num_failed_views) = num_failed_views {
                         if num_failed >= num_failed_views {
-                            return Err(SafetyTaskErr::TooManyFailures);
+                            return Err(PerNodeSafetyTaskErr::TooManyFailures);
                         }
                     }
 
                     if let Some(num_decide_events) = num_decide_events {
                         if num_decided < num_decide_events {
-                            return Err(SafetyTaskErr::NotEnoughDecides);
+                            return Err(PerNodeSafetyTaskErr::NotEnoughDecides);
                         }
                     }
                     Ok(())
@@ -167,7 +163,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
         // hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
     ) -> Box<
         dyn Fn(
-            SafetyTask<TYPES, I>,
+            PerNodeSafetyTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
             UnboundedStream<Event<TYPES, I::Leaf>>,
@@ -179,7 +175,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 // TODO this is cursed, there's definitely a better way to do this
                 let desc = self.clone();
                 async move {
-                    let test_event_handler = HandleEvent::<SafetyTaskTypes<TYPES, I>>(Arc::new(
+                    let test_event_handler = HandleEvent::<PerNodeSafetyTaskTypes<TYPES, I>>(Arc::new(
                         move |event, mut state| {
                             let finisher = desc.clone().gen_finisher();
                             async move {
@@ -203,7 +199,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                             .boxed()
                         },
                     ));
-                    let message_handler = HandleMessage::<SafetyTaskTypes<TYPES, I>>(Arc::new(
+                    let message_handler = HandleMessage::<PerNodeSafetyTaskTypes<TYPES, I>>(Arc::new(
                         move |msg, mut state| {
                             async move {
                                 let Event { view_number, event } = msg;
@@ -238,7 +234,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                         },
                     ));
 
-                    let builder = TaskBuilder::<SafetyTaskTypes<TYPES, I>>::new(
+                    let builder = TaskBuilder::<PerNodeSafetyTaskTypes<TYPES, I>>::new(
                         "Safety Check Task".to_string(),
                     )
                     .register_event_stream(test_event_stream, FilterEvent::default())
@@ -250,7 +246,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                     .register_message_handler(message_handler)
                     .register_message_stream(hotshot_event_stream);
                     let task_id = builder.get_task_id().unwrap();
-                    (task_id, SafetyTaskTypes::build(builder).launch())
+                    (task_id, PerNodeSafetyTaskTypes::build(builder).launch())
                 }
                 .boxed()
             },
@@ -259,14 +255,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 }
 
 // /// Data Availability task types
-pub type SafetyTaskTypes<
+pub type PerNodeSafetyTaskTypes<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
 > = HSTWithEventAndMessage<
-    SafetyTaskErr,
+    PerNodeSafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,
     Event<TYPES, I::Leaf>,
     UnboundedStream<Event<TYPES, I::Leaf>>,
-    SafetyTask<TYPES, I>,
+    PerNodeSafetyTask<TYPES, I>,
 >;

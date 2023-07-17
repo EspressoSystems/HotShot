@@ -31,7 +31,7 @@ use crate::{test_errors::ConsensusTestError, test_runner::Node};
 use super::{
     completion_task::{self, CompletionTask},
     node_ctx::NodeCtx,
-    safety_task::SafetyTask,
+    per_node_safety_task::SafetyTask,
     test_launcher::TestLauncher,
     txn_task::TxnTask,
 };

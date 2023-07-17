@@ -13,11 +13,12 @@ use crate::test_builder::TimingData;
 use crate::test_launcher::ResourceGenerators;
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use super::safety_task::SafetyTaskDescription;
+use super::per_node_safety_task::PerNodeSafetyTaskDescription;
 use super::test_launcher::TestLauncher;
 
 use super::{
-    safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
+    per_node_safety_task::PerNodeSafetyPropertiesDescription,
+    overall_safety_task::OverallSafetyPropertiesDescription,
     txn_task::TxnTaskDescription,
 };
 
@@ -34,7 +35,7 @@ pub struct TestMetadata {
     pub da_committee_size: usize,
     /// per-node safety property description
     /// TODO rename this
-    pub per_node_safety_properties: NodeSafetyPropertiesDescription,
+    pub per_node_safety_properties: PerNodeSafetyPropertiesDescription,
     // overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
     // txns timing
@@ -58,7 +59,7 @@ impl Default for TestMetadata {
             // failure_threshold: 10,
             num_bootstrap_nodes: 5,
             da_committee_size: 0,
-            per_node_safety_properties: NodeSafetyPropertiesDescription {
+            per_node_safety_properties: PerNodeSafetyPropertiesDescription {
                 // TODO Update these numbers
                 num_failed_views: Some(5),
                 num_decide_events: Some(5),
@@ -159,7 +160,7 @@ impl TestMetadata {
         let txn_task_generator = txn_description.build();
         let completion_task_generator = completion_task_description.build_and_launch();
         let per_node_safety_task_description =
-            SafetyTaskDescription::<TYPES, I>::GenProperties(per_node_safety_properties);
+            PerNodeSafetyTaskDescription::<TYPES, I>::GenProperties(per_node_safety_properties);
         let per_node_safety_task_generator = per_node_safety_task_description.build();
         TestLauncher {
             resource_generator: ResourceGenerators {

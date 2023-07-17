@@ -19,7 +19,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
+    task::{Context, Poll}, slice::SliceIndex,
 };
 use task::PassType;
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
@@ -48,6 +48,90 @@ pub mod task_launcher;
 
 /// the task implementations with different features
 pub mod task_impls;
+
+// merge `N` streams of the same type
+#[pin_project]
+pub struct MergeN<T: Stream> {
+    #[pin]
+    streams: Vec<Fuse<T>>,
+    // idx to start polling
+    idx: usize
+}
+
+impl<T: Stream> MergeN<T> {
+    /// create a new stream
+    pub fn new(streams: Vec<T>) -> MergeN<T> {
+        let fused_streams = streams.into_iter().map(|x| x.fuse()).collect();
+        MergeN {
+            streams: fused_streams,
+            idx: 0
+        }
+
+    }
+}
+
+impl<T: Stream + Sync + Send + 'static> SendableStream for MergeN<T> {}
+
+// NOTE: yoinked from https://github.com/yoshuawuyts/futures-concurrency/
+// we should really just use `futures-concurrency`. I'm being lazy here
+// and not bringing in yet another dependency. Note: their merge is implemented much
+// more cleverly than this rather naive impl
+
+// NOTE: If this is implemented through the trait, this will work on both vecs and
+// slices.
+//
+// From: https://github.com/rust-lang/rust/pull/78370/files
+pub(crate) fn get_pin_mut_from_vec<T, I>(
+    slice: Pin<&mut Vec<T>>,
+    index: I,
+) -> Option<Pin<&mut I::Output>>
+where
+    I: SliceIndex<[T]>,
+{
+    // SAFETY: `get_unchecked_mut` is never used to move the slice inside `self` (`SliceIndex`
+    // is sealed and all `SliceIndex::get_mut` implementations never move elements).
+    // `x` is guaranteed to be pinned because it comes from `self` which is pinned.
+    unsafe {
+        slice
+            .get_unchecked_mut()
+            .get_mut(index)
+            .map(|x| Pin::new_unchecked(x))
+    }
+}
+
+impl<T: Stream> Stream for MergeN<T> {
+    type Item = <T as Stream>::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut me = self.project();
+
+        let idx = *me.idx;
+        *me.idx = (idx + 1) % me.streams.len();
+
+        let first_half = idx..me.streams.len();
+        let second_half = 0..idx;
+
+        let iterator = first_half.chain(second_half);
+
+        let mut done = false;
+
+        for i in iterator {
+            let stream = get_pin_mut_from_vec(me.streams.as_mut(), i).unwrap();
+
+            match stream.poll_next(cx) {
+                Ready(Some(val)) => return Ready(Some(val)),
+                Ready(None) => {},
+                Pending => done = false
+            }
+        }
+
+        if done {
+            Ready(None)
+        } else {
+            Pending
+        }
+    }
+}
 
 // NOTE: yoinked /from async-std
 // except this is executor agnostic (doesn't rely on async-std streamext/fuse)

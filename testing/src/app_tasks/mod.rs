@@ -18,7 +18,9 @@ pub mod test_launcher;
 pub mod test_runner;
 
 /// task that's consuming events and asserting safety
-pub mod safety_task;
+pub mod per_node_safety_task;
+
+pub mod overall_safety_task;
 
 // TODO control task for spinning up and down nodes
 // will need to share with other tasks
