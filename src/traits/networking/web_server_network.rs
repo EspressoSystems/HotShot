@@ -316,6 +316,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 panic!("Wrong event view number was sent to this task!");
                             } else {
                                 // Shutdown this task
+                                error!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
                         }
@@ -1126,6 +1127,7 @@ impl<
                 if !task_map.contains_key(&view_number) {
                     // create new task
                     let (sender, receiver) = unbounded();
+                    task_map.insert(view_number, sender);
                     async_spawn({
                         let inner_clone = self.inner.clone();
                         async move {
@@ -1164,6 +1166,7 @@ impl<
                 if !task_map.contains_key(&view_number) {
                     // create new task
                     let (sender, receiver) = unbounded();
+                    task_map.insert(view_number, sender);
                     async_spawn({
                         let inner_clone = self.inner.clone();
                         async move {
