@@ -191,12 +191,17 @@ where
                         ))
                         .await;
 
-                    state.accumulator = Right(dac);
+                    state.accumulator = Right(dac.clone());
+                    state.committee_exchange
+                        .network()
+                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)))
+                        .await;
 
                     // Return completed at this point
                     return (Some(HotShotTaskCompleted::ShutDown), state);
                 }
             }
+                
         }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
         _ => {}
@@ -495,6 +500,14 @@ where
 
                 return None;
             }
+
+            SequencingHotShotEvent::Timeout(view) => {
+                self.committee_exchange
+                        .network()
+                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                        .await;
+            }
+
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
@@ -563,6 +576,7 @@ where
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::TransactionRecv(_)
+            | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
         }

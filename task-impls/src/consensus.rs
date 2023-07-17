@@ -250,7 +250,14 @@ where
                             .event_stream
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
-                        state.accumulator = Either::Right(qc);
+                        state.accumulator = Either::Right(qc.clone());
+
+                        // No longer need to poll for votes
+                        state.quorum_exchange
+                        .network()
+                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*qc.view_number)))
+                        .await;
+
                         return (Some(HotShotTaskCompleted::ShutDown), state);
                     }
                 }
@@ -1281,6 +1288,10 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
+                self.quorum_exchange
+                        .network()
+                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                        .await;
                 error!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view

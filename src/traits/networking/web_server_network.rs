@@ -305,6 +305,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             let maybe_event = receiver.try_recv();
             match maybe_event {
                 Ok(event) => {
+                   
                     match event {
                         // TODO ED Should add extra error checking here to make sure we are intending to cancel a task
                         ConsensusIntentEvent::CancelPollForVotes(event_view)
@@ -323,6 +324,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         _ => unimplemented!(),
                     }
                 }
+                // Nothing on receiving channel
                 Err(_) => {}
             }
         }
@@ -1147,6 +1149,7 @@ impl<
                 }
 
                 // GC proposal collection if we are two views in the future
+                // TODO ED This won't work for vote collection, last task is more than 2 view ago depending on size of network, will need to rely on cancel task from consensus
                 if let Some((view, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
                 {
                     // Send task cancel message to old task
@@ -1201,7 +1204,25 @@ impl<
 
                 Ok(())
             }
-            _ => Ok(()),
+            ConsensusIntentEvent::CancelPollForVotes(view_number) => {
+                let mut task_map = self.inner.vote_task_map.write().await;
+
+                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                    // Send task cancel message to old task
+
+                    // If task already exited we expect an error
+                    let _res = sender
+                        .send(ConsensusIntentEvent::CancelPollForVotes((view_number)))
+                        .await;
+                    Ok(())
+                }
+                else {
+                    // ED - Do we want to return an err here? 
+                    Ok(())
+                }
+            }
+
+            _ => panic!("HERE"),
         };
         //     ConsensusIntentEvent::PollForVotes(_) => self.inner.vote_sender.send(event).await,
         //     ConsensusIntentEvent::PollForProposal(_) => {
