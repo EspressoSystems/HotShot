@@ -29,6 +29,7 @@ use nll::nll_todo::nll_todo;
 use crate::{test_errors::ConsensusTestError, test_runner::Node};
 
 use super::overall_safety_task::OverallSafetyTask;
+use super::overall_safety_task::RoundCtx;
 use super::per_node_safety_task::PerNodeSafetyTask;
 use super::{
     completion_task::{self, CompletionTask},
@@ -102,6 +103,7 @@ where
         let registry = GlobalRegistry::default();
         let test_event_stream = ChannelStream::new();
 
+        // add transaction task
         let txn_task_state = TxnTask {
             handles: nodes.clone(),
             next_node_idx: Some(0),
@@ -112,9 +114,9 @@ where
             test_event_stream.clone(),
         )
         .await;
-        // TODO (jr) fix this to have a better name
-        task_runner = task_runner.add_task(id, "blah".to_string(), task);
+        task_runner = task_runner.add_task(id, "Test Transaction Submission Task".to_string(), task);
 
+        // add completion task
         let completion_task_state = CompletionTask {
             handles: nodes.clone(),
             test_event_stream: test_event_stream.clone(),
@@ -125,9 +127,20 @@ where
             test_event_stream.clone(),
         )
         .await;
-        task_runner = task_runner.add_task(id, "blah".to_string(), task);
+        task_runner = task_runner.add_task(id, "Completion Task".to_string(), task);
 
-        // self.launcher.txn_task_generator(self.nodes.clone())
+        let overall_safety_task_state = OverallSafetyTask {
+            handles: nodes.clone(),
+            ctx: RoundCtx::default(),
+        };
+        let (id, task) = (launcher.overall_safety_task_generator)(
+            overall_safety_task_state,
+            registry.clone(),
+            test_event_stream.clone()
+        ).await;
+        task_runner = task_runner.add_task(id, "Overall Safety Task".to_string(), task);
+
+        // add per node safety task
         for mut node in nodes.clone() {
             let safety_task_state = PerNodeSafetyTask {
                 ctx: NodeCtx::default(),
