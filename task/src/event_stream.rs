@@ -135,7 +135,7 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
                 }
             }
             None => {
-                tracing::error!("Requested stream id not found");
+                tracing::info!("Requested stream id not found");
             }
         }
     }

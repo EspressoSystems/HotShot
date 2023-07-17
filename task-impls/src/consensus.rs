@@ -56,6 +56,7 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::alloc::GlobalAlloc;
+use std::arch::aarch64::uint16x8x4_t;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -63,7 +64,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -136,6 +137,9 @@ pub struct SequencingConsensusTaskState<
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
     pub current_proposal: Option<QuorumProposal<TYPES, I::Leaf>>,
+
+    // ED Should replace this with config information since we need it anyway
+    pub id: u64,
 }
 
 pub struct VoteCollectionTaskState<
@@ -157,6 +161,7 @@ pub struct VoteCollectionTaskState<
         Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
     pub cur_view: TYPES::Time,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub id: u64,
 }
 
 impl<
@@ -174,6 +179,8 @@ where
     >,
 {
 }
+
+#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "Quorum Vote Collection Task", level = "error")]
 
 async fn vote_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -257,7 +264,7 @@ where
             }
         },
         SequencingHotShotEvent::Shutdown => {
-            warn!("Shutting down vote handle");
+            // warn!("Shutting down vote handle");
             return (Some(HotShotTaskCompleted::ShutDown), state);
         }
         _ => {}
@@ -294,6 +301,9 @@ where
         // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
         // ED: Added this in the DA task ^
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
+
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
 
@@ -314,6 +324,9 @@ where
         };
         Some(leaf.clone())
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
+
     async fn vote_if_able(&self) -> bool {
         // warn!("In vote if able");
 
@@ -374,7 +387,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!("Sending vote to next leader {:?}", vote.current_view());
+                            warn!("Sending vote to next quorum leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -453,7 +466,7 @@ where
 
                         // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!("Sending vote to next leader {:?}", vote.current_view());
+                            warn!("Sending vote to next quorum leader {:?}", vote.current_view());
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -476,9 +489,11 @@ where
     }
 
     /// Must only update the view and GC if the view actually changes
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
+
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
-            warn!("Updating view from {} to {}", *self.cur_view, *new_view);
+            warn!("Updating view from {} to {} in consensus task", *self.cur_view, *new_view);
 
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
@@ -488,7 +503,6 @@ where
             // }
             self.cur_view = new_view;
             self.current_proposal = None;
-
 
             // Start polling for proposals for the new view
             // error!("Polling for quorum proposal for view {}", *new_view);
@@ -512,13 +526,16 @@ where
             }
 
             self.event_stream
-            .publish(SequencingHotShotEvent::ViewChange(new_view))
-            .await;
+                .publish(SequencingHotShotEvent::ViewChange(new_view))
+                .await;
 
             return true;
         }
         false
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
@@ -790,7 +807,7 @@ where
                                 })
                                 .await;
 
-                            warn!("about to pulbish decide");
+                            warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
                                 view_number: consensus.last_decided_view,
                                 event: EventType::Decide {
@@ -840,7 +857,7 @@ where
                             let view_number = self.cur_view.clone();
                             async move {
                                 // ED: Changing to 1 second to test timeout logic
-                                async_sleep(Duration::from_millis(1000)).await;
+                                async_sleep(Duration::from_millis(5000)).await;
                                 stream
                                     .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                         *view_number,
@@ -851,7 +868,7 @@ where
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
-                            warn!("Vote is {:?}", vote.current_view());
+                            // warn!("Vote is {:?}", vote.current_view());
 
                             // self.event_stream
                             //     .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
@@ -864,8 +881,12 @@ where
                 warn!("Received quroum vote: {:?}", vote.current_view());
 
                 if !self.quorum_exchange.is_leader(vote.current_view() + 1) {
-                    error!("We are not the leader for view {} are we the leader for view + 1? {}", *vote.current_view() + 1, self.quorum_exchange.is_leader(vote.current_view() + 2));
-                    return 
+                    error!(
+                        "We are not the leader for view {} are we the leader for view + 1? {}",
+                        *vote.current_view() + 1,
+                        self.quorum_exchange.is_leader(vote.current_view() + 2)
+                    );
+                    return;
                 }
 
                 match vote {
@@ -916,6 +937,7 @@ where
                                 accumulator,
                                 cur_view: vote.current_view,
                                 event_stream: self.event_stream.clone(),
+                                id: self.id
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent(Arc::new(|event| {
@@ -941,10 +963,10 @@ where
                             warn!("Starting vote handle for view {:?}", vote.current_view);
                         } else {
                             if let Some((view, _, stream_id)) = self.vote_collector {
-                                warn!(
-                                    "directly sending vote to vote collection task. view {:?}",
-                                    view
-                                );
+                                // warn!(
+                                //     "directly sending vote to vote collection task. view {:?}",
+                                //     view
+                                // );
                                 self.event_stream
                                     .direct_message(
                                         stream_id,
@@ -990,7 +1012,7 @@ where
                 // }
 
                 // warn!("Handle qc formed event!");
-                // TODO ED Why isn't cur view correct here? 
+                // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
                 if !self.quorum_exchange.is_leader(qc.view_number + 1) {
                     error!("Somehow we formed a QC but are not the leader for the next view");
@@ -1119,7 +1141,7 @@ where
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                warn!("View Change event for view {}", *new_view);
+                // warn!("View Change event for view {}", *new_view);
 
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
@@ -1147,7 +1169,7 @@ where
                     let view_number = self.cur_view.clone();
                     async move {
                         // ED: Changing to 1 second to test timeout logic
-                        async_sleep(Duration::from_millis(1000)).await;
+                        async_sleep(Duration::from_millis(5000)).await;
                         stream
                             .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                 *view_number,
@@ -1266,7 +1288,7 @@ where
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
-                warn!("Updating self . block!");
+                // warn!("Updating self . block!");
                 self.block = block;
             }
             _ => {}

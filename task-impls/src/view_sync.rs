@@ -53,7 +53,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
@@ -99,6 +99,7 @@ pub struct ViewSyncTaskState<
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub api: A,
+    pub id: u64, 
 
     // pub task_runner: TaskRunner,
     /// How many timeouts we've seen in a row; is reset upon a successful view change
@@ -166,6 +167,7 @@ pub struct ViewSyncReplicaTaskState<
     pub relay: u64,
     pub finalized: bool,
     pub sent_view_change_event: bool,
+    pub id: u64,
 
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
     pub api: A,
@@ -214,6 +216,7 @@ pub struct ViewSyncRelayTaskState<
         VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         ViewSyncCertificate<TYPES>,
     >,
+    pub id: u64
 }
 
 impl<
@@ -253,6 +256,8 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
+
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         // TODO ED Match on &event
         match event.clone() {
@@ -303,6 +308,7 @@ where
                     api: self.api.clone(),
                     event_stream: self.event_stream.clone(),
                     view_sync_timeout: self.view_sync_timeout,
+                    id: self.id
                 };
 
                 let result = replica_state.handle_event(event).await;
@@ -389,6 +395,7 @@ where
                     event_stream: self.event_stream.clone(),
                     exchange: self.exchange.clone(),
                     accumulator: either::Left(accumulator),
+                    id: self.id
                 };
 
                 let result = relay_state.handle_event(event).await;
@@ -460,7 +467,7 @@ where
                 warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 // TODO ED Make this a configurable variable
-                if self.num_timeouts_tracked == 2 {
+                if self.num_timeouts_tracked >= 2 {
                     // Start polling for view sync certificates
                     self.exchange
                         .network()
@@ -489,6 +496,7 @@ where
                         api: self.api.clone(),
                         event_stream: self.event_stream.clone(),
                         view_sync_timeout: self.view_sync_timeout,
+                        id: self.id
                     };
 
                     // TODO ED Make all these view numbers into a single variable to avoid errors
@@ -590,6 +598,8 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
+
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -611,7 +621,7 @@ where
                     }
                 };
 
-                warn!("received cert in handle_event for replica");
+                // warn!("received cert in handle_event for replica");
 
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
@@ -656,7 +666,7 @@ where
 
                 // Send ViewChange event if necessary
                 if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
-                    error!("Updating view from view sync to view {}", *self.next_view);
+                    error!("VIEW SYNC UPDATING VIEW TO {}", *self.next_view);
                     self.event_stream
                         .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
                             *self.next_view,
@@ -699,7 +709,7 @@ where
                         };
 
                         if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                            error!("Sending vs vote {:?}", vote.clone());
+                            // error!("Sending vs vote {:?}", vote.clone());
 
                             self.event_stream
                                 .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
@@ -724,9 +734,9 @@ where
                                 ),
                                 ViewSyncPhase::Finalize => unimplemented!(),
                             };
-                            error!("Sending vs vote {:?}", message.clone());
+                            // error!("Sending vs vote {:?}", message.clone());
                             if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                                error!("Sending vs vote {:?}", vote.clone());
+                                // error!("Sending vs vote {:?}", vote.clone());
 
                                 self.event_stream
                                     .publish(SequencingHotShotEvent::ViewSyncVoteSend(vote))
@@ -903,6 +913,8 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    #[instrument(skip_all, fields(id = self.id), name = "View Sync Relay Task", level = "error")]
+
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -937,7 +949,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    error!("We are not the correct relay");
+                    warn!("We are not the correct relay");
                     return (None, self);
                 }
 
@@ -947,7 +959,7 @@ where
                 }
                 .commit();
 
-                error!("Accumulating view sync vote {} relay {}", *vote_internal.round, vote_internal.relay);
+                warn!("Accumulating view sync vote {} relay {}", *vote_internal.round, vote_internal.relay);
 
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
@@ -969,7 +981,7 @@ where
                             data: certificate.clone(),
                             signature,
                         };
-                        error!("Sending view sync cert {:?}", message.clone());
+                        // error!("Sending view sync cert {:?}", message.clone());
                         self.event_stream
                             .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
                                 message,

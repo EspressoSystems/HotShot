@@ -49,7 +49,7 @@ use std::sync::Arc;
 use std::time::Instant;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -93,6 +93,8 @@ pub struct DATaskState<
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+
+    pub id: u64,
 }
 
 pub struct DAVoteCollectionTaskState<
@@ -114,6 +116,7 @@ pub struct DAVoteCollectionTaskState<
     // TODO ED Make this just "view" since it is only for this task
     pub cur_view: ViewNumber,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub id: u64,
 }
 
 impl<
@@ -131,6 +134,7 @@ where
 {
 }
 
+#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
 async fn vote_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -218,6 +222,8 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -239,10 +245,10 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                // warn!(
-                //     "DA proposal received for view: {:?}",
-                //     proposal.data.get_view_number()
-                // );
+                warn!(
+                    "DA proposal received for view: {:?}",
+                    proposal.data.get_view_number()
+                );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
 
@@ -303,9 +309,8 @@ where
                 // );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if !self.committee_exchange.is_leader(view)
-                {
-                    error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1)) ;
+                if !self.committee_exchange.is_leader(view) {
+                    error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1));
                     return None;
                 }
 
@@ -316,7 +321,7 @@ where
                     if let Some((collection_view, collection_id, _)) = &self.vote_collector {
                         // TODO: Is this correct for consecutive leaders?
                         if view > *collection_view {
-                            warn!("shutting down for view {:?}", collection_view);
+                            // warn!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
                         collection_view.clone()
@@ -347,6 +352,7 @@ where
                         accumulator,
                         cur_view: view,
                         event_stream: self.event_stream.clone(),
+                        id: self.id,
                     };
                     let name = "DA Vote Collection";
                     let filter = FilterEvent(Arc::new(|event| {
@@ -388,15 +394,15 @@ where
                 // Inject view info into network
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)))
+                    .inject_consensus_info(
+                        (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
+                    )
                     .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if !self.committee_exchange.is_leader(self.cur_view + 1)
-              
-                {
+                if !self.committee_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
@@ -493,6 +499,8 @@ where
     }
 
     /// return None if we can't get transactions
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Vote Collection Task", level = "error")]
+
     async fn wait_for_transactions(
         &self,
         parent_leaf: SequencingLeaf<TYPES>,

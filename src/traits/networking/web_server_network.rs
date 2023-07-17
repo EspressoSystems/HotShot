@@ -233,10 +233,10 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
                         MessagePurpose::Proposal => {
-                            error!(
-                                "Received proposal from web server for view {} {}",
-                                view_number, self.is_da
-                            );
+                            // error!(
+                            //     "Received proposal from web server for view {} {}",
+                            //     view_number, self.is_da
+                            // );
                             // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
@@ -246,12 +246,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             consensus_info = consensus_update.recv().await.unwrap();
                         }
                         MessagePurpose::Vote => {
-                            error!(
-                                "Received {} votes from web server for view {} is da {}",
-                                deserialized_messages.len(),
-                                view_number,
-                                self.is_da
-                            );
+                            // error!(
+                            //     "Received {} votes from web server for view {} is da {}",
+                            //     deserialized_messages.len(),
+                            //     view_number,
+                            //     self.is_da
+                            // );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -267,7 +267,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
                         }
                         MessagePurpose::DAC => {
-                            error!("Received DAC from web server");
+                            // error!("Received DAC from web server");
                             let mut lock = self.broadcast_poll_queue.write().await;
                             lock.push(deserialized_messages[0].clone());
                             // TODO ED Wait until next view?
@@ -350,12 +350,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
                         }
                         MessagePurpose::Vote => {
-                            error!(
-                                "Received {} votes from web server for view {} is da {}",
-                                deserialized_messages.len(),
-                                view_number,
-                                self.is_da
-                            );
+                            // error!(
+                            //     "Received {} votes from web server for view {} is da {}",
+                            //     deserialized_messages.len(),
+                            //     view_number,
+                            //     self.is_da
+                            // );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -382,12 +382,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
                         }
                         MessagePurpose::ViewSyncVote => {
-                            error!(
-                                "Received {} view sync votes from web server for view {} is da {}",
-                                deserialized_messages.len(),
-                                view_number,
-                                self.is_da
-                            );
+                            // error!(
+                            //     "Received {} view sync votes from web server for view {} is da {}",
+                            //     deserialized_messages.len(),
+                            //     view_number,
+                            //     self.is_da
+                            // );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -395,12 +395,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
                         }
                         MessagePurpose::ViewSyncProposal => {
-                            error!(
-                                "Received {} view sync certs from web server for view {} is da {}",
-                                deserialized_messages.len(),
-                                view_number,
-                                self.is_da
-                            );
+                            // error!(
+                            //     "Received {} view sync certs from web server for view {} is da {}",
+                            //     deserialized_messages.len(),
+                            //     view_number,
+                            //     self.is_da
+                            // );
                             let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
                             // TODO ED Special case this for view sync
                             // TODO ED Need to add vote indexing to web server for view sync certs
