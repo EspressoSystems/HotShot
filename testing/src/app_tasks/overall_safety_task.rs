@@ -2,17 +2,17 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::{future::BoxFuture, FutureExt};
-use hotshot::traits::{TestableNodeImplementation, NodeImplementation};
-use hotshot_task::{task::{TaskErr, HotShotTaskCompleted, HandleEvent, HandleMessage, FilterEvent, HotShotTaskTypes}, task_impls::{HSTWithEventAndMessage, TaskBuilder}, event_stream::ChannelStream, MergeN, global_registry::{GlobalRegistry, HotShotTaskId}};
-use hotshot_types::{traits::node_implementation::NodeType, certificate::QuorumCertificate, data::LeafType, event::Event};
+use hotshot::{traits::{TestableNodeImplementation, NodeImplementation}, HotShotError};
+use hotshot_task::{task::{TaskErr, HotShotTaskCompleted, HandleEvent, HandleMessage, FilterEvent, HotShotTaskTypes, PassType}, task_impls::{HSTWithEventAndMessage, TaskBuilder}, event_stream::ChannelStream, MergeN, global_registry::{GlobalRegistry, HotShotTaskId}};
+use hotshot_types::{traits::node_implementation::NodeType, certificate::QuorumCertificate, data::LeafType, event::{Event, EventType}};
 use hotshot_task::task::TS;
 use nll::nll_todo::nll_todo;
 use std::marker::PhantomData;
 use snafu::Snafu;
 
-use crate::{test_runner::Node, round::RoundCtx};
+use crate::{test_runner::Node};
 
-use super::GlobalTestEvent;
+use super::{GlobalTestEvent, node_ctx::ViewStatus};
 
 // TODO
 #[derive(Clone, Debug)]
@@ -37,7 +37,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 {
     fn default() -> Self {
         Self {
-            handles: vec![]
+            handles: vec![],
+            ctx: RoundCtx::default()
         }
     }
 }
@@ -47,7 +48,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 
 /// Result of running a round of consensus
 #[derive(Debug)]
-// TODO do we need static here
 pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     // pub txns: Vec<TYPES::Transaction>,
@@ -67,7 +67,31 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub agreed_leaf: Option<LEAF>,
 
     /// whether or not the round succeeded (for a custom defn of succeeded)
-    pub success: Result<(), ()>,
+    pub success: Result<(), HotShotError<TYPES>>,
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<TYPES, LEAF> {
+    fn default() -> Self {
+        Self {
+            success_nodes: Default::default(),
+            failed_nodes: Default::default(),
+            agreed_leaf: Default::default(),
+            success: Ok(())
+        }
+    }
+}
+
+/// smh my head I shouldn't need to implement this
+/// Rust doesn't realize I doesn't need to implement default
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default for RoundCtx<TYPES, I> {
+    fn default() -> Self {
+        Self {
+            prior_round_results: Default::default(),
+            views_since_progress: Default::default(),
+            total_failed_views: Default::default(),
+            total_successful_views: Default::default()
+        }
+    }
 }
 
 /// context for a round
@@ -77,13 +101,14 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Debug)]
 pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     /// results from previous rounds
-    pub prior_round_results: HashMap<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
+    /// view number -> round result
+    pub prior_round_results: HashMap<usize, RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
     /// views since we had a successful commit
     pub views_since_progress: HashMap<usize, usize>,
     /// during the run view refactor
     pub total_failed_views: HashMap<usize, usize>,
     /// successful views
-    pub total_successful_views: HashMapusize,
+    pub total_successful_views: usize,
 }
 
 pub struct OverallSafetyTaskDescription {
@@ -127,23 +152,81 @@ impl OverallSafetyTaskDescription {
         )
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
     > {
+        let Self {
+            num_out_of_sync,
+            check_leaf,
+            check_state,
+            check_block,
+            // TODO <https://github.com/EspressoSystems/HotShot/issues/1167>
+            // We can't exactly check that the transactions all match those submitted
+            // because of a type error. We ONLY have `MaybeState` and we need `State`.
+            // unless we specialize, this won't happen.
+            // so waiting on refactor for this
+            // code is below:
+            //
+            //     ```
+            //         let next_state /* : Option<_> */ = {
+            //         if let Some(last_leaf) = ctx.prior_round_results.iter().last() {
+            //             if let Some(parent_state) = last_leaf.agreed_state {
+            //                 let mut block = <TYPES as NodeType>::StateType::next_block(Some(parent_state.clone()));
+            //             }
+            //         }
+            //     };
+            // ```
+            check_transactions: _,
+            num_failed_consecutive_rounds,
+            num_failed_rounds_total,
+        }: Self = self;
+
+
+
+
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
+
                 let event_handler =
                     HandleEvent::<OverallSafetyTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
                         async move {
-                            // handle shut down safety check too here
-                            (None, state)
+                            match event {
+                                GlobalTestEvent::ShutDown => {
+                                    // TODO check if we got enough successful views
+                                    (Some(HotShotTaskCompleted::ShutDown), state)
+                                }
+                                _ => (None, state)
+                            }
                         }.boxed()
                     }));
+
                 let message_handler =
                     HandleMessage::<OverallSafetyTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
                         async move {
-                            (None, state)
+                            let (idx, Event { view_number, event }) = msg;
+                            match event {
+                                EventType::Error { error } => {
 
+                                },
+                                EventType::Decide { leaf_chain, qc } => {
+                                    // for leaf in leaf_chain {
+                                    // TODO how to test this
+                                    // }
+                                    // TODO how to do this counting
+                                    // state.ctx.round_results.insert(
+                                    //     view_number,
+                                    //     ViewStatus::ViewSuccess(nll_todo()),
+                                    //     );
+                                }
+                                // these aren't failures
+                                EventType::ReplicaViewTimeout { view_number }
+                                | EventType::NextLeaderViewTimeout { view_number }
+                                | EventType::ViewFinished { view_number } => todo!(),
+                                _ => todo!()
+
+                            }
+                            (None, state)
                         }.boxed()
 
                     }));
+
                 let mut streams = vec![];
                 for handle in state.handles.iter() {
                     streams.push(handle.handle.get_event_stream_known_impl(FilterEvent::default()).await.0);
@@ -163,7 +246,6 @@ impl OverallSafetyTaskDescription {
             }.boxed()
         })
     }
-
 }
 
 pub type OverallSafetyTaskTypes<
@@ -173,7 +255,7 @@ pub type OverallSafetyTaskTypes<
     OverallSafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,
-    Event<TYPES, I::Leaf>,
+    (usize, Event<TYPES, I::Leaf>),
     MergeN<UnboundedStream<Event<TYPES, I::Leaf>>>,
     OverallSafetyTask<TYPES, I>,
 >;

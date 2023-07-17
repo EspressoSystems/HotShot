@@ -185,8 +185,6 @@ pub mod test {
         Three,
     }
 
-    impl PassType for TestMessage {}
-
     #[cfg(test)]
     #[cfg_attr(
         feature = "tokio-executor",

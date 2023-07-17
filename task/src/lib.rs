@@ -70,6 +70,8 @@ impl<T: Stream> MergeN<T> {
     }
 }
 
+impl<T: Clone + std::fmt::Debug + Sync + Send + 'static> PassType for T {}
+
 impl<T: Stream + Sync + Send + 'static> SendableStream for MergeN<T> {}
 
 // NOTE: yoinked from https://github.com/yoshuawuyts/futures-concurrency/
@@ -100,7 +102,8 @@ where
 }
 
 impl<T: Stream> Stream for MergeN<T> {
-    type Item = <T as Stream>::Item;
+    // idx of the stream, item
+    type Item = (usize, <T as Stream>::Item);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut me = self.project();
@@ -119,7 +122,7 @@ impl<T: Stream> Stream for MergeN<T> {
             let stream = get_pin_mut_from_vec(me.streams.as_mut(), i).unwrap();
 
             match stream.poll_next(cx) {
-                Ready(Some(val)) => return Ready(Some(val)),
+                Ready(Some(val)) => return Ready(Some((i, val))),
                 Ready(None) => {},
                 Pending => done = false
             }

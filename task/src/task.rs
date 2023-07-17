@@ -19,9 +19,6 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
 pub trait PassType: Clone + Debug + Sync + Send + 'static {}
-impl PassType for () {}
-
-impl<U: PassType, T: PassType> PassType for Either<U, T> {}
 
 /// the task state
 pub trait TS: Sync + Send + 'static {}

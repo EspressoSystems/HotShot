@@ -16,7 +16,6 @@ pub struct Event<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub event: EventType<TYPES, LEAF>,
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> PassType for Event<TYPES, LEAF> {}
 
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///

@@ -41,8 +41,6 @@ pub enum GlobalTestEvent {
     ShutDown,
 }
 
-impl PassType for GlobalTestEvent {}
-
 pub enum ShutDownReason {
     SafetyViolation,
     SuccessfullyCompleted,

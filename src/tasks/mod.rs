@@ -308,7 +308,6 @@ pub enum GlobalEvent {
     /// dummy (TODO delete later)
     Dummy,
 }
-impl PassType for GlobalEvent {}
 
 /// add the networking task
 /// # Panics
