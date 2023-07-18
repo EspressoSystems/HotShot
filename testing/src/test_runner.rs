@@ -7,8 +7,8 @@ use crate::{
     test_errors::ConsensusTestError,
     test_launcher::TestLauncher,
 };
-// use console_subscriber; 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+use console_subscriber;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{Message, SystemContextHandle},
@@ -520,7 +520,8 @@ pub mod test {
                 vrf::JfPubKey,
             },
             implementations::{
-                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
+                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+                WebCommChannel,
             },
             NodeImplementation,
         },
@@ -658,18 +659,6 @@ pub mod test {
     //         .unwrap();
     // }
 
-
-
-
-
-
-
-
-
-
-
-
-
     #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
     pub struct SequencingWebImpl {}
 
@@ -747,9 +736,9 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_basic_web_server() {
-        // console_subscriber::init();
-        async_compatibility_layer::logging::setup_logging();
-        async_compatibility_layer::logging::setup_backtrace();
+        console_subscriber::init();
+        // async_compatibility_layer::logging::setup_logging();
+        // async_compatibility_layer::logging::setup_backtrace();
         let metadata = crate::app_tasks::test_builder::TestMetadata::default();
         metadata
             .gen_launcher::<SequencingTestTypes, SequencingWebImpl>()
