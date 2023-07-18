@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["spawn_server"],"mod":["network_state"],"static":["CALLSITE","META"],"trait":["WebInfo"]};
+window.SIDEBAR_ITEMS = {"fn":["spawn_server"],"mod":["network_state"],"trait":["WebInfo"]};

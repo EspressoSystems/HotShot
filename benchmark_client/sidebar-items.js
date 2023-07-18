@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main","read_spam","spam"],"static":["CALLSITE","META"],"struct":["Opts"],"type":["FromServer","ToServer"]};
+window.SIDEBAR_ITEMS = {"fn":["main","read_spam","spam"],"struct":["Opts"],"type":["FromServer","ToServer"]};

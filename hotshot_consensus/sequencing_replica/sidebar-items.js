@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["SequencingReplica"]};
+window.SIDEBAR_ITEMS = {"struct":["SequencingReplica"]};

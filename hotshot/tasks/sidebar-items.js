@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["network_lookup_task","network_task","view_runner"],"static":["CALLSITE","META"],"struct":["TaskHandle","TaskHandleInner"]};
+window.SIDEBAR_ITEMS = {"fn":["network_lookup_task","network_task","view_runner"],"struct":["TaskHandle","TaskHandleInner"]};

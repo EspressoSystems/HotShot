@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_MasterMap"],"enum":["Combo"],"static":["CALLSITE","META"],"struct":["DummyReliability","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryNetworkInner"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_MasterMap"],"enum":["Combo"],"struct":["DummyReliability","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryNetworkInner"]};

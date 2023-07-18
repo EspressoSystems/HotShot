@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_EncodedPublicKey","_DERIVE_core_fmt_Debug_FOR_EncodedSignature"],"mod":["ed25519"],"struct":["DebugWith","EncodedPublicKey","EncodedSignature"],"trait":["SignatureKey","TestableSignatureKey"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_EncodedPublicKey","_DERIVE_core_fmt_Debug_FOR_EncodedSignature"],"mod":["ed25519"],"struct":["EncodedPublicKey","EncodedSignature"],"trait":["SignatureKey","TestableSignatureKey"]};
