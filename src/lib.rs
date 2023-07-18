@@ -35,7 +35,7 @@ pub mod tasks;
 use crate::{
     certificate::QuorumCertificate,
     tasks::{
-        add_consensus_task, add_da_task, add_network_task_in_msg, add_network_task_out_msg,
+        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
         add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
@@ -873,14 +873,14 @@ where
             storage: self.inner.storage.clone(),
         };
 
-        let task_runner = add_network_task_in_msg(
+        let task_runner = add_network_message_task(
             task_runner,
             internal_event_stream.clone(),
             quorum_exchange.clone(),
             handle.clone(),
         )
         .await;
-        let task_runner = add_network_task_out_msg(
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             quorum_exchange,
@@ -888,7 +888,7 @@ where
             handle.clone(),
         )
         .await;
-        let task_runner = add_network_task_out_msg(
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
@@ -896,7 +896,7 @@ where
             handle.clone(),
         )
         .await;
-        let task_runner = add_network_task_out_msg(
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),

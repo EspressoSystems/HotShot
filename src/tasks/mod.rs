@@ -34,7 +34,10 @@ use hotshot_task_impls::{
     },
     da::{DATaskState, DATaskTypes},
     events::SequencingHotShotEvent,
-    network::{NetworkTaskState, NetworkTaskTypes},
+    network::{
+        NetworkEventTaskState, NetworkEventTaskTypes, NetworkMessageTaskState,
+        NetworkMessageTaskTypes,
+    },
 };
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
@@ -314,7 +317,7 @@ impl PassType for GlobalEvent {}
 /// Add the network task to handle messages and publish events.
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_network_task_in_msg<
+pub async fn add_network_message_task<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -353,7 +356,6 @@ where
                     .expect("Failed to receive broadcast messages"),
             );
             async_sleep(Duration::new(0, 500)).await;
-            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
@@ -369,32 +371,18 @@ where
                     .expect("Failed to receive direct messages"),
             );
             async_sleep(Duration::new(0, 500)).await;
-            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
-    // // We don't handle incoming events in this task.
-    // let filter = FilterEvent(Arc::new(|_| false));
-    let channel = exchange.network().clone();
-    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
-        channel,
+    let network_state: NetworkMessageTaskState<_, _> = NetworkMessageTaskState {
         event_stream: event_stream.clone(),
-        view: ViewNumber::genesis(),
-        phantom: PhantomData,
     };
     let registry = task_runner.registry.clone();
     let network_message_handler = HandleMessage(Arc::new(
         move |messages: either::Either<Messages<TYPES, I>, Messages<TYPES, I>>,
-              mut state: NetworkTaskState<
-            TYPES,
-            I,
-            PROPOSAL,
-            VOTE,
-            MEMBERSHIP,
-            EXCHANGE::Networking,
-        >| {
+              mut state: NetworkMessageTaskState<TYPES, I>| {
             let messages = match messages {
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
@@ -408,29 +396,20 @@ where
             .boxed()
         },
     ));
-    // let network_event_handler = HandleEvent(Arc::new(
-    //     move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
-    //         // We don't handle incoming events in this task.
-    //         async move { (None, state) }.boxed()
-    //     },
-    // ));
     let networking_name = "Networking Task";
 
     let networking_task_builder =
-        TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
+        TaskBuilder::<NetworkMessageTaskTypes<_, _>>::new(networking_name.to_string())
             .register_message_stream(message_stream)
-            // .register_event_stream(event_stream.clone(), filter)
-            // .await
             .register_registry(&mut registry.clone())
             .await
             .register_state(network_state)
             .register_message_handler(network_message_handler);
-    // .register_event_handler(network_event_handler);
 
     // impossible for unwraps to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
-    let networking_task = NetworkTaskTypes::build(networking_task_builder).launch();
+    let networking_task = NetworkMessageTaskTypes::build(networking_task_builder).launch();
 
     let task_runner = task_runner.add_task(
         networking_task_id,
@@ -444,7 +423,7 @@ where
 /// Add the network task to handle events and send messages.
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_network_task_out_msg<
+pub async fn add_network_event_task<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -475,26 +454,22 @@ where
 {
     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let closure = async move {
-            // We don't handle incoming message in this task.
             let msgs = Messages(Vec::new());
             async_sleep(Duration::new(0, 500)).await;
-            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
     }));
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let closure = async move {
-            // We don't handle incoming message in this task.
             let msgs = Messages(Vec::new());
             async_sleep(Duration::new(0, 500)).await;
-            // network.shut_down().await;
             msgs
         };
         boxed_sync(closure)
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
-    let filter = NetworkTaskState::<
+    let filter = NetworkEventTaskState::<
         TYPES,
         I,
         PROPOSAL,
@@ -503,19 +478,15 @@ where
         <EXCHANGE as ConsensusExchange<_, _>>::Networking,
     >::filter(task_kind);
     let channel = exchange.network().clone();
-    let network_state: NetworkTaskState<_, _, _, _, _, _> = NetworkTaskState {
+    let network_state: NetworkEventTaskState<_, _, _, _, _, _> = NetworkEventTaskState {
         channel,
         event_stream: event_stream.clone(),
         view: ViewNumber::genesis(),
         phantom: PhantomData,
     };
     let registry = task_runner.registry.clone();
-    // let network_message_handler = HandleMessage(Arc::new(move |_, mut state| {
-    //     // We don't handle incoming messages in this task.
-    //     async move { (None, state) }.boxed()
-    // }));
     let network_event_handler = HandleEvent(Arc::new(
-        move |event, mut state: NetworkTaskState<_, _, _, _, MEMBERSHIP, _>| {
+        move |event, mut state: NetworkEventTaskState<_, _, _, _, MEMBERSHIP, _>| {
             let membership = exchange.membership().clone();
             async move {
                 let completion_status = state.handle_event(event, &membership).await;
@@ -527,20 +498,18 @@ where
     let networking_name = "Networking Task";
 
     let networking_task_builder =
-        TaskBuilder::<NetworkTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
-            // .register_message_stream(message_stream)
+        TaskBuilder::<NetworkEventTaskTypes<_, _, _, _, _, _>>::new(networking_name.to_string())
             .register_event_stream(event_stream.clone(), filter)
             .await
             .register_registry(&mut registry.clone())
             .await
             .register_state(network_state)
-            // .register_message_handler(network_message_handler)
             .register_event_handler(network_event_handler);
 
     // impossible for unwraps to fail
     // we *just* registered
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
-    let networking_task = NetworkTaskTypes::build(networking_task_builder).launch();
+    let networking_task = NetworkEventTaskTypes::build(networking_task_builder).launch();
 
     let task_runner = task_runner.add_task(
         networking_task_id,
