@@ -8,6 +8,29 @@
                 "args": [
                     "test",
                     "--no-run",
+                    "--features=full-ci",
+                    "--package=hotshot-testing",
+                    "test_basic_web_server", 
+                    "--", 
+                    "--nocapture"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_basic_web_server test"
+        },
+
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::broadcast_queue"

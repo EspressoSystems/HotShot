@@ -182,14 +182,14 @@ where
                     return (None, state);
                 }
                 Right(dac) => {
-                    // warn!("Sending DAC! {:?}", dac.view_number);
-                    // state
-                    //     .event_stream
-                    //     .publish(SequencingHotShotEvent::DACSend(
-                    //         dac.clone(),
-                    //         state.committee_exchange.public_key().clone(),
-                    //     ))
-                    //     .await;
+                    warn!("Sending DAC! {:?}", dac.view_number);
+                    state
+                        .event_stream
+                        .publish(SequencingHotShotEvent::DACSend(
+                            dac.clone(),
+                            state.committee_exchange.public_key().clone(),
+                        ))
+                        .await;
 
                     state.accumulator = Right(dac.clone());
                     state.committee_exchange
@@ -259,7 +259,7 @@ where
 
                 // This should still be fine to do because we shouldn't be receiving a DA proposal for a view less than the one we are currently in
                 if view < self.cur_view {
-                    panic!("Throwing away DA proposal");
+                    error!("Throwing away DA proposal");
                     return None;
                 }
                 let block_commitment = proposal.data.deltas.commit();
@@ -550,7 +550,7 @@ where
                 match result {
                     Err(_) => {
                         // Fall through below to updating new block
-                        info!("propose_max_round_time passed, sending transactions we have so far");
+                        error!("propose_max_round_time passed, sending transactions we have so far");
                     }
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped

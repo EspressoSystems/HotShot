@@ -466,8 +466,12 @@ where
                 self.num_timeouts_tracked += 1;
                 warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
+                if self.num_timeouts_tracked > 2 {
+                    panic!("Too many timeouts!  This shouldn't happen");
+                }
+
                 // TODO ED Make this a configurable variable
-                if self.num_timeouts_tracked >= 2 {
+                if self.num_timeouts_tracked == 2 {
                     // Start polling for view sync certificates
                     self.exchange
                         .network()
@@ -809,6 +813,7 @@ where
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
+                            panic!("HERE");
                             // error!("Sending vs vote {:?}", vote.clone());
 
                             self.event_stream

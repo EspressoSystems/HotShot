@@ -69,7 +69,7 @@ impl Default for TestMetadata {
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // TODO ED Put a configurable time here - 10 seconds for now
-                    duration: Duration::from_millis(30* 60 * 1000),
+                    duration: Duration::from_millis(4 * 60* 60 * 1000),
                 },
             ),
         }

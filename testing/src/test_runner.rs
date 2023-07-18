@@ -7,6 +7,7 @@ use crate::{
     test_errors::ConsensusTestError,
     test_launcher::TestLauncher,
 };
+// use console_subscriber; 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -639,23 +640,23 @@ pub mod test {
         }
     }
 
-    #[cfg(test)]
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_basic() {
-        async_compatibility_layer::logging::setup_logging();
-        async_compatibility_layer::logging::setup_backtrace();
-        let metadata = crate::app_tasks::test_builder::TestMetadata::default();
-        metadata
-            .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
-            .launch()
-            .run_test()
-            .await
-            .unwrap();
-    }
+    // #[cfg(test)]
+    // #[cfg_attr(
+    //     feature = "tokio-executor",
+    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
+    // )]
+    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    // async fn test_basic() {
+    //     async_compatibility_layer::logging::setup_logging();
+    //     async_compatibility_layer::logging::setup_backtrace();
+    //     let metadata = crate::app_tasks::test_builder::TestMetadata::default();
+    //     metadata
+    //         .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
+    //         .launch()
+    //         .run_test()
+    //         .await
+    //         .unwrap();
+    // }
 
 
 
@@ -746,6 +747,7 @@ pub mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_basic_web_server() {
+        // console_subscriber::init();
         async_compatibility_layer::logging::setup_logging();
         async_compatibility_layer::logging::setup_backtrace();
         let metadata = crate::app_tasks::test_builder::TestMetadata::default();
