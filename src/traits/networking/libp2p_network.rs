@@ -13,8 +13,8 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::network::ConsensusIntentEvent;
+use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -701,7 +701,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -853,7 +856,10 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }

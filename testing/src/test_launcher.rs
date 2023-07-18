@@ -113,7 +113,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_size, 
+            da_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,

@@ -69,7 +69,7 @@ impl Default for TestMetadata {
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // TODO ED Put a configurable time here - 10 seconds for now
-                    duration: Duration::from_millis(4 * 60* 60 * 1000),
+                    duration: Duration::from_millis(4 * 60 * 60 * 1000),
                 },
             ),
         }
@@ -136,9 +136,9 @@ impl TestMetadata {
             )),
         };
         let network_generator =
-        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
-    let secondary_network_generator =
-        I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+        let secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,

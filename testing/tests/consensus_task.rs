@@ -284,10 +284,7 @@ where
     });
     let exchanges = I::Exchanges::create(
         known_nodes.clone(),
-        (
-            quorum_election_config,
-            committee_election_config,
-        ),
+        (quorum_election_config, committee_election_config),
         (quorum_network, view_sync_network, committee_network),
         public_key.clone(),
         private_key.clone(),
@@ -330,8 +327,8 @@ where
             output_event_stream: nll_todo(),
             certs: HashMap::new(),
             current_proposal: None,
-            id: nll_todo(), 
-            qc: None, 
+            id: nll_todo(),
+            qc: None,
         };
     let consensus_event_handler = HandleEvent(Arc::new(
         move |event,

@@ -147,11 +147,11 @@ pub enum ConsensusIntentEvent {
     /// Cancel polling for votes
     CancelPollForViewSyncVotes(u64),
 
-    CancelPollForProposal(u64), 
+    CancelPollForProposal(u64),
 
     CancelPollForDAC(u64),
 
-    CancelPollForViewSyncCertificate(u64), 
+    CancelPollForViewSyncCertificate(u64),
 }
 
 impl ConsensusIntentEvent {

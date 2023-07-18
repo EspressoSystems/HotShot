@@ -192,16 +192,18 @@ where
                         .await;
 
                     state.accumulator = Right(dac.clone());
-                    state.committee_exchange
+                    state
+                        .committee_exchange
                         .network()
-                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)))
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)),
+                        )
                         .await;
 
                     // Return completed at this point
                     return (Some(HotShotTaskCompleted::ShutDown), state);
                 }
             }
-                
         }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
         _ => {}
@@ -401,7 +403,7 @@ where
                 }
                 self.cur_view = view;
                 // Inject view info into network
-                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view? 
+                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
                 self.committee_exchange
                     .network()
                     .inject_consensus_info(
@@ -503,9 +505,9 @@ where
 
             SequencingHotShotEvent::Timeout(view) => {
                 self.committee_exchange
-                        .network()
-                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
-                        .await;
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .await;
             }
 
             SequencingHotShotEvent::Shutdown => {
@@ -550,7 +552,9 @@ where
                 match result {
                     Err(_) => {
                         // Fall through below to updating new block
-                        error!("propose_max_round_time passed, sending transactions we have so far");
+                        error!(
+                            "propose_max_round_time passed, sending transactions we have so far"
+                        );
                     }
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped
