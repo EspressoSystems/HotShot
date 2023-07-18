@@ -1451,8 +1451,9 @@ where
         };
         warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 
-        self.qc = None; 
         // warn!("Sending proposal for view {:?}", message.data.clone());
+
+        self.qc = None; 
 
         self.event_stream
             .publish(SequencingHotShotEvent::QuorumProposalSend(
