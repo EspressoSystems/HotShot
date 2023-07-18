@@ -75,11 +75,11 @@ use tracing::error;
 /// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// The configuration file to be used for this run
-    config_file: String,
+    pub config_file: String,
 }
 
 /// Reads a network configuration from a given filepath
@@ -164,12 +164,12 @@ pub async fn run_orchestrator<
 /// Arguments passed to the validator
 pub struct ValidatorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// This node's public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
-    public_ip: Option<IpAddr>,
+    pub public_ip: Option<IpAddr>,
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -230,7 +230,7 @@ pub trait Run<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
+            config.seed,
         ));
         let known_nodes = config.config.known_nodes.clone();
 
@@ -252,7 +252,7 @@ pub trait Run<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (election_config.clone(), ()),
             (network.clone(), ()),
             pk.clone(),
             sk.clone(),
@@ -644,14 +644,8 @@ where
 // WEB SERVER
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
-type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
-    TYPES,
-    I,
-    Proposal<TYPES>,
-    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> =
+    WebCommChannel<TYPES, I, Proposal<TYPES>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP>;
 
 /// Represents a web server-based run
 pub struct WebServerRun<
@@ -679,7 +673,6 @@ impl<
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
                     WebCommChannel<
-                        ValidatingConsensus,
                         TYPES,
                         NODE,
                         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -697,7 +690,6 @@ impl<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -730,16 +722,26 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
+        let known_nodes = config.config.known_nodes.clone();
+
+        let committee_nodes = known_nodes.clone();
+
         // Create the network
         let network: WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(
+                &host.to_string(),
+                port,
+                wait_between_polls,
+                pub_key,
+                committee_nodes,
+            )
+            .into(),
         );
         WebServerRun { config, network }
     }
@@ -747,7 +749,6 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
-        ValidatingConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,
@@ -769,17 +770,18 @@ pub struct OrchestratorClient {
 
 impl OrchestratorClient {
     /// Creates the client that connects to the orchestrator
-    async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
+    pub async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
-        // TODO ED: Add healthcheck wait here
+        assert!(client.connect(None).await);
+
         OrchestratorClient { client }
     }
 
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
-    async fn identify_with_orchestrator(&self, identity: String) -> u16 {
+    pub async fn identify_with_orchestrator(&self, identity: String) -> u16 {
         let identity = identity.as_str();
         let f = |client: Client<ClientError>| {
             async move {
@@ -796,7 +798,7 @@ impl OrchestratorClient {
 
     /// Returns the run configuration from the orchestrator
     /// Will block until the configuration is returned
-    async fn get_config_from_orchestrator<TYPES: NodeType>(
+    pub async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
         node_index: u16,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
@@ -818,7 +820,7 @@ impl OrchestratorClient {
 
     /// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
-    async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
+    pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<ClientError>| {
             async move {
                 let result: Result<_, ClientError> = client
@@ -843,7 +845,7 @@ impl OrchestratorClient {
 
     /// Generic function that waits for the orchestrator to return a non-error
     /// Returns whatever type the given function returns
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
+    pub async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
