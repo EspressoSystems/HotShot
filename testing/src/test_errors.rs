@@ -1,9 +1,11 @@
+use hotshot_task::task::TaskErr;
 use snafu::Snafu;
 
 /// An overarching consensus test failure
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum ConsensusTestError {
+    NotEnoughSuccessfulViews,
     /// Too many nodes failed
     TooManyFailures,
     /// too many consecutive failures
@@ -28,6 +30,8 @@ pub enum ConsensusTestError {
         err: String,
     },
 }
+
+impl TaskErr for ConsensusTestError {}
 
 /// A view specific error
 #[derive(Debug, Snafu)]
