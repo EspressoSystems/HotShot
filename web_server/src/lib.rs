@@ -62,6 +62,7 @@ struct WebServerState<KEY> {
     oldest_view_sync_vote: u64,
 
     /// index -> transaction
+    // TODO ED Make indexable by hash of tx
     transactions: HashMap<u64, Vec<u8>>,
     /// highest transaction index
     num_txns: u64,

@@ -146,7 +146,6 @@ where
         }
 
         // Start hotshot
-        // Goes through all nodes, but really only needs to call this on the leader node of the first view
         for node in nodes {
             node.handle.hotshot.start_consensus().await;
         }

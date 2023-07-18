@@ -866,24 +866,25 @@ where
                         }
 
                       
+                        // Shouldn't need this because it will spawn this task during update_view
 
-                        self.timeout_task = async_spawn({
-                            // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-                            // let next_view_timeout = next_view_timeout;
-                            // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                            // TODO(bf): get the real timeout from the config.
-                            let stream = self.event_stream.clone();
-                            let view_number = self.cur_view.clone();
-                            async move {
-                                // ED: Changing to 1 second to test timeout logic
-                                async_sleep(Duration::from_millis(5000)).await;
-                                stream
-                                    .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
-                                        *view_number,
-                                    )))
-                                    .await;
-                            }
-                        });
+                        // self.timeout_task = async_spawn({
+                        //     // let next_view_timeout = hotshot.inner.config.next_view_timeout;
+                        //     // let next_view_timeout = next_view_timeout;
+                        //     // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+                        //     // TODO(bf): get the real timeout from the config.
+                        //     let stream = self.event_stream.clone();
+                        //     let view_number = self.cur_view.clone();
+                        //     async move {
+                        //         // ED: Changing to 1 second to test timeout logic
+                        //         async_sleep(Duration::from_millis(5000)).await;
+                        //         stream
+                        //             .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                        //                 *view_number,
+                        //             )))
+                        //             .await;
+                        //     }
+                        // });
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);

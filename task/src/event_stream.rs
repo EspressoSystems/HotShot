@@ -148,7 +148,10 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
                 match sender.send(event.clone()).await {
                     Ok(_) => (),
                     // error sending => stream is closed so remove it
-                    Err(_) => self.unsubscribe(*uid).await,
+                    Err(_) => (),
+                        
+                        // error!("Channel was closed with uid {}", *uid); 
+                        // self.unsubscribe(*uid).await},
                 }
             }
         }

@@ -1072,6 +1072,7 @@ impl<
         );
 
         // TODO ED Need to handle canceling tasks that don't receive their expected output (such a proposal that never comes)
+        // TODO ED Need to GC all old views, not just singular views, could lead to a network leak
 
         let result = match event {
             ConsensusIntentEvent::PollForProposal(view_number) => {
