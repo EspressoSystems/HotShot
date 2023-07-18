@@ -254,10 +254,13 @@ where
                         state.accumulator = Either::Right(qc.clone());
 
                         // No longer need to poll for votes
-                        state.quorum_exchange
-                        .network()
-                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*qc.view_number)))
-                        .await;
+                        state
+                            .quorum_exchange
+                            .network()
+                            .inject_consensus_info(
+                                (ConsensusIntentEvent::CancelPollForVotes(*qc.view_number)),
+                            )
+                            .await;
 
                         return (Some(HotShotTaskCompleted::ShutDown), state);
                     }
@@ -395,7 +398,10 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!("Sending vote to next quorum leader {:?}", vote.current_view());
+                            warn!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.current_view()
+                            );
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -474,7 +480,10 @@ where
 
                         // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!("Sending vote to next quorum leader {:?}", vote.current_view());
+                            warn!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.current_view()
+                            );
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -501,7 +510,10 @@ where
 
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
-            warn!("Updating view from {} to {} in consensus task", *self.cur_view, *new_view);
+            warn!(
+                "Updating view from {} to {} in consensus task",
+                *self.cur_view, *new_view
+            );
 
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
@@ -844,9 +856,6 @@ where
                             return;
                         }
 
-
-
-
                         // ED Only do this GC if we are able to vote
                         for v in *self.cur_view..*view + 1 {
                             let time = TYPES::Time::new(v);
@@ -859,13 +868,23 @@ where
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(new_view).await;
 
+
+
                         if let Some(qc) = &self.qc {
-                            if qc.view_number == new_view {
+                            // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                            error!(
+                                "Before ttempting to publish proposal after voting; now in view: {}, {}",
+                                *new_view, *qc.view_number
+                            );
+                            if qc.view_number == self.current_proposal.clone().unwrap().view_number {
+                                error!(
+                                    "Attempting to publish proposal after voting; now in view: {}, {}",
+                                    *new_view, *qc.view_number
+                                );
                                 self.publish_proposal_if_able(qc.clone()).await;
                             }
                         }
 
-                      
                         // Shouldn't need this because it will spawn this task during update_view
 
                         // self.timeout_task = async_spawn({
@@ -957,7 +976,7 @@ where
                                 accumulator,
                                 cur_view: vote.current_view,
                                 event_stream: self.event_stream.clone(),
-                                id: self.id
+                                id: self.id,
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent(Arc::new(|event| {
@@ -1038,10 +1057,12 @@ where
                 // warn!("Handle qc formed event!");
                 // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
+                error!(
+                    "Attempting to publish proposal after forming a QC for view {}",
+                    *qc.view_number
+                );
 
-
-                self.publish_proposal_if_able(qc.clone()).await; 
-
+                self.publish_proposal_if_able(qc.clone()).await;
 
                 // if !self.quorum_exchange.is_leader(qc.view_number + 1) {
                 //     error!("Somehow we formed a QC but are not the leader for the next view");
@@ -1056,7 +1077,7 @@ where
                 // let mut reached_decided = false;
 
                 // let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                //     // This should have been added by the replica? 
+                //     // This should have been added by the replica?
                 //     error!("Couldn't find parent view in state map, waiting for replica to see proposal");
                 //     return;
                 // };
@@ -1311,9 +1332,9 @@ where
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
                 self.quorum_exchange
-                        .network()
-                        .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
-                        .await;
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .await;
                 error!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view
@@ -1328,7 +1349,7 @@ where
         }
     }
 
-    pub async fn publish_proposal_if_able (&self, qc: QuorumCertificate<TYPES, I::Leaf>) {
+    pub async fn publish_proposal_if_able(&mut self, qc: QuorumCertificate<TYPES, I::Leaf>) {
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
             error!("Somehow we formed a QC but are not the leader for the next view");
             return;
@@ -1343,7 +1364,7 @@ where
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
             // This should have been added by the replica? 
-            error!("Couldn't find parent view in state map, waiting for replica to see proposal");
+            error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return;
         };
         // Leaf hash in view inner does not match high qc hash - Why?
@@ -1379,8 +1400,7 @@ where
         // Walk back until we find a decide
         if !reached_decided {
             warn!("not reached decide fro view {:?}", self.cur_view);
-            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
-            {
+            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
                 }
@@ -1430,6 +1450,8 @@ where
             signature,
         };
         warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+
+        self.qc = None; 
         // warn!("Sending proposal for view {:?}", message.data.clone());
 
         self.event_stream
@@ -1440,8 +1462,6 @@ where
             .await;
     }
 }
-
-
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
