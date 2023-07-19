@@ -507,7 +507,7 @@ where
         certs: HashMap::new(),
         current_proposal: None,
         id: handle.hotshot.inner.id,
-        qc: None, 
+        qc: None,
     };
     let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
@@ -588,7 +588,7 @@ where
         committee_exchange: committee_exchange.into(),
         vote_collector: None,
         event_stream: event_stream.clone(),
-        id: handle.hotshot.inner.id
+        id: handle.hotshot.inner.id,
     };
     let da_event_handler = HandleEvent(Arc::new(
         move |event, mut state: DATaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
@@ -660,7 +660,7 @@ where
         replica_task_map: HashMap::default(),
         relay_task_map: HashMap::default(),
         view_sync_timeout: Duration::new(5, 0),
-        id: handle.hotshot.inner.id
+        id: handle.hotshot.inner.id,
     };
     let registry = task_runner.registry.clone();
     let view_sync_event_handler =

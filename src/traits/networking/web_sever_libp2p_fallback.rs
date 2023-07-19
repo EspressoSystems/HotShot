@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use futures::join;
 
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -24,7 +25,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use hotshot_types::traits::network::ConsensusIntentEvent;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the

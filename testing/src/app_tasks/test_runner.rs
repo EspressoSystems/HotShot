@@ -181,14 +181,16 @@ where
             ));
 
             let secondary_network_generator =
-            Arc::new((self.launcher.resource_generator.secondary_network_generator)(
-                node_id,
-            ));
+                Arc::new((self
+                    .launcher
+                    .resource_generator
+                    .secondary_network_generator)(node_id));
 
             let quorum_network =
                 (self.launcher.resource_generator.quorum_network)(network_generator.clone());
-            let committee_network =
-                (self.launcher.resource_generator.committee_network)(secondary_network_generator.clone());
+            let committee_network = (self.launcher.resource_generator.committee_network)(
+                secondary_network_generator.clone(),
+            );
             let view_sync_network =
                 (self.launcher.resource_generator.view_sync_network)(network_generator);
             let storage = (self.launcher.resource_generator.storage)(node_id);

@@ -1291,7 +1291,9 @@ impl<
 
                     // If task already exited we expect an error
                     let _res = sender
-                        .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate((view_number)))
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
+                            (view_number),
+                        ))
                         .await;
                     Ok(())
                 } else {
@@ -1307,7 +1309,9 @@ impl<
 
                     // If task already exited we expect an error
                     let _res = sender
-                        .send(ConsensusIntentEvent::CancelPollForViewSyncVotes((view_number)))
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(
+                            (view_number),
+                        ))
                         .await;
                     Ok(())
                 } else {

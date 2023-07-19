@@ -75,7 +75,7 @@ pub enum MessagePurpose {
     ViewSyncVote,
     ViewSyncProposal,
 
-    DAC
+    DAC,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message

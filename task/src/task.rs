@@ -578,7 +578,6 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
             }
         }
 
-
         let event_stream_finished = match projected.check_event_stream(cx) {
             Left(result) => return result,
             Right(finished) => finished,

@@ -331,7 +331,10 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 self.oldest_view_sync_proposal += 1;
             }
         }
-        let highest_index = self.view_sync_proposal_index.entry(view_number).or_insert(0);
+        let highest_index = self
+            .view_sync_proposal_index
+            .entry(view_number)
+            .or_insert(0);
         // error!("Highest index is {}", highest_index);
         self.view_sync_proposals
             .entry(view_number)
@@ -511,7 +514,6 @@ where
     })?
     .post("postviewsyncvote", |req, state| {
         async move {
-            
             let view_number: u64 = req.integer_param("view_number")?;
             // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
             let vote = req.body_bytes();
