@@ -3396,6 +3396,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "commit",
+ "console-subscriber",
  "either",
  "futures",
  "hotshot",

@@ -1,6 +1,5 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-
 use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
@@ -36,6 +35,8 @@ use hotshot_types::message::Message;
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::traits::Block;
@@ -62,7 +63,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -135,6 +136,11 @@ pub struct SequencingConsensusTaskState<
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
     pub current_proposal: Option<QuorumProposal<TYPES, I::Leaf>>,
+
+    // ED Should replace this with config information since we need it anyway
+    pub id: u64,
+
+    pub qc: Option<QuorumCertificate<TYPES, I::Leaf>>,
 }
 
 pub struct VoteCollectionTaskState<
@@ -156,6 +162,7 @@ pub struct VoteCollectionTaskState<
         Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
     pub cur_view: TYPES::Time,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub id: u64,
 }
 
 impl<
@@ -173,6 +180,8 @@ where
     >,
 {
 }
+
+#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "Quorum Vote Collection Task", level = "error")]
 
 async fn vote_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -214,11 +223,6 @@ where
                     return (None, state);
                 }
 
-                // warn!(
-                //     "Vote leaf commitment is: {:?}",
-                //     vote.leaf_commitment.clone()
-                // );
-
                 let accumulator = state.accumulator.left().unwrap();
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
@@ -242,7 +246,17 @@ where
                             .event_stream
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
                             .await;
-                        state.accumulator = Either::Right(qc);
+                        state.accumulator = Either::Right(qc.clone());
+
+                        // No longer need to poll for votes
+                        state
+                            .quorum_exchange
+                            .network()
+                            .inject_consensus_info(
+                                (ConsensusIntentEvent::CancelPollForVotes(*qc.view_number)),
+                            )
+                            .await;
+
                         return (Some(HotShotTaskCompleted::ShutDown), state);
                     }
                 }
@@ -256,7 +270,7 @@ where
             }
         },
         SequencingHotShotEvent::Shutdown => {
-            warn!("Shutting down vote handle");
+            // warn!("Shutting down vote handle");
             return (Some(HotShotTaskCompleted::ShutDown), state);
         }
         _ => {}
@@ -293,6 +307,9 @@ where
         // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
         // ED: Added this in the DA task ^
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
+
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
 
@@ -313,6 +330,9 @@ where
         };
         Some(leaf.clone())
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
+
     async fn vote_if_able(&self) -> bool {
         // warn!("In vote if able");
 
@@ -373,7 +393,10 @@ where
                         );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!("Sending vote to next leader {:?}", vote.current_view());
+                            warn!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.current_view()
+                            );
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -450,8 +473,12 @@ where
                             );
                         }
 
+                        // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            // warn!("Sending vote to next leader {:?}", vote.current_view());
+                            warn!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.current_view()
+                            );
                             self.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .await;
@@ -474,9 +501,14 @@ where
     }
 
     /// Must only update the view and GC if the view actually changes
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
+
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
-            warn!("Updating view from {} to {}", *self.cur_view, *new_view);
+            warn!(
+                "Updating view from {} to {} in consensus task",
+                *self.cur_view, *new_view
+            );
 
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
@@ -487,6 +519,27 @@ where
             self.cur_view = new_view;
             self.current_proposal = None;
 
+            // Start polling for proposals for the new view
+            // error!("Polling for quorum proposal for view {}", *new_view);
+
+            self.quorum_exchange
+                .network()
+                .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view)))
+                .await;
+
+            self.quorum_exchange
+                .network()
+                .inject_consensus_info((ConsensusIntentEvent::PollForDAC(*self.cur_view)))
+                .await;
+
+            if self.quorum_exchange.is_leader(self.cur_view + 1) {
+                error!("Polling for quorum votes for view {}", *self.cur_view);
+                self.quorum_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
+                    .await;
+            }
+
             self.event_stream
                 .publish(SequencingHotShotEvent::ViewChange(new_view))
                 .await;
@@ -495,16 +548,20 @@ where
         }
         false
     }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                warn!(
+                error!(
                     "Receved Quorum Propsoal for view {}",
                     *proposal.data.view_number
                 );
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
+                    error!("view to high");
                     return;
                 }
 
@@ -736,7 +793,9 @@ where
 
                         // promote lock here to add proposal to statemap
                         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                        consensus.high_qc = high_qc;
+                        if high_qc.view_number > consensus.high_qc.view_number {
+                            consensus.high_qc = high_qc;
+                        }
                         consensus.state_map.insert(
                             view,
                             View {
@@ -771,7 +830,7 @@ where
                                 })
                                 .await;
 
-                            warn!("about to pulbish decide");
+                            warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
                                 view_number: consensus.last_decided_view,
                                 event: EventType::Decide {
@@ -799,7 +858,22 @@ where
                             decide_sent.await;
                         }
 
+                        let new_view = self.current_proposal.clone().unwrap().view_number + 1;
+                        // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                        let should_propose = self.quorum_exchange.is_leader(new_view)
+                            && consensus.high_qc.view_number
+                                == self.current_proposal.clone().unwrap().view_number;
+                        // todo get rid of this clone
+                        let qc = consensus.high_qc.clone();
+
                         drop(consensus);
+                        if should_propose {
+                            error!(
+                                "Attempting to publish proposal after voting; now in view: {}",
+                                *new_view
+                            );
+                            self.publish_proposal_if_able(qc).await;
+                        }
                         if !self.vote_if_able().await {
                             return;
                         }
@@ -811,42 +885,32 @@ where
                         }
                         // warn!("Voting for view {}", *self.cur_view);
                         // self.current_proposal = None;
-                        let new_view = self.current_proposal.clone().unwrap().view_number + 1;
 
                         // Update current view and publish a view change event so other tasks also update
                         self.update_view(new_view).await;
 
-                        self.timeout_task = async_spawn({
-                            // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-                            // let next_view_timeout = next_view_timeout;
-                            // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                            // TODO(bf): get the real timeout from the config.
-                            let stream = self.event_stream.clone();
-                            let view_number = self.cur_view.clone();
-                            async move {
-                                // ED: Changing to 1 second to test timeout logic
-                                async_sleep(Duration::from_millis(1000)).await;
-                                stream
-                                    .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
-                                        *view_number,
-                                    )))
-                                    .await;
-                            }
-                        });
-
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             info!("Sending vote to next leader {:?}", vote);
-                            warn!("Vote is {:?}", vote.current_view());
+                            // warn!("Vote is {:?}", vote.current_view());
 
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
-                                .await;
+                            // self.event_stream
+                            //     .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                            //     .await;
                         };
                     }
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 warn!("Received quroum vote: {:?}", vote.current_view());
+
+                if !self.quorum_exchange.is_leader(vote.current_view() + 1) {
+                    error!(
+                        "We are not the leader for view {} are we the leader for view + 1? {}",
+                        *vote.current_view() + 1,
+                        self.quorum_exchange.is_leader(vote.current_view() + 2)
+                    );
+                    return;
+                }
 
                 match vote {
                     QuorumVote::Yes(vote) => {
@@ -896,6 +960,7 @@ where
                                 accumulator,
                                 cur_view: vote.current_view,
                                 event_stream: self.event_stream.clone(),
+                                id: self.id,
                             };
                             let name = "Quorum Vote Collection";
                             let filter = FilterEvent(Arc::new(|event| {
@@ -921,10 +986,10 @@ where
                             warn!("Starting vote handle for view {:?}", vote.current_view);
                         } else {
                             if let Some((view, _, stream_id)) = self.vote_collector {
-                                warn!(
-                                    "directly sending vote to vote collection task. view {:?}",
-                                    view
-                                );
+                                // warn!(
+                                //     "directly sending vote to vote collection task. view {:?}",
+                                //     view
+                                // );
                                 self.event_stream
                                     .direct_message(
                                         stream_id,
@@ -946,7 +1011,9 @@ where
 
                 let mut consensus = self.consensus.write().await;
                 consensus.high_qc = qc.clone();
+
                 drop(consensus);
+
                 // warn!("QC leaf commitment is {:?}", qc.leaf_commitment());
                 // self.event_stream
                 //     .publish(SequencingHotShotEvent::ViewChange(qc.view_number() + 1))
@@ -955,119 +1022,31 @@ where
                 // View may have already been updated by replica if they voted for this QC
                 // TODO ED We should separate leader state from replica state, they shouldn't share the same view
                 // Leader task should only run for a specific view, and never update its current view, but instead spawn another task
-                let _res = self.update_view(qc.view_number + 1).await;
+                // let _res = self.update_view(qc.view_number + 1).await;
+
+                // Start polling for votes for the next view
+                // if _res {
+                // if self.quorum_exchange.is_leader(qc.view_number + 2) {
+                //     self.quorum_exchange
+                //         .network()
+                //         .inject_consensus_info(
+                //             (ConsensusIntentEvent::PollForVotes(*qc.view_number + 1)),
+                //         )
+                //         .await;
+                // }
+                // }
+
                 // warn!("Handle qc formed event!");
-
+                // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
-                if !self.quorum_exchange.is_leader(self.cur_view) {
-                    panic!("Somehow we formed a QC but are not the leader for the next view");
-                    return;
+                error!(
+                    "Attempting to publish proposal after forming a QC for view {}",
+                    *qc.view_number
+                );
+
+                if self.publish_proposal_if_able(qc.clone()).await {
+                    self.update_view(qc.view_number + 1).await;
                 }
-
-                // update our high qc to the qc we just formed
-                // self.high_qc = qc;
-                let consensus = self.consensus.read().await;
-                let parent_view_number = &consensus.high_qc.view_number();
-                // error!("Parent view number is {:?}", parent_view_number);
-                let mut reached_decided = false;
-
-                let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    // This should have been added by the replica? 
-                    error!("Couldn't find parent view in state map.");
-                    return;
-                };
-                // Leaf hash in view inner does not match high qc hash - Why?
-                let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
-                    error!(
-                        ?parent_view_number,
-                        ?parent_view,
-                        "Parent of high QC points to a view without a proposal"
-                    );
-                    return;
-                };
-                if leaf_commitment != consensus.high_qc.leaf_commitment() {
-                    // error!(
-                    //     "They don't equal: {:?}   {:?}",
-                    //     leaf_commitment,
-                    //     self.high_qc.leaf_commitment()
-                    // );
-                }
-                let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
-                    error!("Failed to find high QC of parent.");
-                    return;
-                };
-                if leaf.view_number == consensus.last_decided_view {
-                    reached_decided = true;
-                }
-
-                let parent_leaf = leaf.clone();
-
-                let original_parent_hash = parent_leaf.commit();
-
-                let mut next_parent_hash = original_parent_hash;
-
-                // Walk back until we find a decide
-                if !reached_decided {
-                    warn!("not reached decide fro view {:?}", self.cur_view);
-                    while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
-                    {
-                        if next_parent_leaf.view_number <= consensus.last_decided_view {
-                            break;
-                        }
-                        next_parent_hash = next_parent_leaf.parent_commitment;
-                    }
-                    warn!("updated saved leaves");
-                    // TODO do some sort of sanity check on the view number that it matches decided
-                }
-
-                let block_commitment = self.block.commit();
-                if block_commitment == TYPES::BlockType::new().commit() {
-                    error!("Block is generic block! {:?}", self.cur_view);
-                }
-                // warn!(
-                //     "leaf commitment of new qc: {:?}",
-                //     self.high_qc.leaf_commitment()
-                // );
-                let leaf = SequencingLeaf {
-                    view_number: self.cur_view,
-                    height: parent_leaf.height + 1,
-                    justify_qc: consensus.high_qc.clone(),
-                    parent_commitment: parent_leaf.commit(),
-                    // Use the block commitment rather than the block, so that the replica can construct
-                    // the same leaf with the commitment.
-                    deltas: Right(block_commitment),
-                    rejected: vec![],
-                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                    proposer_id: self.api.public_key().to_bytes(),
-                };
-                // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
-
-                let signature = self
-                    .quorum_exchange
-                    .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
-                // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-                let proposal = QuorumProposal {
-                    block_commitment,
-                    view_number: leaf.view_number,
-                    height: leaf.height,
-                    justify_qc: consensus.high_qc.clone(),
-                    proposer_id: leaf.proposer_id,
-                    dac: None,
-                };
-
-                let message = Proposal {
-                    data: proposal,
-                    signature,
-                };
-                warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
-                // warn!("Sending proposal for view {:?}", message.data.clone());
-
-                self.event_stream
-                    .publish(SequencingHotShotEvent::QuorumProposalSend(
-                        message,
-                        self.quorum_exchange.public_key().clone(),
-                    ))
-                    .await;
             }
             SequencingHotShotEvent::DACRecv(cert) => {
                 warn!("DAC Recved for view ! {}", *cert.view_number);
@@ -1079,20 +1058,29 @@ where
                 if self.vote_if_able().await {
                     self.update_view(view + 1).await;
                     // TODO ED We should make the event publishing part of update_view function
-                    self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
-                        .await;
+                    // self.event_stream
+                    //     .publish(SequencingHotShotEvent::ViewChange(self.cur_view))
+                    //     .await;
                 }
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                warn!("View Change event for view {}", *new_view);
+                // warn!("View Change event for view {}", *new_view);
 
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 if !self.update_view(new_view).await {
                     return;
                 }
+
+                // If we are next leader poll for votes
+                // if self.quorum_exchange.is_leader(new_view) {
+                //     self.quorum_exchange
+                //     .network()
+                //     .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*new_view)))
+                //     .await;
+                // }
+
                 // error!("View Change event for view {}", *new_view);
 
                 // Spawn a timeout task if we did actually update view
@@ -1105,7 +1093,7 @@ where
                     let view_number = self.cur_view.clone();
                     async move {
                         // ED: Changing to 1 second to test timeout logic
-                        async_sleep(Duration::from_millis(1000)).await;
+                        async_sleep(Duration::from_millis(5000)).await;
                         stream
                             .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                                 *view_number,
@@ -1113,6 +1101,15 @@ where
                             .await;
                     }
                 });
+
+                // If we are the next leader start polling for votes for this view
+                // if self.quorum_exchange.is_leader(self.cur_view + 1) {
+                //     error!("Polling for quorum votes for view {}", *self.cur_view);
+                //     self.quorum_exchange
+                //         .network()
+                //         .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
+                //         .await;
+                // }
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1208,18 +1205,135 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
-                warn!(
+                self.quorum_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .await;
+                error!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view
                 )
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
-                warn!("Updating self . block!");
+                // warn!("Updating self . block!");
                 self.block = block;
             }
             _ => {}
         }
+    }
+
+    pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
+        if !self.quorum_exchange.is_leader(qc.view_number + 1) {
+            error!("Somehow we formed a QC but are not the leader for the next view");
+            return false;
+        }
+
+        // update our high qc to the qc we just formed
+        // self.high_qc = qc;
+        let consensus = self.consensus.read().await;
+        let parent_view_number = &consensus.high_qc.view_number();
+        // error!("Parent view number is {:?}", parent_view_number);
+        let mut reached_decided = false;
+
+        let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
+            // This should have been added by the replica? 
+            error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
+            return false;
+        };
+        // Leaf hash in view inner does not match high qc hash - Why?
+        let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
+            error!(
+                ?parent_view_number,
+                ?parent_view,
+                "Parent of high QC points to a view without a proposal"
+            );
+            return false;
+        };
+        if leaf_commitment != consensus.high_qc.leaf_commitment() {
+            // error!(
+            //     "They don't equal: {:?}   {:?}",
+            //     leaf_commitment,
+            //     self.high_qc.leaf_commitment()
+            // );
+        }
+        let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
+            error!("Failed to find high QC of parent.");
+            return false;
+        };
+        if leaf.view_number == consensus.last_decided_view {
+            reached_decided = true;
+        }
+
+        let parent_leaf = leaf.clone();
+
+        let original_parent_hash = parent_leaf.commit();
+
+        let mut next_parent_hash = original_parent_hash;
+
+        // Walk back until we find a decide
+        if !reached_decided {
+            warn!("not reached decide fro view {:?}", self.cur_view);
+            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                    break;
+                }
+                next_parent_hash = next_parent_leaf.parent_commitment;
+            }
+            warn!("updated saved leaves");
+            // TODO do some sort of sanity check on the view number that it matches decided
+        }
+
+        let block_commitment = self.block.commit();
+        if block_commitment == TYPES::BlockType::new().commit() {
+            error!("Block is generic block! {:?}", self.cur_view);
+        }
+        // warn!(
+        //     "leaf commitment of new qc: {:?}",
+        //     self.high_qc.leaf_commitment()
+        // );
+        let leaf = SequencingLeaf {
+            view_number: *parent_view_number + 1,
+            height: parent_leaf.height + 1,
+            justify_qc: consensus.high_qc.clone(),
+            parent_commitment: parent_leaf.commit(),
+            // Use the block commitment rather than the block, so that the replica can construct
+            // the same leaf with the commitment.
+            deltas: Right(block_commitment),
+            rejected: vec![],
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: self.api.public_key().to_bytes(),
+        };
+        // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
+
+        let signature = self
+            .quorum_exchange
+            .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
+        // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
+        let proposal = QuorumProposal {
+            block_commitment,
+            view_number: leaf.view_number,
+            height: leaf.height,
+            justify_qc: consensus.high_qc.clone(),
+            proposer_id: leaf.proposer_id,
+            dac: None,
+        };
+
+        let message = Proposal {
+            data: proposal,
+            signature,
+        };
+        error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+
+        // warn!("Sending proposal for view {:?}", message.data.clone());
+
+        self.event_stream
+            .publish(SequencingHotShotEvent::QuorumProposalSend(
+                message,
+                self.quorum_exchange.public_key().clone(),
+            ))
+            .await;
+        return true;
     }
 }
 

@@ -257,6 +257,7 @@ impl<
                 None,
             ),
             SequencingHotShotEvent::ViewChange(view) => {
+                // only if view actually changes
                 self.view = view;
                 return None;
             }
@@ -303,6 +304,7 @@ impl<
             SequencingHotShotEvent::QuorumProposalSend(_, _)
             | SequencingHotShotEvent::QuorumVoteSend(_)
             | SequencingHotShotEvent::Shutdown
+            | SequencingHotShotEvent::DACSend(_, _)
             | SequencingHotShotEvent::ViewChange(_) => true,
 
             _ => false,
@@ -313,7 +315,6 @@ impl<
         match event {
             SequencingHotShotEvent::DAProposalSend(_, _)
             | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::DACSend(_, _)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_)
             | SequencingHotShotEvent::TransactionSend(_, _) => true,
