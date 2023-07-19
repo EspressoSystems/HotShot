@@ -1,4 +1,4 @@
-use hotshot::demos::vdemo::SDemoTypes;
+use hotshot::demos::sdemo::SDemoTypes;
 use std::sync::Arc;
 
 use async_compatibility_layer::channel::oneshot;
