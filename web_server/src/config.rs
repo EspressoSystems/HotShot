@@ -38,10 +38,18 @@ pub fn post_staketable_route() -> String {
     "api/staketable".to_string()
 }
 
-pub fn post_view_sync_proposal_route() -> String {
-    "api/view_sync_proposal".to_string()
+pub fn post_view_sync_proposal_route(view_number: u64) -> String {
+    format!("api/view_sync_proposal/{view_number}")
 }
 
-pub fn post_view_sync_vote_route() -> String {
-    "api/view_sync_vote".to_string()
+pub fn get_view_sync_proposal_route(view_number: u64, index: u64) -> String {
+    format!("api/view_sync_proposal/{view_number}/{index}")
+}
+
+pub fn post_view_sync_vote_route(view_number: u64) -> String {
+    format!("api/view_sync_vote/{view_number}")
+}
+
+pub fn get_view_sync_vote_route(view_number: u64, index: u64) -> String {
+    format!("api/view_sync_vote/{view_number}/{index}")
 }

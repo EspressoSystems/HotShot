@@ -1,13 +1,13 @@
 use crate::test_runner::TestRunner;
-use ark_bls12_381::Parameters as Param381;
-use blake3::Hasher;
+// use ark_bls12_381::Parameters as Param381;
+// use blake3::Hasher;
 use hotshot::{
     demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction},
     traits::{
-        dummy::DummyState,
+        // dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            vrf::JfPubKey, // VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
@@ -19,7 +19,7 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     message::ValidatingMessage,
     traits::{
-        block_contents::dummy::{DummyBlock, DummyTransaction},
+        // block_contents::dummy::{DummyBlock, DummyTransaction},
         consensus_type::validating_consensus::ValidatingConsensus,
         election::QuorumExchange,
         node_implementation::{ChannelMaps, NodeType},
@@ -27,41 +27,35 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-use jf_primitives::{
-    signatures::{
-        bls::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-    },
-    vrf::blsvrf::BLSVRFScheme,
-};
+use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+// #[derive(
+//     Copy,
+//     Clone,
+//     Debug,
+//     Default,
+//     Hash,
+//     PartialEq,
+//     Eq,
+//     PartialOrd,
+//     Ord,
+//     serde::Serialize,
+//     serde::Deserialize,
+// )]
 /// vrf test types
-pub struct VrfTestTypes;
-impl NodeType for VrfTestTypes {
-    // TODO (da) can this be SequencingConsensus?
-    type ConsensusType = ValidatingConsensus;
-    type Time = ViewNumber;
-    type BlockType = DummyBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = VRFVoteToken<BLSVerKey<Param381>, BLSSignature<Param381>>;
-    type Transaction = DummyTransaction;
-    type ElectionConfigType = VRFStakeTableConfig;
-    type StateType = DummyState;
-}
+// pub struct VrfTestTypes;
+// impl NodeType for VrfTestTypes {
+//     // TODO (da) can this be SequencingConsensus?
+//     type ConsensusType = ValidatingConsensus;
+//     type Time = ViewNumber;
+//     type BlockType = DummyBlock;
+//     type SignatureKey = JfPubKey<BLSSignatureScheme>;
+//     type VoteTokenType = VRFVoteToken<BLSVerKey<Param381>, BLSSignature<Param381>>;
+//     type Transaction = DummyTransaction;
+//     type ElectionConfigType = VRFStakeTableConfig;
+//     type StateType = DummyState;
+// }
 
 #[derive(
     Copy,
@@ -82,8 +76,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme>>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
@@ -93,33 +87,24 @@ impl NodeType for StaticCommitteeTestTypes {
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StandardNodeImplType {}
 
-/// type alias for membership using vrf types
-pub type VrfMembership = VrfImpl<
-    VrfTestTypes,
-    ValidatingLeaf<VrfTestTypes>,
-    BLSSignatureScheme<Param381>,
-    BLSVRFScheme<Param381>,
-    Hasher,
-    Param381,
->;
+// /// type alias for membership using vrf types
+// pub type VrfMembership = VrfImpl<
+//     VrfTestTypes,
+//     ValidatingLeaf<VrfTestTypes>,
+//     BLSSignatureScheme,
+//     BLSVRFScheme<Param381>,
+//     Hasher,
+//     Param381,
+// >;
 
-/// type alias for comm channel using vrf
-pub type VrfCommunication = MemoryCommChannel<
-    VrfTestTypes,
-    StandardNodeImplType,
-    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    VrfMembership,
->;
-
-/// type alias for comm channel using vrf
-pub type VrfCommunicationViewSync = MemoryCommChannel<
-    VrfTestTypes,
-    StandardNodeImplType,
-    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    ViewSyncVote<VrfTestTypes>,
-    VrfMembership,
->;
+// /// type alias for comm channel using vrf
+// pub type VrfCommunication = MemoryCommChannel<
+//     VrfTestTypes,
+//     StandardNodeImplType,
+//     ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//     QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//     VrfMembership,
+// >;
 
 /// type alias for static committee node
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
@@ -144,39 +129,23 @@ type StaticCommunicationViewSync = MemoryCommChannel<
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
-impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
-    type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
-    type Leaf = ValidatingLeaf<VrfTestTypes>;
-    type Exchanges = ValidatingExchanges<
-        VrfTestTypes,
-        Message<VrfTestTypes, Self>,
-        QuorumExchange<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-            VrfMembership,
-            VrfCommunication,
-            Message<VrfTestTypes, Self>,
-        >,
-        ViewSyncExchange<
-            VrfTestTypes,
-            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-            VrfMembership,
-            VrfCommunicationViewSync,
-            Message<VrfTestTypes, Self>,
-        >,
-    >;
-    type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
-
-    fn new_channel_maps(
-        start_view: ViewNumber,
-    ) -> (
-        ChannelMaps<VrfTestTypes, Self>,
-        Option<ChannelMaps<VrfTestTypes, Self>>,
-    ) {
-        (ChannelMaps::new(start_view), None)
-    }
-}
+// impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
+//     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
+//     type Leaf = ValidatingLeaf<VrfTestTypes>;
+//     type Exchanges = ValidatingExchanges<
+//         VrfTestTypes,
+//         Message<VrfTestTypes, Self>,
+//         QuorumExchange<
+//             VrfTestTypes,
+//             ValidatingLeaf<VrfTestTypes>,
+//             ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//             VrfMembership,
+//             VrfCommunication,
+//             Message<VrfTestTypes, Self>,
+//         >,
+//     >;
+//     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+// }
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type Storage =

@@ -240,6 +240,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) {
     info!("Launching network lookup task");
     let networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
+
     let inner = hotshot.inner.clone();
 
     let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
@@ -249,13 +250,13 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
         if let Ok(Some(cur_view)) = lock.recv().await {
             // Injecting consensus data into the networking implementation
-            let _result = networking
-                .inject_consensus_info((
-                    (*cur_view),
-                    inner.exchanges.quorum_exchange().is_leader(cur_view),
-                    inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
-                ))
-                .await;
+            // let _result = networking
+            //     .inject_consensus_info((
+            //         (*cur_view),
+            //         inner.exchanges.quorum_exchange().is_leader(cur_view),
+            //         inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
+            //     ))
+            //     .await;
 
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
@@ -353,7 +354,7 @@ where
                     .await
                     .expect("Failed to receive broadcast messages"),
             );
-            async_sleep(Duration::new(0, 500)).await;
+            async_sleep(Duration::new(0, 50)).await;
             // network.shut_down().await;
             msgs
         };
@@ -369,7 +370,7 @@ where
                     .await
                     .expect("Failed to receive direct messages"),
             );
-            async_sleep(Duration::new(0, 500)).await;
+            async_sleep(Duration::new(0, 50)).await;
             // network.shut_down().await;
             msgs
         };
@@ -505,6 +506,8 @@ where
         output_event_stream: output_stream,
         certs: HashMap::new(),
         current_proposal: None,
+        id: handle.hotshot.inner.id,
+        qc: None,
     };
     let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
@@ -585,6 +588,7 @@ where
         committee_exchange: committee_exchange.into(),
         vote_collector: None,
         event_stream: event_stream.clone(),
+        id: handle.hotshot.inner.id,
     };
     let da_event_handler = HandleEvent(Arc::new(
         move |event, mut state: DATaskState<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>>| {
@@ -655,7 +659,8 @@ where
         num_timeouts_tracked: 0,
         replica_task_map: HashMap::default(),
         relay_task_map: HashMap::default(),
-        view_sync_timeout: Duration::new(1, 0),
+        view_sync_timeout: Duration::new(5, 0),
+        id: handle.hotshot.inner.id,
     };
     let registry = task_runner.registry.clone();
     let view_sync_event_handler =

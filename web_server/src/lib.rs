@@ -3,7 +3,6 @@ pub mod config;
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
-use config::DEFAULT_WEB_SERVER_PORT;
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
@@ -38,7 +37,9 @@ struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: HashMap<u64, (String, Vec<u8>)>,
 
-    view_sync_proposals: HashMap<u64, (String, Vec<u8>)>,
+    view_sync_proposals: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+
+    view_sync_proposal_index: HashMap<u64, u64>,
     /// view number -> (secret, da_certificates)
     da_certificates: HashMap<u64, (String, Vec<u8>)>,
     /// view for oldest proposals in memory
@@ -59,7 +60,9 @@ struct WebServerState<KEY> {
     oldest_vote: u64,
 
     oldest_view_sync_vote: u64,
+
     /// index -> transaction
+    // TODO ED Make indexable by hash of tx
     transactions: HashMap<u64, Vec<u8>>,
     /// highest transaction index
     num_txns: u64,
@@ -91,6 +94,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             view_sync_vote_index: HashMap::new(),
             oldest_view_sync_vote: 0,
             oldest_view_sync_proposal: 0,
+            view_sync_proposal_index: HashMap::new(),
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -105,7 +109,11 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_view_sync_proposal(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_view_sync_votes(
@@ -154,22 +162,22 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
-    fn get_view_sync_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        match self.view_sync_proposals.get(&view_number) {
-            Some(proposal) => {
-                if proposal.1.is_empty() {
-                    Err(ServerError {
-                        status: StatusCode::NotImplemented,
-                        message: format!("View sync proposal not found for view {view_number}"),
-                    })
-                } else {
-                    Ok(Some(vec![proposal.1.clone()]))
-                }
+    fn get_view_sync_proposal(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        let proposals = self.view_sync_proposals.get(&view_number);
+        let mut ret_proposals = vec![];
+        if let Some(cert) = proposals {
+            for i in index..*self.view_sync_proposal_index.get(&view_number).unwrap() {
+                ret_proposals.push(cert[i as usize].1.clone());
             }
-            None => Err(ServerError {
-                status: StatusCode::NotImplemented,
-                message: format!("View Sync proposal not found for view {view_number}"),
-            }),
+        }
+        if !ret_proposals.is_empty() {
+            Ok(Some(ret_proposals))
+        } else {
+            Ok(None)
         }
     }
 
@@ -197,7 +205,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let votes = self.view_sync_votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
-            for i in index..*self.vote_index.get(&view_number).unwrap() {
+            // error!("Passed in index is: {} self index is: {}", index, *self.vote_index.get(&view_number).unwrap());
+            for i in index..*self.view_sync_vote_index.get(&view_number).unwrap() {
                 ret_votes.push(votes[i as usize].1.clone());
             }
         }
@@ -268,6 +277,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
         // Only keep vote history for MAX_VIEWS number of views
+        // error!("WEBSERVERVIEWSYNCVOTE for view {}", view_number);
         if self.view_sync_votes.len() >= MAX_VIEWS {
             self.view_sync_votes.remove(&self.oldest_view_sync_vote);
             while !self
@@ -278,6 +288,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             }
         }
         let highest_index = self.view_sync_vote_index.entry(view_number).or_insert(0);
+        // error!("Highest index is {}", highest_index);
         self.view_sync_votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push((*highest_index, vote.clone())))
@@ -312,16 +323,26 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     ) -> Result<(), Error> {
         // Only keep proposal history for MAX_VIEWS number of view
         if self.view_sync_proposals.len() >= MAX_VIEWS {
-            self.view_sync_proposals
-                .remove(&self.oldest_view_sync_proposal);
-            while !self.proposals.contains_key(&self.oldest_view_sync_proposal) {
+            self.view_sync_proposals.remove(&self.oldest_view_sync_vote);
+            while !self
+                .view_sync_proposals
+                .contains_key(&self.oldest_view_sync_proposal)
+            {
                 self.oldest_view_sync_proposal += 1;
             }
         }
+        let highest_index = self
+            .view_sync_proposal_index
+            .entry(view_number)
+            .or_insert(0);
+        // error!("Highest index is {}", highest_index);
         self.view_sync_proposals
             .entry(view_number)
-            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
-            .or_insert_with(|| (String::new(), proposal));
+            .and_modify(|current_props| current_props.push((*highest_index, proposal.clone())))
+            .or_insert_with(|| vec![(*highest_index, proposal)]);
+        self.view_sync_proposal_index
+            .entry(view_number)
+            .and_modify(|index| *index += 1);
         Ok(())
     }
 
@@ -444,8 +465,11 @@ where
     })?
     .get("getviewsyncproposal", |req, state| {
         async move {
+            // error!("Getting view sync proposal!");
+
             let view_number: u64 = req.integer_param("view_number")?;
-            state.get_view_sync_proposal(view_number)
+            let index: u64 = req.integer_param("index")?;
+            state.get_view_sync_proposal(view_number, index)
         }
         .boxed()
     })?
@@ -574,16 +598,22 @@ where
 }
 
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
-    shutdown_listener: Option<OneShotReceiver<()>>, port: u16
+    shutdown_listener: Option<OneShotReceiver<()>>,
+    port: u16,
 ) -> io::Result<()> {
     let options = Options::default();
+
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{port}"))
-        .await
+
+    let app_future = app.serve(format!("http://0.0.0.0:{port}"));
+
+    error!("Web server started on port {port}");
+
+    app_future.await
 }
 
 #[cfg(test)]

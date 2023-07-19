@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
@@ -139,6 +140,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -699,7 +701,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -759,6 +764,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES, I>,
@@ -767,7 +773,8 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -849,7 +856,10 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }

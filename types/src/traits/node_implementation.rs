@@ -16,6 +16,7 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
+use crate::traits::election::Membership;
 use crate::vote::ViewSyncVote;
 use crate::{data::TestableLeaf, message::Message};
 use crate::{
@@ -171,10 +172,13 @@ pub trait ExchangesType<
     /// applicable for sequencing consensus.
     type Networks;
 
+    /// Election configurations for exchanges
+    type ElectionConfigs;
+
     /// Create all exchanges.
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -255,10 +259,11 @@ where
     type QuorumExchange = QUORUMEXCHANGE;
     type ViewSyncExchange = VIEWSYNCEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, VIEWSYNCEXCHANGE::Networking, ());
+    type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -267,13 +272,13 @@ where
         Self {
             quorum_exchange: QUORUMEXCHANGE::create(
                 keys.clone(),
-                config.clone(),
+                configs.0.clone(),
                 networks.0,
                 pk.clone(),
                 sk.clone(),
                 ek.clone(),
             ),
-            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, config, networks.1, pk, sk, ek),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, configs.0, networks.1, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -351,10 +356,11 @@ where
         VIEWSYNCEXCHANGE::Networking,
         COMMITTEEEXCHANGE::Networking,
     );
+    type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -362,7 +368,7 @@ where
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
-            config.clone(),
+            configs.0.clone(),
             networks.0,
             pk.clone(),
             sk.clone(),
@@ -370,13 +376,13 @@ where
         );
         let view_sync_exchange = VIEWSYNCEXCHANGE::create(
             keys.clone(),
-            config.clone(),
+            configs.0,
             networks.1,
             pk.clone(),
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.2, pk, sk, ek);
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.2, pk, sk, ek);
 
         Self {
             quorum_exchange,
@@ -462,11 +468,15 @@ pub trait TestableNodeImplementation<
     type ViewSyncCommChannel;
     type ViewSyncNetwork;
 
+    /// Election config for the DA committee
+    type CommitteeElectionConfig;
+
     /// Generate a quorum network given an expected node count.
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>
     where
         QuorumCommChannel<TYPES, Self>: CommunicationChannel<
@@ -476,6 +486,10 @@ pub trait TestableNodeImplementation<
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Vote,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
         >;
+
+    /// Generates a committee-specific election
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static>;
 
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
@@ -565,6 +579,7 @@ where
 {
     type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
+    type CommitteeElectionConfig = ();
 
     type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>;
     type ViewSyncNetwork = ViewSyncNetwork<TYPES, I>;
@@ -573,13 +588,20 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
+    }
+
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|_| ())
     }
 
     fn quorum_comm_channel_generator(
@@ -678,18 +700,26 @@ where
 
     type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>;
     type ViewSyncNetwork = QuorumNetwork<TYPES, I>;
+    type CommitteeElectionConfig = TYPES::ElectionConfigType;
 
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
+    }
+
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|num_nodes| <CommitteeMembership<TYPES, I>>::default_election_config(num_nodes))
     }
 
     fn quorum_comm_channel_generator(

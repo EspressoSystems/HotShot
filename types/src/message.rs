@@ -61,6 +61,7 @@ pub struct Messages<TYPES: NodeType, I: NodeImplementation<TYPES>>(pub Vec<Messa
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Messages<TYPES, I> {}
 
 /// A message type agnostic description of a messages purpose
+#[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
     /// Message contains a proposal
     Proposal,
@@ -73,6 +74,8 @@ pub enum MessagePurpose {
 
     ViewSyncVote,
     ViewSyncProposal,
+
+    DAC,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -494,13 +497,13 @@ impl<
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-                GeneralConsensusMessage::ViewSyncVote(_)
-                | GeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                GeneralConsensusMessage::ViewSyncVote(_) => MessagePurpose::ViewSyncVote,
+                GeneralConsensusMessage::ViewSyncCertificate(_) => MessagePurpose::ViewSyncProposal,
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
-                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::Proposal,
+                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
             },
         }
     }

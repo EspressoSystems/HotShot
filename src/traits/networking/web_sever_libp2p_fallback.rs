@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use futures::join;
 
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -32,25 +33,18 @@ use tracing::error;
 pub struct WebServerWithFallbackCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
     /// The two networks we'll use for send/recv
-    networks: Arc<CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>>,
+    networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 {
     /// Constructor
     #[must_use]
-    pub fn new(networks: Arc<CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>>) -> Self {
+    pub fn new(networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>) -> Self {
         Self { networks }
     }
 
@@ -58,14 +52,8 @@ impl<
     #[must_use]
     pub fn network(
         &self,
-    ) -> &WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    > {
+    ) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
+    {
         &self.networks.0
     }
 
@@ -83,30 +71,16 @@ impl<
 pub struct CombinedNetworks<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    >,
+    WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
     Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<MEMBERSHIP>,
 );
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CombinedNetworks<TYPES, I, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -115,6 +89,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generators = (
             <WebServerNetwork<
@@ -122,15 +97,14 @@ where
                 TYPES::SignatureKey,
                 TYPES::ElectionConfigType,
                 TYPES,
-                PROPOSAL,
-                VOTE,
             > as TestableNetworkingImplementation<_, _>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
-                da_committee_size
+                da_committee_size,
+                _is_da
             ),
-            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id, da_committee_size)
+            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id, da_committee_size,     _is_da)
         );
         Box::new(move |node_id| {
             CombinedNetworks(
@@ -149,14 +123,9 @@ where
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -165,18 +134,18 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CombinedNetworks<
             TYPES,
             I,
-            PROPOSAL,
-            VOTE,
             MEMBERSHIP,
         > as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),
@@ -199,9 +168,9 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 {
-    type NETWORK = CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>;
+    type NETWORK = CombinedNetworks<TYPES, I, MEMBERSHIP>;
 
     async fn wait_for_ready(&self) {
         join!(
@@ -324,11 +293,11 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
+        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(self.network(), tuple)
+        >>::inject_consensus_info(self.network(), event)
         .await
     }
 }
@@ -346,8 +315,8 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>,
-    > for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+        CombinedNetworks<TYPES, I, MEMBERSHIP>,
+    > for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
