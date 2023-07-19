@@ -8,4 +8,5 @@
 !/target/x86_64-unknown-linux-musl/release*/examples/
 !/target/release*/examples/
 !/target/release*/benchmark_client
+!/target/release-lto/examples/*
 Dockerfile*
