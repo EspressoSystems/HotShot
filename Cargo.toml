@@ -95,7 +95,7 @@ path = "examples/web-server/orchestrator.rs"
 [[example]]
 name = "web-server"
 required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server/web-server.rs"
+path = "examples/web-server-da/web-server-da.rs"
 
 [[example]]
 name = "web-server-validator"
