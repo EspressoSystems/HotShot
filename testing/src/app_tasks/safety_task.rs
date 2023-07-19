@@ -232,9 +232,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                         );
                                     }
                                     // these aren't failures
+                                    
                                     EventType::ReplicaViewTimeout { view_number }
                                     | EventType::NextLeaderViewTimeout { view_number }
-                                    | EventType::ViewFinished { view_number } => todo!(),
+                                    | EventType::ViewFinished { view_number } => {},
                                     _ => todo!(),
                                 }
                                 (None, state)

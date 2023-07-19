@@ -1079,11 +1079,19 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 warn!("View Change event for view {}", *new_view);
 
+                let old_view_number = self.cur_view; 
+
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 if !self.update_view(new_view).await {
                     return;
                 }
+
+                // Publish a view change event to the application
+                self.output_event_stream.publish(Event {
+                    view_number: old_view_number,
+                    event: EventType::ViewFinished { view_number: old_view_number },
+                }).await;
                 // error!("View Change event for view {}", *new_view);
 
                 // Spawn a timeout task if we did actually update view
