@@ -122,6 +122,16 @@ name = "web-server-da-validator"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/web-server-da/validator.rs"
 
+[[example]]
+name = "multi-validator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/multi-validator.rs"
+
+[[example]]
+name = "multi-web-server"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/multi-web-server.rs"
+
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
