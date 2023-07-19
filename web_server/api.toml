@@ -102,9 +102,10 @@ Send a view sync vote
 """
 
 # GET a view sync vote, where the view number is passed as an argument
-[route.getviewsyncvote]
-PATH = ["view_sync_vote/:view_number"]
+[route.getviewsyncvotes]
+PATH = ["view_sync_vote/:view_number/:index"]
 ":view_number" = "Integer"
+":index" = "Integer"
 METHOD = "GET"
 DOC = """
 GET a view sync vote
@@ -121,8 +122,9 @@ Send a view sync vote
 
 # GET a view sync certificate, where the view number is passed as an argument
 [route.getviewsyncproposal]
-PATH = ["view_sync_proposal/:view_number"]
+PATH = ["view_sync_proposal/:view_number/:index"]
 ":view_number" = "Integer"
+":index" = "Integer"
 METHOD = "GET"
 DOC = """
 GET a view sync proposal

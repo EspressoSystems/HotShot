@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use futures::join;
 
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::TestableChannelImplementation;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::ViewMessage;
@@ -292,11 +293,11 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(self.network(), tuple)
+        >>::inject_consensus_info(self.network(), event)
         .await
     }
 }

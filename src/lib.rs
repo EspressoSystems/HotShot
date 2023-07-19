@@ -1556,21 +1556,21 @@ where
             .committee_exchange()
             .network()
             .clone();
-        let _result = networking
-            .inject_consensus_info((
-                (*cur_view),
-                hotshot
-                    .inner
-                    .exchanges
-                    .committee_exchange()
-                    .is_leader(cur_view),
-                hotshot
-                    .inner
-                    .exchanges
-                    .committee_exchange()
-                    .is_leader(cur_view + 1),
-            ))
-            .await;
+        // let _result = networking
+        //     .inject_consensus_info((
+        //         (*cur_view),
+        //         hotshot
+        //             .inner
+        //             .exchanges
+        //             .committee_exchange()
+        //             .is_leader(cur_view),
+        //         hotshot
+        //             .inner
+        //             .exchanges
+        //             .committee_exchange()
+        //             .is_leader(cur_view + 1),
+        //     ))
+        //     .await;
 
         if hotshot
             .inner
