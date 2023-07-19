@@ -5,39 +5,32 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::certificate::ViewSyncCertificate;
 use crate::certificate::VoteMetaData;
-use crate::certificate::{self, ViewSyncCertificate};
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 
-use crate::message::{
-    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
-};
+use crate::message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message};
 use crate::vote::ViewSyncVoteInternal;
 
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::traits::{
-    consensus_type::sequencing_consensus::SequencingConsensus,
-    node_implementation::{ExchangesType, SequencingExchangesType},
+    consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::ExchangesType,
     state::ConsensusTime,
 };
 use crate::vote::ViewSyncData;
 use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-use crate::{
-    data::{LeafType, SequencingLeaf},
-    traits::signature_key::SignatureKey,
-};
+use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::aead::KeyPair;
-use jf_primitives::signatures;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -86,9 +79,11 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
-
+    /// Vote to pre-commit the view sync.
     ViewSyncPreCommit(Commitment<COMMITTABLE>),
+    /// Vote to commit the view sync.
     ViewSyncCommit(Commitment<COMMITTABLE>),
+    /// Vote to finalize the view sync.
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
@@ -299,7 +294,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let leaf_commitment = qc.leaf_commitment();
 
         if leaf_commitment != commit {
-            panic!("Leaf commitment does not equal parent commitment");
             return false;
         }
 
@@ -612,7 +606,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
-        relay: Option<u64>,
+        _relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -922,7 +916,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, LEAF>,
-        relay: Option<u64>,
+        _relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, LEAF>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -992,8 +986,10 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
+    /// Validate a certificate.
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 
+    /// Sign a certificate.
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 
@@ -1154,7 +1150,7 @@ impl<
     }
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        let (certificate_internal, threshold, vote_data) = match certificate.clone() {
+        let (certificate_internal, threshold, _vote_data) = match certificate {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
                 let vote_data = VoteData::ViewSyncPreCommit(
                     ViewSyncData::<TYPES> {
@@ -1205,17 +1201,17 @@ impl<
                         signature.1 .1.clone(),
                         certificate_internal.round,
                         Checked::Unchecked(signature.1 .2.clone()),
-                    ) && (matches!(&signature.1 .1, vote_data))
+                    ) && matches!(&signature.1 .1, _vote_data)
                 })
                 .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
             _ => unimplemented!(),
         };
 
-        return votes >= threshold.into();
+        votes >= threshold.into()
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        TYPES::SignatureKey::sign(&self.private_key, &certificate.commit().as_ref())
+        TYPES::SignatureKey::sign(&self.private_key, certificate.commit().as_ref())
     }
 }
 

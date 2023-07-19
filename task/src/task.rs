@@ -4,7 +4,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use either::Either::{self, Left, Right};
-use futures::stream::Unfold;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
@@ -59,6 +58,7 @@ pub trait HotShotTaskTypes: 'static {
 #[pin_project(project = ProjectedHST)]
 #[allow(clippy::type_complexity)]
 pub struct HST<HSTT: HotShotTaskTypes> {
+    /// Optional ID of the stream.
     pub(crate) stream_id: Option<StreamId>,
     /// the eventual return value, post-cleanup
     r_val: Option<HotShotTaskCompleted>,
@@ -316,9 +316,9 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// launch the task
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
-    /// So, it should be safe to lanuch.
+    /// So, it should be safe to launch.
     pub fn launch(self) -> BoxFuture<'static, HotShotTaskCompleted> {
-        async move { self.await }.boxed()
+        Box::pin(self)
     }
 }
 

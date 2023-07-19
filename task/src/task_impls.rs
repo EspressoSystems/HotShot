@@ -364,7 +364,7 @@ pub mod test {
                 }
                 .boxed()
             }));
-            let name = format!("Test Task {:?}", i).to_string();
+            let name = format!("Test Task {i:?}").to_string();
             let built_task = TaskBuilder::<AppliedHSTWithEventCounterState>::new(name.clone())
                 .register_event_stream(event_stream.clone(), FilterEvent::default())
                 .await

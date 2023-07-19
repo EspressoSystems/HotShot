@@ -27,7 +27,6 @@ use snafu::{ensure, Snafu};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
-    ops::{Add, Div, Rem},
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -150,6 +149,7 @@ pub struct DAProposal<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 }
 
+/// Proposal to append a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {

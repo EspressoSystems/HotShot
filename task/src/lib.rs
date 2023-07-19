@@ -12,16 +12,14 @@
 use Poll::{Pending, Ready};
 
 use either::Either;
-use event_stream::{EventStream, SendableStream};
+use event_stream::SendableStream;
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use futures::{future::BoxFuture, stream::Fuse, Future, Stream, StreamExt};
+use futures::{stream::Fuse, Future, Stream, StreamExt};
 use std::{
-    marker::PhantomData,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
-use task::PassType;
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
 use pin_project::pin_project;
@@ -169,14 +167,18 @@ where
 /// gotta make the futures sync
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
 
+/// A stream created by a generator.
 #[pin_project(project = ProjectedStreamableThing)]
 pub struct GeneratedStream<O> {
     // todo maybe type wrapper is in order
+    /// Stream generator.
     generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,
+    /// Optional in-progress future.
     in_progress_fut: Option<BoxSyncFuture<'static, O>>,
 }
 
 impl<O> GeneratedStream<O> {
+    /// Generate a stream.
     pub fn new(generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>) -> Self {
         GeneratedStream {
             generator,
@@ -201,11 +203,9 @@ impl<O> Stream for GeneratedStream<O> {
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
-                        return Poll::Ready(Some(val));
+                        Poll::Ready(Some(val))
                     }
-                    Pending => {
-                        return Poll::Pending;
-                    }
+                    Pending => Poll::Pending,
                 }
             }
             None => {
@@ -213,11 +213,11 @@ impl<O> Stream for GeneratedStream<O> {
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
-                        return Poll::Ready(Some(val));
+                        Poll::Ready(Some(val))
                     }
                     Pending => {
                         *projection.in_progress_fut = Some(fut);
-                        return Poll::Pending;
+                        Poll::Pending
                     }
                 }
             }
@@ -245,7 +245,7 @@ impl<O: Sync + Send + 'static> SendableStream for GeneratedStream<O> {}
 
 #[cfg(test)]
 pub mod test {
-    use crate::*;
+    use crate::{boxed_sync, Arc, GeneratedStream, StreamExt};
 
     #[cfg(test)]
     #[cfg_attr(
@@ -286,7 +286,7 @@ pub mod test {
                     let actual_value = value.load(Ordering::Relaxed);
                     value.store(actual_value + 1, Ordering::Relaxed);
                     async_sleep(Duration::new(0, 500)).await;
-                    actual_value as u32
+                    u32::from(actual_value)
                 };
                 boxed_sync(closure)
             }),

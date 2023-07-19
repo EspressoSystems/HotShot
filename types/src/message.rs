@@ -3,7 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::certificate::{DACertificate, ViewSyncCertificate};
+use crate::certificate::DACertificate;
 use crate::data::DAProposal;
 use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use crate::traits::network::ViewMessage;
@@ -63,19 +63,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for Messages<TYPES,
 /// A message type agnostic description of a messages purpose
 #[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
-    /// Message contains a proposal
+    /// Message with a quorum proposal.
     Proposal,
-    /// Message contains a vote
+    /// Message with a quorum vote.
     Vote,
+    /// Message with a view sync vote.
+    ViewSyncVote,
+    /// Message with a view sync proposal.
+    ViewSyncProposal,
+    /// Message with a DAC.
+    DAC,
     /// Message for internal use
     Internal,
     /// Data message
     Data,
-
-    ViewSyncVote,
-    ViewSyncProposal,
-
-    DAC,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -162,16 +163,17 @@ pub enum ProcessedGeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation
 where
     I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    /// Leader's proposal for full Quorom voting
+    /// Message with a quorum proposal.
     Proposal(Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey),
-    /// Replica's vote on a proposal.
+    /// Message with a quorum vote.
     Vote(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
+    /// Message with a view sync vote.
+    ViewSyncVote(ViewSyncVote<TYPES>),
+    /// Message with a view sync certificate.
+    ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
-    /// A view sync related message - either a vote or certificate
-    ViewSyncVote(ViewSyncVote<TYPES>),
-    ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
@@ -250,11 +252,11 @@ where
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType<ConsensusType = SequencingConsensus>> {
-    /// Proposal for data availability committee
+    /// Proposal for the DA committee.
     DAProposal(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
-    /// vote from the DA committee
+    /// Vote from the DA committee.
     DAVote(DAVote<TYPES>, TYPES::SignatureKey),
-
+    /// Certificate for the DA.
     DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
 }
 
@@ -329,14 +331,16 @@ pub enum GeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>
 where
     I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    /// Leader's proposal for full quorum voting
+    /// Message with a quorum proposal.
     Proposal(Proposal<QuorumProposalType<TYPES, I>>),
 
-    /// Replica's vote on a proposal.
+    /// Message with a quorum vote.
     Vote(QuorumVote<TYPES, I::Leaf>),
 
+    /// Message with a view sync vote.
     ViewSyncVote(ViewSyncVote<TYPES>),
 
+    /// Message with a view sync certificate.
     ViewSyncCertificate(Proposal<ViewSyncProposalType<TYPES, I>>),
 
     /// Internal ONLY message indicating a view interrupt.
