@@ -1092,7 +1092,7 @@ where
                     view_number: old_view_number,
                     event: EventType::ViewFinished { view_number: old_view_number },
                 }).await;
-                // error!("View Change event for view {}", *new_view);
+                error!("View Change event for view {}", *new_view);
 
                 // Spawn a timeout task if we did actually update view
                 self.timeout_task = async_spawn({
