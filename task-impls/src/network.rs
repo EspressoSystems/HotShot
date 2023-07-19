@@ -3,7 +3,7 @@ use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HotShotTaskCompleted, TaskErr, TS},
-    task_impls::HSTWithEventAndMessage,
+    task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
 use hotshot_types::message::{DataMessage, Message};
@@ -37,23 +37,15 @@ pub enum NetworkTaskKind {
     ViewSync,
 }
 
-pub struct NetworkTaskState<
+pub struct NetworkMessageTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-    MEMBERSHIP: Membership<TYPES>,
-    COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 > {
-    pub channel: COMMCHANNEL,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    pub view: ViewNumber,
-    pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
-    // TODO ED Need to add exchange so we can get the recipient key and our own key?
 }
 
 impl<
@@ -63,11 +55,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-        COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > TS for NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > TS for NetworkMessageTaskState<TYPES, I>
 {
 }
 
@@ -78,30 +66,15 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-        COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > NetworkMessageTaskState<TYPES, I>
 {
-    /// Handle the message for the given type of network task.
-    pub async fn handle_message(
-        &mut self,
-        task: NetworkTaskKind,
-        message: Message<TYPES, I>,
-        id: u64,
-    ) {
+    /// Handle the message.
+    pub async fn handle_message(&mut self, message: Message<TYPES, I>, id: u64) {
         let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        warn!(
-                            "ID = {} Recved quorum proposal on {:?} view {:?}",
-                            id,
-                            task,
-                            proposal.data.get_view_number()
-                        );
                         SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
@@ -145,7 +118,55 @@ impl<
         };
         self.event_stream.publish(event).await;
     }
+}
 
+pub struct NetworkEventTaskState<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+> {
+    pub channel: COMMCHANNEL,
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub view: ViewNumber,
+    pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
+    // TODO ED Need to add exchange so we can get the recipient key and our own key?
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+    > TS for NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+{
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
+    > NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+{
     /// Handle the given event.
     ///
     /// Returns the completion status.
@@ -318,13 +339,17 @@ impl<
 pub struct NetworkTaskError {}
 impl TaskErr for NetworkTaskError {}
 
-pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
-    HSTWithEventAndMessage<
-        NetworkTaskError,
-        SequencingHotShotEvent<TYPES, I>,
-        ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-        Either<Messages<TYPES, I>, Messages<TYPES, I>>,
-        // A combination of broadcast and direct streams.
-        Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
-        NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
-    >;
+pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
+    NetworkTaskError,
+    Either<Messages<TYPES, I>, Messages<TYPES, I>>,
+    // A combination of broadcast and direct streams.
+    Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
+    NetworkMessageTaskState<TYPES, I>,
+>;
+
+pub type NetworkEventTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
+    NetworkTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
+>;
