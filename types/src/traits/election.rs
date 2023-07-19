@@ -1150,42 +1150,27 @@ impl<
     }
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        let (certificate_internal, threshold, _vote_data) = match certificate {
+        let (certificate_internal, threshold, data_commit) = match certificate {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncPreCommit(
-                    ViewSyncData::<TYPES> {
-                        relay: self
-                            .get_leader(round + certificate_internal.relay)
-                            .to_bytes(),
-                        round,
-                    }
-                    .commit(),
-                );
-                (certificate_internal, self.failure_threshold(), vote_data)
+                let commit = ViewSyncData::<TYPES> {
+                    relay: self
+                        .get_leader(round + certificate_internal.relay)
+                        .to_bytes(),
+                    round,
+                }
+                .commit();
+                (certificate_internal, self.failure_threshold(), commit)
             }
-            ViewSyncCertificate::Commit(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncCommit(
-                    ViewSyncData::<TYPES> {
-                        relay: self
-                            .get_leader(round + certificate_internal.relay)
-                            .to_bytes(),
-                        round,
-                    }
-                    .commit(),
-                );
-                (certificate_internal, self.success_threshold(), vote_data)
-            }
-            ViewSyncCertificate::Finalize(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncFinalize(
-                    ViewSyncData::<TYPES> {
-                        relay: self
-                            .get_leader(round + certificate_internal.relay)
-                            .to_bytes(),
-                        round,
-                    }
-                    .commit(),
-                );
-                (certificate_internal, self.success_threshold(), vote_data)
+            ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => {
+                let commit = ViewSyncData::<TYPES> {
+                    relay: self
+                        .get_leader(round + certificate_internal.relay)
+                        .to_bytes(),
+                    round,
+                }
+                .commit();
+                (certificate_internal, self.success_threshold(), commit)
             }
         };
 
@@ -1201,7 +1186,11 @@ impl<
                         signature.1 .1.clone(),
                         certificate_internal.round,
                         Checked::Unchecked(signature.1 .2.clone()),
-                    ) && matches!(&signature.1 .1, _vote_data)
+                    ) && (
+                        matches!(signature.1 .1, VoteData::ViewSyncPreCommit(commit) if commit == data_commit)
+                        || matches!(signature.1 .1, VoteData::ViewSyncCommit(commit) if commit == data_commit)
+                        || matches!(signature.1 .1, VoteData::ViewSyncFinalize(commit) if commit == data_commit)
+                    )
                 })
                 .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
             _ => unimplemented!(),
