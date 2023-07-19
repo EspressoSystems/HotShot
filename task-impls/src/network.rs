@@ -226,9 +226,8 @@ impl<
                     Some(membership.get_leader(vote.round() + vote.relay())),
                 )
             }
-            SequencingHotShotEvent::TransactionSend(transaction) => (
-                // TODO ED Get our own key
-                nll_todo(),
+            SequencingHotShotEvent::TransactionSend(transaction, sender) => (
+                sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(
                     transaction,
                     TYPES::Time::new(*self.view),
@@ -297,7 +296,7 @@ impl<
             | SequencingHotShotEvent::DAVoteSend(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_)
-            | SequencingHotShotEvent::TransactionSend(_) => true,
+            | SequencingHotShotEvent::TransactionSend(_, _) => true,
 
             _ => false,
         }

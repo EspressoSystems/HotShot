@@ -762,13 +762,18 @@ where
                                     }
 
                                     leaf_views.push(leaf.clone());
-                                    if let Left(block) = &leaf.deltas {
+                                    match &leaf.deltas {
+                                        Left(block) => {
                                         let txns = block.contained_transactions();
                                         for txn in txns {
                                             included_txns.insert(txn);
                                         }
                                     }
+                                    Right(commit) => {
+
+                                    }
                                 }
+                            }
                                 true
                             },
                         ) {
@@ -846,6 +851,10 @@ where
                             }
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
+                            if *view % 10 == 0 && self.quorum_exchange.is_leader(view){
+                                error!("Sending Decide for view {:?}", consensus.last_decided_view);
+                                error!("Decided txns {:?}", included_txns_set)
+                            }
                             decide_sent.await;
                         }
 
