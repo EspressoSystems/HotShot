@@ -324,12 +324,13 @@ pub trait RunDA<
             if should_submit_txns {
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
-                    tracing::info!("Submitting txn on round {}", round);
+                    tracing::error!("Submitting txn on round {}", round);
                     context.submit_transaction(txn).await.unwrap();
                 }
                 should_submit_txns = false;
             }
 
+            error!("Before match stream event");
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
@@ -341,8 +342,11 @@ pub trait RunDA<
                             // TODO what to do here
                         }
                         EventType::Decide { leaf_chain, qc } => {
+                            error!("In decide handler");
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
+                                error!("Decide event for leaf: {}", *leaf.view_number);
+
                                 let new_anchor = leaf.view_number;
                                 if new_anchor >= anchor_view {
                                     anchor_view = leaf.view_number;
@@ -364,7 +368,7 @@ pub trait RunDA<
                             error!("Timed out as the next leader in view {:?}", view_number);
                         }
                         EventType::ViewFinished { view_number } => {
-                            tracing::info!("view finished: {:?}", view_number);
+                            tracing::error!("view finished: {:?}", view_number);
                         }
                         _ => unimplemented!(),
                     }
