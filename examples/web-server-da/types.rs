@@ -31,7 +31,7 @@ pub type DANetwork =
 pub type QuorumNetwork =
     WebCommChannel<SDemoTypes, NodeImpl, ThisQuorumProposal, ThisQuorumVote, ThisMembership>;
 pub type ViewSyncNetwork =
-    WebCommChannel<SDemoTypes, NodeImpl, ThisValidatingProposal, ThisViewSyncVote, ThisMembership>;
+    WebCommChannel<SDemoTypes, NodeImpl, ThisViewSyncProposal, ThisViewSyncVote, ThisMembership>;
 
 pub type ThisDAProposal = DAProposal<SDemoTypes>;
 pub type ThisDAVote = DAVote<SDemoTypes>;
@@ -39,7 +39,7 @@ pub type ThisDAVote = DAVote<SDemoTypes>;
 pub type ThisQuorumProposal = QuorumProposal<SDemoTypes, ThisLeaf>;
 pub type ThisQuorumVote = QuorumVote<SDemoTypes, ThisLeaf>;
 
-pub type ThisValidatingProposal = ValidatingProposal<SDemoTypes, ValidatingLeaf<SDemoTypes>>;
+pub type ThisViewSyncProposal = ViewSyncCertificate<SDemoTypes>;
 pub type ThisViewSyncVote = ViewSyncVote<SDemoTypes>;
 
 impl NodeImplementation<SDemoTypes> for NodeImpl {
@@ -57,7 +57,7 @@ impl NodeImplementation<SDemoTypes> for NodeImpl {
             Message<SDemoTypes, Self>,
         >,
         CommitteeExchange<SDemoTypes, ThisMembership, DANetwork, Message<SDemoTypes, Self>>,
-        ViewSyncExchange<SDemoTypes, ThisValidatingProposal, ThisMembership, ViewSyncNetwork, Message<SDemoTypes, Self>>,
+        ViewSyncExchange<SDemoTypes, ThisViewSyncProposal, ThisMembership, ViewSyncNetwork, Message<SDemoTypes, Self>>,
     >;
     type ConsensusMessage = SequencingMessage<SDemoTypes, Self>;
 

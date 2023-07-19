@@ -574,7 +574,7 @@ where
 }
 
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
-    shutdown_listener: Option<OneShotReceiver<()>>,
+    shutdown_listener: Option<OneShotReceiver<()>>, port: u16
 ) -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
@@ -582,7 +582,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
+    app.serve(format!("http://0.0.0.0:{port}"))
         .await
 }
 

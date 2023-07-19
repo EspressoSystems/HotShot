@@ -37,7 +37,7 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_DA_PORT;
+use hotshot_web_server::config::{DEFAULT_WEB_SERVER_DA_PORT, DEFAULT_WEB_SERVER_VIEW_SYNC_PORT};
 use hotshot_types::{
     message::Message,
     traits::election::{CommitteeExchange, QuorumExchange},
@@ -97,7 +97,7 @@ pub async fn run_orchestrator_da<
     VIEWSYNCNETWORK: CommunicationChannel<
         TYPES,
         Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        ViewSyncCertificate<TYPES>,
         ViewSyncVote<TYPES>,
         MEMBERSHIP,
     > + Debug,
@@ -116,7 +116,7 @@ pub async fn run_orchestrator_da<
                 Message<TYPES, NODE>,
             >,
             CommitteeExchange<TYPES, MEMBERSHIP, DANETWORK, Message<TYPES, NODE>>,
-            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
+            ViewSyncExchange<TYPES, ViewSyncCertificate<TYPES>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
         >,
         Storage = MemoryStorage<TYPES, SequencingLeaf<TYPES>>,
         ConsensusMessage = SequencingMessage<TYPES, NODE>,
@@ -200,7 +200,7 @@ pub trait RunDA<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, SystemContextHandle<TYPES, NODE>) {
+    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
         let genesis_block = TYPES::BlockType::genesis();
         let initializer =
             hotshot::HotShotInitializer::<TYPES, SequencingLeaf<TYPES>>::from_genesis(
@@ -219,6 +219,7 @@ pub trait RunDA<
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
+        let view_sync_network = self.get_view_sync_network();
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
@@ -238,8 +239,7 @@ pub trait RunDA<
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             quorum_election_config,
-            //Kaley TODO: add view sync network
-            (quorum_network.clone(), nll_todo(), da_network.clone()),
+            (quorum_network.clone(), view_sync_network.clone(), da_network.clone()),
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -258,14 +258,14 @@ pub trait RunDA<
         .await
         .expect("Could not init hotshot");
 
-        let state = hotshot
-            .storage()
-            .get_anchored_view()
-            .await
-            .expect("Couldn't get HotShot's anchored view")
-            .state;
+        // let state = hotshot
+        //     .storage()
+        //     .get_anchored_view()
+        //     .await
+        //     .expect("Couldn't get HotShot's anchored view")
+        //     .state;
 
-        (state, hotshot)
+        hotshot
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
@@ -426,6 +426,9 @@ pub trait RunDA<
     /// Returns the quorum network for this run
     fn get_quorum_network(&self) -> QUORUMNETWORK;
 
+    ///Returns view sync network for this run
+    fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
+
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 }
@@ -463,6 +466,7 @@ pub struct WebServerDARun<
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     quorum_network: StaticQuorumComm<TYPES, I, MEMBERSHIP>,
     da_network: StaticDAComm<TYPES, I, MEMBERSHIP>,
+    view_sync_network: StaticViewSyncComm<TYPES, I, MEMBERSHIP>,
 }
 
 #[async_trait]
@@ -583,6 +587,22 @@ where
                 &host.to_string(),
                 DEFAULT_WEB_SERVER_DA_PORT,
                 wait_between_polls,
+                pub_key.clone(),
+            )
+            .into(),
+        );
+
+        let view_sync_network: WebCommChannel<
+            TYPES,
+            NODE,
+            ViewSyncCertificate<TYPES>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > = WebCommChannel::new(
+            WebServerNetwork::create(
+                &host.to_string(),
+                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
+                wait_between_polls,
                 pub_key,
             )
             .into(),
@@ -592,6 +612,7 @@ where
             config,
             quorum_network,
             da_network,
+            view_sync_network,
         }
     }
 
@@ -617,6 +638,18 @@ where
         MEMBERSHIP,
     > {
         self.quorum_network.clone()
+    }
+
+    fn get_view_sync_network(
+        &self,
+    ) -> WebCommChannel<
+        TYPES,
+        NODE,
+        ViewSyncCertificate<TYPES>,
+        ViewSyncVote<TYPES>,
+        MEMBERSHIP,
+    > {
+        self.view_sync_network.clone()
     }
 
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
@@ -716,7 +749,7 @@ pub async fn main_entry_point<
 
     error!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
-    let (_state, hotshot) = run.initialize_state_and_hotshot().await;
+    let hotshot = run.initialize_state_and_hotshot().await;
 
     error!("Waiting for start command from orchestrator");
     orchestrator_client

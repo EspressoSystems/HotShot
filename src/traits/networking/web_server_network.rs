@@ -36,6 +36,7 @@ use hotshot_types::{
 };
 use hotshot_web_server::{self, config};
 use serde::{Deserialize, Serialize};
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 
 use hotshot_types::traits::network::ViewMessage;
 use std::{
@@ -768,7 +769,7 @@ where
         let sender = Arc::new(server_shutdown_sender);
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown),
+            Some(server_shutdown), DEFAULT_WEB_SERVER_PORT
         ));
 
         let known_nodes = (0..expected_node_count as u64)

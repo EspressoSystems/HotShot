@@ -3,7 +3,7 @@ use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork, ThisMembership, ThisRun};
 
 use crate::infra::ValidatorArgs;
 
@@ -34,6 +34,7 @@ async fn main() {
         ThisMembership,
         DANetwork,
         QuorumNetwork,
+        ViewSyncNetwork,
         NodeImpl,
         ThisRun,
     >(args)

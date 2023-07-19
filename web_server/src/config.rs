@@ -1,5 +1,6 @@
 pub const DEFAULT_WEB_SERVER_PORT: u16 = 9000;
 pub const DEFAULT_WEB_SERVER_DA_PORT: u16 = 9001;
+pub const DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = 9002;
 
 pub fn get_proposal_route(view_number: u64) -> String {
     format!("api/proposal/{view_number}")

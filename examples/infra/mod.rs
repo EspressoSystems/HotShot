@@ -81,11 +81,11 @@ use tracing::error;
 /// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// The configuration file to be used for this run
-    config_file: String,
+    pub config_file: String,
 }
 
 /// Reads a network configuration from a given filepath
