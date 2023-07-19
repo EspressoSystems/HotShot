@@ -276,7 +276,7 @@ pub trait Run<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (election_config.clone(), ()),
             //Kaley todo: add view sync network
             (network.clone(), nll_todo(), ()),
             pk.clone(),
@@ -869,7 +869,7 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, nll_todo(), false).into(), 
         );
         WebServerRun { config, network }
     }

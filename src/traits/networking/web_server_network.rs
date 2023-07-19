@@ -41,10 +41,10 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use hotshot_web_server::{self, config};
 use rand::random;
 use serde::{Deserialize, Serialize};
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 
 use hotshot_types::traits::network::ViewMessage;
 use std::collections::HashMap;
@@ -461,8 +461,7 @@ impl<
         // let (dac_sender, dac_receiver) = unbounded::<ConsensusIntentEvent>();
         // let (view_sync_vote_sender, view_sync_vote_receiver) = unbounded::<ConsensusIntentEvent>();
 
-        let (tx_sender, tx_receiver) =
-            unbounded::<ConsensusIntentEvent>();
+        let (tx_sender, tx_receiver) = unbounded::<ConsensusIntentEvent>();
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
@@ -482,7 +481,7 @@ impl<
             dac_task_map: Arc::default(),
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
-            tx_sender
+            tx_sender,
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -490,20 +489,20 @@ impl<
         // match is_da_server {
         //     // We are polling for DA-related events
         //     true => {
-                let tx_handle = async_spawn({
-                    let inner_clone = inner.clone();
-                    async move {
-                        if let Err(e) = inner_clone
-                            .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
-                            .await
-                        {
-                            error!(
-                                "Background receive proposal polling encountered an error: {:?}",
-                                e
-                            );
-                        }
-                    }
-                });
+        let tx_handle = async_spawn({
+            let inner_clone = inner.clone();
+            async move {
+                if let Err(e) = inner_clone
+                    .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
+                    .await
+                {
+                    error!(
+                        "Background receive proposal polling encountered an error: {:?}",
+                        e
+                    );
+                }
+            }
+        });
         //         let da_vote_handle = async_spawn({
         //             let inner_clone = inner.clone();
         //             async move {
@@ -1463,14 +1462,7 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-            PROPOSAL,
-            VOTE,
-        >,
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
     > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,

@@ -238,7 +238,7 @@ pub trait RunDA<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            quorum_election_config,
+            (quorum_election_config, _committee_election_config),
             (quorum_network.clone(), view_sync_network.clone(), da_network.clone()),
             pk.clone(),
             sk.clone(),
@@ -311,7 +311,6 @@ pub trait RunDA<
         let start = Instant::now();
 
         error!("Starting hotshot!");
-        context.start_consensus().await;
         let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
@@ -319,6 +318,9 @@ pub trait RunDA<
         let total_nodes_u64 = total_nodes.get() as u64;
 
         let mut should_submit_txns = node_index == (*anchor_view % total_nodes_u64);
+
+        context.hotshot.start_consensus().await;
+
 
         loop {
             if should_submit_txns {
@@ -576,6 +578,8 @@ where
                 port,
                 wait_between_polls,
                 pub_key.clone(),
+                known_nodes.clone(), 
+                false
             )
             .into(),
         );
@@ -592,6 +596,8 @@ where
                 DEFAULT_WEB_SERVER_DA_PORT,
                 wait_between_polls,
                 pub_key.clone(),
+                known_nodes.clone(), 
+                true
             )
             .into(),
         );
@@ -608,6 +614,8 @@ where
                 DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
                 wait_between_polls,
                 pub_key,
+                known_nodes.clone(), 
+                false
             )
             .into(),
         );

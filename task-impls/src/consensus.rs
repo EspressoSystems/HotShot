@@ -1065,7 +1065,7 @@ where
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                panic!("View Change event for view {}", *new_view);
+                warn!("View Change event for view {}", *new_view);
 
                 let old_view_number = self.cur_view; 
 
