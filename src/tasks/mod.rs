@@ -455,7 +455,7 @@ where
     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let closure = async move {
             let msgs = Messages(Vec::new());
-            async_sleep(Duration::new(0, 500)).await;
+            async_sleep(Duration::new(0, 50)).await;
             msgs
         };
         boxed_sync(closure)
@@ -463,7 +463,7 @@ where
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let closure = async move {
             let msgs = Messages(Vec::new());
-            async_sleep(Duration::new(0, 500)).await;
+            async_sleep(Duration::new(0, 50)).await;
             msgs
         };
         boxed_sync(closure)
