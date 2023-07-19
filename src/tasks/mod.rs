@@ -355,7 +355,7 @@ where
                     .await
                     .expect("Failed to receive broadcast messages"),
             );
-            async_sleep(Duration::new(0, 50)).await;
+            async_sleep(Duration::new(0, 500)).await;
             msgs
         };
         boxed_sync(closure)
@@ -370,7 +370,7 @@ where
                     .await
                     .expect("Failed to receive direct messages"),
             );
-            async_sleep(Duration::new(0, 50)).await;
+            async_sleep(Duration::new(0, 500)).await;
             msgs
         };
         boxed_sync(closure)
@@ -445,30 +445,12 @@ pub async fn add_network_event_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
     task_kind: NetworkTaskKind,
-    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
     EXCHANGE::Networking:
         CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 {
-    let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
-        let closure = async move {
-            let msgs = Messages(Vec::new());
-            async_sleep(Duration::new(0, 50)).await;
-            msgs
-        };
-        boxed_sync(closure)
-    }));
-    let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
-        let closure = async move {
-            let msgs = Messages(Vec::new());
-            async_sleep(Duration::new(0, 50)).await;
-            msgs
-        };
-        boxed_sync(closure)
-    }));
-    let message_stream = Merge::new(broadcast_stream, direct_stream);
     let filter = NetworkEventTaskState::<
         TYPES,
         I,
