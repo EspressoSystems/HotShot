@@ -1318,8 +1318,6 @@ where
 
         // warn!("Sending proposal for view {:?}", message.data.clone());
 
-        self.qc = None; 
-
         self.event_stream
             .publish(SequencingHotShotEvent::QuorumProposalSend(
                 message,

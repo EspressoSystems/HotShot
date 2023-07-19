@@ -175,6 +175,7 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     dac_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     view_sync_cert_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     view_sync_vote_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
+    tx_sender: UnboundedSender<ConsensusIntentEvent>,
 }
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
@@ -213,6 +214,14 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
                     match message_purpose {
+                        MessagePurpose::Data => {
+                            let mut broadcast_poll_queue = self.direct_poll_queue.write().await;
+                            for tx in &deserialized_messages {
+                                tx_index += 1;
+                                broadcast_poll_queue.push(tx.clone());
+                            }
+                            // error!("tx index is {}", tx_index);
+                        }
                         MessagePurpose::Proposal => {
                             // warn!(
                             //     "Received proposal from web server for view {} {}",
@@ -451,7 +460,7 @@ impl<
         // let (dac_sender, dac_receiver) = unbounded::<ConsensusIntentEvent>();
         // let (view_sync_vote_sender, view_sync_vote_receiver) = unbounded::<ConsensusIntentEvent>();
 
-        let (view_sync_certificate_sender, view_sync_certificate_receiver) =
+        let (tx_sender, tx_receiver) =
             unbounded::<ConsensusIntentEvent>();
 
         let inner = Arc::new(Inner {
@@ -472,6 +481,7 @@ impl<
             dac_task_map: Arc::default(),
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
+            tx_sender
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -479,20 +489,20 @@ impl<
         // match is_da_server {
         //     // We are polling for DA-related events
         //     true => {
-        //         let da_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(proposal_receiver, MessagePurpose::Proposal)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
+                let tx_handle = async_spawn({
+                    let inner_clone = inner.clone();
+                    async move {
+                        if let Err(e) = inner_clone
+                            .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
+                            .await
+                        {
+                            error!(
+                                "Background receive proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        }
+                    }
+                });
         //         let da_vote_handle = async_spawn({
         //             let inner_clone = inner.clone();
         //             async move {
