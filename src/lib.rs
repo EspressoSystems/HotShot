@@ -880,6 +880,20 @@ where
             handle.clone(),
         )
         .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            view_sync_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
         let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
