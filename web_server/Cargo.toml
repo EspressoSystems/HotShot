@@ -21,8 +21,14 @@ tokio-executor = [
     "async-compatibility-layer/tokio-executor",
 ]
 profiling = ["async-compatibility-layer/profiling"]
-channel-flume = ["hotshot-types/channel-flume", "async-compatibility-layer/channel-flume"]
-channel-tokio = ["hotshot-types/channel-tokio", "async-compatibility-layer/channel-tokio"]
+channel-flume = [
+    "hotshot-types/channel-flume",
+    "async-compatibility-layer/channel-flume",
+]
+channel-tokio = [
+    "hotshot-types/channel-tokio",
+    "async-compatibility-layer/channel-tokio",
+]
 channel-async-std = [
     "hotshot-types/channel-async-std",
     "async-compatibility-layer/channel-async-std",
@@ -39,10 +45,10 @@ clap = { version = "4.0", features = ["derive", "env"], optional = false }
 futures = "0.3.28"
 libp2p-core = { version = "0.39.2", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
-hotshot-utils = { path = "../utils"}
-hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
+hotshot-utils = { path = "../utils" }
+hotshot-primitives = { git = "https://@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
-  "std",
+    "std",
 ] }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
