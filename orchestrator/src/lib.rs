@@ -248,17 +248,8 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-<<<<<<< HEAD
     let mut api = Api::<State, ServerError>::from_file("../orchestrator/api.toml")
         .expect("api.toml file is not found");
-=======
-    let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/api.toml"
-    )))
-    .expect("API file is not valid toml");
-    let mut api = Api::<State, ServerError>::new(api_toml)?;
->>>>>>> paper_benchmarking
     api.post("postidentity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();
