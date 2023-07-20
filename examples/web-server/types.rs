@@ -26,7 +26,6 @@ pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
 pub type ThisNetwork = WebCommChannel<
-    ValidatingConsensus,
     VDemoTypes,
     NodeImpl,
     ThisProposal,

@@ -1,3 +1,4 @@
+pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
@@ -247,8 +248,17 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
+<<<<<<< HEAD
     let mut api = Api::<State, ServerError>::from_file("../orchestrator/api.toml")
         .expect("api.toml file is not found");
+=======
+    let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/api.toml"
+    )))
+    .expect("API file is not valid toml");
+    let mut api = Api::<State, ServerError>::new(api_toml)?;
+>>>>>>> paper_benchmarking
     api.post("postidentity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();
@@ -302,5 +312,6 @@ where
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
+    tracing::error!("lisening on {:?}:{:?}", host, port);
     app.serve(format!("http://{host}:{port}")).await
 }
