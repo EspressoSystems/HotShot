@@ -533,8 +533,6 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
     type Output = HotShotTaskCompleted;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        //kaley todo
-        // tracing::info!("HotShot Task {:?} awakened", self.name);
         let mut projected = self.as_mut().project();
 
         if let Some(fut) = projected.in_progress_shutdown_fut.take() {

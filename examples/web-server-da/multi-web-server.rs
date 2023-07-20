@@ -14,8 +14,6 @@ struct MultiWebServerArgs {
 }
 #[async_std::main]
 async fn main() {
-    //KALEY TODO
-    // This doesn't work yet fyi
     let args = MultiWebServerArgs::parse();
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();
