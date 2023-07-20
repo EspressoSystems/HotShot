@@ -13,6 +13,9 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
+use hotshot::HotShotSequencingConsensusApi;
+use hotshot_consensus::traits::SequencingConsensusApi;
+use hotshot_types::message::DataMessage;
 use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
@@ -342,6 +345,10 @@ pub trait RunDA<
 
         let mut should_submit_txns = node_index == (round % total_nodes_u64);
 
+        let api = HotShotSequencingConsensusApi {
+            inner: context.hotshot.inner.clone(),
+        };
+
         context.hotshot.start_consensus().await;
 
         loop {
@@ -349,7 +356,12 @@ pub trait RunDA<
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::error!("Submitting txn on round {}", round);
-                    context.submit_transaction(txn).await.unwrap();
+                    
+                    api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
+                        .await
+                        .expect("Could not send transaction");
+                    // return (None, state);
+                    // context.submit_transaction(txn).await.unwrap();
                     total_transactions += 1;
                 }
                 should_submit_txns = false;
