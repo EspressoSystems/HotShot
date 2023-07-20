@@ -350,11 +350,11 @@ pub trait RunDA<
                     let txn = txns.pop_front().unwrap();
                     tracing::error!("Submitting txn on round {}", round);
                     context.submit_transaction(txn).await.unwrap();
+                    total_transactions += 1;
                 }
                 should_submit_txns = false;
             }
 
-            error!("Before match stream event");
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
