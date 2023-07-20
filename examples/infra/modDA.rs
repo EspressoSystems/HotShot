@@ -365,8 +365,7 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, _ } => {
-                            error!("In decide handler");
+                        EventType::Decide { leaf_chain, qc, num_block } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -377,6 +376,12 @@ pub trait RunDA<
                                 }
     
                             }
+
+                            if num_block.is_some() {
+                                total_transactions += num_block.unwrap();
+                                
+                            }
+
                             num_successful_commits += leaf_chain.len();
                             if num_successful_commits >= rounds {
                                 break;
@@ -451,6 +456,7 @@ pub trait RunDA<
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
         error!("Total commitments: {num_successful_commits}");
+        error!("Total transactions committed: {total_transactions}");
     }
 
     /// Returns the da network for this run
