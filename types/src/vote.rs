@@ -248,7 +248,7 @@ where
 
         // Desereialize the sig so that it can be assembeld into a QC
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
-        = bincode_opts().deserialize(&sig.clone().0).unwrap();
+        = bincode_opts().deserialize(&sig.clone().0).expect("Deserialization on the signature shouldn't be able to fail.");
 
         // update the active_keys and sig_lists
         self.signers.set(node_id, true);

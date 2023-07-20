@@ -220,7 +220,7 @@ where
                     &ver_key, 
                     &generic_msg,
                     &s,
-                ).is_ok() //unwrap();
+                ).is_ok()
             }
             Err(_) => false,
         }
@@ -237,14 +237,12 @@ where
                 &generic_msg,
                 key_pair.sign_key_ref(),
                 &mut rand::thread_rng()
-            ).unwrap();
+            ).expect("Individual signing should not fail");
 
         // Encode it
         let bytes = bincode_opts()
             .serialize(&individual_signature)
             .expect("This serialization shouldn't be able to fail");
-        // let print_bytes = String::from_utf8_lossy(&bytes);
-        // println!("In vrf.rs, signature bytes_string = {:?}", print_bytes);
         EncodedSignature(bytes)
     }
 

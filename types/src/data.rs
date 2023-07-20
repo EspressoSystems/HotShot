@@ -788,7 +788,8 @@ pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
             }
         };
     if signatures != None {
-        let (sig, proof) = signatures.unwrap();
+        let (sig, proof) = signatures
+            .expect("Deserialization on (sig, proof) shouldn't be able to fail.");
         let proof_bytes = bincode_opts()
             .serialize(&proof.as_bitslice())
             .expect("This serialization shouldn't be able to fail");

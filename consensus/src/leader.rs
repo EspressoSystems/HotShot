@@ -200,7 +200,7 @@ where
             let (signature, ver_key) = self
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
-            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.clone().into();
+            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
             let message =
                 ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
                     data,

@@ -233,7 +233,6 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
 
     /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
-    // fn get_leader_qc(&self, view_number: TYPES::Time) -> VerKey;
 
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
@@ -311,10 +310,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.membership().get_leader(view_number)
     }
-
-    // fn get_leader_qc(&self, view_number: TYPES::Time) -> VerKey {
-    //     self.membership().get_leader_qc(view_number)
-    // }
 
     /// Whether this participant is leader at time `view_number`.
     fn is_leader(&self, view_number: TYPES::Time) -> bool {
@@ -515,8 +510,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Get KeyPair for signature scheme in certificate Aggregation
     fn key_pair(&self) -> &QCKeyPair;
-
-    // fn get_entry(&self) -> &StakeTableEntry<VerKey>;
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
@@ -615,9 +608,7 @@ impl<
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
-        // println!("Inside sign_da_vote().");
         let signature = TYPES::SignatureKey::sign(
-            // &self.private_key,
             self.key_pair.clone(),
             &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
@@ -900,7 +891,6 @@ impl<
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
-        // println!("Inside sign_yes_vote().");
         let signature = TYPES::SignatureKey::sign(
             self.key_pair.clone(),
             &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
@@ -1066,9 +1056,6 @@ impl<
     fn key_pair(&self) -> &QCKeyPair {
         &self.key_pair
     }
-    // fn get_entry(&self) -> &StakeTableEntry<VerKey> {
-    //     &self.entry
-    // }
 }
 
 /// A [`ConsensusExchange`] where participants synchronize which view the network should be in.
