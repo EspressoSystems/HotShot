@@ -545,6 +545,7 @@ where
                 .await;
 
             // Spawn a timeout task if we did actually update view
+            let timeout = self.timeout;
             self.timeout_task = async_spawn({
                 // let next_view_timeout = hotshot.inner.config.next_view_timeout;
                 // let next_view_timeout = next_view_timeout;
@@ -554,7 +555,7 @@ where
                 let view_number = self.cur_view.clone();
                 async move {
                     // ED: Changing to 1 second to test timeout logic
-                    async_sleep(Duration::from_millis(5000)).await;
+                    async_sleep(Duration::from_millis(timeout)).await;
                     stream
                         .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                             *view_number,
