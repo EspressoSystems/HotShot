@@ -13,11 +13,9 @@ use crate::test_builder::TimingData;
 use crate::test_launcher::ResourceGenerators;
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use super::per_node_safety_task::PerNodeSafetyTaskDescription;
 use super::test_launcher::TestLauncher;
 
 use super::{
-    per_node_safety_task::PerNodeSafetyPropertiesDescription,
     overall_safety_task::OverallSafetyPropertiesDescription,
     txn_task::TxnTaskDescription,
 };
@@ -33,9 +31,6 @@ pub struct TestMetadata {
     pub num_bootstrap_nodes: usize,
     /// Size of the DA committee for the test.  0 == no DA.
     pub da_committee_size: usize,
-    /// per-node safety property description
-    /// TODO rename this
-    pub per_node_safety_properties: PerNodeSafetyPropertiesDescription,
     // overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
     // txns timing
@@ -59,11 +54,6 @@ impl Default for TestMetadata {
             // failure_threshold: 10,
             num_bootstrap_nodes: 5,
             da_committee_size: 0,
-            per_node_safety_properties: PerNodeSafetyPropertiesDescription {
-                // TODO Update these numbers
-                num_failed_views: Some(5),
-                num_decide_events: Some(5),
-            },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
@@ -101,7 +91,6 @@ impl TestMetadata {
             da_committee_size,
             txn_description,
             completion_task_description,
-            per_node_safety_properties,
             overall_safety_properties,
             ..
         } = self.clone();
@@ -160,9 +149,6 @@ impl TestMetadata {
 
         let txn_task_generator = txn_description.build();
         let completion_task_generator = completion_task_description.build_and_launch();
-        let per_node_safety_task_description =
-            PerNodeSafetyTaskDescription::<TYPES, I>::GenProperties(per_node_safety_properties);
-        let per_node_safety_task_generator = per_node_safety_task_description.build();
         let overall_safety_task_generator = overall_safety_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
@@ -174,8 +160,8 @@ impl TestMetadata {
                 config,
             },
             metadata: self,
+            hooks: vec![],
             txn_task_generator,
-            per_node_safety_task_generator,
             completion_task_generator,
             overall_safety_task_generator
         }

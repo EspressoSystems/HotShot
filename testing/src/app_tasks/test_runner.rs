@@ -30,7 +30,6 @@ use crate::{test_errors::ConsensusTestError, test_runner::Node};
 
 use super::overall_safety_task::OverallSafetyTask;
 use super::overall_safety_task::RoundCtx;
-use super::per_node_safety_task::PerNodeSafetyTask;
 use super::{
     completion_task::{self, CompletionTask},
     node_ctx::NodeCtx,
@@ -141,25 +140,6 @@ where
             test_event_stream.clone()
         ).await;
         task_runner = task_runner.add_task(id, "Overall Safety Task".to_string(), task);
-
-        // add per node safety task
-        for mut node in nodes.clone() {
-            let safety_task_state = PerNodeSafetyTask {
-                ctx: NodeCtx::default(),
-            };
-            let (stream, _stream_id) = node
-                .handle
-                .get_event_stream_known_impl(FilterEvent::default())
-                .await;
-            let (id, task) = (launcher.per_node_safety_task_generator)(
-                safety_task_state,
-                registry.clone(),
-                test_event_stream.clone(),
-                stream,
-            )
-            .await;
-            task_runner = task_runner.add_task(id, id.to_string(), task);
-        }
 
         // Start hotshot
         // Goes through all nodes, but really only needs to call this on the leader node of the first view

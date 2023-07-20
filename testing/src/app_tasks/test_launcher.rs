@@ -12,7 +12,7 @@ use hotshot_types::{event::Event, traits::node_implementation::NodeType, HotShot
 use crate::test_launcher::ResourceGenerators;
 
 use super::{
-    completion_task::CompletionTask, per_node_safety_task::PerNodeSafetyTask, test_builder::TestMetadata,
+    completion_task::CompletionTask, test_builder::TestMetadata,
     test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent, overall_safety_task::OverallSafetyTask,
 };
 
@@ -29,16 +29,6 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             TxnTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    >,
-    /// overrideable safety task generator function
-    pub per_node_safety_task_generator: Box<
-        dyn Fn(
-            PerNodeSafetyTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-            UnboundedStream<Event<TYPES, I::Leaf>>,
         )
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
     >,
@@ -109,27 +99,6 @@ Box<
     ) -> Self {
         Self {
             completion_task_generator,
-            ..self
-        }
-
-    }
-
-    /// overridde the per node safety task generator
-    pub fn with_per_node_safety_task_generator(self, per_node_safety_task_generator:
-Box<
-        dyn Fn(
-            PerNodeSafetyTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-            UnboundedStream<Event<TYPES, I::Leaf>>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    >,
-
-
-    ) -> Self {
-        Self {
-            per_node_safety_task_generator,
             ..self
         }
 

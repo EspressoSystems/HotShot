@@ -31,8 +31,10 @@ pub mod txn_task;
 /// task that decides when things are complete
 pub mod completion_task;
 
+pub mod node_types;
+
 /// context used by the safety task
-pub mod node_ctx;
+// pub mod node_ctx;
 
 // TODO node changer (spin up and down)
 

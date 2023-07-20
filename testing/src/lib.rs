@@ -25,7 +25,7 @@ pub mod test_types;
 pub mod test_runner;
 
 /// errors for tests
-pub mod test_errors;
+// pub mod test_errors;
 
 /// describe a round of consensus
 pub mod round;

@@ -353,11 +353,14 @@ impl OverallSafetyPropertiesDescription {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
+                                    let num_incomplete_views = state.ctx.round_results.len() - state.ctx.successful_views.len() - state.ctx.failed_views.len();
+
+
                                     if state.ctx.successful_views.len() < num_successful_views {
                                         return (Some(HotShotTaskCompleted::Error(Box::new(OverallSafetyTaskErr::NotEnoughDecides { got: state.ctx.successful_views.len(), expected: num_successful_views}))), state);
                                     }
 
-                                    if state.ctx.failed_views.len() >= num_failed_rounds_total {
+                                    if state.ctx.failed_views.len() + num_incomplete_views >= num_failed_rounds_total {
                                         return (Some(HotShotTaskCompleted::Error(Box::new(OverallSafetyTaskErr::TooManyFailures { got: state.ctx.failed_views.len(), expected: num_failed_rounds_total}))), state);
                                     }
                                     // TODO check if we got enough successful views
