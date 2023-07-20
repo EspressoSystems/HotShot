@@ -17,7 +17,6 @@ use std::sync::Arc;
 
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
-    timeout: usize,
 }
 
 pub struct EventBundle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -54,10 +53,7 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
     let event_stream = event_stream::ChannelStream::new();
-    let state = TestHarnessState {
-        expected_output,
-        timeout: 10000,
-    };
+    let state = TestHarnessState { expected_output };
     let handler = HandleEvent(Arc::new(move |event, state| {
         async move { handle_event(event, state) }.boxed()
     }));

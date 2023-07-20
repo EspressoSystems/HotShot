@@ -5,7 +5,6 @@ use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
-use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
@@ -187,7 +186,7 @@ where
                         .await;
 
                     state.accumulator = Right(dac.clone());
-                    state
+                    let _ = state
                         .committee_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -336,7 +335,7 @@ where
                             // warn!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
-                        collection_view.clone()
+                        *collection_view
                     } else {
                         ViewNumber::new(0)
                     };
@@ -403,7 +402,8 @@ where
                 self.cur_view = view;
                 // Inject view info into network
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
-                self.committee_exchange
+                let _ = self
+                    .committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
                         *self.cur_view + 1,
@@ -420,7 +420,8 @@ where
                 error!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 // Start polling for DA votes for the "next view"
-                self.committee_exchange
+                let _ = self
+                    .committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
                     .await;
@@ -501,7 +502,8 @@ where
             }
 
             SequencingHotShotEvent::Timeout(view) => {
-                self.committee_exchange
+                let _ = self
+                    .committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
@@ -572,15 +574,15 @@ where
 
     /// Filter the DA event.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::DAProposalRecv(_, _)
-            | SequencingHotShotEvent::DAVoteRecv(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::TransactionRecv(_)
-            | SequencingHotShotEvent::Timeout(_)
-            | SequencingHotShotEvent::ViewChange(_) => true,
-            _ => false,
-        }
+                | SequencingHotShotEvent::DAVoteRecv(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::TransactionRecv(_)
+                | SequencingHotShotEvent::Timeout(_)
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 }
 

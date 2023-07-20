@@ -56,7 +56,6 @@ pub enum ViewSyncPhase {
 
 #[derive(Default)]
 pub struct ViewSyncTaskInfo {
-    task_id: usize,
     event_stream_id: usize,
 }
 
@@ -330,15 +329,11 @@ where
                     .register_state(replica_state)
                     .register_event_handler(replica_handle_event);
 
-                let task_id = builder.get_task_id().unwrap();
                 let event_stream_id = builder.get_stream_id().unwrap();
 
                 self.replica_task_map.insert(
                     certificate_internal.round,
-                    ViewSyncTaskInfo {
-                        task_id,
-                        event_stream_id,
-                    },
+                    ViewSyncTaskInfo { event_stream_id },
                 );
 
                 let _view_sync_replica_task = async_spawn(async move {
@@ -414,16 +409,10 @@ where
                     .register_state(relay_state)
                     .register_event_handler(relay_handle_event);
 
-                let task_id = builder.get_task_id().unwrap();
                 let event_stream_id = builder.get_stream_id().unwrap();
 
-                self.relay_task_map.insert(
-                    vote_internal.round,
-                    ViewSyncTaskInfo {
-                        task_id,
-                        event_stream_id,
-                    },
-                );
+                self.relay_task_map
+                    .insert(vote_internal.round, ViewSyncTaskInfo { event_stream_id });
                 // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                 let _view_sync_relay_task = async_spawn(async move {
                     ViewSyncRelayTaskStateTypes::build(builder).launch().await
@@ -445,7 +434,6 @@ where
                     // Inject view info into network
                     // Move this to consensus task probably
                 }
-                return;
             }
             SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
@@ -463,14 +451,16 @@ where
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked == 2 {
                     // Start polling for view sync certificates
-                    self.exchange
+                    let _ = self
+                        .exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncCertificate(
                             *view_number + 1,
                         ))
                         .await;
 
-                    self.exchange
+                    let _ = self
+                        .exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncVotes(
                             *view_number + 1,
@@ -527,15 +517,11 @@ where
                             .register_state(replica_state)
                             .register_event_handler(replica_handle_event);
 
-                    let task_id = builder.get_task_id().unwrap();
                     let event_stream_id = builder.get_stream_id().unwrap();
 
                     self.replica_task_map.insert(
                         TYPES::Time::new(*view_number + 1),
-                        ViewSyncTaskInfo {
-                            task_id,
-                            event_stream_id,
-                        },
+                        ViewSyncTaskInfo { event_stream_id },
                     );
 
                     // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
@@ -553,23 +539,23 @@ where
                 }
             }
 
-            _ => return,
+            _ => {}
         }
     }
 
     /// Filter view sync related events.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::ViewSyncCertificateRecv(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
-            | SequencingHotShotEvent::ViewSyncVoteRecv(_)
-            | SequencingHotShotEvent::ViewSyncVoteSend(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::Timeout(_)
-            | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)
-            | SequencingHotShotEvent::ViewChange(_) => true,
-            _ => false,
-        }
+                | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
+                | SequencingHotShotEvent::ViewSyncVoteRecv(_)
+                | SequencingHotShotEvent::ViewSyncVoteSend(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::Timeout(_)
+                | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 }
 
@@ -628,7 +614,7 @@ where
                     .exchange
                     .get_leader(certificate_internal.round + certificate_internal.relay);
 
-                if !relay_key.validate(&message.signature, &message.data.commit().as_ref()) {
+                if !relay_key.validate(&message.signature, message.data.commit().as_ref()) {
                     error!("Key does not validate for certificate sender");
                     return (None, self);
                 }
@@ -636,7 +622,7 @@ where
                 // If certificate is not valid, return current state
                 if !self
                     .exchange
-                    .is_valid_view_sync_cert(message.data, certificate_internal.round.clone())
+                    .is_valid_view_sync_cert(message.data, certificate_internal.round)
                 {
                     error!("Not valid view sync cert!");
 
@@ -671,13 +657,15 @@ where
 
                 // The protocol has ended
                 if self.phase == ViewSyncPhase::Finalize {
-                    self.exchange
+                    let _ = self
+                        .exchange
                         .network()
                         .inject_consensus_info(
                             ConsensusIntentEvent::CancelPollForViewSyncCertificate(*self.next_view),
                         )
                         .await;
-                    self.exchange
+                    let _ = self
+                        .exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncVotes(
                             *self.next_view,
@@ -694,7 +682,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key());
+                    .make_vote_token(self.next_view, self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -785,7 +773,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key());
+                    .make_vote_token(self.next_view, self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -840,11 +828,11 @@ where
                     let maybe_vote_token = self
                         .exchange
                         .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key());
+                        .make_vote_token(self.next_view, self.exchange.private_key());
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {
-                            self.relay = self.relay + 1;
+                            self.relay += 1;
                             let message = match self.phase {
                                 ViewSyncPhase::None => self.exchange.create_precommit_message::<I>(
                                     self.next_view,
@@ -897,7 +885,7 @@ where
             }
             _ => return (None, self),
         }
-        return (None, self);
+        (None, self)
     }
 }
 
@@ -929,7 +917,7 @@ where
         ViewSyncRelayTaskState<TYPES, I>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncCertificateRecv(_) => return (None, self),
+            SequencingHotShotEvent::ViewSyncCertificateRecv(_) => (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 if self.accumulator.is_right() {
                     return (Some(HotShotTaskCompleted::ShutDown), self);
@@ -973,7 +961,7 @@ where
                 let accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
                     &vote_internal.signature.1,
-                    view_sync_data.clone(),
+                    view_sync_data,
                     vote_internal.vote_data,
                     vote_internal.vote_token.clone(),
                     vote_internal.round,
@@ -1012,12 +1000,12 @@ where
                 };
 
                 if phase == ViewSyncPhase::Finalize {
-                    return (Some(HotShotTaskCompleted::ShutDown), self);
+                    (Some(HotShotTaskCompleted::ShutDown), self)
                 } else {
-                    return (None, self);
+                    (None, self)
                 }
             }
-            _ => return (None, self),
+            _ => (None, self),
         }
     }
 }

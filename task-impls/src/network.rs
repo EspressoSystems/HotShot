@@ -69,10 +69,10 @@ impl<
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
                 Either::Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(proposal) => {
-                        SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
+                        SequencingHotShotEvent::QuorumProposalRecv(proposal, sender)
                     }
                     GeneralConsensusMessage::Vote(vote) => {
-                        SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
+                        SequencingHotShotEvent::QuorumVoteRecv(vote)
                     }
                     GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
                         SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
@@ -87,11 +87,11 @@ impl<
                 },
                 Either::Right(committee_message) => match committee_message {
                     CommitteeConsensusMessage::DAProposal(proposal) => {
-                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                        SequencingHotShotEvent::DAProposalRecv(proposal, sender)
                     }
                     CommitteeConsensusMessage::DAVote(vote) => {
                         // error!("DA Vote message recv {:?}", vote.current_view);
-                        SequencingHotShotEvent::DAVoteRecv(vote.clone())
+                        SequencingHotShotEvent::DAVoteRecv(vote)
                     }
                     CommitteeConsensusMessage::DACertificate(cert) => {
                         // panic!("Recevid DA C! ");
@@ -172,7 +172,7 @@ impl<
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
+                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -191,9 +191,7 @@ impl<
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
-                        proposal.clone(),
-                    ))),
+                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(proposal))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -210,9 +208,7 @@ impl<
             SequencingHotShotEvent::DACSend(certificate, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                        certificate.clone(),
-                    ))),
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(certificate))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -221,7 +217,7 @@ impl<
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
                     SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
-                        certificate_proposal.clone(),
+                        certificate_proposal,
                     ))),
                 ),
                 TransmitType::Broadcast,
@@ -281,7 +277,7 @@ impl<
                 .expect("Failed to broadcast message"),
         }
 
-        return None;
+        None
     }
 
     pub fn filter(task_kind: NetworkTaskKind) -> FilterEvent<SequencingHotShotEvent<TYPES, I>> {
@@ -293,38 +289,35 @@ impl<
     }
 
     fn quorum_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::QuorumProposalSend(_, _)
-            | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::DACSend(_, _)
-            | SequencingHotShotEvent::ViewChange(_) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::QuorumVoteSend(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::DACSend(_, _)
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 
     fn committee_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::DAProposalSend(_, _)
-            | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_)
-            | SequencingHotShotEvent::TransactionSend(_, _) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::DAVoteSend(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::ViewChange(_)
+                | SequencingHotShotEvent::TransactionSend(_, _)
+        )
     }
 
     fn view_sync_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::ViewSyncVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 }
 
