@@ -97,6 +97,8 @@ pub struct SequencingConsensusTaskState<
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
+    /// View timeout from config.
+    pub timeout: u64,
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
 
