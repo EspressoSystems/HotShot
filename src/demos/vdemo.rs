@@ -14,7 +14,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 
 use hotshot_types::{
-    certificate::{QuorumCertificate, QCAssembledSignature},
+    certificate::{QuorumCertificate},
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{

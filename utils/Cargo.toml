@@ -8,6 +8,3 @@ version = "0.1.0"
 
 [dependencies]
 bincode = "1.3.3"
-ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
-bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
-blake3 = { version = "1.3.3", optional = true, features = ["traits-preview"] }

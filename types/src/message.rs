@@ -21,8 +21,6 @@ use crate::{
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
 use jf_primitives::signatures::bls_over_bn254::VerKey;
-use blake3::traits::digest::generic_array::GenericArray;
-use typenum::U32;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;

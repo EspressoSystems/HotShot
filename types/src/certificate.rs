@@ -11,26 +11,20 @@ use crate::{
         state::ConsensusTime,
     },
 };
-use blake3::traits::digest::generic_array::GenericArray;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-use std::marker::PhantomData;
-use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
+use std::{fmt::Debug, ops::Deref};
 
 // NOTE Sishan: For signature aggregation
-use bincode::Options;
-use bitvec::prelude::*;
 use hotshot_primitives::quorum_certificate::{
-    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams
+    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry
 };
-use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey,
+    BLSOverBN254CurveSignatureScheme, VerKey,
 };
-use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
-use typenum::U32;
+use jf_primitives::signatures::{SignatureScheme};
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -126,6 +120,7 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub encoded_signature: EncodedSignature,
     /// Sishan NOTE: entry with public key for QC aggregation
     pub entry: StakeTableEntry<VerKey>,
+    /// Voter's public key under QC KeyPair Signature Scheme
     pub ver_key: VerKey,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
     pub commitment: Commitment<COMMITTABLE>,

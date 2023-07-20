@@ -24,8 +24,7 @@ use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     // hash_to_group::TEHashToGroup,
     signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme, SignatureScheme, // bls_over_bn254, AggregateableSignatureSchemes,
+        SignatureScheme
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
@@ -33,15 +32,11 @@ use jf_primitives::{
 // Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
-use jf_primitives::signatures::AggregateableSignatureSchemes;
 use typenum::U32;
 
-use libp2p::core::PublicKey;
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
-// use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, /* HashMap */ },
@@ -221,7 +216,7 @@ where
             Ok(s) => {
                 // First hash the data into a constant sized digest
                 //Sishan Note: This is the validation for QC partial signature before append().
-                let mut generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                 BLSOverBN254CurveSignatureScheme::verify(
                     &(),
                     &ver_key, 

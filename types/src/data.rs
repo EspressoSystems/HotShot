@@ -30,19 +30,14 @@ use std::{
 };
 // NOTE Sishan: For signature aggregation
 use bincode::Options;
-use bit_vec::BitVec;
-use bitvec::prelude::*;
 use hotshot_primitives::quorum_certificate::{
-    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry,
+    BitvectorQuorumCertificate, QuorumCertificateValidation,
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey,
+    BLSOverBN254CurveSignatureScheme, VerKey,
 };
-use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
-use typenum::U32;
-use blake3::traits::digest::generic_array::GenericArray;
-// use generic_array::{ArrayLength, GenericArray};
+use jf_primitives::signatures::{SignatureScheme};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -770,6 +765,7 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
+/// Serialization for the QC assembled signature
 pub fn serialize_signature(signature: &QCAssembledSignature) -> Vec<u8> {
     let mut signatures_bytes = vec![];
     let signatures: Option<

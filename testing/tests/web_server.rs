@@ -1,4 +1,3 @@
-use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::logging::shutdown_logging;
 use hotshot::demos::sdemo::SDemoState;
 use hotshot::demos::sdemo::SDemoTransaction;
@@ -14,10 +13,9 @@ use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
 use hotshot_types::vote::DAVote;
-use jf_primitives::signatures::BLSSignatureScheme;
 
 // Sishan NOTE: for QC aggregation
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme};
 
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot_types::data::ViewNumber;
@@ -40,7 +38,7 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-use tracing::{error, info, warn};
+use tracing::{warn};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct StaticCentralizedImp {}

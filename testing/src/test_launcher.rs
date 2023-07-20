@@ -19,7 +19,6 @@ use std::{num::NonZeroUsize, time::Duration};
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
-use rand::prelude::*;
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;

@@ -29,7 +29,6 @@ use hotshot_types::{
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
-use blake3::traits::digest::generic_array::GenericArray;
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<

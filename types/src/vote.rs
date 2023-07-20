@@ -24,10 +24,9 @@ use std::num::NonZeroU64;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
-use std::convert::TryInto;
 use hotshot_primitives::{quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams}};
-use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey}};
-use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
+use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as QCVerKey}};
+use jf_primitives::signatures::SignatureScheme;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
@@ -223,10 +222,10 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     pub failure_threshold: NonZeroU64,
-    // Sishan NOTE: For QC aggregation
-    // a list of signatures
+    /// Sishan NOTE: For QC aggregation
+    /// A list of valid signatures
     pub sig_lists: Vec<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature>,
-    // bitvec to indicate which node is active
+    /// A bitvec to indicate which node is active and send out a valid signature, this automatically do uniqueness check
     pub signers: BitVec,
 }
 

@@ -33,8 +33,6 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::aead::KeyPair;
-use jf_primitives::signatures::{AggregateableSignatureSchemes, bls_over_bn254};
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -48,9 +46,7 @@ use tracing::error;
 // Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
-// use digest::generic_array::GenericArray;
 use blake3::traits::digest::generic_array::GenericArray;
-use typenum::U32;
 use ethereum_types::U256;
 
 /// Error for election problems
@@ -227,11 +223,12 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
         state: &TYPES::StateType,
     ) -> Self::StakeTable;
 
-    /// Clone the public key and corresponding stake table
+    /// Clone the public key and corresponding stake table for all the nodes
     fn get_qc_stake_table (
         &self
     ) -> Vec<StakeTableEntry<VerKey>>;
 
+    /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
     ) -> Vec<StakeTableEntry<VerKey>>;
@@ -336,6 +333,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         self.membership().failure_threshold()
     }
 
+    /// The total number of nodes in the committee.
     fn total_nodes(&self) -> usize {
         self.membership().total_nodes()
     }
@@ -1111,7 +1109,7 @@ pub struct ViewSyncExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// Sishan Note: For QC aggregation,
+    /// Sishan Note: KeyPair with signature scheme for QC aggregation,
     key_pair: QCKeyPair,
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.

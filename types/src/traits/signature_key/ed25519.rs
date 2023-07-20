@@ -7,9 +7,6 @@ mod ed25519_pub;
 
 pub use self::{ed25519_priv::Ed25519Priv, ed25519_pub::Ed25519Pub};
 
-// Sishan NOTE: for QC aggregation
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
-
 #[cfg(test)]
 mod tests {
     use super::*;

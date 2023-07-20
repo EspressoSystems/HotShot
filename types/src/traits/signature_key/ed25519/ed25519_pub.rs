@@ -1,5 +1,5 @@
 use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
-use ed25519_compact::{PublicKey, Signature};
+use ed25519_compact::{PublicKey};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
@@ -68,7 +68,7 @@ impl SignatureKey for Ed25519Pub {
             match x {
                 Ok(s) => {
                     //Sishan Note: This is the validation for QC partial signature before append().
-                    let mut generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                    let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                     BLSOverBN254CurveSignatureScheme::verify(
                         &(),
                         &ver_key, 
@@ -81,7 +81,7 @@ impl SignatureKey for Ed25519Pub {
     }
 
     fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
-        let mut generic_msg = GenericArray::from_slice(data);
+        let generic_msg = GenericArray::from_slice(data);
         let agg_signature_test = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
             &(),
             // &msg_test.into(),

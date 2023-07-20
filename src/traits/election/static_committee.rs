@@ -1,7 +1,6 @@
 use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
-use digest::generic_array::GenericArray;
 use espresso_systems_common::hotshot::tag;
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
 use hotshot_types::{
@@ -12,7 +11,7 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey},
     },
 };
-use jf_primitives::signatures::{BLSSignatureScheme, bls_over_bn254::VerKey};
+use jf_primitives::signatures::{bls_over_bn254::VerKey};
 // Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 #[allow(deprecated)]

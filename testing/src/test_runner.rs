@@ -33,7 +33,6 @@ use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
 use ethereum_types::U256;
-use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
