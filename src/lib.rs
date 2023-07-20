@@ -45,6 +45,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    logging::{setup_backtrace, setup_logging},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
@@ -65,10 +66,9 @@ use hotshot_consensus::{
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
-use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::{certificate::DACertificate, traits::election::Membership};
 use hotshot_types::{
     certificate::ViewSyncCertificate,
     data::{LeafType, QuorumProposal, ValidatingLeaf, ValidatingProposal},
@@ -206,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
     ) -> Result<Self, HotShotError<TYPES>> {
         let global_registry = GlobalRegistry::new();
 
-        info!("Creating a new hotshot");
+        error!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
             &*metrics.subgroup("consensus".to_string()),
@@ -356,19 +356,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // Wrap up a message
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
-        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
-        // let api = self.clone();
-        self.inner
-            .internal_event_stream
-            .publish(SequencingHotShotEvent::TransactionSend(
-                transaction,
-                self.inner.public_key.clone(),
-            ))
-            .await;
-        // async_spawn(async move {
-        //     let _result = api.send_broadcast_message(message).await.is_err();
-        // });
+        let api = self.clone();
+        async_spawn(async move {
+            let _result = api.send_broadcast_message(message).await.is_err();
+        });
         Ok(())
     }
 
@@ -937,6 +930,7 @@ where
         .await;
         async_spawn(async move {
             task_runner.launch().await;
+            error!("Task runner exited!");
         });
 
         handle
@@ -1568,40 +1562,6 @@ where
         )
         .await;
 
-        // TODO ED Temporary fix so web server will work with two networks
-        // This will be refactored out during the run_view work anyway
-        let networking = hotshot
-            .inner
-            .exchanges
-            .committee_exchange()
-            .network()
-            .clone();
-        // let _result = networking
-        //     .inject_consensus_info((
-        //         (*cur_view),
-        //         hotshot
-        //             .inner
-        //             .exchanges
-        //             .committee_exchange()
-        //             .is_leader(cur_view),
-        //         hotshot
-        //             .inner
-        //             .exchanges
-        //             .committee_exchange()
-        //             .is_leader(cur_view + 1),
-        //     ))
-        //     .await;
-
-        if hotshot
-            .inner
-            .send_network_lookup
-            .send(Some(cur_view))
-            .await
-            .is_err()
-        {
-            error!("Failed to initiate network lookup");
-        };
-
         let mut task_handles = Vec::new();
         let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
         let quorum_exchange = c_api.inner.exchanges.quorum_exchange().clone();
@@ -1671,19 +1631,8 @@ where
             exchange: committee_exchange.clone().into(),
             _pd: PhantomData,
         };
-        // DA task will only run if node is on committee
-        let is_da_member = committee_exchange
-            .clone()
-            .membership()
-            .get_committee(cur_view)
-            .get(&hotshot.inner.public_key)
-            .to_owned()
-            .is_some();
-
-        if is_da_member {
-            let member_handle = async_spawn(async move { da_member.run_view().await });
-            task_handles.push(member_handle);
-        }
+        let member_handle = async_spawn(async move { da_member.run_view().await });
+        task_handles.push(member_handle);
         let replica = SequencingReplica {
             id: hotshot.inner.id,
             consensus: hotshot.inner.consensus.clone(),

@@ -202,7 +202,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// begin consensus by sending a genesis event
-    pub async fn start_consensus(&self) {
+    #[deprecated]
+    pub async fn start_consensus_deprecated(&self) {
         self.maybe_do_genesis_init().await;
     }
 

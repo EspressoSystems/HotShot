@@ -65,6 +65,7 @@ pub struct NetworkConfig<KEY, ELECTIONCONFIG> {
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
     pub web_server_config: Option<WebServerConfig>,
+    pub da_web_server_config: Option<WebServerConfig>,
 }
 
 impl<K, E> Default for NetworkConfig<K, E> {
@@ -81,6 +82,7 @@ impl<K, E> Default for NetworkConfig<K, E> {
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
             web_server_config: None,
+            da_web_server_config: None,
         }
     }
 }
@@ -105,6 +107,8 @@ pub struct NetworkConfigFile {
     pub config: HotShotConfigFile,
     #[serde(default = "default_web_server_config")]
     pub web_server_config: Option<WebServerConfig>,
+    #[serde(default = "default_web_server_config")]
+    pub da_web_server_config: Option<WebServerConfig>,
 }
 
 fn default_web_server_config() -> Option<WebServerConfig> {
@@ -145,6 +149,7 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
+            da_web_server_config: val.da_web_server_config,
         }
     }
 }
