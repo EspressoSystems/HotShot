@@ -230,7 +230,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone>
     Accumulator<
         (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
         ),
         AssembledSignature,
     > for VoteAccumulator<TOKEN, LEAF>
@@ -241,10 +241,10 @@ where
         mut self,
         val: (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
         ),
     ) -> Either<Self, AssembledSignature> {
-        let (commitment, (key, (sig, entry, entries, node_id, vote_data, token))) = val;
+        let (commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
 
         // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 

@@ -139,7 +139,6 @@ where
         key_pair: QCKeyPair,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
-        // Sishan Note: Maybe these two lines are no longer needed? Since the whole signature scheme is changed.
         let pub_key = PUBKEY::from_private(private_key);
         if !self.committee_nodes.contains(&pub_key) {
             return Ok(None);

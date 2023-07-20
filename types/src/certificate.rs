@@ -117,7 +117,7 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
-    /// Entry with public key for certificate aggregation
+    /// Entry with public key and staking value for certificate aggregation
     pub entry: StakeTableEntry<VerKey>,
     /// Voter's public key under QC KeyPair Signature Scheme
     pub ver_key: VerKey,

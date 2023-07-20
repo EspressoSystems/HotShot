@@ -470,7 +470,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 vota_meta.encoded_key.clone(),
                 (
                     vota_meta.encoded_signature.clone(),
-                    vota_meta.entry.clone(),
                     self.membership().get_committee_qc_stake_table(),
                     append_node_id,
                     vota_meta.data,
@@ -574,6 +573,7 @@ pub struct CommitteeExchange<
     public_key: TYPES::SignatureKey,
     /// KeyPair with signature scheme for certificate aggregation,
     key_pair: QCKeyPair,
+    /// Entry with public key and staking value for certificate aggregation
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
@@ -837,6 +837,7 @@ pub struct QuorumExchange<
     public_key: TYPES::SignatureKey,
     /// KeyPair with Signature Scheme for certificate aggregation,
     key_pair: QCKeyPair,
+    /// Entry with public key and staking value for certificate aggregation
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
@@ -1107,8 +1108,9 @@ pub struct ViewSyncExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// Sishan Note: KeyPair with signature scheme for certificate aggregation,
+    /// KeyPair with signature scheme for certificate aggregation,
     key_pair: QCKeyPair,
+    /// Entry with public key and staking value for certificate aggregation in the stake table.
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
