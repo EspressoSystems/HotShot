@@ -372,6 +372,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
+        error!("Received transaction!  Number of transactions received is: {}", self.num_txns);
+
         Ok(())
     }
 
