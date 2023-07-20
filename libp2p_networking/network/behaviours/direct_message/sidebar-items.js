@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DMEvent"],"struct":["DMBehaviour","DMRequest"]};
+window.SIDEBAR_ITEMS = {"enum":["DMEvent"],"static":["CALLSITE","META"],"struct":["DMBehaviour","DMRequest"]};

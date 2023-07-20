@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MessageType"],"struct":["ConsensusInfo","Inner","RecvMsg","SendMsg","WebCommChannel","WebServerNetwork"],"trait":["RecvMsgTrait","SendMsgTrait"]};
+window.SIDEBAR_ITEMS = {"enum":["MessageType"],"static":["CALLSITE","META"],"struct":["ConsensusInfo","Inner","RecvMsg","SendMsg","WebCommChannel","WebServerNetwork"],"trait":["RecvMsgTrait","SendMsgTrait"]};

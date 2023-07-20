@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GossipEvent"],"struct":["GossipBehaviour"]};
+window.SIDEBAR_ITEMS = {"enum":["GossipEvent"],"static":["CALLSITE","META"],"struct":["GossipBehaviour"]};

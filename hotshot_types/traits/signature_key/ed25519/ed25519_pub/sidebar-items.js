@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Ed25519Pub"]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["Ed25519Pub"]};

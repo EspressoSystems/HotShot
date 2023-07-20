@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["concise_leaf_and_node"],"struct":["Node","TestRunner"],"type":["CommitteeNetworkGenerator","Generator","QuorumNetworkGenerator"]};
+window.SIDEBAR_ITEMS = {"fn":["concise_leaf_and_node"],"static":["CALLSITE","META"],"struct":["Node","TestRunner"],"type":["CommitteeNetworkGenerator","Generator","QuorumNetworkGenerator"]};

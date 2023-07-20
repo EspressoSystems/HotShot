@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ESTABLISHED_LIMIT","ESTABLISHED_LIMIT_UNWR","_DERIVE_core_fmt_Debug_FOR_NetworkNode"],"mod":["config","handle"],"struct":["NetworkNode"]};
+window.SIDEBAR_ITEMS = {"constant":["ESTABLISHED_LIMIT","ESTABLISHED_LIMIT_UNWR","_DERIVE_core_fmt_Debug_FOR_NetworkNode"],"enum":["__PrivResult"],"mod":["config","handle"],"static":["CALLSITE","META"],"struct":["NetworkNode"]};

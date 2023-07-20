@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["UpDown"],"struct":["ChangeNode","RoundSafetyCheckBuilder","RoundSetupBuilder"]};
+window.SIDEBAR_ITEMS = {"enum":["UpDown"],"static":["CALLSITE","META"],"struct":["ChangeNode","RoundSafetyCheckBuilder","RoundSetupBuilder"]};

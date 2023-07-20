@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["set_config"],"struct":["RoundConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["set_config"],"static":["CALLSITE","META"],"struct":["RoundConfig"]};

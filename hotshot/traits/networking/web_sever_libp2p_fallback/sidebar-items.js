@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CombinedNetworks","WebServerWithFallbackCommChannel"]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["CombinedNetworks","WebServerWithFallbackCommChannel"]};
