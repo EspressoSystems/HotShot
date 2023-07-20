@@ -576,7 +576,7 @@ where
             host: da_host,
             port: da_port,
             wait_between_polls: da_wait_between_polls,
-        }: WebServerConfig = config.clone().web_server_config.unwrap();
+        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         let known_nodes = config.config.known_nodes.clone();
 
