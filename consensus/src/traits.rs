@@ -111,6 +111,7 @@ pub trait ConsensusSharedApi<
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
                 qc: Arc::new(decide_qc),
+                num_block: None,
             },
         })
         .await;

@@ -191,6 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![leaf]),
                         qc: Arc::new(qc),
+                        num_block: None,
                     },
                 };
                 self.output_event_stream.publish(event).await;
