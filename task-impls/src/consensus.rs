@@ -1090,10 +1090,6 @@ where
 
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
-                if !self.update_view(new_view).await {
-                    return;
-                }
-
                 // Publish a view change event to the application
                 self.output_event_stream
                     .publish(Event {
@@ -1103,6 +1099,10 @@ where
                         },
                     })
                     .await;
+                if !self.update_view(new_view).await {
+                    return;
+                }
+
                 error!("View Change event for view {}", *new_view);
 
                 // If we are the next leader start polling for votes for this view

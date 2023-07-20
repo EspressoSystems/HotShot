@@ -392,7 +392,11 @@ pub trait RunDA<
                             error!("Timed out as the next leader in view {:?}", view_number);
                         }
                         EventType::ViewFinished { view_number } => {
-                            tracing::error!("view finished: {:?}", view_number);
+                            if *view_number > round {
+                                round = *view_number;
+                                tracing::error!("view finished: {:?}", view_number);
+
+                            }
                         }
                         _ => unimplemented!(),
                     }
