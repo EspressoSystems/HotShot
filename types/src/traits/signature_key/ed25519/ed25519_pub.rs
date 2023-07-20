@@ -65,7 +65,7 @@ impl SignatureKey for Ed25519Pub {
             bincode_opts().deserialize(&signature.0);
             match x {
                 Ok(s) => {
-                    //Sishan Note: This is the validation for QC partial signature before append().
+                    // This is the validation for QC partial signature before append().
                     let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                     BLSOverBN254CurveSignatureScheme::verify(
                         &(),

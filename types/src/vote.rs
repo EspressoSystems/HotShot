@@ -246,7 +246,7 @@ where
     ) -> Either<Self, AssembledSignature> {
         let (commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
 
-        // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
+        // Desereialize the sig so that it can be assembeld into a QC
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
         = bincode_opts().deserialize(&sig.clone().0).unwrap();
 
@@ -301,7 +301,7 @@ where
 
         if *total_stake_casted >= u64::from(self.success_threshold) {
             
-            // Sishan NOTE: Do assemble for QC here
+            // Do assemble for QC here
 
             let real_qc_pp = QCParams {
                 stake_entries: entries.clone(),

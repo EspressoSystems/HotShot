@@ -28,7 +28,6 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
-// NOTE Sishan: For signature aggregation
 use bincode::Options;
 use hotshot_primitives::quorum_certificate::{
     BitvectorQuorumCertificate, QuorumCertificateValidation,

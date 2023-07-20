@@ -16,8 +16,6 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{fmt::Debug, ops::Deref};
-
-// NOTE Sishan: For signature aggregation
 use hotshot_primitives::quorum_certificate::{
     BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry
 };
@@ -65,7 +63,7 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
-    /// Sishan NOTE: assembled signature for certificate aggregation
+    /// assembled signature for certificate aggregation
     pub signatures: AssembledSignature,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
@@ -113,7 +111,7 @@ pub enum AssembledSignature {
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
-    /// Voter's public key (Sishan NOTE: In certificate aggregation, this encoded_key is substitued by the ver_key, should be discarded later)
+    /// Voter's public key (Sishan NOTE: In certificate aggregation, this encoded_key is substitued by the following ver_key)
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,

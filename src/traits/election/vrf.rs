@@ -213,7 +213,7 @@ where
         match x {
             Ok(s) => {
                 // First hash the data into a constant sized digest
-                //Sishan Note: This is the validation for QC partial signature before append().
+                // This is the validation for QC partial signature before append().
                 let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                 BLSOverBN254CurveSignatureScheme::verify(
                     &(),
