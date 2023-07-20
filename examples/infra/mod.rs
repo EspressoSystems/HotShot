@@ -255,14 +255,11 @@ pub trait Run<
             config.seed,
             node_id.try_into().unwrap(),
         );
-        let key_pair_test = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
+        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
-            stake_key: key_pair_test.ver_key(),
+            stake_key: key_pair.ver_key(),
             stake_amount: U256::from(1u8),
         };
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
         let known_nodes = config.config.known_nodes.clone();
         let known_nodes_qc = config.config.known_nodes_qc.clone();
 
@@ -288,10 +285,9 @@ pub trait Run<
             election_config.clone(),
             (network.clone(), ()),
             pk.clone(),
-            key_pair_test.clone(),
+            key_pair.clone(),
             entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         let hotshot = HotShot::init(
             pk,

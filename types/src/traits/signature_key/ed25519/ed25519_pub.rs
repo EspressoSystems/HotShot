@@ -68,57 +68,33 @@ impl SignatureKey for Ed25519Pub {
             match x {
                 Ok(s) => {
                     //Sishan Note: This is the validation for QC partial signature before append().
-                    let mut generic_msg_test: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                    let mut generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                     BLSOverBN254CurveSignatureScheme::verify(
                         &(),
                         &ver_key, 
-                        &generic_msg_test,
+                        &generic_msg,
                         &s,
-                    ).is_ok() //unwrap();
+                    ).is_ok()
                 }
                 Err(_) => false,
             }
-            /*
-        let signature = &signature.0[..];
-        // Convert to the signature type
-        match Signature::from_slice(signature) {
-            Ok(signature) => {
-                // Validate the signature
-                match self.pub_key.verify(data, &signature) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        debug!(?e, "Signature failed verification");
-                        false
-                    }
-                }
-            }
-            Err(e) => {
-                // Log and error
-                debug!(?e, "signature was structurally invalid");
-                false
-            }
-        } */
     }
 
-    fn sign(key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature {
-        // let signature = private_key.priv_key.sign(data, None);
-        let mut generic_msg_test = GenericArray::from_slice(data);
-        // let mut generic_msg_test: &GenericArray<u8, ArrayLength<A::MessageUnit>> = GenericArray::from_slice(data);
-        // let msg_test = [72u8; 32];
+    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
+        let mut generic_msg = GenericArray::from_slice(data);
         let agg_signature_test = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
             &(),
             // &msg_test.into(),
-            &generic_msg_test,
-            key_pair_test.sign_key_ref(),
+            &generic_msg,
+            key_pair.sign_key_ref(),
             &mut rand::thread_rng(),
         ).unwrap();
         // Convert the signature to bytes and return
         let bytes = bincode_opts()
             .serialize(&agg_signature_test)
             .expect("This serialization shouldn't be able to fail");
-        let print_bytes = String::from_utf8_lossy(&bytes);
+        // let print_bytes = String::from_utf8_lossy(&bytes);
         EncodedSignature(bytes)
-        // EncodedSignature(agg_signature_test.to_vec())
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {

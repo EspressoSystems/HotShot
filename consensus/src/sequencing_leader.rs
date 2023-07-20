@@ -21,7 +21,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature, QCYesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, QCAssembledSignature},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
@@ -165,10 +165,10 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    QCYesNoSignature::Yes(signature) => {
+                                    QCAssembledSignature::Yes(signature) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
-                                    QCYesNoSignature::DA(signature) => {
+                                    QCAssembledSignature::DA(signature) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
@@ -291,21 +291,17 @@ where
                 signature,
                 ver_key,
             })));
-        // println!("Finished creating message in sequencing_leader.rs, msg = {:?}", message.clone());
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
-            println!("Could not broadcast leader proposal");
             warn!(?message, ?e, "Could not broadcast leader proposal");
         } else {
             consensus.metrics.outgoing_broadcast_messages.add(1);
-            println!("Successfully broadcast leader proposal");
         }
 
         // Drop the lock on the consensus.
         drop(consensus);
 
-        println!("Waiting for DA votes in sequencing_leader.rs");
         // Wait for DA votes or Timeout
         if let Some(cert) = self
             .wait_for_votes(
@@ -316,7 +312,6 @@ where
             )
             .await
         {
-            println!("Successfully received DA votes in sequencing_leader.rs");
             return Some((cert, block, parent_leaf));
         }
         None
@@ -379,7 +374,6 @@ where
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
-        println!("Inside run_view() of ConsensusLeader.");
         let block_commitment = self.block.commit();
         let leaf = SequencingLeaf {
             view_number: self.cur_view,
@@ -393,7 +387,6 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
-        println!("Inside run_view() of ConsensusLeader and prepare to call sign_validating_or_commitment_proposal().");
         let (signature, ver_key) = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
@@ -527,7 +520,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            QCYesNoSignature::Yes(signature) => info!(
+                                            QCAssembledSignature::Yes(signature) => info!(
                                                 "Number of qurorum signatures in this QC: {}",
                                                 signature.1.len()
                                             ),

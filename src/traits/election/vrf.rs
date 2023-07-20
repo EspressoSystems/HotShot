@@ -220,13 +220,12 @@ where
         match x {
             Ok(s) => {
                 // First hash the data into a constant sized digest
-                // SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok()
                 //Sishan Note: This is the validation for QC partial signature before append().
-                let mut generic_msg_test: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                let mut generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
                 BLSOverBN254CurveSignatureScheme::verify(
                     &(),
                     &ver_key, 
-                    &generic_msg_test,
+                    &generic_msg,
                     &s,
                 ).is_ok() //unwrap();
             }
@@ -234,33 +233,20 @@ where
         }
     }
 
-    fn sign(
-            // private_key: &&Self::PrivateKey, 
-            key_pair_test: QCKeyPair, 
+    fn sign(key_pair: QCKeyPair, 
             data: &[u8]) -> EncodedSignature {
         // Sign it
         // Sishan NOTE: for QC Aggregation
-        let generic_msg_test = GenericArray::from_slice(data);
+        let generic_msg = GenericArray::from_slice(data);
         
         let individual_signature =
-            // SIGSCHEME::sign(
-            //     &(),
-            //     key_pair_test.sign_key_ref(),
-            //     &generic_msg_test,
-            //     &mut rand::thread_rng()
-            // ).unwrap();
             BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
                 &(),
-                &generic_msg_test,
-                // &msg_test.into(),
-                key_pair_test.sign_key_ref(),
+                &generic_msg,
+                key_pair.sign_key_ref(),
                 &mut rand::thread_rng()
             ).unwrap();
-        
-        // println!("In sign(), generic_msg_test: {:?}, individual_signature: {:?}", generic_msg_test, individual_signature);
 
-        // let signature: <SIGSCHEME as SignatureScheme>::Signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
-        //     .expect("This signature shouldn't be able to fail");
         // Encode it
         let bytes = bincode_opts()
             .serialize(&individual_signature)

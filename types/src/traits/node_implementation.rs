@@ -96,10 +96,9 @@ pub trait ExchangesType<
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair_test: QCKeyPair,
+        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// Get the quorum exchange.
@@ -176,15 +175,15 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair_test: QCKeyPair,
+        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(entries, keys, configs.0, networks.0, pk, key_pair_test.clone(), 
-            entry.clone(), 
-            sk, ek),
+            quorum_exchange: QUORUMEXCHANGE::create(entries, keys, configs.0, networks.0, pk, key_pair, 
+            entry, 
+            sk, 
+        ),
             _phantom: PhantomData,
         }
     }
@@ -255,10 +254,9 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair_test: QCKeyPair,
+        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
             entries.clone(),
@@ -266,15 +264,14 @@ where
             configs.0,
             networks.0,
             pk.clone(),
-            key_pair_test.clone(),
+            key_pair.clone(),
             entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys,  configs.1, networks.1, pk, key_pair_test.clone(), 
-        entry.clone(), 
+        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys,  configs.1, networks.1, pk, key_pair, 
+        entry, 
         sk,
-        ek);
+        );
         Self {
             quorum_exchange,
             committee_exchange,

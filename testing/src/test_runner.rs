@@ -259,14 +259,11 @@ where
             [0_u8; 32],
             (node_id as u64).try_into().unwrap(),
         );
-        let key_pair_test = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
+        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
-            stake_key: key_pair_test.ver_key(),
+            stake_key: key_pair.ver_key(),
             stake_amount: U256::from(1u8),
         };
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -285,10 +282,10 @@ where
             ),
             (quorum_network, committee_network),
             public_key.clone(),
-            key_pair_test.clone(),
+            key_pair.clone(),
             entry.clone(),
             private_key.clone(),
-            ek.clone(),
+            // ek.clone(),
         );
         let handle = HotShot::init(
             public_key,

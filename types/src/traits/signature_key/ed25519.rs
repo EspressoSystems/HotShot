@@ -28,12 +28,12 @@ mod tests {
         let pub_key = Ed25519Pub::from_private(&priv_key);
 
         // Sishan Note: For QC Aggregation
-        let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
+        let key_pair = QCKeyPair::generate(&mut rand::thread_rng());
 
         // Sign the data with it
-        let signature = Ed25519Pub::sign(key_pair_test.clone(), &data);
+        let signature = Ed25519Pub::sign(key_pair, &data);
         // Verify the signature
-        assert!(pub_key.validate(key_pair_test.ver_key(), &signature, &data));
+        assert!(pub_key.validate(key_pair.ver_key(), &signature, &data));
     }
 
     // Make sure serialization round trip works

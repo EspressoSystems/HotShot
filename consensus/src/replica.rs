@@ -102,10 +102,8 @@ where
         let mut invalid_qcs = 0;
         let leaf = loop {
             let msg = lock.recv().await;
-            // println!("recv-ed message {:?} in replica.rs", msg.clone());
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
-                println!("Inside if let Ok(msg) = msg in replica.rs");
                 // stale/newer view messages should never reach this specific task's receive channel
                 if Into::<ValidatingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
@@ -113,8 +111,6 @@ where
                 }
                 match msg {
                     ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
-
-                        println!("Inside match msg, ProcessedGeneralConsensusMessage::Proposal(p, sender).");
 
                         if view_leader_key != sender {
                             continue;

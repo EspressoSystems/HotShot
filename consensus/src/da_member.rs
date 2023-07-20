@@ -88,7 +88,6 @@ where
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
-            // println!("recv-ed message of da_member.rs");
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // If the message is for a different view number, skip it.
@@ -98,7 +97,6 @@ where
                 }
                 match msg {
                     Left(general_message) => {
-                        println!("Inside Left(general_message) of da_member.rs");
                         match general_message {
                             ProcessedGeneralConsensusMessage::InternalTrigger(_trigger) => {
                                 warn!("DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.");
@@ -120,23 +118,18 @@ where
                         }
                     }
                     Right(committee_message) => {
-                        // println!("Inside Right(committee_message) of da_member.rs");
                         match committee_message {
                             ProcessedCommitteeConsensusMessage::DAProposal(p, sender) => {
-                                // println!("Inside ProcessedCommitteeConsensusMessage::DAProposal(p, sender) of da_member.rs");
                                 if view_leader_key != sender {
                                     continue;
                                 }
-                                // println!("Step2 of ProcessedCommitteeConsensusMessage::DAProposal(p, sender) of da_member.rs");
                                 let block_commitment = p.data.deltas.commit();
                                 if !view_leader_key
                                     .validate(p.ver_key, &p.signature, block_commitment.as_ref())
                                 {
-                                    // println!("Inside if !view_leader_key.validate(&p.signature, block_commitment.as_ref()) of da_member.rs");
                                     warn!(?p.signature, "Could not verify proposal.");
                                     continue;
                                 }
-                                // println!("Step3 of ProcessedCommitteeConsensusMessage::DAProposal(p, sender) of da_member.rs");
                                 let vote_token = self.exchange.make_vote_token(self.cur_view);
                                 match vote_token {
                                     Err(e) => {

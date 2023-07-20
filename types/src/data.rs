@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QCYesNoSignature, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QCAssembledSignature, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -770,25 +770,25 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-pub fn serialize_signature(signature: &QCYesNoSignature) -> Vec<u8> {
+pub fn serialize_signature(signature: &QCAssembledSignature) -> Vec<u8> {
     let mut signatures_bytes = vec![];
     let signatures: Option<
         (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature,
             <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as
             QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)>  = match &signature {
-            QCYesNoSignature::DA(signatures) => {
+            QCAssembledSignature::DA(signatures) => {
                 signatures_bytes.extend("DA".as_bytes());
                 Some(signatures.clone())
             }
-            QCYesNoSignature::Yes(signatures) => {
+            QCAssembledSignature::Yes(signatures) => {
                 signatures_bytes.extend("Yes".as_bytes());
                 Some(signatures.clone())
             }
-            QCYesNoSignature::No(signatures) => {
+            QCAssembledSignature::No(signatures) => {
                 signatures_bytes.extend("No".as_bytes());
                 Some(signatures.clone())
             }
-            QCYesNoSignature::Genesis() => {
+            QCAssembledSignature::Genesis() => {
                 None
             }
         };

@@ -4,7 +4,7 @@
 //! can send, and vote accumulator that converts votes into certificates.
 
 use crate::{
-    certificate::{QuorumCertificate, YesNoSignature, QCYesNoSignature},
+    certificate::{QuorumCertificate, QCAssembledSignature},
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
@@ -236,7 +236,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone>
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
         ),
-        QCYesNoSignature,
+        QCAssembledSignature,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -247,14 +247,13 @@ where
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, QCYesNoSignature> {
+    ) -> Either<Self, QCAssembledSignature> {
         let (commitment, (key, (sig, entry, entries, node_id, vote_data, token))) = val;
 
         // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
         = bincode_opts().deserialize(&sig.clone().0).unwrap();
 
-        println!("Plan to assign value to bitvec, node_id = {:?}, self.signers.len = {:?}", node_id, self.signers.len());
         // update the active_keys and sig_lists
         self.signers.set(node_id, true);
         self.sig_lists.push(origianl_sig.clone());
@@ -325,19 +324,13 @@ where
 
             if *da_stake_casted >= u64::from(self.success_threshold) {
                 self.da_vote_outcomes.remove(&commitment).unwrap().1;
-                // let valid_signatures = self.da_vote_outcomes.remove(&commitment).unwrap().1;
-                // return Either::Right(YesNoSignature::DA(valid_signatures));
-                return Either::Right(QCYesNoSignature::DA(real_qc_sig));
+                return Either::Right(QCAssembledSignature::DA(real_qc_sig));
             } else if *yes_stake_casted >= u64::from(self.success_threshold) {
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                // let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                // return Either::Right(YesNoSignature::Yes(valid_signatures));
-                return Either::Right(QCYesNoSignature::Yes(real_qc_sig));
+                return Either::Right(QCAssembledSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;
-                // let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
-                // return Either::Right(YesNoSignature::No(valid_signatures));
-                return Either::Right(QCYesNoSignature::No(real_qc_sig));
+                return Either::Right(QCAssembledSignature::No(real_qc_sig));
             }
         }
         Either::Left(self)

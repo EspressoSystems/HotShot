@@ -41,7 +41,6 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use tracing::{error, info, warn};
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct StaticCentralizedImp {}
@@ -175,7 +174,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebServerImpl {
 async fn sequencing_web_server_test() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    println!("println: Inside sequencing_web_server_test().");
 
     let builder: TestBuilder = TestBuilder::default_multiple_rounds_da();
     builder

@@ -66,7 +66,7 @@ pub trait SignatureKey:
     /// Validate a signature
     fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
-    fn sign(key_pair_test: QCKeyPair, data: &[u8]) -> EncodedSignature;
+    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature;
     /// Produce a public key from a private key
     fn from_private(private_key: &Self::PrivateKey) -> Self;
     /// Serialize a public key to bytes
