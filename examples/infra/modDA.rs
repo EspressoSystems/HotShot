@@ -445,7 +445,7 @@ pub trait RunDA<
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
-        error!("Total commitments: {total_commitments}");
+        error!("Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run
