@@ -1,8 +1,8 @@
 //! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 use async_trait::async_trait;
-
 use hotshot_types::certificate::QuorumCertificate;
+use hotshot_types::message::DataMessage;
 use hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
@@ -155,6 +155,11 @@ pub trait ValidatingConsensusApi<
         &self,
         message: ValidatingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
+
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError>;
 }
 
 /// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
@@ -196,5 +201,10 @@ pub trait SequencingConsensusApi<
     async fn send_da_broadcast(
         &self,
         message: SequencingMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError>;
+
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError>;
 }

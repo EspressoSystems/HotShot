@@ -801,54 +801,6 @@ where
     //     }
 }
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = SequencingLeaf<TYPES>,
-            ConsensusMessage = SequencingMessage<TYPES, I>,
-        >,
-        MEMBERSHIP: Membership<TYPES>,
-    > SystemContext<SequencingConsensus, TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-            Commitment = SequencingLeaf<TYPES>,
-            Membership = MEMBERSHIP,
-        > + 'static,
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = DAProposal<TYPES>,
-            Certificate = DACertificate<TYPES>,
-            Commitment = TYPES::BlockType,
-            Membership = MEMBERSHIP,
-        > + 'static,
-    ViewSyncEx<TYPES, I>: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = ViewSyncCertificate<TYPES>,
-            Certificate = ViewSyncCertificate<TYPES>,
-            Commitment = ViewSyncData<TYPES>,
-            Membership = MEMBERSHIP,
-        > + 'static,
-{
-    pub async fn broadcast_transaction(&self,  transaction: TYPES::Transaction,) -> Result<(), HotShotError<TYPES>>{
-
-        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
-
-        self.inner
-            .internal_event_stream
-            .publish(SequencingHotShotEvent::TransactionSend(transaction, self.inner.exchanges.committee_exchange().public_key().clone()))
-            .await;
-        Ok(())
-    }
-}
-
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
@@ -1847,6 +1799,27 @@ where
         Ok(())
     }
 
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .quorum_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.quorum_exchange().membership().clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
     // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
@@ -2057,6 +2030,27 @@ where
                     .committee_exchange()
                     .membership()
                     .clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .committee_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.committee_exchange().membership().clone(),
             )
             .await?;
         Ok(())
