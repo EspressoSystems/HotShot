@@ -23,10 +23,10 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_types::{data::ViewNumber, vote::ViewSyncVote};
 use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::{data::ViewNumber, vote::ViewSyncVote};
 use hotshot_types::{
     data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
@@ -50,9 +50,9 @@ use libp2p::{
     multiaddr::{self, Protocol},
     Multiaddr,
 };
-use nll::nll_todo::nll_todo;
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
@@ -127,12 +127,12 @@ pub async fn run_orchestrator<
             MEMBERSHIP,
         > + Debug,
     VIEWSYNCNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ViewSyncVote<TYPES>,
-        MEMBERSHIP,
-    > + Debug,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -147,7 +147,13 @@ pub async fn run_orchestrator<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
-            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -199,12 +205,12 @@ pub trait Run<
             MEMBERSHIP,
         > + Debug,
     VIEWSYNCNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ViewSyncVote<TYPES>,
-        MEMBERSHIP,
-    > + Debug,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -219,7 +225,13 @@ pub trait Run<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
-            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -553,9 +565,9 @@ impl<
                     Message<TYPES, NODE>,
                 >,
                 ViewSyncExchange<
-                    TYPES, 
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
-                    MEMBERSHIP, 
+                    TYPES,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
                     Libp2pCommChannel<
                         TYPES,
                         NODE,
@@ -563,7 +575,8 @@ impl<
                         ViewSyncVote<TYPES>,
                         MEMBERSHIP,
                     >,
-                Message<TYPES, NODE>>,
+                    Message<TYPES, NODE>,
+                >,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
             ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -759,13 +772,8 @@ where
 // WEB SERVER
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
-type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    TYPES,
-    I,
-    Proposal<TYPES>,
-    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> =
+    WebCommChannel<TYPES, I, Proposal<TYPES>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP>;
 
 /// Represents a web server-based run
 pub struct WebServerRun<
@@ -802,9 +810,9 @@ impl<
                     Message<TYPES, NODE>,
                 >,
                 ViewSyncExchange<
-                    TYPES, 
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, 
-                    MEMBERSHIP, 
+                    TYPES,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
                     WebCommChannel<
                         TYPES,
                         NODE,
@@ -812,7 +820,8 @@ impl<
                         ViewSyncVote<TYPES>,
                         MEMBERSHIP,
                     >,
-                Message<TYPES, NODE>>,
+                    Message<TYPES, NODE>,
+                >,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
             ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -869,7 +878,15 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, nll_todo(), false).into(), 
+            WebServerNetwork::create(
+                &host.to_string(),
+                port,
+                wait_between_polls,
+                pub_key,
+                nll_todo(),
+                false,
+            )
+            .into(),
         );
         WebServerRun { config, network }
     }
@@ -1002,12 +1019,12 @@ pub async fn main_entry_point<
             MEMBERSHIP,
         > + Debug,
     VIEWSYNCNETWORK: CommunicationChannel<
-        TYPES,
-        Message<TYPES, NODE>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ViewSyncVote<TYPES>,
-        MEMBERSHIP,
-    > + Debug,
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -1022,7 +1039,13 @@ pub async fn main_entry_point<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
-            ViewSyncExchange<TYPES, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP, VIEWSYNCNETWORK, Message<TYPES, NODE>>,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,

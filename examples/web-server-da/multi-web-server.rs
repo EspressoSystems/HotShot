@@ -1,8 +1,8 @@
 use hotshot::demos::vdemo::VDemoTypes;
 use std::sync::Arc;
 
-use async_compatibility_layer::channel::oneshot;
 use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::channel::oneshot;
 use clap::Parser;
 use tracing::error;
 
@@ -28,11 +28,9 @@ async fn main() {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_cdn), args.cdn_port)
-        .await {
-            error!(
-                "Problem starting cdn web server: {:?}",
-                e
-            );
+        .await
+        {
+            error!("Problem starting cdn web server: {:?}", e);
         }
         error!("cdn");
     });
@@ -40,11 +38,9 @@ async fn main() {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_da), args.da_port)
-        .await {
-            error!(
-                "Problem starting da web server: {:?}",
-                e
-            );
+        .await
+        {
+            error!("Problem starting da web server: {:?}", e);
         }
         error!("da");
     });
@@ -52,11 +48,9 @@ async fn main() {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_view_sync), args.view_sync_port)
-        .await {
-            error!(
-                "Problem starting view sync web server: {:?}",
-                e
-            );
+        .await
+        {
+            error!("Problem starting view sync web server: {:?}", e);
         }
         error!("vs");
     });

@@ -1,7 +1,10 @@
 use hotshot::demos::vdemo::VDemoTypes;
 use std::sync::Arc;
 
-use async_compatibility_layer::{channel::oneshot, logging::{setup_backtrace, setup_logging}};
+use async_compatibility_layer::{
+    channel::oneshot,
+    logging::{setup_backtrace, setup_logging},
+};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -10,7 +13,7 @@ struct WebServerArgs {
 }
 #[async_std::main]
 async fn main() {
-    setup_backtrace(); 
+    setup_backtrace();
     setup_logging();
     let args = WebServerArgs::parse();
     let (server_shutdown_sender, server_shutdown) = oneshot();

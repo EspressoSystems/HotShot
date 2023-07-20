@@ -1,21 +1,27 @@
 use crate::infra_da::WebServerDARun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
-    demos::sdemo::SDemoTypes, 
+    demos::sdemo::SDemoTypes,
     traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
 };
-use hotshot_types::data::{ValidatingProposal, ValidatingLeaf};
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
     election::{CommitteeExchange, QuorumExchange},
     node_implementation::{NodeImplementation, SequencingExchanges},
 };
 use hotshot_types::{
+    certificate::ViewSyncCertificate,
     data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
-    traits::{node_implementation::{NodeType, ChannelMaps}, election::ViewSyncExchange, consensus_type::{validating_consensus::ValidatingConsensus, sequencing_consensus::SequencingConsensus}},
+    traits::{
+        consensus_type::{
+            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+        },
+        election::ViewSyncExchange,
+        node_implementation::{ChannelMaps, NodeType},
+    },
     vote::{DAVote, QuorumVote, ViewSyncVote},
-    certificate::ViewSyncCertificate,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -57,7 +63,13 @@ impl NodeImplementation<SDemoTypes> for NodeImpl {
             Message<SDemoTypes, Self>,
         >,
         CommitteeExchange<SDemoTypes, ThisMembership, DANetwork, Message<SDemoTypes, Self>>,
-        ViewSyncExchange<SDemoTypes, ThisViewSyncProposal, ThisMembership, ViewSyncNetwork, Message<SDemoTypes, Self>>,
+        ViewSyncExchange<
+            SDemoTypes,
+            ThisViewSyncProposal,
+            ThisMembership,
+            ViewSyncNetwork,
+            Message<SDemoTypes, Self>,
+        >,
     >;
     type ConsensusMessage = SequencingMessage<SDemoTypes, Self>;
 

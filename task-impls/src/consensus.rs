@@ -851,7 +851,7 @@ where
                             }
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
-                            if *view % 10 == 0 && self.quorum_exchange.is_leader(view){
+                            if *view % 10 == 0 && self.quorum_exchange.is_leader(view) {
                                 error!("Sending Decide for view {:?}", consensus.last_decided_view);
                                 error!("Decided txns {:?}", included_txns_set)
                             }
@@ -1067,7 +1067,7 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 warn!("View Change event for view {}", *new_view);
 
-                let old_view_number = self.cur_view; 
+                let old_view_number = self.cur_view;
 
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
@@ -1076,10 +1076,14 @@ where
                 }
 
                 // Publish a view change event to the application
-                self.output_event_stream.publish(Event {
-                    view_number: old_view_number,
-                    event: EventType::ViewFinished { view_number: old_view_number },
-                }).await;
+                self.output_event_stream
+                    .publish(Event {
+                        view_number: old_view_number,
+                        event: EventType::ViewFinished {
+                            view_number: old_view_number,
+                        },
+                    })
+                    .await;
                 error!("View Change event for view {}", *new_view);
 
                 // Spawn a timeout task if we did actually update view

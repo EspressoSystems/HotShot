@@ -1,9 +1,9 @@
-use async_compatibility_layer::logging::{setup_logging, setup_backtrace};
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use tracing::instrument;
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork, ThisMembership, ThisRun};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
 
 use crate::infra::ValidatorArgs;
 

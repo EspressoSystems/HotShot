@@ -41,7 +41,8 @@ use crate::{
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
-    channel::{unbounded, UnboundedReceiver, UnboundedSender}, logging::{setup_backtrace, setup_logging},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    logging::{setup_backtrace, setup_logging},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
@@ -200,7 +201,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-
         let global_registry = GlobalRegistry::new();
 
         error!("Creating a new hotshot");

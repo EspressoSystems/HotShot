@@ -26,7 +26,13 @@ async fn main() {
     setup_backtrace();
     let args = OrchestratorArgs::parse();
 
-
-    run_orchestrator_da::<SDemoTypes, ThisMembership, DANetwork, QuorumNetwork, ViewSyncNetwork, NodeImpl>(args)
-        .await;
+    run_orchestrator_da::<
+        SDemoTypes,
+        ThisMembership,
+        DANetwork,
+        QuorumNetwork,
+        ViewSyncNetwork,
+        NodeImpl,
+    >(args)
+    .await;
 }

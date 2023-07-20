@@ -1,11 +1,11 @@
-use async_compatibility_layer::logging::{setup_logging, setup_backtrace};
+use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
-use tracing::instrument;
 use std::net::IpAddr;
-use async_compatibility_layer::art::async_spawn;
+use tracing::instrument;
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork, ThisMembership, ThisRun};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
 
 use crate::infra::ValidatorArgs;
 
@@ -46,9 +46,8 @@ async fn main() {
     );
     let mut nodes = Vec::new();
     for _ in 0..args.num_nodes {
-        let node = async_spawn(
-            async move {
-                infra_da::main_entry_point::<
+        let node = async_spawn(async move {
+            infra_da::main_entry_point::<
                 SDemoTypes,
                 ThisMembership,
                 DANetwork,
@@ -56,12 +55,14 @@ async fn main() {
                 ViewSyncNetwork,
                 NodeImpl,
                 ThisRun,
-            >(ValidatorArgs { host: args.host, port: args.port, public_ip: args.public_ip }).await
-            }
-        );
+            >(ValidatorArgs {
+                host: args.host,
+                port: args.port,
+                public_ip: args.public_ip,
+            })
+            .await
+        });
         nodes.push(node);
     }
     let _result = futures::future::join_all(nodes).await;
-
-    
 }
