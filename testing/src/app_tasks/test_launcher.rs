@@ -51,6 +51,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
         )
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
     >,
+    /// overall safety task generator
     pub overall_safety_task_generator: Box<
         dyn FnOnce(
             OverallSafetyTask<TYPES, I>,
@@ -59,6 +60,10 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
         )
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
     >,
+
+    pub hooks: Vec<Box<
+        dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>
+    >>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
@@ -154,6 +159,25 @@ Box<
             resource_generator,
             ..self
         }
+    }
+
+    /// add a hook
+    pub fn add_hook(mut self, hook: Box<
+        dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>
+    >) -> Self {
+        self.hooks.push(hook);
+        self
+    }
+
+    /// overwrite hooks with more hooks
+    pub fn with_hooks(mut self, hooks: Vec<Box<
+        dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>
+    >>) -> Self {
+        Self{
+            hooks,
+            ..self
+        }
+
     }
 
     /// Modifies the config used when generating nodes with `f`

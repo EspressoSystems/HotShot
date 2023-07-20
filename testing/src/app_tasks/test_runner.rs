@@ -77,6 +77,7 @@ where
         }
     }
 
+    /// excecute test
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
@@ -146,7 +147,7 @@ where
             let safety_task_state = PerNodeSafetyTask {
                 ctx: NodeCtx::default(),
             };
-            let (stream, stream_id) = node
+            let (stream, _stream_id) = node
                 .handle
                 .get_event_stream_known_impl(FilterEvent::default())
                 .await;
@@ -172,6 +173,7 @@ where
         Ok(())
     }
 
+    /// add nodes
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
