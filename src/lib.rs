@@ -358,6 +358,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // we haven't worked out how this will work yet
         let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
+        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
+
         let api = self.clone();
         async_spawn(async move {
             let _result = api.send_broadcast_message(message).await.is_err();
@@ -797,6 +799,54 @@ where
     //             ValidatingMessage(GeneralConsensusMessage::ViewSync(_)) => todo!(),
     //         }
     //     }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        MEMBERSHIP: Membership<TYPES>,
+    > SystemContext<SequencingConsensus, TYPES, I>
+where
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+            Commitment = SequencingLeaf<TYPES>,
+            Membership = MEMBERSHIP,
+        > + 'static,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Commitment = TYPES::BlockType,
+            Membership = MEMBERSHIP,
+        > + 'static,
+    ViewSyncEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = ViewSyncCertificate<TYPES>,
+            Certificate = ViewSyncCertificate<TYPES>,
+            Commitment = ViewSyncData<TYPES>,
+            Membership = MEMBERSHIP,
+        > + 'static,
+{
+    pub async fn broadcast_transaction(&self,  transaction: TYPES::Transaction,) -> Result<(), HotShotError<TYPES>>{
+
+        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+
+        self.inner
+            .internal_event_stream
+            .publish(SequencingHotShotEvent::TransactionSend(transaction, self.inner.exchanges.committee_exchange().public_key().clone()))
+            .await;
+        Ok(())
+    }
 }
 
 #[async_trait]
