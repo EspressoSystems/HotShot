@@ -813,7 +813,6 @@ where
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
-                            panic!("HERE");
                             // error!("Sending vs vote {:?}", vote.clone());
 
                             self.event_stream

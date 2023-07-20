@@ -544,6 +544,25 @@ where
                 .publish(SequencingHotShotEvent::ViewChange(new_view))
                 .await;
 
+            // Spawn a timeout task if we did actually update view
+            self.timeout_task = async_spawn({
+                // let next_view_timeout = hotshot.inner.config.next_view_timeout;
+                // let next_view_timeout = next_view_timeout;
+                // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+                // TODO(bf): get the real timeout from the config.
+                let stream = self.event_stream.clone();
+                let view_number = self.cur_view.clone();
+                async move {
+                    // ED: Changing to 1 second to test timeout logic
+                    async_sleep(Duration::from_millis(5000)).await;
+                    stream
+                        .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                            *view_number,
+                        )))
+                        .await;
+                }
+            });
+
             return true;
         }
         false
@@ -1082,25 +1101,6 @@ where
                 // }
 
                 // error!("View Change event for view {}", *new_view);
-
-                // Spawn a timeout task if we did actually update view
-                self.timeout_task = async_spawn({
-                    // let next_view_timeout = hotshot.inner.config.next_view_timeout;
-                    // let next_view_timeout = next_view_timeout;
-                    // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                    // TODO(bf): get the real timeout from the config.
-                    let stream = self.event_stream.clone();
-                    let view_number = self.cur_view.clone();
-                    async move {
-                        // ED: Changing to 1 second to test timeout logic
-                        async_sleep(Duration::from_millis(5000)).await;
-                        stream
-                            .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
-                                *view_number,
-                            )))
-                            .await;
-                    }
-                });
 
                 // If we are the next leader start polling for votes for this view
                 // if self.quorum_exchange.is_leader(self.cur_view + 1) {
