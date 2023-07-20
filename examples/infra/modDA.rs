@@ -327,7 +327,7 @@ pub trait RunDA<
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
         let mut timed_out_views: u64 = 0;
-        let mut round = 1;
+        let mut round = 0;
         let mut total_transactions = 0;
         let mut total_commitments = 0;
 
@@ -340,7 +340,7 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-        let mut should_submit_txns = node_index == (*anchor_view % total_nodes_u64);
+        let mut should_submit_txns = node_index == (round % total_nodes_u64);
 
         context.hotshot.start_consensus().await;
 
@@ -375,9 +375,7 @@ pub trait RunDA<
                                 if new_anchor >= anchor_view {
                                     anchor_view = leaf.view_number;
                                 }
-                                if (*anchor_view % total_nodes_u64) == node_index {
-                                    should_submit_txns = true;
-                                }
+    
                             }
                             num_successful_commits += leaf_chain.len();
                             if num_successful_commits >= rounds {
@@ -395,6 +393,9 @@ pub trait RunDA<
                             if *view_number > round {
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
+                                if (round % total_nodes_u64) == node_index {
+                                    should_submit_txns = true;
+                                }
 
                             }
                         }
