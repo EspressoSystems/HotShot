@@ -216,7 +216,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                             ViewStatus::ViewFailed(ViewFailed(error)),
                                         );
                                     }
-                                    EventType::Decide { leaf_chain, qc } => {
+                                    EventType::Decide { leaf_chain, qc, .. } => {
                                         // for leaf in leaf_chain {
                                         // TODO how to test this
                                         // }

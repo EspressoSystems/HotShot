@@ -855,6 +855,7 @@ where
                                 event: EventType::Decide {
                                     leaf_chain: Arc::new(leaf_views),
                                     qc: Arc::new(new_decide_qc.unwrap()),
+                                    num_block: Some(included_txn_size),
                                 },
                             });
                             let old_anchor_view = consensus.last_decided_view;

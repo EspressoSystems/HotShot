@@ -365,7 +365,7 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc } => {
+                        EventType::Decide { leaf_chain, qc, _ } => {
                             error!("In decide handler");
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
