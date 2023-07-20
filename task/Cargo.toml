@@ -36,7 +36,7 @@ async-trait = "0.1.71"
 either = { version = "1.8.1", features = [ "serde" ] }
 futures = "0.3.28"
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.173", features = ["derive"] }
 snafu = "0.7.5"
 tokio = { version = "1", optional = true, features = [
     "fs",
