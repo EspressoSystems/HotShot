@@ -4,7 +4,7 @@
 //! can send, and vote accumulator that converts votes into certificates.
 
 use crate::{
-    certificate::{QuorumCertificate, QCAssembledSignature},
+    certificate::{QuorumCertificate, AssembledSignature},
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
@@ -235,7 +235,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone>
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
         ),
-        QCAssembledSignature,
+        AssembledSignature,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -246,7 +246,7 @@ where
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, QCAssembledSignature> {
+    ) -> Either<Self, AssembledSignature> {
         let (commitment, (key, (sig, entry, entries, node_id, vote_data, token))) = val;
 
         // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
@@ -323,13 +323,13 @@ where
 
             if *da_stake_casted >= u64::from(self.success_threshold) {
                 self.da_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(QCAssembledSignature::DA(real_qc_sig));
+                return Either::Right(AssembledSignature::DA(real_qc_sig));
             } else if *yes_stake_casted >= u64::from(self.success_threshold) {
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(QCAssembledSignature::Yes(real_qc_sig));
+                return Either::Right(AssembledSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(QCAssembledSignature::No(real_qc_sig));
+                return Either::Right(AssembledSignature::No(real_qc_sig));
             }
         }
         Either::Left(self)

@@ -5,7 +5,7 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::{ViewSyncCertificate, QCAssembledSignature};
+use crate::certificate::{ViewSyncCertificate, AssembledSignature};
 use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::DAProposal;
@@ -179,7 +179,7 @@ where
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: QCAssembledSignature,
+        signatures: AssembledSignature,
         commit: Commitment<COMMITTABLE>,
     ) -> Self;
 
@@ -187,7 +187,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> QCAssembledSignature;
+    fn signatures(&self) -> AssembledSignature;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -366,7 +366,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
         match qc.signatures() {
-            QCAssembledSignature::DA((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::DA((qc_signatures, bitvec_proof)) => {
                 let real_commit = VoteData::DA(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -381,7 +381,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     &bitvec_proof
                 ).is_ok()
             }
-            QCAssembledSignature::Yes((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::Yes((qc_signatures, bitvec_proof)) => {
                 let real_commit = VoteData::Yes(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -396,7 +396,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     &bitvec_proof
                 ).is_ok()
             }
-            QCAssembledSignature::No((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::No((qc_signatures, bitvec_proof)) => {
                 let real_commit = VoteData::No(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -411,7 +411,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     &bitvec_proof
                 ).is_ok()
             }
-            QCAssembledSignature::Genesis() => {
+            AssembledSignature::Genesis() => {
                 return true;
             }
         }

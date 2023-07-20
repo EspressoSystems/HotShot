@@ -49,7 +49,7 @@ pub struct DACertificate<TYPES: NodeType> {
     /// TODO (da) make a separate vote token type for DA and QC
     // pub signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>, // no genesis bc not meaningful
     /// Sishan NOTE: for QC aggregation
-    pub signatures: QCAssembledSignature,
+    pub signatures: AssembledSignature,
 }
 
 /// The type used for Quorum Certificates
@@ -66,7 +66,7 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// Sishan NOTE: QC for QC aggregation
-    pub signatures: QCAssembledSignature,
+    pub signatures: AssembledSignature,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
 }
@@ -90,31 +90,30 @@ pub struct ViewSyncCertificate<TYPES: NodeType> {
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Aggregated QC 
-    pub signatures: QCAssembledSignature,
+    pub signatures: AssembledSignature,
 }
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-/// Enum representing whether a QC's signatures are for a 'Yes' or 'No' or 'DA' or 'Genesis' QC
-pub enum QCAssembledSignature {
-    /// These signatures are for a 'Yes' QC
+/// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
+pub enum AssembledSignature {
+    /// These signatures are for a 'Yes' certificate
     Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
         <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
-    /// These signatures are for a 'No' QC
+    /// These signatures are for a 'No' certificate
     No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
         <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
-    /// These signatures are for a 'DA' QC
+    /// These signatures are for a 'DA' certificate
     DA((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
         <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
-    /// These signatures are for genesis QC
+    /// These signatures are for genesis certificate
     Genesis(),
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
-    /// Voter's public key
-    /// Sishan NOTE TODO: In qc aggregation, this encoded_key is substitued by the ver_key, should be discarded later
+    /// Voter's public key (Sishan NOTE: In qc aggregation, this encoded_key is substitued by the ver_key, should be discarded later)
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
@@ -138,7 +137,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: QCAssembledSignature,
+        signatures: AssembledSignature,
         commit: Commitment<LEAF>,
     ) -> Self {
         QuorumCertificate {
@@ -153,7 +152,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         self.view_number
     }
 
-    fn signatures(&self) -> QCAssembledSignature {
+    fn signatures(&self) -> AssembledSignature {
         self.signatures.clone()
     }
 
@@ -173,7 +172,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         Self {
             leaf_commitment: fake_commitment::<LEAF>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
-            signatures: QCAssembledSignature::Genesis(),
+            signatures: AssembledSignature::Genesis(),
             is_genesis: true,
         }
     }
@@ -206,7 +205,7 @@ impl<TYPES: NodeType>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: QCAssembledSignature,
+        signatures: AssembledSignature,
         commit: Commitment<TYPES::BlockType>,
     ) -> Self {
         DACertificate {
@@ -220,7 +219,7 @@ impl<TYPES: NodeType>
         self.view_number
     }
 
-    fn signatures(&self) -> QCAssembledSignature {
+    fn signatures(&self) -> AssembledSignature {
         self.signatures.clone()
     }
 
@@ -252,7 +251,7 @@ impl<TYPES: NodeType>
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         _view_number: TYPES::Time,
-        _signatures: QCAssembledSignature,
+        _signatures: AssembledSignature,
         _commit: Commitment<ViewSyncData<TYPES>>,
     ) -> Self {
         todo!()
@@ -264,7 +263,7 @@ impl<TYPES: NodeType>
     }
 
     /// Get signatures.
-    fn signatures(&self) -> QCAssembledSignature {
+    fn signatures(&self) -> AssembledSignature {
         todo!()
     }
 

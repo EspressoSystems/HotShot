@@ -173,7 +173,7 @@ mod test {
                 // block_commitment: dummy_block_commit,
                 is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: QCAssembledSignature::Genesis(),
+                signatures: AssembledSignature::Genesis(),
                 view_number,
             },
             DummyBlock::random(rng),
