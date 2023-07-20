@@ -1,4 +1,4 @@
-use crate::infra::{load_config_from_file, OrchestratorArgs, OrchestratorClient, ValidatorArgs};
+use crate::infra::{load_config_from_file, OrchestratorArgs};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
@@ -14,6 +14,7 @@ use hotshot::{
 };
 use hotshot_orchestrator::{
     self,
+    client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_types::traits::{
@@ -122,7 +123,6 @@ pub async fn run_orchestrator_da<
     >(run_config, host, port)
     .await;
 }
-
 
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
@@ -513,7 +513,6 @@ where
         self.config.clone()
     }
 }
-
 
 /// Main entry point for validators
 pub async fn main_entry_point<
