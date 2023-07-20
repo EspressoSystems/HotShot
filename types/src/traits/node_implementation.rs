@@ -35,7 +35,6 @@ use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
 /// Node implementation aggregate trait

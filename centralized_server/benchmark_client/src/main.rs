@@ -11,7 +11,7 @@ use hotshot_types::traits::signature_key::{
     SignatureKey,
 };
 use std::{net::ToSocketAddrs, time::Instant};
-use tracing::{error, warn, info};
+use tracing::{error, info};
 
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, ()>;

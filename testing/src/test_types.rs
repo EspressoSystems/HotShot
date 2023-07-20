@@ -25,7 +25,6 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme};
 use serde::{Deserialize, Serialize};
 

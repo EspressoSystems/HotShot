@@ -4,7 +4,6 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 
 #[cfg(feature = "demo")]

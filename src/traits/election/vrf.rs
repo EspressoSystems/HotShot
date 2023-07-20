@@ -28,8 +28,6 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-
-// Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
 use typenum::U32;
@@ -231,7 +229,6 @@ where
     fn sign(key_pair: QCKeyPair, 
             data: &[u8]) -> EncodedSignature {
         // Sign it
-        // Sishan NOTE: for QC Aggregation
         let generic_msg = GenericArray::from_slice(data);
         
         let individual_signature =

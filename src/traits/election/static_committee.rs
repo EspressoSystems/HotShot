@@ -12,7 +12,6 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::{bls_over_bn254::VerKey};
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};

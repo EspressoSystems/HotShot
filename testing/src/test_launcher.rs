@@ -15,7 +15,6 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
-// Sishan NOTE: for QC aggregation
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;

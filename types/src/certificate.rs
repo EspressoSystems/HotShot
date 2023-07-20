@@ -48,7 +48,7 @@ pub struct DACertificate<TYPES: NodeType> {
     /// assumption that singatures are constant in length
     /// TODO (da) make a separate vote token type for DA and QC
     // pub signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>, // no genesis bc not meaningful
-    /// Sishan NOTE: for QC aggregation
+    /// Assembled signature for certificate aggregation
     pub signatures: AssembledSignature,
 }
 
@@ -65,7 +65,7 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
-    /// Sishan NOTE: QC for QC aggregation
+    /// Sishan NOTE: assembled signature for certificate aggregation
     pub signatures: AssembledSignature,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
@@ -113,11 +113,11 @@ pub enum AssembledSignature {
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
-    /// Voter's public key (Sishan NOTE: In qc aggregation, this encoded_key is substitued by the ver_key, should be discarded later)
+    /// Voter's public key (Sishan NOTE: In certificate aggregation, this encoded_key is substitued by the ver_key, should be discarded later)
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
-    /// Sishan NOTE: entry with public key for QC aggregation
+    /// Entry with public key for certificate aggregation
     pub entry: StakeTableEntry<VerKey>,
     /// Voter's public key under QC KeyPair Signature Scheme
     pub ver_key: VerKey,

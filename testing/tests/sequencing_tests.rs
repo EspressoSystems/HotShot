@@ -26,7 +26,6 @@ use hotshot_types::{
     vote::DAVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;

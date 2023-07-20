@@ -5,13 +5,11 @@ use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
-// Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
 use typenum::U32;
-// use digest::generic_array::GenericArray;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 /// Public key type for an ed25519 [`SignatureKey`] pair

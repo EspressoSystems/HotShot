@@ -24,7 +24,7 @@ mod tests {
         // And the matching public key
         let pub_key = Ed25519Pub::from_private(&priv_key);
 
-        // Sishan Note: For QC Aggregation
+        // KeyPair with signature scheme for certificate Aggregation
         let key_pair = QCKeyPair::generate(&mut rand::thread_rng());
 
         // Sign the data with it

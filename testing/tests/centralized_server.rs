@@ -19,7 +19,6 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;

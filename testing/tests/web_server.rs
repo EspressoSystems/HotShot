@@ -13,8 +13,6 @@ use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
 use hotshot_types::vote::DAVote;
-
-// Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme};
 
 use hotshot::demos::sdemo::SDemoBlock;
@@ -110,7 +108,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>; // Sishan NOTE: for QC aggregation
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>; // Change signature scheme for certificate aggregation
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;

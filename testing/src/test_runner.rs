@@ -28,7 +28,6 @@ use hotshot_types::{
 };
 use tracing::{debug, info, warn};
 
-// Sishan NOTE: for QC aggregation
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
@@ -253,7 +252,7 @@ where
         let known_nodes_qc = config.known_nodes_qc.clone();
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        // Sishan Note: For QC Aggregation
+        // Generate key pair for certificate aggregation
         let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
             [0_u8; 32],
             (node_id as u64).try_into().unwrap(),
@@ -284,7 +283,6 @@ where
             key_pair.clone(),
             entry.clone(),
             private_key.clone(),
-            // ek.clone(),
         );
         let handle = HotShot::init(
             public_key,

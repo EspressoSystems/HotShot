@@ -19,8 +19,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-
-// Sishan Note: For QC signature aggregation
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
@@ -46,7 +44,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // Sishan NOTE: signature.2 = entry including public key for QC aggregation
+    // signature.2 = entry including public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature, StakeTableEntry<QCVerKey>),
     /// The block commitment being voted on.
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -68,7 +66,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // Sishan Note: signature.2 = entry with public key for QC aggregation
+    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature, StakeTableEntry<QCVerKey>),
     /// The leaf commitment being voted on.
     pub leaf_commitment: Commitment<LEAF>,
@@ -90,7 +88,7 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // Sishan NOTE: signature.2 = entry with public key for QC aggregation
+    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature, StakeTableEntry<QCVerKey>),
     /// The view this vote was cast for
     pub current_view: TYPES::Time,
@@ -222,10 +220,9 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     pub failure_threshold: NonZeroU64,
-    /// Sishan NOTE: For QC aggregation
-    /// A list of valid signatures
+    /// A list of valid signatures for certificate aggregation
     pub sig_lists: Vec<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature>,
-    /// A bitvec to indicate which node is active and send out a valid signature, this automatically do uniqueness check
+    /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     pub signers: BitVec,
 }
 

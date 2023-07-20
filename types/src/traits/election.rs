@@ -42,8 +42,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
-
-// Sishan NOTE: for QC aggregation
 use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use blake3::traits::digest::generic_array::GenericArray;
@@ -516,7 +514,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// This participant's private key.
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
-    /// Sishan Note: KeyPair for QC Aggregation
+    /// Get KeyPair for signature scheme in certificate Aggregation
     fn key_pair(&self) -> &QCKeyPair;
 
     // fn get_entry(&self) -> &StakeTableEntry<VerKey>;
@@ -574,7 +572,7 @@ pub struct CommitteeExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// Sishan Note: For QC aggregation,
+    /// KeyPair with signature scheme for certificate aggregation,
     key_pair: QCKeyPair,
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
@@ -837,7 +835,7 @@ pub struct QuorumExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// Sishan Note: For QC aggregation,
+    /// KeyPair with Signature Scheme for certificate aggregation,
     key_pair: QCKeyPair,
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
@@ -1109,7 +1107,7 @@ pub struct ViewSyncExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// Sishan Note: KeyPair with signature scheme for QC aggregation,
+    /// Sishan Note: KeyPair with signature scheme for certificate aggregation,
     key_pair: QCKeyPair,
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.

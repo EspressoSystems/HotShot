@@ -64,8 +64,6 @@ use surf_disco::error::ClientError;
 use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
-
-// Sishan NOTE: for QC aggregation
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
@@ -250,7 +248,7 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        // Sishan Note: For QC Aggregation
+        // Get KeyPair for certificate Aggregation
         let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
             config.seed,
             node_id.try_into().unwrap(),
