@@ -594,7 +594,6 @@ impl<
         block_commitment: &Commitment<TYPES::BlockType>,
     ) -> (EncodedSignature, VerKey) {
         let signature = TYPES::SignatureKey::sign(
-            // &self.private_key, 
             self.key_pair.clone(), 
             block_commitment.as_ref()
         );
@@ -874,7 +873,6 @@ impl<
         leaf_commitment: &Commitment<LEAF>,
     ) -> (EncodedSignature, VerKey) {
         let signature = TYPES::SignatureKey::sign(
-            // &self.private_key, 
             self.key_pair.clone(), 
             leaf_commitment.as_ref()
         );
