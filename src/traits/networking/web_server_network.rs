@@ -41,6 +41,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use hotshot_web_server::{self, config};
 use rand::random;
 use serde::{Deserialize, Serialize};
