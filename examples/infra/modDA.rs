@@ -572,7 +572,6 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-
         let known_nodes = config.config.known_nodes.clone();
 
         let mut _committee_nodes = known_nodes.clone();
@@ -597,6 +596,24 @@ where
             .into(),
         );
 
+        let view_sync_network: WebCommChannel<
+            TYPES,
+            NODE,
+            ViewSyncCertificate<TYPES>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > = WebCommChannel::new(
+            WebServerNetwork::create(
+                &host.to_string(),
+                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
+                wait_between_polls,
+                pub_key,
+                known_nodes.clone(),
+                false,
+            )
+            .into(),
+        );
+
         let WebServerConfig {
             host,
             port,
@@ -615,24 +632,6 @@ where
                 )
                 .into(),
             );
-
-        let view_sync_network: WebCommChannel<
-            TYPES,
-            NODE,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
-                wait_between_polls,
-                pub_key,
-                known_nodes.clone(),
-                false,
-            )
-            .into(),
-        );
 
         WebServerDARun {
             config,
