@@ -29,9 +29,12 @@ use hotshot_types::{
 use tracing::{debug, info, warn};
 
 // Sishan NOTE: for QC aggregation
+use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::quorum_certificate::StakeTableEntry;
 use ethereum_types::U256;
+use rand::prelude::*;
+use rand_chacha::ChaCha20Rng;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -248,10 +251,15 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
+        let known_nodes_qc = config.known_nodes_qc.clone();
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         // Sishan Note: For QC Aggregation
-        let key_pair_test = QCKeyPair::generate(&mut rand::thread_rng());
+        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+            [0_u8; 32],
+            (node_id as u64).try_into().unwrap(),
+        );
+        let key_pair_test = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
             stake_key: key_pair_test.ver_key(),
             stake_amount: U256::from(1u8),
@@ -269,6 +277,7 @@ where
         let committee_election_config = I::committee_election_config_generator();
 
         let exchanges = I::Exchanges::create(
+            known_nodes_qc.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,

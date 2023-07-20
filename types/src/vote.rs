@@ -224,21 +224,18 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     pub failure_threshold: NonZeroU64,
     // Sishan NOTE: For QC aggregation
-    // a list of entries in vec![]: including the public stake_key and stake_amount of the node
-    pub stake_entries: Vec<StakeTableEntry<QCVerKey>>,
     // a list of signatures
     pub sig_lists: Vec<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature>,
     // bitvec to indicate which node is active
-    pub active_keys: BitVec,
+    pub signers: BitVec,
 }
 
 impl<TOKEN, LEAF: Committable + Serialize + Clone>
     Accumulator<
         (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
         ),
-        // YesNoSignature<LEAF, TOKEN>,
         QCYesNoSignature,
     > for VoteAccumulator<TOKEN, LEAF>
 where
@@ -248,18 +245,18 @@ where
         mut self,
         val: (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, StakeTableEntry<QCVerKey>, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
         ),
     ) -> Either<Self, QCYesNoSignature> {
-    // ) -> Either<Self, YesNoSignature<LEAF, TOKEN>> {
-        let (commitment, (key, (sig, entry, vote_data, token))) = val;
+        let (commitment, (key, (sig, entry, entries, node_id, vote_data, token))) = val;
 
         // Sishan NOTE: Desereialize the sig so that it can be assembeld into a QC
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
         = bincode_opts().deserialize(&sig.clone().0).unwrap();
-        // update the stake_entries, active_keys and sig_lists
-        self.stake_entries.push(entry.clone());
-        self.active_keys.push(true);
+
+        println!("Plan to assign value to bitvec, node_id = {:?}, self.signers.len = {:?}", node_id, self.signers.len());
+        // update the active_keys and sig_lists
+        self.signers.set(node_id, true);
         self.sig_lists.push(origianl_sig.clone());
 
         let (total_stake_casted, total_vote_map) = self
@@ -311,34 +308,36 @@ where
             
             // Sishan NOTE: Do assemble for QC here
 
-            println!("In append(), active_keys: {:?}, sig_lists: {:?}", self.active_keys, self.sig_lists);
-
-            let qc_pp = QCParams {
-                stake_entries: self.stake_entries.clone(),
+            let real_qc_pp = QCParams {
+                stake_entries: entries.clone(),
                 threshold: U256::from(self.success_threshold.get()),
                 agg_sig_pp: (),
             };
-            let qc_sig = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::assemble(
-                &qc_pp,
-                self.active_keys.as_bitslice(),
+
+            let real_qc_sig = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::assemble(
+                &real_qc_pp,
+                self.signers.as_bitslice(),
                 &self.sig_lists[..],
             ).unwrap();
+
+            
+
 
             if *da_stake_casted >= u64::from(self.success_threshold) {
                 self.da_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.da_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::DA(valid_signatures));
-                return Either::Right(QCYesNoSignature::DA(qc_sig, qc_pp));
+                return Either::Right(QCYesNoSignature::DA(real_qc_sig));
             } else if *yes_stake_casted >= u64::from(self.success_threshold) {
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::Yes(valid_signatures));
-                return Either::Right(QCYesNoSignature::Yes(qc_sig, qc_pp));
+                return Either::Right(QCYesNoSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 // let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 // return Either::Right(YesNoSignature::No(valid_signatures));
-                return Either::Right(QCYesNoSignature::No(qc_sig, qc_pp));
+                return Either::Right(QCYesNoSignature::No(real_qc_sig));
             }
         }
         Either::Left(self)

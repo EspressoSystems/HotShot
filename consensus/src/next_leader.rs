@@ -96,6 +96,7 @@ where
         let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
+
         let mut accumlator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
             da_vote_outcomes: HashMap::new(),
@@ -103,9 +104,8 @@ where
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),
             failure_threshold: self.exchange.failure_threshold(),
-            stake_entries: Vec::new(),
             sig_lists: Vec::new(),
-            active_keys: bitvec![],
+            signers: bitvec![0; self.exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;

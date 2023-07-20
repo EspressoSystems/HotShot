@@ -3,6 +3,7 @@ use super::vrf::JfPubKey;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use digest::generic_array::GenericArray;
 use espresso_systems_common::hotshot::tag;
+use hotshot_primitives::quorum_certificate::StakeTableEntry;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -11,7 +12,7 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey},
     },
 };
-use jf_primitives::signatures::BLSSignatureScheme;
+use jf_primitives::signatures::{BLSSignatureScheme, bls_over_bn254::VerKey};
 // Sishan NOTE: for QC aggregation
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 #[allow(deprecated)]
@@ -25,8 +26,10 @@ use std::num::NonZeroU64;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
+    nodes_qc: Vec<StakeTableEntry<VerKey>>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
+    committee_nodes_qc: Vec<StakeTableEntry<VerKey>>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -41,10 +44,12 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
 {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(nodes: Vec<PUBKEY>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>, nodes_qc: Vec<StakeTableEntry<VerKey>>) -> Self {
         Self {
             nodes: nodes.clone(),
+            nodes_qc: nodes_qc.clone(),
             committee_nodes: nodes,
+            committee_nodes_qc: nodes_qc,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -109,6 +114,19 @@ where
     ) -> Self::StakeTable {
         self.nodes.clone()
     }
+    /// Clone the public key and corresponding stake table
+    fn get_qc_stake_table (
+            &self,
+        ) -> Vec<StakeTableEntry<VerKey>> {
+            self.nodes_qc.clone()
+    }
+
+    fn get_committee_qc_stake_table (
+        &self,
+    ) -> Vec<StakeTableEntry<VerKey>> {
+        self.committee_nodes_qc.clone()
+    }
+
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = (*view_number % self.nodes.len() as u64) as usize;
@@ -157,15 +175,23 @@ where
         StaticElectionConfig { num_nodes }
     }
 
-    fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys_qc: Vec<StakeTableEntry<VerKey>>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
+        let mut committee_nodes_qc = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_qc.truncate(config.num_nodes.try_into().unwrap());
         Self {
+            nodes_qc: keys_qc,
             nodes: keys,
             committee_nodes,
+            committee_nodes_qc,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
+    }
+
+    fn total_nodes(&self) -> usize {
+        self.committee_nodes.len()
     }
 
     fn success_threshold(&self) -> NonZeroU64 {

@@ -33,7 +33,7 @@ mod tests {
         // Sign the data with it
         let signature = Ed25519Pub::sign(key_pair_test.clone(), &data);
         // Verify the signature
-        assert!(pub_key.validate(&signature, &data));
+        assert!(pub_key.validate(key_pair_test.ver_key(), &signature, &data));
     }
 
     // Make sure serialization round trip works

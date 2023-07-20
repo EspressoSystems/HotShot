@@ -103,6 +103,7 @@ where
         &self,
         cur_view: TYPES::Time,
         threshold: NonZeroU64,
+        total_nodes_num: usize,
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
@@ -114,9 +115,8 @@ where
             // TODO ED Revisit this once Yes/No votes are in place for DA
             success_threshold: threshold,
             failure_threshold: threshold,
-            stake_entries: Vec::new(),
             sig_lists: Vec::new(),
-            active_keys: bitvec![],
+            signers: bitvec![0; total_nodes_num],
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -165,10 +165,10 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    QCYesNoSignature::Yes(signature, qc_pp) => {
+                                    QCYesNoSignature::Yes(signature) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
-                                    QCYesNoSignature::DA(signature, qc_pp) => {
+                                    QCYesNoSignature::DA(signature) => {
                                         info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
@@ -311,6 +311,7 @@ where
             .wait_for_votes(
                 self.cur_view,
                 self.committee_exchange.success_threshold(),
+                self.committee_exchange.total_nodes(),
                 block_commitment,
             )
             .await
@@ -483,7 +484,6 @@ where
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
-
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
             da_vote_outcomes: HashMap::new(),
@@ -491,9 +491,8 @@ where
             no_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
-            stake_entries: Vec::new(),
             sig_lists: Vec::new(),
-            active_keys: bitvec![],
+            signers: bitvec![0; self.quorum_exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -528,7 +527,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            QCYesNoSignature::Yes(signature, qc_pp) => info!(
+                                            QCYesNoSignature::Yes(signature) => info!(
                                                 "Number of qurorum signatures in this QC: {}",
                                                 signature.1.len()
                                             ),

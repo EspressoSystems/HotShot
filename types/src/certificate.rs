@@ -118,16 +118,13 @@ pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken>
 pub enum QCYesNoSignature { // Sishan NOTE TODO: change to a better name
     /// These signatures are for a 'Yes' QC
     Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
-        QCParams<VerKey, ()>),
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
     /// These signatures are for a 'No' QC
     No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
-        QCParams<VerKey, ()>),
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
     /// These signatures are for a 'DA' QC
     DA((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof),
-        QCParams<VerKey, ()>),
+        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
     /// These signatures are for genesis QC
     Genesis(),
 }
@@ -196,8 +193,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
             leaf_commitment: fake_commitment::<LEAF>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: QCYesNoSignature::Genesis(),
-            // signatures: QCYesNoSignature::Yes((None, bitvec![])),
-            // YesNoSignature::Yes(BTreeMap::default()),
             is_genesis: true,
         }
     }
@@ -245,7 +240,6 @@ impl<TYPES: NodeType>
         self.view_number
     }
 
-    // fn signatures(&self) -> YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType> {
     fn signatures(&self) -> QCYesNoSignature {
         self.signatures.clone()
     }

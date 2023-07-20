@@ -91,6 +91,7 @@ pub trait ExchangesType<
 
     /// Create all exchanges.
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
@@ -170,6 +171,7 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
@@ -180,7 +182,7 @@ where
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, configs.0, networks.0, pk, key_pair_test.clone(), 
+            quorum_exchange: QUORUMEXCHANGE::create(entries, keys, configs.0, networks.0, pk, key_pair_test.clone(), 
             entry.clone(), 
             sk, ek),
             _phantom: PhantomData,
@@ -248,6 +250,7 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
@@ -258,6 +261,7 @@ where
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.0,
             networks.0,
@@ -267,7 +271,7 @@ where
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys,  configs.1, networks.1, pk, key_pair_test.clone(), 
+        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys,  configs.1, networks.1, pk, key_pair_test.clone(), 
         entry.clone(), 
         sk,
         ek);
