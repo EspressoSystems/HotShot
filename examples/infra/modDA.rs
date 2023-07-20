@@ -572,11 +572,6 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-        let WebServerConfig {
-            host: da_host,
-            port: da_port,
-            wait_between_polls: da_wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         let known_nodes = config.config.known_nodes.clone();
 
@@ -602,12 +597,18 @@ where
             .into(),
         );
 
+        let WebServerConfig {
+            host,
+            port,
+            wait_between_polls,
+        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
+
         let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
             WebCommChannel::new(
                 WebServerNetwork::create(
-                    &da_host.to_string(),
-                    da_port,
-                    da_wait_between_polls,
+                    &host.to_string(),
+                    port,
+                    wait_between_polls,
                     pub_key.clone(),
                     known_nodes.clone(),
                     true,
