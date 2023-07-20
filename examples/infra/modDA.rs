@@ -607,7 +607,7 @@ where
                 &host.to_string(),
                 DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
                 wait_between_polls,
-                pub_key,
+                pub_key.clone(),
                 known_nodes.clone(),
                 false,
             )
