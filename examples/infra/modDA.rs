@@ -386,6 +386,10 @@ pub trait RunDA<
                             if num_successful_commits >= rounds {
                                 break;
                             }
+
+                            if leaf_chain.len() > 1 {
+                                error!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
+                            }
                             // when we make progress, submit new events
                         }
                         EventType::ReplicaViewTimeout { view_number } => {
