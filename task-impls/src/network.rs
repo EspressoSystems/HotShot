@@ -6,6 +6,7 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
+use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::message::{DataMessage, Message};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
@@ -16,19 +17,12 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::EncodedSignature,
     },
     vote::VoteType,
 };
-use hotshot_types::{
-    message::{CommitteeConsensusMessage, SequencingMessage},
-    traits::election::SignedCertificate,
-};
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
-use tracing::warn;
 
 #[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
@@ -69,7 +63,7 @@ impl<
     > NetworkMessageTaskState<TYPES, I>
 {
     /// Handle the message.
-    pub async fn handle_message(&mut self, message: Message<TYPES, I>, id: u64) {
+    pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
         let sender = message.sender;
         let event = match message.kind {
             MessageKind::Consensus(consensus_message) => match consensus_message.0 {
@@ -108,10 +102,9 @@ impl<
             MessageKind::Data(message) => {
                 match message {
                     // ED Why do we need the view number in the transaction?
-                    hotshot_types::message::DataMessage::SubmitTransaction(
-                        transaction,
-                        view_number,
-                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
+                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
+                        SequencingHotShotEvent::TransactionRecv(transaction)
+                    }
                 }
             }
             MessageKind::_Unreachable(_) => unimplemented!(),

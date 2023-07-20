@@ -2,7 +2,6 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
-use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
@@ -22,7 +21,6 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
@@ -49,12 +47,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-#[cfg(feature = "tokio-executor")]
-use tokio::task::JoinHandle;
-use tracing::{error, info, instrument, warn};
-
-/// A type alias for `HashMap<Commitment<T>, T>`
-type CommitmentMap<T> = HashMap<Commitment<T>, T>;
+use tracing::{error, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -197,9 +190,9 @@ where
                     state
                         .committee_exchange
                         .network()
-                        .inject_consensus_info(
-                            (ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)),
-                        )
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *dac.view_number,
+                        ))
                         .await;
 
                     // Return completed at this point
@@ -270,12 +263,12 @@ where
                 // ED Is this the right leader?
                 let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
-                    panic!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
+                    error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
                 }
 
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
-                    panic!("Could not verify proposal.");
+                    error!("Could not verify proposal.");
                     return None;
                 }
 
@@ -387,22 +380,16 @@ where
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
                     let stream_id = builder.get_stream_id().unwrap();
-                    let task =
+                    let _task =
                         async_spawn(
                             async move { DAVoteCollectionTypes::build(builder).launch().await },
                         );
                     self.vote_collector = Some((view, id, stream_id));
-                } else {
-                    if let Some((view, _, stream_id)) = self.vote_collector {
-                        // warn!(
-                        //     "directly sending vote to vote collection task. view {:?}",
-                        //     view
-                        // );
-                        self.event_stream
-                            .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
-                            .await;
-                    };
-                }
+                } else if let Some((_, _, stream_id)) = self.vote_collector {
+                    self.event_stream
+                        .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                        .await;
+                };
             }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
@@ -418,9 +405,9 @@ where
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info(
-                        (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
-                    )
+                    .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
+                        *self.cur_view + 1,
+                    ))
                     .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
@@ -435,7 +422,7 @@ where
                 // Start polling for DA votes for the "next view"
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view + 1)))
+                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
                     .await;
 
                 // ED Copy of parent_leaf() function from sequencing leader
@@ -478,9 +465,7 @@ where
                         continue;
                     }
                 }
-                let block_commitment = block.commit();
 
-                let consensus = self.consensus.read().await;
                 let signature = self.committee_exchange.sign_da_proposal(&block.commit());
                 let data: DAProposal<TYPES> = DAProposal {
                     deltas: block.clone(),
@@ -518,7 +503,7 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
             }
 

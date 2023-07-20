@@ -11,7 +11,6 @@ use hotshot_task::{
 };
 
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -78,7 +77,7 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
     let task_runner = build_fn(task_runner, event_stream.clone());
 
-    let runner = async_spawn(async move { task_runner.launch().await });
+    let _runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
         let _ = event_stream.publish(event);

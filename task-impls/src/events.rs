@@ -1,7 +1,7 @@
 use hotshot_task::task::PassType;
-use hotshot_types::certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate};
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
-use hotshot_types::message::{DataMessage, Proposal};
+use hotshot_types::message::Proposal;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::QuorumProposalType;

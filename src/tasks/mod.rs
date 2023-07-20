@@ -252,15 +252,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         let lock = hotshot.inner.recv_network_lookup.lock().await;
 
         if let Ok(Some(cur_view)) = lock.recv().await {
-            // Injecting consensus data into the networking implementation
-            // let _result = networking
-            //     .inject_consensus_info((
-            //         (*cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
-            //     ))
-            //     .await;
-
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
             // perform pruning
@@ -386,10 +377,9 @@ where
             let messages = match messages {
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
-            let id = handle.hotshot.inner.id;
             async move {
                 for message in messages.0 {
-                    state.handle_message(message, id).await;
+                    state.handle_message(message).await;
                 }
                 (None, state)
             }
