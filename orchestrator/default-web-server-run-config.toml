@@ -63,6 +63,14 @@ nanos = 0
 host = "127.0.0.1"
 port = 9000
 
+[da_web_server_config]
+host = "127.0.0.1"
+port = 9001
+
 [web_server_config.wait_between_polls]
+secs = 0
+nanos = 100000000 # 100 ms
+
+[da_web_server_config.wait_between_polls]
 secs = 0
 nanos = 100000000 # 100 ms
