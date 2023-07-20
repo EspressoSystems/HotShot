@@ -76,6 +76,7 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
 
+    /// send direct message to node
     async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 

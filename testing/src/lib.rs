@@ -9,8 +9,9 @@
 #![warn(missing_docs)]
 #![ doc = include_str!("../README.md")]
 
-/// implementations of various networking models
-pub mod network_reliability;
+// /// implementations of various networking models
+// pub mod network_reliability;
+
 /// test launcher infrastructure
 pub mod test_launcher;
 

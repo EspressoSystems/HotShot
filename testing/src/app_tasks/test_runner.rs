@@ -132,6 +132,7 @@ where
         let overall_safety_task_state = OverallSafetyTask {
             handles: nodes.clone(),
             ctx: RoundCtx::default(),
+            test_event_stream: test_event_stream.clone(),
         };
         let (id, task) = (launcher.overall_safety_task_generator)(
             overall_safety_task_state,

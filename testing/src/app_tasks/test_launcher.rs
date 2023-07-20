@@ -64,14 +64,95 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 {
-    // TODO overrides
-
+    /// launch the test
     pub fn launch(self) -> TestRunner<TYPES, I> {
         TestRunner {
             launcher: self,
             nodes: Vec::new(),
             next_node_id: 0,
             task_runner: TaskRunner::default(),
+        }
+    }
+
+    /// override the safety task generator
+    pub fn with_overall_safety_task_generator(self, overall_safety_task_generator: Box<
+        dyn FnOnce(
+            OverallSafetyTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >) -> Self {
+        Self {
+            overall_safety_task_generator,
+            ..self
+        }
+
+    }
+
+    /// overridde the completion task generator
+    pub fn with_completion_task_generator(self, completion_task_generator:
+Box<
+        dyn FnOnce(
+            CompletionTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
+
+    ) -> Self {
+        Self {
+            completion_task_generator,
+            ..self
+        }
+
+    }
+
+    /// overridde the per node safety task generator
+    pub fn with_per_node_safety_task_generator(self, per_node_safety_task_generator:
+Box<
+        dyn Fn(
+            PerNodeSafetyTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+            UnboundedStream<Event<TYPES, I::Leaf>>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
+
+
+    ) -> Self {
+        Self {
+            per_node_safety_task_generator,
+            ..self
+        }
+
+    }
+
+    /// override the txn task generator
+    pub fn with_txn_task_generator(self, txn_task_generator:
+Box<
+        dyn FnOnce(
+            TxnTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >,
+    ) -> Self {
+        Self {
+            txn_task_generator,
+            ..self
+        }
+
+    }
+
+    /// override resource generators
+    pub fn with_resource_generator(self, resource_generator: ResourceGenerators<TYPES, I>) -> Self{
+        Self {
+            resource_generator,
+            ..self
         }
     }
 
