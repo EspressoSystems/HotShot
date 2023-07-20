@@ -42,7 +42,7 @@ Get whether the node should start the run, returns a boolean
 
 # POST the run results
 [route.postresults]
-PATH = ["results"]
+PATH = ["results/:run_results"]
 ":run_results" = "Integer"
 METHOD = "POST"
 DOC = """
