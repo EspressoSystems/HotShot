@@ -357,9 +357,12 @@ pub trait RunDA<
                     let txn = txns.pop_front().unwrap();
                     tracing::error!("Submitting txn on round {}", round);
                     
-                    api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
-                        .await
-                        .expect("Could not send transaction");
+                    let result = api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
+                        .await;
+
+                    if result.is_err() {
+                        error!("Could not send transaction to web server on round {}", round)
+                    }
                     // return (None, state);
                     // context.submit_transaction(txn).await.unwrap();
                     
