@@ -76,7 +76,7 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let _runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
-        let _ = event_stream.publish(event);
+        let _ = event_stream.publish(event).await;
     }
     // TODO fix type weirdness btwn tokio and async-std
     todo!();

@@ -769,7 +769,10 @@ where
             SequencingHotShotEvent::Timeout(_) => return (None, self),
 
             SequencingHotShotEvent::ViewSyncTrigger(view_number) => {
-                // Trigger protocol by sending the first precommit vote, assumes view number passed in is the next view we want to enter
+                if self.next_view != TYPES::Time::new(*view_number) {
+                    error!("Unexpected view number to triger view sync");
+                    return (None, self);
+                }
                 let maybe_vote_token = self
                     .exchange
                     .membership()
@@ -777,7 +780,6 @@ where
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
-                        self.relay = self.relay;
                         let message = self.exchange.create_precommit_message::<I>(
                             self.next_view,
                             self.relay,
