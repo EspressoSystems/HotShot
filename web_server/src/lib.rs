@@ -27,9 +27,9 @@ type Error = ServerError;
 
 // TODO ED: Below values should be in a config file
 /// How many views to keep in memory
-const MAX_VIEWS: usize = 10;
+const MAX_VIEWS: usize = 100;
 /// How many transactions to keep in memory
-const MAX_TXNS: usize = 10;
+const MAX_TXNS: usize = 1000;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing

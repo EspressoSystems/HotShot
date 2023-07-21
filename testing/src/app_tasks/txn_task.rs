@@ -138,6 +138,8 @@ impl TxnTaskDescription {
                                             &mut thread_rng(),
                                             0,
                                         );
+
+                                        // ED Shouldn't create this each time
                                         let api = HotShotSequencingConsensusApi {
                                             inner: node.handle.hotshot.inner.clone(),
                                         };
