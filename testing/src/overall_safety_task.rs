@@ -12,9 +12,10 @@ use tracing::info;
 use std::marker::PhantomData;
 use snafu::Snafu;
 
-use crate::{test_runner::Node, test_errors::ConsensusTestError, round::StateAndBlock};
+use crate::test_runner::Node;
+pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
-use super::{GlobalTestEvent, node_ctx::ViewStatus};
+use super::GlobalTestEvent;
 
 /// possible errors
 #[derive(Snafu, Debug)]
@@ -297,13 +298,13 @@ impl std::fmt::Debug for OverallSafetyPropertiesDescription {
 impl Default for OverallSafetyPropertiesDescription {
     fn default() -> Self {
         Self {
-            num_successful_views: 5,
+            num_successful_views: 50,
             check_leaf: false,
             check_state: true,
             check_block: true,
             num_failed_views: 10,
             // very strict
-            threshold_calculator: Arc::new(|_num_live, num_total| { num_total })
+            threshold_calculator: Arc::new(|_num_live, num_total| { 2 * num_total/3 + 1 })
         }
     }
 }
@@ -378,7 +379,7 @@ impl OverallSafetyPropertiesDescription {
                             let (idx, Event { view_number, event }) = msg;
                             match event {
                                 EventType::Error { error } => {
-                                    insert_error_to_context(&mut state.ctx, view_number, error);
+                                    state.ctx.insert_error_to_context(view_number, error);
                                 },
                                 EventType::Decide { leaf_chain, qc } => {
                                     let paired_up = (leaf_chain.to_vec(), (*qc).clone());
@@ -400,7 +401,7 @@ impl OverallSafetyPropertiesDescription {
                                             view_number,
                                             state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                                         });
-                                    insert_error_to_context(&mut state.ctx, view_number, error);
+                                    state.ctx.insert_error_to_context(view_number, error);
                                 },
                                 _ => {}
                             }
@@ -468,26 +469,6 @@ impl OverallSafetyPropertiesDescription {
     }
 }
 
-/// inserts an error into the context
-pub fn insert_error_to_context<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(ctx: &mut RoundCtx<TYPES, I>, view_number: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
-    match ctx.round_results.entry(view_number) {
-        Entry::Occupied(mut o) => {
-            match o.get_mut().failed_nodes.entry(*view_number) {
-                Entry::Occupied(mut o2) => {
-                    o2.get_mut().push(error);
-                },
-                Entry::Vacant(v) => {
-                    v.insert(vec![error]);
-                }
-            }
-        },
-        Entry::Vacant(v) => {
-            let mut round_result = RoundResult::default();
-            round_result.failed_nodes.insert(*view_number, vec![error]);
-            v.insert(round_result);
-        }
-    }
-}
 
 /// overall types for safety task
 pub type OverallSafetyTaskTypes<

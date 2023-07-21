@@ -1,23 +1,13 @@
+// TODO do we want to keep this? it's validating specific
 // use async_lock::Mutex;
-
-// use hotshot_testing::{
-//     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-//     round_builder::RoundSafetyCheckBuilder,
-//     test_builder::{TestBuilder, TestMetadata, TimingData},
-//     test_errors::ConsensusTestError,
-//     test_types::{
-//         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
-//         VrfTestTypes,
-//     },
-// };
-
+//
 // use commit::Committable;
 // use futures::{future::LocalBoxFuture, FutureExt};
 // use hotshot::{
 //     certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
 //     traits::TestableNodeImplementation, HotShotType, SystemContext,
 // };
-
+//
 // use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
 // use hotshot_types::{
 //     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -31,23 +21,23 @@
 //         state::ConsensusTime,
 //     },
 // };
-
+//
 // use std::sync::Arc;
 // use std::time::Duration;
 // use std::time::Instant;
 // use std::{iter::once, sync::atomic::AtomicU8};
 // use tracing::{instrument, warn};
-
+//
 // const NUM_VIEWS: u64 = 100;
 // const DEFAULT_NODE_ID: u64 = 0;
-
-// type AppliedValidatingTestRunner<TYPES, I> = AppliedTestRunner<TYPES, I>;
-
+//
+// type AppliedValidatingTestRunner<TYPES, I> = TestRunner<TYPES, I>;
+//
 // enum QueuedMessageTense {
 //     Past(Option<usize>),
 //     Future(Option<usize>),
 // }
-
+//
 // /// Returns true if `node_id` is the leader of `view_number`
 // async fn is_upcoming_validating_leader<
 //     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -64,7 +54,7 @@
 //     let leader = handle.get_leader(view_number).await;
 //     leader == handle.get_public_key()
 // }
-
+//
 // /// Builds and submits a random proposal for the specified view number
 // async fn submit_validating_proposal<
 //     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -86,7 +76,7 @@
 // {
 //     let mut rng = rand::thread_rng();
 //     let handle = runner.get_handle(sender_node_id).unwrap();
-
+//
 //     let genesis = <I as TestableNodeImplementation<TYPES::ConsensusType, TYPES>>::block_genesis();
 //     // Build proposal
 //     let mut leaf = random_validating_leaf::<TYPES>(genesis, &mut rng);
@@ -97,13 +87,13 @@
 //         data: leaf.into(),
 //         signature,
 //     });
-
+//
 //     // Send proposal
 //     handle
 //         .send_broadcast_consensus_message(ValidatingMessage(msg.clone()))
 //         .await;
 // }
-
+//
 // /// Builds and submits a random vote for the specified view number from the specified node
 // async fn submit_validating_vote<
 //     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -127,7 +117,7 @@
 // {
 //     let mut rng = rand::thread_rng();
 //     let handle = runner.get_handle(sender_node_id).unwrap();
-
+//
 //     // Build vote
 //     let mut leaf = random_validating_leaf::<TYPES>(I::block_genesis(), &mut rng);
 //     leaf.view_number = view_number;
@@ -140,18 +130,18 @@
 //             Message<TYPES, I>,
 //         >>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
 //     );
-
+//
 //     let recipient = runner
 //         .get_handle(recipient_node_id)
 //         .unwrap()
 //         .get_public_key();
-
+//
 //     // Send vote
 //     handle
 //         .send_direct_consensus_message(ValidatingMessage(msg.clone()), recipient)
 //         .await;
 // }
-
+//
 // /// Return an enum representing the state of the message queue
 // fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 //     if is_past {
@@ -160,7 +150,7 @@
 //         QueuedMessageTense::Future(len)
 //     }
 // }
-
+//
 // /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 // fn test_validating_vote_queueing_post_safety_check<
 //     'a,
@@ -179,10 +169,10 @@
 //     async move {
 //         let node_id = DEFAULT_NODE_ID;
 //         let mut result = Ok(());
-
+//
 //         let handle = runner.get_handle(node_id).unwrap();
 //         let cur_view = handle.get_current_view().await;
-
+//
 //         for i in 1..NUM_VIEWS {
 //             if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
 //                 let ref_view_number = TYPES::Time::new(i - 1);
@@ -190,7 +180,7 @@
 //                 let len = handle
 //                     .get_next_leader_receiver_channel_len(ref_view_number)
 //                     .await;
-
+//
 //                 let queue_state = get_queue_len(is_past, len);
 //                 match queue_state {
 //                     QueuedMessageTense::Past(Some(len)) => {
@@ -209,7 +199,7 @@
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// For 1..NUM_VIEWS submit votes to each node in the network
 // fn test_validating_vote_queueing_round_setup<
 //     'a,
@@ -244,7 +234,7 @@
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 // fn test_validating_proposal_queueing_post_safety_check<
 //     'a,
@@ -269,12 +259,12 @@
 //     async move {
 //         let node_id = DEFAULT_NODE_ID;
 //         let mut result = Ok(());
-
+//
 //         for node in runner.nodes() {
-
+//
 //             let handle = node;
 //             let cur_view = handle.get_current_view().await;
-
+//
 //             for i in 0..NUM_VIEWS {
 //                 if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
 //                     let ref_view_number = TYPES::Time::new(i);
@@ -282,7 +272,7 @@
 //                     let len = handle
 //                         .get_replica_receiver_channel_len(ref_view_number)
 //                         .await;
-
+//
 //                     let queue_state = get_queue_len(is_past, len);
 //                     match queue_state {
 //                         QueuedMessageTense::Past(Some(len)) => {
@@ -302,7 +292,7 @@
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 // fn test_validating_proposal_queueing_round_setup<
 //     'a,
@@ -325,18 +315,18 @@
 // {
 //     async move {
 //         let node_id = DEFAULT_NODE_ID;
-
+//
 //         for i in 0..NUM_VIEWS {
 //             if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
 //                 submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
 //             }
 //         }
-
+//
 //         Vec::new()
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 // fn test_bad_validating_proposal_round_setup<
 //     'a,
@@ -372,7 +362,7 @@
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// Checks nodes do not queue bad proposal messages
 // fn test_bad_validating_proposal_post_safety_check<
 //     'a,
@@ -391,12 +381,12 @@
 //     async move {
 //         let node_id = DEFAULT_NODE_ID;
 //         let mut result = Ok(());
-
+//
 //         for node in runner.nodes() {
-
+//
 //             let handle = node;
 //             let cur_view = handle.get_current_view().await;
-
+//
 //             for i in 0..NUM_VIEWS {
 //                 let is_upcoming_validating_leader = is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await;
 //                 let ref_view_number = TYPES::Time::new(i);
@@ -404,7 +394,7 @@
 //                 let len = handle
 //                     .get_replica_receiver_channel_len(ref_view_number)
 //                     .await;
-
+//
 //                 let queue_state = get_queue_len(is_past, len);
 //                 match queue_state {
 //                     QueuedMessageTense::Past(Some(len)) => {
@@ -419,7 +409,7 @@
 //                         else if len > 1 {
 //                             result = Err(ConsensusTestError::ConsensusSafetyFailed {
 //                                 description: format!("Replica queued too many Proposal messages for {ref_view_number:?}.  We are currently in {cur_view:?}")});
-
+//
 //                         }
 //                     }
 //                     _ => {}
@@ -430,7 +420,7 @@
 //     }
 //     .boxed_local()
 // }
-
+//
 // /// Tests that replicas receive and queue valid Proposal messages properly
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -464,7 +454,7 @@
 //         .await
 //         .unwrap();
 // }
-
+//
 // /// Tests that next leaders receive and queue valid vote messages properly
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -487,7 +477,7 @@
 //         },
 //         ..Default::default()
 //     };
-
+//
 //     builder
 //         .build::<VrfTestTypes, StandardNodeImplType>()
 //         .with_setup(setup)
@@ -497,7 +487,7 @@
 //         .await
 //         .unwrap();
 // }
-
+//
 // /// Tests that replicas handle bad Proposal messages properly
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -531,7 +521,7 @@
 //         .await
 //         .unwrap();
 // }
-
+//
 // /// Tests a single node network, which also tests when a node is leader in consecutive views
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -565,7 +555,7 @@
 //         .await
 //         .unwrap();
 // }
-
+//
 // /// Tests that min propose time works as expected
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -604,12 +594,12 @@
 //     let duration = Instant::now() - start_time;
 //     let min_duration = num_rounds as u128 * propose_min_round_time.as_millis();
 //     let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
-
+//
 //     assert!(duration.as_millis() >= min_duration);
 //     // Since we are submitting transactions each round, we should never hit the max round timeout
 //     assert!(duration.as_millis() < max_duration);
 // }
-
+//
 // /// Tests that max propose time works as expected
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -652,7 +642,7 @@
 //     // Since we are not submitting enough transactions, we should hit the max timeout every round
 //     assert!(duration.as_millis() > max_duration);
 // }
-
+//
 // /// Tests that the chain heights are sequential
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -662,12 +652,12 @@
 // #[instrument]
 // async fn test_chain_height() {
 //     let num_rounds = 10;
-
+//
 //     //Only start a subset of the nodes, ensuring there will be failed views so that height is
 //     //different from view number.
 //     let total_nodes = 6;
 //     let start_nodes = 4;
-
+//
 //     let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
 //     let num_views = Arc::new(Mutex::new(0));
 //     let hook = RoundHook(Arc::new(move |runner, _ctx| {
@@ -685,19 +675,19 @@
 //                     heights[i] = leaf.get_height();
 //                 }
 //             }
-
+//
 //             let mut num_views = num_views.lock().await;
 //             *num_views += 1;
-
+//
 //             if *num_views == 10 {
 //                 return Err(ConsensusTestError::CompletedTestSuccessfully);
 //             }
-
+//
 //             Ok(())
 //         }
 //         .boxed_local()
 //     }));
-
+//
 //     let builder = TestBuilder {
 //         metadata: TestMetadata {
 //             total_nodes,
@@ -708,9 +698,9 @@
 //         },
 //         ..Default::default()
 //     };
-
+//
 //     let built = builder.build::<StaticCommitteeTestTypes, StaticNodeImplType>();
-
+//
 //     built
 //         .with_safety_check(Round::empty().safety_check)
 //         .push_hook(hook)
@@ -719,7 +709,7 @@
 //         .await
 //         .unwrap();
 // }
-
+//
 // /// Tests that the leaf chains in decide events are always consistent.
 // #[cfg_attr(
 //     feature = "tokio-executor",
@@ -736,10 +726,10 @@
 //     let handles: Arc<
 //         Mutex<Vec<<StaticNodeImplType as NodeImplementation<StaticCommitteeTestTypes>>::Leaf>>,
 //     > = Arc::new(Mutex::new(vec![]));
-
+//
 //     let view_no = Arc::new(AtomicU8::new(0));
 //     let num_rounds = 10;
-
+//
 //     // Initialize `handles` at the start of the round.
 //     let hook;
 //     {
@@ -757,7 +747,7 @@
 //             .boxed_local()
 //         }));
 //     }
-
+//
 //     let check = RoundSafetyCheck(Arc::new(
 //         move |_,
 //               _ctx,
@@ -782,12 +772,12 @@
 //                         round_reuslts = Some(v);
 //                     }
 //                 }
-
+//
 //                 if round_reuslts.is_none() {
 //                     // if there's nothing, then return nothing
 //                     return Ok(());
 //                 }
-
+//
 //                 // unwrap is fine since we know the len is 1
 //                 let (leaf_chain, qc) = round_reuslts.unwrap();
 //                 let handles = handles.lock().await;
@@ -798,7 +788,7 @@
 //                         .chain(leaf_chain.iter().map(|leaf| leaf.justify_qc.clone()));
 //                     // The new leaf chain should extend from the previously decided leaf.
 //                     let leaves = leaf_chain.iter().chain(once(last_leaf));
-
+//
 //                     for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
 //                         if qc.is_genesis() {
 //                             tracing::error!("Skipping validation of genesis QC");
@@ -830,7 +820,7 @@
 //             .boxed_local()
 //         },
 //     ));
-
+//
 //     let builder = TestBuilder {
 //         metadata: TestMetadata {
 //             failure_threshold: 3,
@@ -838,7 +828,7 @@
 //         },
 //         ..Default::default()
 //     };
-
+//
 //     builder
 //         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
 //         .push_hook(hook)

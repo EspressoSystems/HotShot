@@ -1,3 +1,4 @@
+// TODO these should be config options for lossy network
 // #![allow(clippy::type_complexity)]
 // use hotshot_testing::{
 //     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},

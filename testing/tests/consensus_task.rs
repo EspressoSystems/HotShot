@@ -1,13 +1,5 @@
 use async_lock::Mutex;
 
-use hotshot_testing::{
-    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-    round_builder::RoundSafetyCheckBuilder,
-    test_builder::{TestBuilder, TestMetadata, TimingData},
-    test_errors::ConsensusTestError,
-    test_types::{AppliedTestRunner, StandardNodeImplType, StaticNodeImplType, VrfTestTypes},
-};
-
 use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
@@ -45,6 +37,7 @@ use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::consensus::ConsensusTaskTypes;
 use hotshot_task_impls::consensus::SequencingConsensusTaskState;
 use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_testing::test_builder::TestMetadata;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::data::QuorumProposal;
@@ -194,6 +187,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     }
 }
 
+// TODO where do I re-enable this
 async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
@@ -249,16 +243,16 @@ where
         JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
     >: Membership<TYPES>,
 {
-    let builder = TestBuilder::default_multiple_rounds();
+    let builder = TestMetadata::default_multiple_rounds();
 
-    let launcher = builder.build::<SequencingTestTypes, SequencingMemoryImpl>();
+    let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
     let node_id = 1;
-    let network_generator = Arc::new((launcher.generator.network_generator)(node_id));
-    let quorum_network = (launcher.generator.quorum_network)(network_generator.clone());
-    let committee_network = (launcher.generator.committee_network)(network_generator.clone());
-    let view_sync_network = (launcher.generator.view_sync_network)(network_generator);
-    let storage = (launcher.generator.storage)(node_id);
-    let config = launcher.generator.config.clone();
+    let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
+    let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
+    let committee_network = (launcher.resource_generator.committee_network)(network_generator.clone());
+    let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
+    let storage = (launcher.resource_generator.storage)(node_id);
+    let config = launcher.resource_generator.config.clone();
     let initializer =
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 

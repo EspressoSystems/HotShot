@@ -7,7 +7,7 @@ use hotshot::{
             vrf::JfPubKey,
         },
         implementations::{
-            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
         },
         NodeImplementation,
     },
@@ -29,6 +29,8 @@ use hotshot_types::{
 use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+use crate::test_runner::TestRunner;
 #[derive(
     Copy,
     Clone,
@@ -60,6 +62,9 @@ pub struct SequencingMemoryImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct SequencingLibp2pImpl;
 
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub struct SequencingWebImpl;
+
 type StaticMembership =
 StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
@@ -74,6 +79,15 @@ type StaticMemoryDAComm = MemoryCommChannel<
 type StaticLibp2pDAComm = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibp2pImpl,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes>,
+    StaticMembership,
+>;
+
+type StaticWebDAComm = WebCommChannel<
+    SequencingConsensus,
+    SequencingTestTypes,
+    SequencingWebImpl,
     DAProposal<SequencingTestTypes>,
     DAVote<SequencingTestTypes>,
     StaticMembership,
@@ -95,6 +109,15 @@ type StaticLibp2pQuorumComm = Libp2pCommChannel<
     StaticMembership,
 >;
 
+type StaticWebQuorumComm = WebCommChannel<
+    SequencingConsensus,
+    SequencingTestTypes,
+    SequencingWebImpl,
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
 type StaticMemoryViewSyncComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
@@ -106,6 +129,15 @@ type StaticMemoryViewSyncComm = MemoryCommChannel<
 type StaticLibp2pViewSyncComm = Libp2pCommChannel<
     SequencingTestTypes,
     SequencingLibp2pImpl,
+    ViewSyncCertificate<SequencingTestTypes>,
+    ViewSyncVote<SequencingTestTypes>,
+    StaticMembership,
+>;
+
+type StaticWebViewSyncComm = WebCommChannel<
+    SequencingConsensus,
+    SequencingTestTypes,
+    SequencingWebImpl,
     ViewSyncCertificate<SequencingTestTypes>,
     ViewSyncVote<SequencingTestTypes>,
     StaticMembership,
@@ -180,6 +212,54 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
                     ViewSyncCertificate<SequencingTestTypes>,
                     StaticMembership,
                     StaticMemoryViewSyncComm,
+                    Message<SequencingTestTypes, Self>,
+                    >,
+                    >;
+    type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
+
+    fn new_channel_maps(
+        start_view: ViewNumber,
+        ) -> (
+            ChannelMaps<SequencingTestTypes, Self>,
+            Option<ChannelMaps<SequencingTestTypes, Self>>,
+            ) {
+            (
+                ChannelMaps::new(start_view),
+                Some(ChannelMaps::new(start_view)),
+                )
+        }
+}
+
+// man these generics are big oof
+// they're a LOT
+// when are we getting HKT for rust
+// smh my head
+
+impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
+    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+    type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type Exchanges = SequencingExchanges<
+        SequencingTestTypes,
+        Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticWebQuorumComm,
+            Message<SequencingTestTypes, Self>,
+            >,
+            CommitteeExchange<
+                SequencingTestTypes,
+                StaticMembership,
+                StaticWebDAComm,
+                Message<SequencingTestTypes, Self>,
+                >,
+                ViewSyncExchange<
+                    SequencingTestTypes,
+                    ViewSyncCertificate<SequencingTestTypes>,
+                    StaticMembership,
+                    StaticWebViewSyncComm,
                     Message<SequencingTestTypes, Self>,
                     >,
                     >;
