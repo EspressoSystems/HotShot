@@ -17,7 +17,7 @@ mod next_leader;
 mod replica;
 mod sequencing_leader;
 mod sequencing_replica;
-mod traits;
+pub mod traits;
 pub mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;

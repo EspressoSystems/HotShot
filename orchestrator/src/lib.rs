@@ -159,7 +159,7 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
-        println!("{}", self.start);
+        // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
