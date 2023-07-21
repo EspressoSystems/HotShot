@@ -265,6 +265,8 @@ where
                     error!("Throwing away DA proposal");
                     return None;
                 }
+
+                error!("Got a DA block with {} transactions!", proposal.data.deltas.contained_transactions().len());
                 let block_commitment = proposal.data.deltas.commit();
 
                 // ED Is this the right leader?
