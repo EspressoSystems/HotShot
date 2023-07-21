@@ -278,15 +278,15 @@ impl<
         let transmit_result = match transmit_type {
             TransmitType::Direct => {
                 self.channel
-                    .direct_message(message, recipient.unwrap())
+                    .direct_message(message.clone(), recipient.unwrap())
                     .await
             }
-            TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,
+            TransmitType::Broadcast => self.channel.broadcast_message(message.clone(), membership).await,
         };
 
         match transmit_result {
             Ok(()) => {}
-            Err(e) => error!("Failed to send message from network task: {:?}", e)
+            Err(e) => error!("Failed to send message from network task: {:?}", message)
         }
 
         return None;
