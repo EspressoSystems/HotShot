@@ -829,7 +829,6 @@ where
                         }
                         #[allow(clippy::cast_precision_loss)]
                         if new_decide_reached {
-                            let mut included_txn_count = 0;
                             consensus
                                 .transactions
                                 .modify(|txns| {
@@ -837,10 +836,6 @@ where
                                         .drain()
                                         .filter(|(txn_hash, txn)| {
                                             if included_txns_set.contains(txn_hash) {
-                                                // included_txn_size += bincode_opts()
-                                                //     .serialized_size(txn)
-                                                //     .unwrap_or_default();
-                                                included_txn_count += 1;
                                                 false
                                             } else {
                                                 true
@@ -856,7 +851,7 @@ where
                                 event: EventType::Decide {
                                     leaf_chain: Arc::new(leaf_views),
                                     qc: Arc::new(new_decide_qc.unwrap()),
-                                    num_block: Some(included_txn_count),
+                                    num_block: Some(included_txns_set.len().try_into().unwrap()),
                                 },
                             });
                             let old_anchor_view = consensus.last_decided_view;
