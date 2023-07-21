@@ -362,7 +362,7 @@ pub trait RunDA<
                         .expect("Could not send transaction");
                     // return (None, state);
                     // context.submit_transaction(txn).await.unwrap();
-                    total_transactions += 1;
+                    
                 }
                 should_submit_txns = false;
             }
