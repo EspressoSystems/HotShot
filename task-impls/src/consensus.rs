@@ -775,7 +775,7 @@ where
                                         consensus.saved_blocks.get(leaf.get_deltas_commitment())
                                     {
                                         if let Err(err) = leaf.fill_deltas(block.clone()) {
-                                            warn!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                            error!("unable to fill leaf {} with block {}, block will not be available: {}",
                                                 leaf.commit(), block.commit(), err);
                                         }
                                     }
