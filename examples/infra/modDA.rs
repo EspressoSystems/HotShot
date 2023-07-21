@@ -466,11 +466,11 @@ pub trait RunDA<
         //     round += 1;
         // }
 
-        let total_time_elapsed = start.elapsed();
+        let total_time_elapsed  = start.elapsed();
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in s{total_time_elapsed:?}  {timed_out_views} rounds timed out. s{total_size}s total bytes submitted");
         error!("Total commitments: {num_successful_commits}");
         error!("Total transactions committed: {total_transactions}");
     }
