@@ -8,12 +8,10 @@
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_compatibility_layer::channel::unbounded;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::channel::UnboundedSender;
-use async_lock::RwLockUpgradableReadGuard;
 
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -21,9 +19,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use blake3::Hash;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_task_impls::da;
 use hotshot_types::message::{Message, MessagePurpose};
 use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -41,7 +37,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_PORT;
 use hotshot_web_server::{self, config};
 use rand::random;
 use serde::{Deserialize, Serialize};
@@ -58,7 +53,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -489,7 +484,7 @@ impl<
         // match is_da_server {
         //     // We are polling for DA-related events
         //     true => {
-        let tx_handle = async_spawn({
+        let _ = async_spawn({
             let inner_clone = inner.clone();
             async move {
                 if let Err(e) = inner_clone
@@ -1118,14 +1113,14 @@ impl<
                 }
 
                 // GC proposal collection if we are two views in the future
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
+                if let Some((_, sender)) = task_map.remove_entry(&view_number.wrapping_sub(2))
                 {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForProposal(
-                            (view_number.wrapping_sub(2)),
+                            view_number.wrapping_sub(2),
                         ))
                         .await;
                 }
@@ -1160,14 +1155,14 @@ impl<
 
                 // GC proposal collection if we are two views in the future
                 // TODO ED This won't work for vote collection, last task is more than 2 view ago depending on size of network, will need to rely on cancel task from consensus
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
+                if let Some((_, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
                 {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForVotes(
-                            (view_number.wrapping_sub(2)),
+                            view_number.wrapping_sub(2),
                         ))
                         .await;
                 }
@@ -1199,14 +1194,14 @@ impl<
                 }
 
                 // GC proposal collection if we are two views in the future
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
+                if let Some((_, sender)) = task_map.remove_entry(&(view_number.wrapping_sub(2)))
                 {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForDAC(
-                            (view_number.wrapping_sub(2)),
+                            view_number.wrapping_sub(2),
                         ))
                         .await;
                 }
@@ -1217,12 +1212,12 @@ impl<
             ConsensusIntentEvent::CancelPollForVotes(view_number) => {
                 let mut task_map = self.inner.vote_task_map.write().await;
 
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                if let Some((_, sender)) = task_map.remove_entry(&(view_number)) {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
-                        .send(ConsensusIntentEvent::CancelPollForVotes((view_number)))
+                        .send(ConsensusIntentEvent::CancelPollForVotes(view_numbe)))
                         .await;
                     Ok(())
                 } else {
@@ -1296,13 +1291,13 @@ impl<
             ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number) => {
                 let mut task_map = self.inner.view_sync_cert_task_map.write().await;
 
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                if let Some((_, sender)) = task_map.remove_entry(&(view_number)) {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
-                            (view_number),
+                        view_number,
                         ))
                         .await;
                     Ok(())
@@ -1314,13 +1309,13 @@ impl<
             ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number) => {
                 let mut task_map = self.inner.view_sync_vote_task_map.write().await;
 
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                if let Some((_, sender)) = task_map.remove_entry(&(view_number)) {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(
-                            (view_number),
+                            view_number,
                         ))
                         .await;
                     Ok(())

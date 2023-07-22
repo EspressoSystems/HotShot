@@ -7,20 +7,17 @@ use crate::{
     SystemContext, ViewRunner,
 };
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn_local, async_timeout},
-    channel::{UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn_local},
+    channel::{UnboundedReceiver},
 };
-use async_lock::RwLock;
 use futures::FutureExt;
-use hotshot_consensus::{Consensus, SequencingConsensusApi};
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-        TaskErr, TS,
     },
-    task_impls::{HSTWithEvent, TaskBuilder},
+    task_impls::{ TaskBuilder},
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
@@ -29,7 +26,7 @@ use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
     consensus::{
-        consensus_event_filter, ConsensusTaskError, ConsensusTaskTypes,
+        consensus_event_filter, ConsensusTaskTypes,
         SequencingConsensusTaskState,
     },
     da::{DATaskState, DATaskTypes},
@@ -42,7 +39,7 @@ use hotshot_task_impls::{
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::event::Event;
-use hotshot_types::message::{self, Message, Messages, SequencingMessage};
+use hotshot_types::message::{ Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
@@ -51,18 +48,15 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{
             CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
         },
-        signature_key::EncodedSignature,
         state::ConsensusTime,
         Block,
     },
     vote::VoteType,
 };
-use snafu::Snafu;
 use std::{
     collections::HashMap,
     marker::PhantomData,
@@ -72,12 +66,12 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info};
+use tracing::{ info};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
 #[cfg(feature = "tokio-executor")]
-use tokio::task::{yield_now, JoinHandle};
+use tokio::task::{yield_now};
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
@@ -329,7 +323,6 @@ pub async fn add_network_message_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
-    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where

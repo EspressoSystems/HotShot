@@ -20,9 +20,9 @@ use jf_primitives::{
         BLSSignatureScheme,
         SignatureScheme,
     },
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
+    vrf::{Vrf},
 };
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
+
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
@@ -34,8 +34,6 @@ use std::{
     hash::Hash,
     marker::PhantomData,
     num::NonZeroU64,
-    ops::Deref,
-    sync::{Arc, Mutex},
 };
 // use tracing::{error, info, instrument};
 

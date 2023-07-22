@@ -45,20 +45,16 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
-    logging::{setup_backtrace, setup_logging},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
-use hotshot_task::task::FilterEvent;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_task_impls::network::NetworkTaskKind;
-use hotshot_types::traits::node_implementation::SequencingExchanges;
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
@@ -90,19 +86,16 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx, ViewSyncEx,
         },
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::{ SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
         State,
     },
-    vote::{ViewSyncData, ViewSyncVote, VoteType},
+    vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
-
-use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
-
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -110,8 +103,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tasks::GlobalEvent;
-use tracing::{debug, error, info, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, instrument, trace, warn};
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -204,8 +196,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        let global_registry = GlobalRegistry::new();
-
         error!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
@@ -272,7 +262,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
             _metrics: metrics,
-            // global_registry,
             internal_event_stream: ChannelStream::new(),
             output_event_stream: ChannelStream::new(),
         });
@@ -870,21 +859,18 @@ where
             task_runner,
             internal_event_stream.clone(),
             quorum_exchange.clone(),
-            handle.clone(),
         )
         .await;
         let task_runner = add_network_message_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
-            handle.clone(),
         )
         .await;
         let task_runner = add_network_message_task(
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
-            handle.clone(),
         )
         .await;
         let task_runner = add_network_event_task(

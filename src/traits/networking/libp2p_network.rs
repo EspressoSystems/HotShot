@@ -764,7 +764,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES, I>,
@@ -774,7 +774,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            _is_da
+            is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

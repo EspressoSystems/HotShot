@@ -1,20 +1,15 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-use crate::tasks::GlobalEvent;
 use crate::Message;
 use crate::QuorumCertificate;
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
-use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
-use futures::FutureExt;
 use futures::Stream;
-use futures::StreamExt;
 use hotshot_consensus::Consensus;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
-use hotshot_task::event_stream::SendableStream;
 use hotshot_task::event_stream::StreamId;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
