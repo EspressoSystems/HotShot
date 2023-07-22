@@ -424,9 +424,7 @@ pub trait RunDA<
                             if *view_number > round {
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
-                                if (round % total_nodes_u64) == node_index {
-                                    should_submit_txns = true;
-                                }
+                                
                             }
                         }
                         _ => unimplemented!(),
