@@ -343,7 +343,6 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-
         let api = HotShotSequencingConsensusApi {
             inner: context.hotshot.inner.clone(),
         };
@@ -351,27 +350,6 @@ pub trait RunDA<
         context.hotshot.start_consensus().await;
 
         loop {
-            for _ in 0..transactions_per_round {
-                let txn = txns.pop_front().unwrap();
-                tracing::error!("Submitting txn on round {}", round);
-
-                let result = api
-                    .send_transaction(DataMessage::SubmitTransaction(
-                        txn.clone(),
-                        TYPES::Time::new(0),
-                    ))
-                    .await;
-
-                if result.is_err() {
-                    error!(
-                        "Could not send transaction to web server on round {}",
-                        round
-                    )
-                }
-                // return (None, state);
-                // context.submit_transaction(txn).await.unwrap();
-            }
-
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
@@ -424,7 +402,26 @@ pub trait RunDA<
                             if *view_number > round {
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
-                                
+                                for _ in 0..transactions_per_round {
+                                    let txn = txns.pop_front().unwrap();
+                                    tracing::error!("Submitting txn on round {}", round);
+
+                                    let result = api
+                                        .send_transaction(DataMessage::SubmitTransaction(
+                                            txn.clone(),
+                                            TYPES::Time::new(0),
+                                        ))
+                                        .await;
+
+                                    if result.is_err() {
+                                        error!(
+                                            "Could not send transaction to web server on round {}",
+                                            round
+                                        )
+                                    }
+                                    // return (None, state);
+                                    // context.submit_transaction(txn).await.unwrap();
+                                }
                             }
                         }
                         _ => unimplemented!(),
