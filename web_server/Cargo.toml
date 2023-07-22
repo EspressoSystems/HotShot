@@ -40,8 +40,8 @@ futures = "0.3.28"
 libp2p-core = { version = "0.39.2", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
-hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "4b13928"} # rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "c07a87f"} # downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "4aee90c"} # branch = 'hotshot-compat', rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "470a833"} # branch = 'hotshot-compat', downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 tracing = "0.1.37"

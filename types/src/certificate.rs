@@ -16,9 +16,8 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{fmt::Debug, ops::Deref};
-use hotshot_primitives::quorum_certificate::{
-    BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry
-};
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
+use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry};
 use jf_primitives::signatures::bls_over_bn254::{
     BLSOverBN254CurveSignatureScheme, VerKey,
 };
@@ -97,14 +96,11 @@ pub struct ViewSyncCertificate<TYPES: NodeType> {
 /// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
 pub enum AssembledSignature {
     /// These signatures are for a 'Yes' certificate
-    Yes((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
+    Yes(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
     /// These signatures are for a 'No' certificate
-    No((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
+    No(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
     /// These signatures are for a 'DA' certificate
-    DA((<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, 
-        <BitvectorQuorumCertificate<BLSOverBN254CurveSignatureScheme> as QuorumCertificateValidation<BLSOverBN254CurveSignatureScheme>>::Proof)),
+    DA(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
     /// These signatures are for genesis certificate
     Genesis(),
 }

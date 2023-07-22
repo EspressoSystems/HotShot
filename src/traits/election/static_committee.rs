@@ -2,7 +2,7 @@ use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
-use hotshot_primitives::quorum_certificate::StakeTableEntry;
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use hotshot_types::{
     data::LeafType,
     traits::{

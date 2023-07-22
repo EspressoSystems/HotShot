@@ -5,8 +5,9 @@ use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
+use hotshot_primitives::qc::bit_vector::BitVectorQC;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
 use typenum::U32;
@@ -80,7 +81,7 @@ impl SignatureKey for Ed25519Pub {
 
     fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
         let generic_msg = GenericArray::from_slice(data);
-        let agg_signature_test = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
+        let agg_signature_test = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             // &msg_test.into(),
             &generic_msg,

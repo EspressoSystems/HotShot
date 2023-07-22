@@ -3001,7 +3001,7 @@ dependencies = [
  "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-orchestrator",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=4b13928)",
+ "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
@@ -3065,7 +3065,7 @@ dependencies = [
  "derivative",
  "either",
  "futures",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=c99b58d)",
+ "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
@@ -3106,9 +3106,10 @@ dependencies = [
 [[package]]
 name = "hotshot-primitives"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-primitives?rev=4b13928#4b139286575cdc1a57a52fffd2f9933e67d86743"
+source = "git+https://github.com/EspressoSystems/hotshot-primitives?rev=4aee90c#4aee90c81edc372a1e802f5f71485845f1f291d9"
 dependencies = [
  "anyhow",
+ "ark-bls12-377",
  "ark-bls12-381 0.4.0",
  "ark-bn254",
  "ark-ec 0.4.2",
@@ -3125,36 +3126,7 @@ dependencies = [
  "ethereum-types",
  "generic-array",
  "jf-primitives",
- "jf-utils",
- "serde",
- "sha3",
- "tagged-base64 0.3.0",
- "thiserror",
- "typenum",
-]
-
-[[package]]
-name = "hotshot-primitives"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-primitives?rev=c99b58d#c99b58d234d390519f020e68c5642e7be78f35f8"
-dependencies = [
- "anyhow",
- "ark-bls12-381 0.4.0",
- "ark-bn254",
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-pallas",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "bincode",
- "bitvec",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "ethereum-types",
- "generic-array",
- "jf-primitives",
+ "jf-relation",
  "jf-utils",
  "serde",
  "sha3",
@@ -3199,7 +3171,7 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=4b13928)",
+ "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
@@ -3228,7 +3200,7 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=c99b58d)",
+ "hotshot-primitives",
  "hotshot-testing",
  "hotshot-types",
  "jf-primitives",
@@ -3266,7 +3238,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hex_fmt",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=4b13928)",
+ "hotshot-primitives",
  "hotshot-utils",
  "jf-primitives",
  "libp2p-networking",
@@ -3301,7 +3273,7 @@ dependencies = [
  "bincode",
  "clap",
  "futures",
- "hotshot-primitives 0.1.0 (git+https://github.com/EspressoSystems/hotshot-primitives?rev=4b13928)",
+ "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
@@ -3802,8 +3774,9 @@ checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
+source = "git+https://github.com/EspressoSystems/jellyfish?rev=470a833#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
+ "anyhow",
  "ark-bls12-377",
  "ark-bls12-381 0.4.0",
  "ark-bn254",
@@ -3814,6 +3787,7 @@ dependencies = [
  "ark-ed-on-bls12-381",
  "ark-ed-on-bn254",
  "ark-ff 0.4.2",
+ "ark-pallas",
  "ark-poly",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
@@ -3825,6 +3799,7 @@ dependencies = [
  "displaydoc",
  "espresso-systems-common 0.4.0",
  "generic-array",
+ "hashbrown 0.13.2",
  "itertools 0.10.5",
  "jf-relation",
  "jf-utils",
@@ -3836,7 +3811,7 @@ dependencies = [
  "serde",
  "sha2 0.10.7",
  "sha3",
- "tagged-base64 0.3.0",
+ "tagged-base64 0.3.3",
  "typenum",
  "zeroize",
 ]
@@ -3844,7 +3819,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
+source = "git+https://github.com/EspressoSystems/jellyfish?rev=470a833#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381 0.4.0",
@@ -3870,7 +3845,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
+source = "git+https://github.com/EspressoSystems/jellyfish?rev=470a833#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
  "ark-ec 0.4.2",
  "ark-ff 0.4.2",
@@ -3880,7 +3855,7 @@ dependencies = [
  "rayon",
  "serde",
  "sha2 0.10.7",
- "tagged-base64 0.3.0",
+ "tagged-base64 0.3.3",
 ]
 
 [[package]]
@@ -7531,6 +7506,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tagged-base64"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
+dependencies = [
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "base64 0.13.1",
+ "crc-any",
+ "serde",
+ "snafu",
+ "tagged-base64-macros 0.3.3",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tagged-base64-macros"
 version = "0.2.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.2.4#9b9a5fae1e2fd41db8573657cfe169e8284eb6c9"
@@ -7544,6 +7535,16 @@ dependencies = [
 name = "tagged-base64-macros"
 version = "0.3.0"
 source = "git+https://github.com/espressosystems/tagged-base64?tag=0.3.0#19381b3f14b1f94269c8c783288a63694b6dd12a"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71636a96f40b6ea3d969182ce22ad8042d5a38839ce448fff3cef4dec80f7589"
 dependencies = [
  "quote",
  "syn 1.0.109",

@@ -22,10 +22,10 @@ use std::num::NonZeroU64;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
-use hotshot_primitives::{quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams}};
+use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry, QCParams};
 use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as QCVerKey}};
 use jf_primitives::signatures::SignatureScheme;
-
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
@@ -309,7 +309,7 @@ where
                 agg_sig_pp: (),
             };
 
-            let real_qc_sig = BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::assemble(
+            let real_qc_sig = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
                 &real_qc_pp,
                 self.signers.as_bitslice(),
                 &self.sig_lists[..],

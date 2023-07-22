@@ -28,7 +28,8 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation};
+use hotshot_primitives::qc::bit_vector::BitVectorQC;
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
 use typenum::U32;
 
@@ -232,7 +233,7 @@ where
         let generic_msg = GenericArray::from_slice(data);
         
         let individual_signature =
-            BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::partial_sign(
+            BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
                 &(),
                 &generic_msg,
                 key_pair.sign_key_ref(),

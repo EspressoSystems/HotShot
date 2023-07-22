@@ -11,7 +11,7 @@
 
 use std::{num::NonZeroUsize, time::Duration};
 
-use hotshot_primitives::quorum_certificate::StakeTableEntry;
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use jf_primitives::signatures::bls_over_bn254::VerKey;
 
 pub mod certificate;

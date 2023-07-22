@@ -42,7 +42,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
-use hotshot_primitives::quorum_certificate::{BitvectorQuorumCertificate, QuorumCertificateValidation, StakeTableEntry, QCParams};
+use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry, QCParams};
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
 use blake3::traits::digest::generic_array::GenericArray;
 use ethereum_types::U256;
@@ -359,7 +360,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
         match qc.signatures() {
-            AssembledSignature::DA((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::DA(qc) => {
                 let real_commit = VoteData::DA(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -367,14 +368,13 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     threshold: U256::from(self.membership().success_threshold().get()),
                     agg_sig_pp: (),
                 };
-                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
                     &real_qc_pp, 
                     &msg,
-                    &qc_signatures,
-                    &bitvec_proof
+                    &qc
                 ).is_ok()
             }
-            AssembledSignature::Yes((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::Yes(qc) => {
                 let real_commit = VoteData::Yes(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -382,14 +382,13 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     threshold: U256::from(self.membership().success_threshold().get()),
                     agg_sig_pp: (),
                 };
-                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
                     &real_qc_pp, 
                     &msg,
-                    &qc_signatures,
-                    &bitvec_proof
+                    &qc
                 ).is_ok()
             }
-            AssembledSignature::No((qc_signatures, bitvec_proof)) => {
+            AssembledSignature::No(qc) => {
                 let real_commit = VoteData::No(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
@@ -397,11 +396,10 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     threshold: U256::from(self.membership().success_threshold().get()),
                     agg_sig_pp: (),
                 };
-                BitvectorQuorumCertificate::<BLSOverBN254CurveSignatureScheme>::check(
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
                     &real_qc_pp, 
                     &msg,
-                    &qc_signatures,
-                    &bitvec_proof
+                    &qc
                 ).is_ok()
             }
             AssembledSignature::Genesis() => {

@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
-use hotshot_primitives::quorum_certificate::StakeTableEntry;
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 /// Node implementation aggregate trait
 ///
 /// This trait exists to collect multiple behavior implementations into one type, to allow
