@@ -21,7 +21,6 @@ use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry};
 use jf_primitives::signatures::bls_over_bn254::{
     BLSOverBN254CurveSignatureScheme, VerKey,
 };
-use jf_primitives::signatures::{SignatureScheme};
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used

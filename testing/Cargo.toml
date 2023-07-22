@@ -62,8 +62,8 @@ hotshot = { path = "../", features = [
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
-hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "4aee90c"} # branch = 'hotshot-compat', rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "470a833"} # branch = 'hotshot-compat', downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
 # nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"

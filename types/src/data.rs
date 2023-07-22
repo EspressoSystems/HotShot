@@ -35,7 +35,6 @@ use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::bls_over_bn254::{
     BLSOverBN254CurveSignatureScheme, VerKey,
 };
-use jf_primitives::signatures::{SignatureScheme};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -767,8 +766,8 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
     let mut signatures_bytes = vec![];
     let signatures: Option<
-        (<BitVectorQC<BLSOverBN254CurveSignatureScheme> as
-            AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC)>  = match &signature {
+        <BitVectorQC<BLSOverBN254CurveSignatureScheme> as
+            AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC>  = match &signature {
             AssembledSignature::DA(signatures) => {
                 signatures_bytes.extend("DA".as_bytes());
                 Some(signatures.clone())

@@ -59,6 +59,6 @@ tokio = { version = "1", optional = true, features = [
 tracing = "0.1.37"
 time = "0.3.21"
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
-hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  rev = "4aee90c"} # branch = 'hotshot-compat', rev after downgrade: rev = "b22c7f2" branch = 'update_jellyfish_0.4.0_pre.0'
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "470a833"} # branch = 'hotshot-compat', downgrade rev = "36dceb63", branch = 'downgrade-curve25519'
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
 blake3 = { version = "1.3.3", features = ["traits-preview"] }
