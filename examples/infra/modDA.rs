@@ -313,7 +313,7 @@ pub trait RunDA<
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
         // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        let tx_to_gen = transactions_per_round * rounds + 5;
+        let tx_to_gen = transactions_per_round * rounds * 3;
         {
             let mut txn_rng = rand::thread_rng();
             for _ in 0..tx_to_gen {
@@ -343,7 +343,6 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-        let mut should_submit_txns = node_index == (round % total_nodes_u64);
 
         let api = HotShotSequencingConsensusApi {
             inner: context.hotshot.inner.clone(),
