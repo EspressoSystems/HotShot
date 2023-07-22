@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use either::Either;
 use futures::StreamExt;
+use hotshot::HotShotSequencingConsensusApi;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
@@ -13,15 +14,14 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
-use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::SequencingConsensusApi;
-use hotshot_types::message::DataMessage;
 use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
 use hotshot_types::event::{Event, EventType};
+use hotshot_types::message::DataMessage;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
@@ -313,7 +313,7 @@ pub trait RunDA<
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
         // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        let tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, 1) + 5);
+        let tx_to_gen = transactions_per_round * rounds + 5;
         {
             let mut txn_rng = rand::thread_rng();
             for _ in 0..tx_to_gen {
@@ -352,22 +352,25 @@ pub trait RunDA<
         context.hotshot.start_consensus().await;
 
         loop {
-            if should_submit_txns {
-                for _ in 0..transactions_per_round {
-                    let txn = txns.pop_front().unwrap();
-                    tracing::error!("Submitting txn on round {}", round);
-                    
-                    let result = api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
-                        .await;
+            for _ in 0..transactions_per_round {
+                let txn = txns.pop_front().unwrap();
+                tracing::error!("Submitting txn on round {}", round);
 
-                    if result.is_err() {
-                        error!("Could not send transaction to web server on round {}", round)
-                    }
-                    // return (None, state);
-                    // context.submit_transaction(txn).await.unwrap();
-                    
+                let result = api
+                    .send_transaction(DataMessage::SubmitTransaction(
+                        txn.clone(),
+                        TYPES::Time::new(0),
+                    ))
+                    .await;
+
+                if result.is_err() {
+                    error!(
+                        "Could not send transaction to web server on round {}",
+                        round
+                    )
                 }
-                should_submit_txns = false;
+                // return (None, state);
+                // context.submit_transaction(txn).await.unwrap();
             }
 
             match event_stream.next().await {
@@ -380,7 +383,11 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, num_block } => {
+                        EventType::Decide {
+                            leaf_chain,
+                            qc,
+                            num_block,
+                        } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -389,12 +396,10 @@ pub trait RunDA<
                                 if new_anchor >= anchor_view {
                                     anchor_view = leaf.view_number;
                                 }
-    
                             }
 
                             if num_block.is_some() {
                                 total_transactions += num_block.unwrap();
-                                
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -403,7 +408,10 @@ pub trait RunDA<
                             }
 
                             if leaf_chain.len() > 1 {
-                                error!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
+                                error!(
+                                    "Leaf chain is greater than 1 with len {}",
+                                    leaf_chain.len()
+                                );
                             }
                             // when we make progress, submit new events
                         }
@@ -420,7 +428,6 @@ pub trait RunDA<
                                 if (round % total_nodes_u64) == node_index {
                                     should_submit_txns = true;
                                 }
-
                             }
                         }
                         _ => unimplemented!(),
@@ -469,7 +476,7 @@ pub trait RunDA<
         //     round += 1;
         // }
 
-        let total_time_elapsed  = start.elapsed();
+        let total_time_elapsed = start.elapsed();
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
