@@ -255,7 +255,7 @@ pub trait RunDA<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
-            config.config.total_nodes.get() as u64
+            config.config.da_committee_size.try_into().unwrap()
         );
 
         let exchanges = NODE::Exchanges::create(
