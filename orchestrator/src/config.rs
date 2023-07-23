@@ -159,6 +159,8 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
 pub struct HotShotConfigFile {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
+    /// Number of committee nodes
+    pub committee_nodes: usize, 
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -187,7 +189,7 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
-            da_committee_size: val.total_nodes.into(),
+            da_committee_size: val.committee_nodes,
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,
@@ -213,6 +215,7 @@ fn default_padding() -> usize {
 fn default_config() -> HotShotConfigFile {
     HotShotConfigFile {
         total_nodes: NonZeroUsize::new(10).unwrap(),
+        committee_nodes: 5,
         max_transactions: NonZeroUsize::new(100).unwrap(),
         min_transactions: 0,
         next_view_timeout: 10000,
