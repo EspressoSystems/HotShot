@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["USIZE_Completed","USIZE_NotStarted","USIZE_Paused","USIZE_Running"],"enum":["TaskStatus"],"struct":["AtomicTaskStatus","TaskState"]};
+window.SIDEBAR_ITEMS = {"enum":["TaskStatus"],"struct":["AtomicTaskStatus","TaskState"]};

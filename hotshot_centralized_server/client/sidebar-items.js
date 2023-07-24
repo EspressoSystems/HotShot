@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["run_client","spawn"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["run_client","spawn"]};
