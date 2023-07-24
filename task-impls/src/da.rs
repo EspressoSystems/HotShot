@@ -260,9 +260,10 @@ where
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
 
-                // This should still be fine to do because we shouldn't be receiving a DA proposal for a view less than the one we are currently in
-                if view < self.cur_view {
-                    error!("Throwing away DA proposal");
+                // Allow a DA proposal that is one view older, in case we have voted on a quorum
+                // proposal and updated the view.
+                if view < self.cur_view - 1 {
+                    error!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
 
@@ -552,6 +553,7 @@ where
 
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
             let txns = consensus.transactions.cloned().await;
+            error!("Size of transactions: {}", txns.len());
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
