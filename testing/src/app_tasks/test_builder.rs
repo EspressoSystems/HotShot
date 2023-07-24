@@ -68,7 +68,9 @@ impl Default for TestMetadata {
             },
             overall_safety_properties: OverallSafetyPropertiesDescription {},
             // arbitrary, haven't done the math on this
-            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
+            // Set the duration large to make the transaction submission slow, avoiding memory
+            // leaks.
+            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(1000)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // TODO ED Put a configurable time here - 10 seconds for now
