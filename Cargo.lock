@@ -626,7 +626,6 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
  "tracing",
- "tracing-subscriber 0.2.25",
 ]
 
 [[package]]
@@ -850,7 +849,7 @@ dependencies = [
  "tracing",
  "tracing-error",
  "tracing-opentelemetry",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1709,7 +1708,7 @@ dependencies = [
  "tonic 0.9.2",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3212,7 +3211,7 @@ dependencies = [
  "hotshot-utils",
  "hotshot-web-server",
  "itertools 0.10.5",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives 0.4.0-pre.0",
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
@@ -3307,9 +3306,10 @@ dependencies = [
 [[package]]
 name = "hotshot-primitives"
 version = "0.1.0"
-source = "git+ssh://git@github.com/EspressoSystems/hotshot-primitives.git?branch=update_jellyfish_0.4.0_pre.0#c99b58d234d390519f020e68c5642e7be78f35f8"
+source = "git+https://github.com/EspressoSystems/hotshot-primitives?branch=hotshot-compat#bf859a899f2c9a8590a85e5e4e1f0216afb43a2b"
 dependencies = [
  "anyhow",
+ "ark-bls12-377 0.4.0",
  "ark-bls12-381 0.4.0",
  "ark-bn254 0.4.0",
  "ark-ec 0.4.2",
@@ -3325,8 +3325,9 @@ dependencies = [
  "displaydoc",
  "ethereum-types",
  "generic-array",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f)",
+ "jf-primitives 0.4.0-pre.0",
+ "jf-relation",
+ "jf-utils 0.4.0-pre.0",
  "serde",
  "sha3",
  "tagged-base64 0.3.0",
@@ -3406,7 +3407,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives 0.4.0-pre.0",
  "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3440,7 +3441,7 @@ dependencies = [
  "hotshot-primitives",
  "hotshot-task",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives 0.4.0-pre.0",
  "libp2p-networking",
  "nll",
  "rand 0.8.5",
@@ -3475,7 +3476,7 @@ dependencies = [
  "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
- "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-primitives 0.4.0-pre.0",
  "libp2p-core",
  "nll",
  "portpicker",
@@ -4033,8 +4034,9 @@ dependencies = [
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6#36dceb63aa5b452b9551c0139bc5512d17f780cf"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
+ "anyhow",
  "ark-bls12-377 0.4.0",
  "ark-bls12-381 0.4.0",
  "ark-bn254 0.4.0",
@@ -4045,6 +4047,7 @@ dependencies = [
  "ark-ed-on-bls12-381 0.4.0",
  "ark-ed-on-bn254 0.4.0",
  "ark-ff 0.4.2",
+ "ark-pallas",
  "ark-poly 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
@@ -4056,9 +4059,10 @@ dependencies = [
  "displaydoc",
  "espresso-systems-common 0.4.0",
  "generic-array",
+ "hashbrown 0.13.2",
  "itertools 0.10.5",
- "jf-relation 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
+ "jf-relation",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -4067,49 +4071,7 @@ dependencies = [
  "serde",
  "sha2 0.10.7",
  "sha3",
- "tagged-base64 0.3.0",
- "typenum",
- "zeroize",
-]
-
-[[package]]
-name = "jf-primitives"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
-dependencies = [
- "ark-bls12-377 0.4.0",
- "ark-bls12-381 0.4.0",
- "ark-bn254 0.4.0",
- "ark-bw6-761 0.4.0",
- "ark-crypto-primitives",
- "ark-ec 0.4.2",
- "ark-ed-on-bls12-377 0.4.0",
- "ark-ed-on-bls12-381 0.4.0",
- "ark-ed-on-bn254 0.4.0",
- "ark-ff 0.4.2",
- "ark-poly 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "blst",
- "chacha20poly1305 0.10.1",
- "crypto_kx",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "espresso-systems-common 0.4.0",
- "generic-array",
- "itertools 0.10.5",
- "jf-relation 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f)",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f)",
- "merlin",
- "num-bigint",
- "num-traits",
- "rand_chacha 0.3.1",
- "rayon",
- "serde",
- "sha2 0.10.7",
- "sha3",
- "tagged-base64 0.3.0",
+ "tagged-base64 0.3.3",
  "typenum",
  "zeroize",
 ]
@@ -4117,7 +4079,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6#36dceb63aa5b452b9551c0139bc5512d17f780cf"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
  "ark-bls12-377 0.4.0",
  "ark-bls12-381 0.4.0",
@@ -4134,33 +4096,7 @@ dependencies = [
  "dyn-clone",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6)",
- "num-bigint",
- "rand_chacha 0.3.1",
- "rayon",
-]
-
-[[package]]
-name = "jf-relation"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
-dependencies = [
- "ark-bls12-377 0.4.0",
- "ark-bls12-381 0.4.0",
- "ark-bn254 0.4.0",
- "ark-bw6-761 0.4.0",
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-poly 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "derivative",
- "displaydoc",
- "downcast-rs",
- "dyn-clone",
- "hashbrown 0.13.2",
- "itertools 0.10.5",
- "jf-utils 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f)",
+ "jf-utils 0.4.0-pre.0",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
@@ -4212,7 +4148,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=36dceb6#36dceb63aa5b452b9551c0139bc5512d17f780cf"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
 dependencies = [
  "ark-ec 0.4.2",
  "ark-ff 0.4.2",
@@ -4222,23 +4158,7 @@ dependencies = [
  "rayon",
  "serde",
  "sha2 0.10.7",
- "tagged-base64 0.3.0",
-]
-
-[[package]]
-name = "jf-utils"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?rev=c07a87f#c07a87f1469aaf761a3e909e9bd8b692b8ed6740"
-dependencies = [
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "digest 0.10.7",
- "rayon",
- "serde",
- "sha2 0.10.7",
- "tagged-base64 0.3.0",
+ "tagged-base64 0.3.3",
 ]
 
 [[package]]
@@ -7995,6 +7915,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tagged-base64"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
+dependencies = [
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "base64 0.13.1",
+ "crc-any",
+ "serde",
+ "snafu",
+ "tagged-base64-macros 0.3.3",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tagged-base64-macros"
 version = "0.2.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.2.4#9b9a5fae1e2fd41db8573657cfe169e8284eb6c9"
@@ -8008,6 +7944,16 @@ dependencies = [
 name = "tagged-base64-macros"
 version = "0.3.0"
 source = "git+https://github.com/espressosystems/tagged-base64?tag=0.3.0#19381b3f14b1f94269c8c783288a63694b6dd12a"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71636a96f40b6ea3d969182ce22ad8042d5a38839ce448fff3cef4dec80f7589"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -8157,7 +8103,7 @@ dependencies = [
  "tracing-distributed",
  "tracing-futures",
  "tracing-log",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -8557,7 +8503,7 @@ dependencies = [
  "itertools 0.9.0",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -8567,7 +8513,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
 dependencies = [
  "tracing",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -8602,7 +8548,7 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
- "tracing-subscriber 0.3.17",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -8612,15 +8558,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc6b213177105856957181934e4920de57730fc69bf42c37ee5bb664d406d9e1"
 dependencies = [
  "serde",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e0d2eaa99c3c2e41547cfa109e910a68ea03823cccad4a0525dcbc9b01e8c71"
-dependencies = [
  "tracing-core",
 ]
 
