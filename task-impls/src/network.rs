@@ -111,6 +111,7 @@ impl<
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
+                    // <https://github.com/EspressoSystems/HotShot/issues/1428>
                     self.event_stream.publish(event).await;
                 }
                 MessageKind::Data(message) => match message {
