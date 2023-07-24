@@ -403,7 +403,10 @@ impl OverallSafetyPropertiesDescription {
                                         });
                                     state.ctx.insert_error_to_context(view_number, error);
                                 },
-                                _ => {}
+                                _ => {
+                                    return (None, state)
+
+                                }
                             }
 
                             // update view count
