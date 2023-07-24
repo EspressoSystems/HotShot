@@ -30,6 +30,8 @@ type Error = ServerError;
 const MAX_VIEWS: usize = 100;
 /// How many transactions to keep in memory
 const MAX_TXNS: usize = 500;
+/// How many transactions to return at once
+const TX_BATCH_SIZE: u64 = 10;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
@@ -63,7 +65,7 @@ struct WebServerState<KEY> {
 
     /// index -> transaction
     // TODO ED Make indexable by hash of tx
-    transactions: HashMap<u64, Vec<u8>>,
+    transactions: Vec<Vec<u8>>,
     /// highest transaction index
     num_txns: u64,
     /// shutdown signal
@@ -87,7 +89,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             shutdown: None,
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
-            transactions: HashMap::new(),
+            transactions: Vec::new(),
             _prng: StdRng::from_entropy(),
             view_sync_proposals: HashMap::new(),
             view_sync_votes: HashMap::new(),
@@ -220,12 +222,20 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
     /// In the future we will return batches of transactions
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        let mut txns = vec![];
-        if let Some(txn) = self.transactions.get(&index) {
-            txns.push(txn.clone())
+        let mut txns_to_return = vec![];
+        let mut txn_vec_size = 0;
+
+        // Hopefully the compiler will make this loop more efficient
+        for i in (index as usize % MAX_TXNS)..self.transactions.len() {
+            let tx = self.transactions[i].clone();
+            // TODO ED Break prematurely if response is getting too large
+            txn_vec_size += tx.len();
+            txns_to_return.push(tx);
         }
-        if !txns.is_empty() {
-            Ok(Some(txns))
+
+        if !txns_to_return.is_empty() {
+            error!("Returning this many txs {}", txns_to_return.len());
+            Ok(Some(txns_to_return))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
@@ -365,14 +375,14 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // Only keep MAX_TXNS in memory
-        if self.transactions.len() >= MAX_TXNS {
-            self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
-        }
-        self.transactions.insert(self.num_txns, txn);
+        // Will continually write over old transactions older than MAX_TXNS
+        self.transactions.insert(self.num_txns as usize % MAX_TXNS, txn);
         self.num_txns += 1;
 
-        error!("Received transaction!  Number of transactions received is: {}", self.num_txns);
+        error!(
+            "Received transaction!  Number of transactions received is: {}",
+            self.num_txns
+        );
 
         Ok(())
     }
