@@ -1,13 +1,14 @@
 use hotshot::types::SignatureKey;
+use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hotshot::traits::TestableNodeImplementation;
-use hotshot_types::message::Message;
+use hotshot::traits::{TestableNodeImplementation, NodeImplementation};
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
+use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use crate::test_launcher::ResourceGenerators;
@@ -161,6 +162,10 @@ impl TestMetadata {
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
         >,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        <I as NodeImplementation<TYPES>>::Exchanges:
+            SequencingExchangesType<TYPES, Message<TYPES, I>>,
+            I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>
     {
         let TestMetadata {
             total_nodes,
@@ -180,7 +185,7 @@ impl TestMetadata {
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
+        // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
@@ -189,7 +194,7 @@ impl TestMetadata {
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_nodes,
+            da_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -206,7 +211,9 @@ impl TestMetadata {
             )),
         };
         let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+        let secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,
@@ -232,6 +239,7 @@ impl TestMetadata {
         TestLauncher {
             resource_generator: ResourceGenerators {
                 network_generator,
+                secondary_network_generator,
                 quorum_network: I::quorum_comm_channel_generator(),
                 committee_network: I::committee_comm_channel_generator(),
                 view_sync_network: I::view_sync_comm_channel_generator(),
@@ -239,10 +247,10 @@ impl TestMetadata {
                 config,
             },
             metadata: self,
-            hooks: vec![],
             txn_task_generator,
+            overall_safety_task_generator,
             completion_task_generator,
-            overall_safety_task_generator
+            hooks: vec![],
         }
         .modify_default_config(mod_config)
     }

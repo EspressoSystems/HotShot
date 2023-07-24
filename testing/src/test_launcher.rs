@@ -44,14 +44,19 @@ where
 {
     /// generate the underlying quorum network used for each node
     pub network_generator: Generator<QuorumNetwork<TYPES, I>>,
+
+    // TODO ED Make this a committee network; is a quorum network for now to get things working
+    pub secondary_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate a new quorum network for each node
     pub quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
     pub committee_network:
         CommitteeNetworkGenerator<QuorumNetwork<TYPES, I>, I::CommitteeCommChannel>,
 
+    /// generate view sync network
     pub view_sync_network:
         ViewSyncNetworkGenerator<QuorumNetwork<TYPES, I>, I::ViewSyncCommChannel>,
+
     /// generate a new storage for each node
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node

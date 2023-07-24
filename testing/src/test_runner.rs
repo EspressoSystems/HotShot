@@ -84,7 +84,7 @@ where
     }
 
     /// excecute test
-    pub async fn run_test(mut self) -> Result<(), OverallSafetyTaskErr>
+    pub async fn run_test(mut self)
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
@@ -97,6 +97,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         self.add_nodes(self.launcher.metadata.start_nodes).await;
@@ -174,9 +175,6 @@ where
         if !error_list.is_empty() {
             panic!("TEST FAILED! Results: {:?}", error_list);
         }
-
-        // TODO turn errors into something sensible
-        Ok(())
     }
 
     /// add nodes
@@ -193,6 +191,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let mut results = vec![];
@@ -202,10 +201,24 @@ where
             let network_generator = Arc::new((self.launcher.resource_generator.network_generator)(
                 node_id,
             ));
+
+            // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
+            // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
+            // test libp2p commout out the below lines where noted.
+
+            // NOTE ED: Comment out this line to run libp2p tests
+            let secondary_network_generator =
+                Arc::new((self.launcher.resource_generator.secondary_network_generator)(
+                    node_id,
+                ));
+
             let quorum_network =
                 (self.launcher.resource_generator.quorum_network)(network_generator.clone());
             let committee_network =
-                (self.launcher.resource_generator.committee_network)(network_generator.clone());
+                (self.launcher.resource_generator.committee_network)(secondary_network_generator);
+            // NOTE ED: Switch the below line with the above line to run libp2p tests
+            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
+
             let view_sync_network =
                 (self.launcher.resource_generator.view_sync_network)(network_generator);
             let storage = (self.launcher.resource_generator.storage)(node_id);
@@ -250,6 +263,7 @@ where
                 I::ViewSyncCommChannel,
                 I::CommitteeCommChannel,
             ),
+            ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
         let node_id = self.next_node_id;
@@ -261,15 +275,19 @@ where
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
             [0u8; 32],
         ));
-        let election_config = config.election_config.clone().unwrap_or_else(|| {
+        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
-                        TYPES,
-                        Message<TYPES, I>,
-                        >>::Membership::default_election_config(config.total_nodes.get() as u64)
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+        let committee_election_config = I::committee_election_config_generator();
         let exchanges = I::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
+            (
+                quorum_election_config,
+                committee_election_config(config.da_committee_size as u64),
+            ),
             (quorum_network, view_sync_network, committee_network),
             public_key.clone(),
             private_key.clone(),

@@ -34,7 +34,10 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    tasks::{add_consensus_task, add_da_task, add_network_task, add_view_sync_task},
+    tasks::{
+        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
+        add_view_sync_task,
+    },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
@@ -42,6 +45,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    logging::{setup_backtrace, setup_logging},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
@@ -202,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
     ) -> Result<Self, HotShotError<TYPES>> {
         let global_registry = GlobalRegistry::new();
 
-        info!("Creating a new hotshot");
+        error!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
             &*metrics.subgroup("consensus".to_string()),
@@ -353,6 +357,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
         let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+
+        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
 
         let api = self.clone();
         async_spawn(async move {
@@ -856,36 +862,61 @@ where
 
         let handle = SystemContextHandle {
             registry,
-            output_event_stream,
+            output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
         };
 
-        // TODO (run_view) Restore the lines below after making all event types consistent.
-        let task_runner = add_network_task(
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            quorum_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            view_sync_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             quorum_exchange,
             NetworkTaskKind::Quorum,
         )
         .await;
-        let task_runner = add_network_task(
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
             NetworkTaskKind::Committee,
         )
         .await;
-        let task_runner = add_network_task(
+        let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
             view_sync_exchange.clone(),
             NetworkTaskKind::ViewSync,
         )
         .await;
-        let task_runner =
-            add_consensus_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+        let task_runner = add_consensus_task(
+            task_runner,
+            internal_event_stream.clone(),
+            output_event_stream.clone(),
+            handle.clone(),
+        )
+        .await;
         let task_runner = add_da_task(
             task_runner,
             internal_event_stream.clone(),
@@ -901,6 +932,7 @@ where
         .await;
         async_spawn(async move {
             task_runner.launch().await;
+            error!("Task runner exited!");
         });
 
         handle
@@ -1767,6 +1799,27 @@ where
         Ok(())
     }
 
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .quorum_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.quorum_exchange().membership().clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
     // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
@@ -1977,6 +2030,27 @@ where
                     .committee_exchange()
                     .membership()
                     .clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .committee_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.committee_exchange().membership().clone(),
             )
             .await?;
         Ok(())

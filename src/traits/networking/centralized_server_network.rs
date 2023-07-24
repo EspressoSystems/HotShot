@@ -23,6 +23,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -845,7 +846,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -974,7 +978,10 @@ where
         .await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -1019,6 +1026,7 @@ where
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -1072,6 +1080,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CentralizedServerNetwork<
             TYPES::SignatureKey,
@@ -1081,6 +1090,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

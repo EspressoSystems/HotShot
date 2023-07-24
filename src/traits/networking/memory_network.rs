@@ -15,6 +15,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
@@ -300,6 +301,7 @@ where
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let master: Arc<_> = MasterMap::new();
         Box::new(move |node_id| {
@@ -456,7 +458,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }
@@ -507,6 +512,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <MemoryNetwork<
             Message<TYPES, I>,
@@ -515,7 +521,8 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            _is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -594,7 +601,10 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent,
+    ) -> Result<(), NetworkError> {
         // Not required
         Ok(())
     }

@@ -381,7 +381,7 @@ impl OverallSafetyPropertiesDescription {
                                 EventType::Error { error } => {
                                     state.ctx.insert_error_to_context(view_number, error);
                                 },
-                                EventType::Decide { leaf_chain, qc } => {
+                                EventType::Decide { leaf_chain, qc, .. } => {
                                     let paired_up = (leaf_chain.to_vec(), (*qc).clone());
                                     match state.ctx.round_results.entry(view_number) {
                                         Entry::Occupied(mut o) => {

@@ -103,18 +103,40 @@ channel-async-std = [
 # path = "examples/web-server/orchestrator.rs"
 #
 # [[example]]
-# name = "web-server"
-# required-features = ["demo", "libp2p/rsa"]
-# path = "examples/web-server/web-server.rs"
-#
-# [[example]]
 # name = "web-server-validator"
 # required-features = ["demo", "libp2p/rsa"]
 # path = "examples/web-server/validator.rs"
 
+[[example]]
+name = "web-server"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server/web-server.rs"
+
+[[example]]
+name = "web-server-da-orchestrator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/orchestrator.rs"
+
+[[example]]
+name = "web-server-da-validator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/validator.rs"
+
+[[example]]
+name = "multi-validator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/multi-validator.rs"
+
+[[example]]
+name = "multi-web-server"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/multi-web-server.rs"
+
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
+# TODO ED We should upgrade other ark libraries accordingly with the one below
+ark-ed-on-bls12-381 = "0.4.0"
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.2.0", default-features = false, features = [ "logging-utils" ] }
@@ -143,7 +165,8 @@ hotshot-utils = { path = "./utils" }
 hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-features = false }
 itertools = "0.10"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
+hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
         "std",
 ] }
 libp2p-swarm-derive = { version = "=0.32.0" }
@@ -196,6 +219,7 @@ tokio = { version = "1", optional = true, features = [
         "time",
         "tracing",
 ] }
+
 tracing = "0.1.37"
 
 [dev-dependencies]

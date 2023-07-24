@@ -12,6 +12,5 @@ async fn test_basic() {
         .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
         .launch()
         .run_test()
-        .await
-        .unwrap();
+        .await;
 }

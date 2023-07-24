@@ -1,72 +1,3 @@
-// use async_compatibility_layer::logging::shutdown_logging;
-//
-// use hotshot::traits::{
-//     election::static_committee::StaticCommittee,
-//     implementations::{MemoryStorage, WebCommChannel},
-// };
-//
-// use hotshot_testing::{
-//     test_builder::{TestBuilder, TestMetadata, TimingData},
-//     test_types::StaticCommitteeTestTypes,
-// };
-// use hotshot_types::message::Message;
-// use hotshot_types::traits::{
-//     consensus_type::validating_consensus::ValidatingConsensus,
-//     election::QuorumExchange,
-//     node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
-// };
-// use hotshot_types::{
-//     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
-//     message::ValidatingMessage,
-//     vote::QuorumVote,
-// };
-// use serde::{Deserialize, Serialize};
-// use tracing::instrument;
-//
-// #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-// struct StaticCentralizedImp {}
-//
-// type StaticMembership =
-//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-//
-// type StaticCommunication = WebCommChannel<
-//     ValidatingConsensus,
-//     StaticCommitteeTestTypes,
-//     StaticCentralizedImp,
-//     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-// >;
-//
-// impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
-//     type Storage =
-//         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-//     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         StaticCommitteeTestTypes,
-//         Message<StaticCommitteeTestTypes, Self>,
-//         QuorumExchange<
-//             StaticCommitteeTestTypes,
-//             ValidatingLeaf<StaticCommitteeTestTypes>,
-//             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//             StaticMembership,
-//             StaticCommunication,
-//             Message<StaticCommitteeTestTypes, Self>,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
-//
-//     fn new_channel_maps(
-//         start_view: ViewNumber,
-//     ) -> (
-//         ChannelMaps<StaticCommitteeTestTypes, Self>,
-//         Option<ChannelMaps<StaticCommitteeTestTypes, Self>>,
-//     ) {
-//         (ChannelMaps::new(start_view), None)
-//     }
-// }
-//
-
 use async_compatibility_layer::logging::shutdown_logging;
 use hotshot_testing::{node_types::{SequencingTestTypes, SequencingWebImpl}, test_builder::{TestMetadata, TimingData}};
 use tracing::instrument;
@@ -89,10 +20,10 @@ async fn web_server_network() {
         ..TestMetadata::default()
     };
     // TODO web server network doesn't implement TestableNetworkingImplementation
-    // metadata
-    //     .gen_launcher::<SequencingTestTypes, SequencingWebImpl>()
-    //     .launch()
-    //     .run_test()
-    //     .await;
+    metadata
+        .gen_launcher::<SequencingTestTypes, SequencingWebImpl>()
+        .launch()
+        .run_test()
+        .await;
     shutdown_logging();
 }

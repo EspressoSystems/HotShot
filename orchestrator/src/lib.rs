@@ -159,7 +159,7 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
-        println!("{}", self.start);
+        // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -245,5 +245,6 @@ where
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
+    tracing::error!("lisening on {:?}:{:?}", host, port);
     app.serve(format!("http://{host}:{port}")).await
 }

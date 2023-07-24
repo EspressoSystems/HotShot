@@ -3,7 +3,7 @@ use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HotShotTaskCompleted, TaskErr, TS},
-    task_impls::HSTWithEventAndMessage,
+    task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
 use hotshot_types::message::{DataMessage, Message};
@@ -30,14 +30,97 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 use tracing::warn;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
     Quorum,
     Committee,
     ViewSync,
 }
 
-pub struct NetworkTaskState<
+pub struct NetworkMessageTaskState<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
+    >,
+> {
+    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > TS for NetworkMessageTaskState<TYPES, I>
+{
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+    > NetworkMessageTaskState<TYPES, I>
+{
+    /// Handle the message.
+    pub async fn handle_message(&mut self, message: Message<TYPES, I>, id: u64) {
+        let sender = message.sender;
+        let event = match message.kind {
+            MessageKind::Consensus(consensus_message) => match consensus_message.0 {
+                Either::Left(general_message) => match general_message {
+                    GeneralConsensusMessage::Proposal(proposal) => {
+                        SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
+                    }
+                    GeneralConsensusMessage::Vote(vote) => {
+                        SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
+                    }
+                    GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
+                    }
+                    GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
+                        SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
+                    }
+                    _ => {
+                        error!("Got unexpected message type in network task!");
+                        return;
+                    }
+                },
+                Either::Right(committee_message) => match committee_message {
+                    CommitteeConsensusMessage::DAProposal(proposal) => {
+                        SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                    }
+                    CommitteeConsensusMessage::DAVote(vote) => {
+                        // error!("DA Vote message recv {:?}", vote.current_view);
+                        SequencingHotShotEvent::DAVoteRecv(vote.clone())
+                    }
+                    CommitteeConsensusMessage::DACertificate(cert) => {
+                        // panic!("Recevid DA C! ");
+                        SequencingHotShotEvent::DACRecv(cert)
+                    }
+                },
+            },
+            MessageKind::Data(message) => {
+                match message {
+                    // ED Why do we need the view number in the transaction?
+                    hotshot_types::message::DataMessage::SubmitTransaction(
+                        transaction,
+                        view_number,
+                    ) => SequencingHotShotEvent::TransactionRecv(transaction),
+                }
+            }
+            MessageKind::_Unreachable(_) => unimplemented!(),
+        };
+        self.event_stream.publish(event).await;
+    }
+}
+
+pub struct NetworkEventTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
         TYPES,
@@ -67,7 +150,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > TS for NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > TS for NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
 }
 
@@ -82,109 +165,8 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
-    > NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
+    > NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>
 {
-    /// Handle the message for the given type of network task.
-    pub async fn handle_message(&mut self, task: NetworkTaskKind, message: Message<TYPES, I>) {
-        let sender = message.sender;
-        let event = match task {
-            NetworkTaskKind::Quorum => match message.kind {
-                MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                    Either::Left(general_message) => match general_message {
-                        GeneralConsensusMessage::Proposal(proposal) => {
-                            SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
-                        }
-                        GeneralConsensusMessage::Vote(vote) => {
-                            SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
-                        }
-                        GeneralConsensusMessage::ViewSyncVote(_)
-                        | GeneralConsensusMessage::ViewSyncCertificate(_) => {
-                            return;
-                        }
-                        _ => {
-                            error!("Got unexpected message type in network task!");
-                            return;
-                        }
-                    },
-                    _ => {
-                        return;
-                    }
-                },
-                MessageKind::Data(message) => {
-                    return;
-                }
-                MessageKind::_Unreachable(_) => unimplemented!(),
-            },
-            NetworkTaskKind::Committee => {
-                match message.kind {
-                    MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                        Either::Left(general_message) => match general_message {
-                            GeneralConsensusMessage::Proposal(_)
-                            | GeneralConsensusMessage::Vote(_)
-                            | GeneralConsensusMessage::ViewSyncVote(_)
-                            | GeneralConsensusMessage::ViewSyncCertificate(_) => {
-                                return;
-                            }
-                            _ => {
-                                error!("Got unexpected message type in network task!");
-                                return;
-                            }
-                        },
-                        Either::Right(committee_message) => match committee_message {
-                            CommitteeConsensusMessage::DAProposal(proposal) => {
-                                SequencingHotShotEvent::DAProposalRecv(proposal, sender)
-                            }
-                            CommitteeConsensusMessage::DAVote(vote) => {
-                                error!("DA Vote message recv {:?}", vote.current_view);
-                                SequencingHotShotEvent::DAVoteRecv(vote)
-                            }
-                            CommitteeConsensusMessage::DACertificate(cert) => {
-                                SequencingHotShotEvent::DACRecv(cert)
-                            }
-                        },
-                    },
-                    MessageKind::Data(message) => {
-                        match message {
-                            // ED Why do we need the view number in the transaction?
-                            hotshot_types::message::DataMessage::SubmitTransaction(
-                                transaction,
-                                view_number,
-                            ) => SequencingHotShotEvent::TransactionRecv(transaction),
-                        }
-                    }
-                    MessageKind::_Unreachable(_) => unimplemented!(),
-                }
-            }
-            NetworkTaskKind::ViewSync => match message.kind {
-                MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                    Either::Left(general_message) => match general_message {
-                        GeneralConsensusMessage::Proposal(_) | GeneralConsensusMessage::Vote(_) => {
-                            return;
-                        }
-                        GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                            SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
-                        }
-                        GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
-                            SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
-                        }
-                        _ => {
-                            error!("Got unexpected message type in network task!");
-                            return;
-                        }
-                    },
-                    _ => {
-                        return;
-                    }
-                },
-                MessageKind::Data(message) => {
-                    return;
-                }
-                MessageKind::_Unreachable(_) => unimplemented!(),
-            },
-        };
-        self.event_stream.publish(event).await;
-    }
-
     /// Handle the given event.
     ///
     /// Returns the completion status.
@@ -232,19 +214,16 @@ impl<
                 Some(membership.get_leader(vote.current_view)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            SequencingHotShotEvent::DACSend(certificate, sender) => {
-                // panic!("Sending DAC!!!!!!!");
-                (
-                    sender,
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                            certificate.clone(),
-                        ))),
-                    ),
-                    TransmitType::Broadcast,
-                    None,
-                )
-            }
+            SequencingHotShotEvent::DACSend(certificate, sender) => (
+                sender,
+                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
+                        certificate.clone(),
+                    ))),
+                ),
+                TransmitType::Broadcast,
+                None,
+            ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
@@ -255,17 +234,21 @@ impl<
                 TransmitType::Broadcast,
                 None,
             ),
-            SequencingHotShotEvent::ViewSyncVoteSend(vote) => (
-                vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(vote.clone()))),
-                ),
-                TransmitType::Direct,
-                Some(membership.get_leader(vote.round() + vote.relay())),
-            ),
-            SequencingHotShotEvent::TransactionSend(transaction) => (
-                // TODO ED Get our own key
-                nll_todo(),
+            SequencingHotShotEvent::ViewSyncVoteSend(vote) => {
+                // error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
+                (
+                    vote.signature_key(),
+                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
+                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
+                            vote.clone(),
+                        ))),
+                    ),
+                    TransmitType::Direct,
+                    Some(membership.get_leader(vote.round() + vote.relay())),
+                )
+            }
+            SequencingHotShotEvent::TransactionSend(transaction, sender) => (
+                sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(
                     transaction,
                     TYPES::Time::new(*self.view),
@@ -274,6 +257,7 @@ impl<
                 None,
             ),
             SequencingHotShotEvent::ViewChange(view) => {
+                // only if view actually changes
                 self.view = view;
                 return None;
             }
@@ -281,7 +265,7 @@ impl<
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             event => {
-                // panic!("Receieved unexpected message in network task {:?}", event);
+                error!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };
@@ -291,17 +275,18 @@ impl<
             kind: message_kind,
             _phantom: PhantomData,
         };
-        match transmit_type {
-            TransmitType::Direct => self
-                .channel
-                .direct_message(message, recipient.unwrap())
-                .await
-                .expect("Failed to direct message"),
-            TransmitType::Broadcast => self
-                .channel
-                .broadcast_message(message, membership)
-                .await
-                .expect("Failed to broadcast message"),
+        let transmit_result = match transmit_type {
+            TransmitType::Direct => {
+                self.channel
+                    .direct_message(message, recipient.unwrap())
+                    .await
+            }
+            TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,
+        };
+
+        match transmit_result {
+            Ok(()) => {}
+            Err(e) => error!("Failed to send message from network task: {:?}", e)
         }
 
         return None;
@@ -319,8 +304,8 @@ impl<
         match event {
             SequencingHotShotEvent::QuorumProposalSend(_, _)
             | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::SendDABlockData(_)
             | SequencingHotShotEvent::Shutdown
+            | SequencingHotShotEvent::DACSend(_, _)
             | SequencingHotShotEvent::ViewChange(_) => true,
 
             _ => false,
@@ -331,10 +316,9 @@ impl<
         match event {
             SequencingHotShotEvent::DAProposalSend(_, _)
             | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::DACSend(_, _)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::ViewChange(_)
-            | SequencingHotShotEvent::TransactionSend(_) => true,
+            | SequencingHotShotEvent::TransactionSend(_, _) => true,
 
             _ => false,
         }
@@ -356,13 +340,17 @@ impl<
 pub struct NetworkTaskError {}
 impl TaskErr for NetworkTaskError {}
 
-pub type NetworkTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> =
-    HSTWithEventAndMessage<
-        NetworkTaskError,
-        SequencingHotShotEvent<TYPES, I>,
-        ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-        Either<Messages<TYPES, I>, Messages<TYPES, I>>,
-        // A combination of broadcast and direct streams.
-        Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
-        NetworkTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
-    >;
+pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
+    NetworkTaskError,
+    Either<Messages<TYPES, I>, Messages<TYPES, I>>,
+    // A combination of broadcast and direct streams.
+    Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
+    NetworkMessageTaskState<TYPES, I>,
+>;
+
+pub type NetworkEventTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
+    NetworkTaskError,
+    SequencingHotShotEvent<TYPES, I>,
+    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    NetworkEventTaskState<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL>,
+>;

@@ -17,7 +17,6 @@ async fn libp2p_network() {
         .launch()
         .run_test()
         .await
-        .unwrap();
 }
 
 /// stress test for libp2p
@@ -36,5 +35,4 @@ async fn test_stress_libp2p_network() {
         .launch()
         .run_test()
         .await
-        .unwrap();
 }

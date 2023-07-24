@@ -11,8 +11,10 @@ use commit::Committable;
 use either::Either;
 use either::{Left, Right};
 use futures::FutureExt;
+use hotshot_consensus::utils::ViewInner;
 use hotshot_consensus::Consensus;
 use hotshot_consensus::SequencingConsensusApi;
+use hotshot_consensus::View;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
@@ -25,6 +27,8 @@ use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
@@ -47,7 +51,7 @@ use std::sync::Arc;
 use std::time::Instant;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -83,9 +87,6 @@ pub struct DATaskState<
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
 
-    /// The High QC.
-    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
@@ -94,6 +95,8 @@ pub struct DATaskState<
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+
+    pub id: u64,
 }
 
 pub struct DAVoteCollectionTaskState<
@@ -115,6 +118,7 @@ pub struct DAVoteCollectionTaskState<
     // TODO ED Make this just "view" since it is only for this task
     pub cur_view: ViewNumber,
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub id: u64,
 }
 
 impl<
@@ -132,6 +136,7 @@ where
 {
 }
 
+#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
 async fn vote_handle<
     TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -153,12 +158,12 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
-            error!("DA vote recv, collection task {:?}", vote.current_view);
+            warn!("DA vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
-                error!("DA accumulator finished view: {:?}", state.cur_view);
+                warn!("DA accumulator finished view: {:?}", state.cur_view);
                 return (None, state);
             }
 
@@ -175,11 +180,11 @@ where
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
-                    error!("Not enough DA votes! ");
+                    // warn!("Not enough DA votes! ");
                     return (None, state);
                 }
                 Right(dac) => {
-                    error!("Sending DAC! {:?}", dac.view_number);
+                    warn!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
                         .publish(SequencingHotShotEvent::DACSend(
@@ -188,9 +193,17 @@ where
                         ))
                         .await;
 
-                    state.accumulator = Right(dac);
+                    state.accumulator = Right(dac.clone());
+                    state
+                        .committee_exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)),
+                        )
+                        .await;
 
-                    return (None, state);
+                    // Return completed at this point
+                    return (Some(HotShotTaskCompleted::ShutDown), state);
                 }
             }
         }
@@ -218,13 +231,14 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::TransactionRecv(transaction) => {
-                // error!("Received tx in DA task!");
                 // TODO ED Add validation checks
 
                 self.consensus
@@ -239,7 +253,7 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                error!(
+                warn!(
                     "DA proposal received for view: {:?}",
                     proposal.data.get_view_number()
                 );
@@ -248,9 +262,11 @@ where
 
                 // This should still be fine to do because we shouldn't be receiving a DA proposal for a view less than the one we are currently in
                 if view < self.cur_view {
-                    panic!("Throwing away DA proposal");
+                    error!("Throwing away DA proposal");
                     return None;
                 }
+
+                error!("Got a DA block with {} transactions!", proposal.data.deltas.contained_transactions().len());
                 let block_commitment = proposal.data.deltas.commit();
 
                 // ED Is this the right leader?
@@ -271,11 +287,9 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for DA committee on {:?}", view);
+                        error!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        info!("We were chosen for DA committee on {:?}", view);
-
                         // Generate and send vote
                         let message = self.committee_exchange.create_da_message(
                             block_commitment,
@@ -287,25 +301,37 @@ where
                         // self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            error!("Sending vote to the DA leader {:?}", vote.current_view);
+                            warn!("Sending vote to the DA leader {:?}", vote.current_view);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
                         }
+                        let mut consensus = self.consensus.write().await;
+
+                        // Ensure this view is in the view map for garbage collection, but do not overwrite if
+                        // there is already a view there: the replica task may have inserted a `Leaf` view which
+                        // contains strictly more information.
+                        consensus.state_map.entry(view).or_insert(View {
+                            view_inner: ViewInner::DA {
+                                block: block_commitment,
+                            },
+                        });
+
+                        // Record the block we have promised to make available.
+                        consensus.saved_blocks.insert(proposal.data.deltas);
                     }
                 }
             }
             SequencingHotShotEvent::DAVoteRecv(vote) => {
-                error!(
-                    "DA vote recv, Main Task {:?}, key: {:?}",
-                    vote.current_view,
-                    self.committee_exchange.public_key()
-                );
+                // warn!(
+                //     "DA vote recv, Main Task {:?}, key: {:?}",
+                //     vote.current_view,
+                //     self.committee_exchange.public_key()
+                // );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if &self.committee_exchange.get_leader(view) != self.committee_exchange.public_key()
-                {
-                    panic!("We are not the committee leader");
+                if !self.committee_exchange.is_leader(view) {
+                    error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1));
                     return None;
                 }
 
@@ -316,7 +342,7 @@ where
                     if let Some((collection_view, collection_id, _)) = &self.vote_collector {
                         // TODO: Is this correct for consecutive leaders?
                         if view > *collection_view {
-                            error!("shutting down for view {:?}", collection_view);
+                            // warn!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
                         collection_view.clone()
@@ -347,6 +373,7 @@ where
                         accumulator,
                         cur_view: view,
                         event_stream: self.event_stream.clone(),
+                        id: self.id,
                     };
                     let name = "DA Vote Collection";
                     let filter = FilterEvent(Arc::new(|event| {
@@ -369,10 +396,10 @@ where
                     self.vote_collector = Some((view, id, stream_id));
                 } else {
                     if let Some((view, _, stream_id)) = self.vote_collector {
-                        error!(
-                            "directly sending vote to vote collection task. view {:?}",
-                            view
-                        );
+                        // warn!(
+                        //     "directly sending vote to vote collection task. view {:?}",
+                        //     view
+                        // );
                         self.event_stream
                             .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
                             .await;
@@ -384,24 +411,42 @@ where
                 if *self.cur_view >= *view {
                     return None;
                 }
+
+                if *view - *self.cur_view > 1 {
+                    error!("View changed by more than 1");
+                }
                 self.cur_view = view;
+                // Inject view info into network
+                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info(
+                        (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
+                    )
+                    .await;
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if self.committee_exchange.get_leader(self.cur_view + 1)
-                    != self.committee_exchange.public_key().clone()
-                {
+                if !self.committee_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
+                error!("Polling for DA votes for view {}", *self.cur_view + 1);
+
+                // Start polling for DA votes for the "next view"
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view + 1)))
+                    .await;
 
                 // ED Copy of parent_leaf() function from sequencing leader
 
-                let parent_view_number = &self.high_qc.view_number;
                 let consensus = self.consensus.read().await;
+                let parent_view_number = &consensus.high_qc.view_number;
+
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    error!("Couldn't find high QC parent in state map.");
+                    error!("Couldn't find high QC parent in state map. Parent view {:?}", parent_view_number);
                     return None;
                 };
                 let Some(leaf) = parent_view.get_leaf_commitment() else {
@@ -444,26 +489,41 @@ where
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
                 };
-                error!("Sending DA proposal for view {:?}", data.view_number);
+                warn!("Sending DA proposal for view {:?}", data.view_number);
 
-                let message = SequencingMessage::<TYPES, I>(Right(
-                    CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
-                ));
+                // let message = SequencingMessage::<TYPES, I>(Right(
+                //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
+                // ));
+                let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;
-                if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
-                    consensus.metrics.failed_to_send_messages.add(1);
-                    warn!(?message, ?e, "Could not broadcast leader proposal");
-                } else {
-                    consensus.metrics.outgoing_broadcast_messages.add(1);
-                }
+                // if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
+                //     consensus.metrics.failed_to_send_messages.add(1);
+                //     warn!(?message, ?e, "Could not broadcast leader proposal");
+                // } else {
+                //     consensus.metrics.outgoing_broadcast_messages.add(1);
+                // }
+                self.event_stream
+                    .publish(SequencingHotShotEvent::DAProposalSend(
+                        message,
+                        self.committee_exchange.public_key().clone(),
+                    ))
+                    .await;
 
                 return None;
             }
+
+            SequencingHotShotEvent::Timeout(view) => {
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .await;
+            }
+
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
@@ -473,6 +533,8 @@ where
     }
 
     /// return None if we can't get transactions
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Vote Collection Task", level = "error")]
+
     async fn wait_for_transactions(
         &self,
         parent_leaf: SequencingLeaf<TYPES>,
@@ -504,7 +566,9 @@ where
                 match result {
                     Err(_) => {
                         // Fall through below to updating new block
-                        info!("propose_max_round_time passed, sending transactions we have so far");
+                        error!(
+                            "propose_max_round_time passed, sending transactions we have so far"
+                        );
                     }
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped
@@ -530,6 +594,7 @@ where
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
             | SequencingHotShotEvent::TransactionRecv(_)
+            | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
         }

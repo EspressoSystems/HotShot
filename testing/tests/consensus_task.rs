@@ -9,7 +9,6 @@ use hotshot::{
     HotShotType, SystemContext,
 };
 
-use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot::demos::sdemo::SDemoState;
@@ -74,6 +73,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -101,7 +101,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme>;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -187,12 +187,11 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     }
 }
 
-// TODO where do I re-enable this
 async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
+        SignatureKey = JfPubKey<BLSSignatureScheme>,
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -211,6 +210,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Networks = (StaticQuroumComm, StaticViewSyncComm, StaticDAComm),
+        ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
     >,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -240,12 +240,13 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>,
+        JfPubKey<BLSSignatureScheme>,
     >: Membership<TYPES>,
 {
     let builder = TestMetadata::default_multiple_rounds();
 
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
+
     let node_id = 1;
     let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
     let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
@@ -261,15 +262,22 @@ where
     let public_key = TYPES::SignatureKey::from_private(&private_key);
     let ek =
         jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
-    let election_config = config.election_config.clone().unwrap_or_else(|| {
+    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<TYPES,I> as ConsensusExchange<
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
+    });
+
+    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <CommitteeEx<TYPES,I> as ConsensusExchange<
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
     });
     let exchanges = I::Exchanges::create(
         known_nodes.clone(),
-        election_config.clone(),
+        (quorum_election_config, committee_election_config),
         (quorum_network, view_sync_network, committee_network),
         public_key.clone(),
         private_key.clone(),
@@ -301,7 +309,6 @@ where
             registry: registry.clone(),
             consensus,
             cur_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::<TYPES, I::Leaf>::genesis(),
             block: TYPES::BlockType::new(),
             quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
             api: c_api.clone(),
@@ -310,8 +317,11 @@ where
             vote_collector: None,
             timeout_task: async_spawn(async move {}),
             event_stream: event_stream.clone(),
+            output_event_stream: nll_todo(),
             certs: HashMap::new(),
             current_proposal: None,
+            id: nll_todo(),
+            qc: None,
         };
     let consensus_event_handler = HandleEvent(Arc::new(
         move |event,
