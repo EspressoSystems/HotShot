@@ -16,7 +16,6 @@ pub struct Event<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub event: EventType<TYPES, LEAF>,
 }
 
-
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///
 /// This enum does not include metadata shared among all variants, such as the stage and view

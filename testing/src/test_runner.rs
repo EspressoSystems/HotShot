@@ -1,6 +1,6 @@
 use rand::SeedableRng;
-use tracing::info;
 use std::sync::Arc;
+use tracing::info;
 
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
@@ -100,7 +100,12 @@ where
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
-        let spinning_changes = self.launcher.metadata.spinning_properties.node_changes.clone();
+        let spinning_changes = self
+            .launcher
+            .metadata
+            .spinning_properties
+            .node_changes
+            .clone();
         self.add_nodes(self.launcher.metadata.start_nodes).await;
 
         let TestRunner {
@@ -123,7 +128,8 @@ where
             test_event_stream.clone(),
         )
         .await;
-        task_runner = task_runner.add_task(id, "Test Transaction Submission Task".to_string(), task);
+        task_runner =
+            task_runner.add_task(id, "Test Transaction Submission Task".to_string(), task);
 
         // add completion task
         let completion_task_state = CompletionTask {
@@ -161,8 +167,9 @@ where
         let (id, task) = (launcher.overall_safety_task_generator)(
             overall_safety_task_state,
             registry.clone(),
-            test_event_stream.clone()
-        ).await;
+            test_event_stream.clone(),
+        )
+        .await;
         task_runner = task_runner.add_task(id, "Overall Safety Task".to_string(), task);
 
         // Start hotshot
@@ -178,11 +185,8 @@ where
             match result {
                 hotshot_task::task::HotShotTaskCompleted::ShutDown => {
                     info!("Task {} shut down successfully", name)
-
-                },
-                hotshot_task::task::HotShotTaskCompleted::Error(e) => {
-                    error_list.push((name, e))
-                },
+                }
+                hotshot_task::task::HotShotTaskCompleted::Error(e) => error_list.push((name, e)),
                 _ => {
                     panic!("Future impl for task abstraction failed! This should never happen");
                 }
@@ -224,9 +228,10 @@ where
 
             // NOTE ED: Comment out this line to run libp2p tests
             let secondary_network_generator =
-                Arc::new((self.launcher.resource_generator.secondary_network_generator)(
-                    node_id,
-                ));
+                Arc::new((self
+                    .launcher
+                    .resource_generator
+                    .secondary_network_generator)(node_id));
 
             let quorum_network =
                 (self.launcher.resource_generator.quorum_network)(network_generator.clone());

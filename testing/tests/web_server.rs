@@ -1,5 +1,8 @@
 use async_compatibility_layer::logging::shutdown_logging;
-use hotshot_testing::{node_types::{SequencingTestTypes, SequencingWebImpl}, test_builder::{TestMetadata, TimingData}};
+use hotshot_testing::{
+    node_types::{SequencingTestTypes, SequencingWebImpl},
+    test_builder::{TestMetadata, TimingData},
+};
 use tracing::instrument;
 
 /// Web server network test

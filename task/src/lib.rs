@@ -18,8 +18,9 @@ use futures::{future::BoxFuture, stream::Fuse, Future, Stream, StreamExt};
 use std::{
     marker::PhantomData,
     pin::Pin,
+    slice::SliceIndex,
     sync::Arc,
-    task::{Context, Poll}, slice::SliceIndex,
+    task::{Context, Poll},
 };
 use task::PassType;
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
@@ -55,7 +56,7 @@ pub struct MergeN<T: Stream> {
     #[pin]
     streams: Vec<Fuse<T>>,
     // idx to start polling
-    idx: usize
+    idx: usize,
 }
 
 impl<T: Stream> MergeN<T> {
@@ -64,9 +65,8 @@ impl<T: Stream> MergeN<T> {
         let fused_streams = streams.into_iter().map(|x| x.fuse()).collect();
         MergeN {
             streams: fused_streams,
-            idx: 0
+            idx: 0,
         }
-
     }
 }
 
@@ -123,8 +123,8 @@ impl<T: Stream> Stream for MergeN<T> {
 
             match stream.poll_next(cx) {
                 Ready(Some(val)) => return Ready(Some((i, val))),
-                Ready(None) => {},
-                Pending => done = false
+                Ready(None) => {}
+                Pending => done = false,
             }
         }
 
@@ -266,9 +266,9 @@ pub struct GeneratedStream<O> {
 
 impl<O> GeneratedStream<O> {
     /// create a generator
-    pub fn new(generator: Arc<
-               dyn Fn() -> Option<BoxSyncFuture<'static, O>> + Sync + Send
-           >) -> Self {
+    pub fn new(
+        generator: Arc<dyn Fn() -> Option<BoxSyncFuture<'static, O>> + Sync + Send>,
+    ) -> Self {
         GeneratedStream {
             generator,
             in_progress_fut: None,
@@ -301,11 +301,10 @@ impl<O> Stream for GeneratedStream<O> {
             }
             None => {
                 let wrapped_fut = (*projection.generator)();
-                let mut fut =
-                    match wrapped_fut {
-                        Some(fut) => fut,
-                        None => return Poll::Ready(None),
-                    };
+                let mut fut = match wrapped_fut {
+                    Some(fut) => fut,
+                    None => return Poll::Ready(None),
+                };
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;

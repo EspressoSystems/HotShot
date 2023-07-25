@@ -5,10 +5,12 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hotshot::traits::{TestableNodeImplementation, NodeImplementation};
+use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType};
+use hotshot_types::traits::node_implementation::{
+    NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType,
+};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use crate::spinning_task::SpinningTaskDescription;
@@ -18,8 +20,7 @@ use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskD
 use super::test_launcher::TestLauncher;
 
 use super::{
-    overall_safety_task::OverallSafetyPropertiesDescription,
-    txn_task::TxnTaskDescription,
+    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
 };
 
 /// data describing how a round should be timed.
@@ -120,12 +121,9 @@ impl TestMetadata {
                 ..TimingData::default()
             },
             ..TestMetadata::default()
-
         }
-
     }
 }
-
 
 impl Default for TestMetadata {
     /// by default, just a single round
@@ -137,7 +135,9 @@ impl Default for TestMetadata {
             start_nodes: 5,
             num_bootstrap_nodes: 5,
             da_committee_size: 5,
-            spinning_properties: SpinningTaskDescription { node_changes: vec![] },
+            spinning_properties: SpinningTaskDescription {
+                node_changes: vec![],
+            },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
@@ -169,7 +169,7 @@ impl TestMetadata {
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         <I as NodeImplementation<TYPES>>::Exchanges:
             SequencingExchangesType<TYPES, Message<TYPES, I>>,
-            I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
         let TestMetadata {
             total_nodes,

@@ -7,7 +7,8 @@ use hotshot::{
             vrf::JfPubKey,
         },
         implementations::{
-            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel, WebServerWithFallbackCommChannel,
+            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+            WebCommChannel, WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
     },
@@ -43,7 +44,7 @@ use crate::test_runner::TestRunner;
     Ord,
     serde::Serialize,
     serde::Deserialize,
-    )]
+)]
 pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
@@ -68,8 +69,7 @@ pub struct SequencingWebImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticFallbackImpl;
 
-type StaticMembership =
-StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
 type StaticMemoryDAComm = MemoryCommChannel<
     SequencingTestTypes,
@@ -95,11 +95,8 @@ type StaticWebDAComm = WebCommChannel<
     StaticMembership,
 >;
 
-type StaticFallbackComm = WebServerWithFallbackCommChannel<
-    SequencingTestTypes,
-    StaticFallbackImpl,
-    StaticMembership,
->;
+type StaticFallbackComm =
+    WebServerWithFallbackCommChannel<SequencingTestTypes, StaticFallbackImpl, StaticMembership>;
 
 type StaticMemoryQuorumComm = MemoryCommChannel<
     SequencingTestTypes,
@@ -162,36 +159,35 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
             StaticMembership,
             StaticLibp2pQuorumComm,
             Message<SequencingTestTypes, Self>,
-            >,
-            CommitteeExchange<
-                SequencingTestTypes,
-                StaticMembership,
-                StaticLibp2pDAComm,
-                Message<SequencingTestTypes, Self>,
-                >,
-                ViewSyncExchange<
-                    SequencingTestTypes,
-                    ViewSyncCertificate<SequencingTestTypes>,
-                    StaticMembership,
-                    StaticLibp2pViewSyncComm,
-                    Message<SequencingTestTypes, Self>,
-                    >,
-                >;
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticLibp2pDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            ViewSyncCertificate<SequencingTestTypes>,
+            StaticMembership,
+            StaticLibp2pViewSyncComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+    >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
         start_view: ViewNumber,
-        ) -> (
-            ChannelMaps<SequencingTestTypes, Self>,
-            Option<ChannelMaps<SequencingTestTypes, Self>>,
-            ) {
-            (
-                ChannelMaps::new(start_view),
-                Some(ChannelMaps::new(start_view)),
-                )
-        }
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
-
 
 impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
@@ -206,34 +202,34 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
             StaticMembership,
             StaticMemoryQuorumComm,
             Message<SequencingTestTypes, Self>,
-            >,
-            CommitteeExchange<
-                SequencingTestTypes,
-                StaticMembership,
-                StaticMemoryDAComm,
-                Message<SequencingTestTypes, Self>,
-                >,
-                ViewSyncExchange<
-                    SequencingTestTypes,
-                    ViewSyncCertificate<SequencingTestTypes>,
-                    StaticMembership,
-                    StaticMemoryViewSyncComm,
-                    Message<SequencingTestTypes, Self>,
-                    >,
-                    >;
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            StaticMembership,
+            StaticMemoryDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        ViewSyncExchange<
+            SequencingTestTypes,
+            ViewSyncCertificate<SequencingTestTypes>,
+            StaticMembership,
+            StaticMemoryViewSyncComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+    >;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
         start_view: ViewNumber,
-        ) -> (
-            ChannelMaps<SequencingTestTypes, Self>,
-            Option<ChannelMaps<SequencingTestTypes, Self>>,
-            ) {
-            (
-                ChannelMaps::new(start_view),
-                Some(ChannelMaps::new(start_view)),
-                )
-        }
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 // man these generics are big oof
@@ -273,15 +269,15 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
 
     fn new_channel_maps(
         start_view: ViewNumber,
-        ) -> (
-            ChannelMaps<SequencingTestTypes, Self>,
-            Option<ChannelMaps<SequencingTestTypes, Self>>,
-            ) {
-            (
-                ChannelMaps::new(start_view),
-                Some(ChannelMaps::new(start_view)),
-                )
-        }
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }
 
 impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
@@ -316,13 +312,13 @@ impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
 
     fn new_channel_maps(
         start_view: ViewNumber,
-        ) -> (
-            ChannelMaps<SequencingTestTypes, Self>,
-            Option<ChannelMaps<SequencingTestTypes, Self>>,
-            ) {
-            (
-                ChannelMaps::new(start_view),
-                Some(ChannelMaps::new(start_view)),
-                )
-        }
+    ) -> (
+        ChannelMaps<SequencingTestTypes, Self>,
+        Option<ChannelMaps<SequencingTestTypes, Self>>,
+    ) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
 }

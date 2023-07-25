@@ -250,7 +250,8 @@ where
     let node_id = 1;
     let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
     let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
-    let committee_network = (launcher.resource_generator.committee_network)(network_generator.clone());
+    let committee_network =
+        (launcher.resource_generator.committee_network)(network_generator.clone());
     let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();

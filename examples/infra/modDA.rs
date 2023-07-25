@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use either::Either;
 use futures::StreamExt;
+use hotshot::HotShotSequencingConsensusApi;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
@@ -13,15 +14,14 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
-use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::SequencingConsensusApi;
-use hotshot_types::message::DataMessage;
 use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
 use hotshot_types::event::{Event, EventType};
+use hotshot_types::message::DataMessage;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
@@ -356,10 +356,13 @@ pub trait RunDA<
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::error!("Submitting txn on round {}", round);
-                    
-                    api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
-                        .await
-                        .expect("Could not send transaction");
+
+                    api.send_transaction(DataMessage::SubmitTransaction(
+                        txn.clone(),
+                        TYPES::Time::new(0),
+                    ))
+                    .await
+                    .expect("Could not send transaction");
                     // return (None, state);
                     // context.submit_transaction(txn).await.unwrap();
                     total_transactions += 1;
@@ -377,7 +380,11 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, num_block } => {
+                        EventType::Decide {
+                            leaf_chain,
+                            qc,
+                            num_block,
+                        } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -386,12 +393,10 @@ pub trait RunDA<
                                 if new_anchor >= anchor_view {
                                     anchor_view = leaf.view_number;
                                 }
-    
                             }
 
                             if num_block.is_some() {
                                 total_transactions += num_block.unwrap();
-                                
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -400,7 +405,10 @@ pub trait RunDA<
                             }
 
                             if leaf_chain.len() > 1 {
-                                error!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
+                                error!(
+                                    "Leaf chain is greater than 1 with len {}",
+                                    leaf_chain.len()
+                                );
                             }
                             // when we make progress, submit new events
                         }
@@ -417,7 +425,6 @@ pub trait RunDA<
                                 if (round % total_nodes_u64) == node_index {
                                     should_submit_txns = true;
                                 }
-
                             }
                         }
                         _ => unimplemented!(),

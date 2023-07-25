@@ -1,4 +1,7 @@
-use hotshot_testing::{test_builder::TestMetadata, node_types::{SequencingTestTypes, StaticFallbackImpl, SequencingLibp2pImpl}};
+use hotshot_testing::{
+    node_types::{SequencingLibp2pImpl, SequencingTestTypes, StaticFallbackImpl},
+    test_builder::TestMetadata,
+};
 use tracing::instrument;
 
 /// web server with libp2p network test
@@ -12,7 +15,8 @@ async fn webserver_libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata::default_multiple_rounds();
-    metadata.gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
+    metadata
+        .gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
         .launch()
         .run_test()
         .await
@@ -30,7 +34,8 @@ async fn test_stress_webserver_libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata::default_stress();
-    metadata.gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
+    metadata
+        .gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
         .launch()
         .run_test()
         .await
