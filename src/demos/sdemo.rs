@@ -239,7 +239,7 @@ impl State for SDemoState {
 
     type Time = ViewNumber;
 
-    fn next_block(_state: Option<Self>) -> Self::BlockType {
+    fn next_block(_parent: Commitment<Self::BlockType>, _state: Option<Self>) -> Self::BlockType {
         SDemoBlock::Normal(SDemoNormalBlock {
             previous_state: (),
             transactions: Vec::new(),
