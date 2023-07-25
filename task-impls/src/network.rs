@@ -338,7 +338,6 @@ impl<
 
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
-impl TaskErr for NetworkTaskError {}
 
 pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkTaskError,

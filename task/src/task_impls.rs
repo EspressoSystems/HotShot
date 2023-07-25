@@ -257,8 +257,6 @@ pub mod test {
     #[derive(Snafu, Debug)]
     pub struct Error {}
 
-    impl TaskErr for Error {}
-
     #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub struct State {}
 

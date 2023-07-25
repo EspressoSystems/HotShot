@@ -11,6 +11,7 @@ use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
+use crate::spinning_task::SpinningTaskDescription;
 use crate::test_launcher::ResourceGenerators;
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
@@ -51,6 +52,8 @@ pub struct TestMetadata {
     pub da_committee_size: usize,
     // overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
+    /// spinning properties
+    pub spinning_properties: SpinningTaskDescription,
     // txns timing
     pub txn_description: TxnTaskDescription,
     // completion task
@@ -134,6 +137,7 @@ impl Default for TestMetadata {
             start_nodes: 5,
             num_bootstrap_nodes: 5,
             da_committee_size: 5,
+            spinning_properties: SpinningTaskDescription { node_changes: vec![] },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
             txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
@@ -176,6 +180,7 @@ impl TestMetadata {
             txn_description,
             completion_task_description,
             overall_safety_properties,
+            spinning_properties,
             ..
         } = self.clone();
 
@@ -236,6 +241,7 @@ impl TestMetadata {
         let txn_task_generator = txn_description.build();
         let completion_task_generator = completion_task_description.build_and_launch();
         let overall_safety_task_generator = overall_safety_properties.build();
+        let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 network_generator,
@@ -250,6 +256,7 @@ impl TestMetadata {
             txn_task_generator,
             overall_safety_task_generator,
             completion_task_generator,
+            spinning_task_generator,
             hooks: vec![],
         }
         .modify_default_config(mod_config)

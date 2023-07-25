@@ -29,7 +29,6 @@ use super::{completion_task::CompletionTaskTypes, GlobalTestEvent, TestTask};
 /// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct TxnTaskErr {}
-impl TaskErr for TxnTaskErr {}
 
 /// state of task that decides when things are completed
 pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
@@ -150,7 +149,7 @@ impl TxnTaskDescription {
                             let fut = async move {
                                 async_sleep(duration).await;
                             };
-                            boxed_sync(fut)
+                            Some(boxed_sync(fut))
                         }))
                     }
                     TxnTaskDescription::DistributionBased => unimplemented!(),

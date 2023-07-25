@@ -58,7 +58,6 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 pub struct DATaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,

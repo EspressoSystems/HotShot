@@ -100,6 +100,7 @@ where
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
+        let spinning_changes = self.launcher.metadata.spinning_properties.node_changes.clone();
         self.add_nodes(self.launcher.metadata.start_nodes).await;
 
         let TestRunner {
@@ -137,6 +138,21 @@ where
         .await;
         task_runner = task_runner.add_task(id, "Completion Task".to_string(), task);
 
+        // add spinning task
+        let spinning_task_state = crate::spinning_task::SpinningTask {
+            handles: nodes.clone(),
+            test_event_stream: test_event_stream.clone(),
+            changes: spinning_changes.into_iter().map(|(a, b)| b).collect(),
+        };
+        let (id, task) = (launcher.spinning_task_generator)(
+            spinning_task_state,
+            registry.clone(),
+            test_event_stream.clone(),
+        )
+        .await;
+        task_runner = task_runner.add_task(id, "Completion Task".to_string(), task);
+
+        // add safety task
         let overall_safety_task_state = OverallSafetyTask {
             handles: nodes.clone(),
             ctx: RoundCtx::default(),

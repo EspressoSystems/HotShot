@@ -67,7 +67,6 @@ use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 // #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
@@ -1237,7 +1236,7 @@ where
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-            // This should have been added by the replica? 
+            // This should have been added by the replica?
             error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return false;
         };

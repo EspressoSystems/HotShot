@@ -41,7 +41,6 @@ pub enum OverallSafetyTaskErr {
     /// mismatched blocks for a view
     InconsistentBlocks
 }
-impl TaskErr for OverallSafetyTaskErr {}
 
 /// Data availability task state
 pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {

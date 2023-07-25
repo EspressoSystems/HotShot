@@ -11,6 +11,8 @@ use hotshot_task::{
 };
 use hotshot_types::{event::Event, traits::{node_implementation::{NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork}, network::CommunicationChannel, election::ConsensusExchange}, HotShotConfig, message::Message};
 
+use crate::spinning_task::SpinningTask;
+
 use super::{
     completion_task::CompletionTask, test_builder::TestMetadata,
     test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent, overall_safety_task::OverallSafetyTask,
@@ -98,6 +100,15 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
     >,
 
+    pub spinning_task_generator: Box<
+        dyn FnOnce(SpinningTask<TYPES, I>,
+                   GlobalRegistry,
+                   ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>
+    >,
+
+
     pub hooks: Vec<Box<
         dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>
     >>
@@ -127,6 +138,22 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     >) -> Self {
         Self {
             overall_safety_task_generator,
+            ..self
+        }
+
+    }
+
+    /// override the safety task generator
+    pub fn with_spinning_task_generator(self, spinning_task_generator: Box<
+        dyn FnOnce(
+            SpinningTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    >) -> Self {
+        Self {
+            spinning_task_generator,
             ..self
         }
 

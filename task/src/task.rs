@@ -27,6 +27,8 @@ pub trait TS: Sync + Send + 'static {}
 #[allow(clippy::module_name_repetitions)]
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 
+impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
+
 /// group of types needed for a hotshot task
 pub trait HotShotTaskTypes: 'static {
     /// the event type from the event stream

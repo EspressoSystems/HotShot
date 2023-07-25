@@ -256,15 +256,19 @@ where
 /// gotta make the futures sync
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
 
+/// may be treated as a stream
 #[pin_project(project = ProjectedStreamableThing)]
 pub struct GeneratedStream<O> {
     // todo maybe type wrapper is in order
-    generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>,
+    generator: Arc<dyn Fn() -> Option<BoxSyncFuture<'static, O>> + Sync + Send>,
     in_progress_fut: Option<BoxSyncFuture<'static, O>>,
 }
 
 impl<O> GeneratedStream<O> {
-    pub fn new(generator: Arc<dyn Fn() -> BoxSyncFuture<'static, O> + Sync + Send>) -> Self {
+    /// create a generator
+    pub fn new(generator: Arc<
+               dyn Fn() -> Option<BoxSyncFuture<'static, O>> + Sync + Send
+           >) -> Self {
         GeneratedStream {
             generator,
             in_progress_fut: None,
@@ -296,7 +300,12 @@ impl<O> Stream for GeneratedStream<O> {
                 }
             }
             None => {
-                let mut fut = (*projection.generator)();
+                let wrapped_fut = (*projection.generator)();
+                let mut fut =
+                    match wrapped_fut {
+                        Some(fut) => fut,
+                        None => return Poll::Ready(None),
+                    };
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
@@ -344,7 +353,7 @@ pub mod test {
         let mut stream = GeneratedStream::<u32> {
             generator: Arc::new(move || {
                 let closure = async move { 5 };
-                boxed_sync(closure)
+                Some(boxed_sync(closure))
             }),
             in_progress_fut: None,
         };
@@ -375,7 +384,7 @@ pub mod test {
                     async_sleep(Duration::new(0, 500)).await;
                     actual_value as u32
                 };
-                boxed_sync(closure)
+                Some(boxed_sync(closure))
             }),
             in_progress_fut: None,
         };

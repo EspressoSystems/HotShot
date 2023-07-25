@@ -357,7 +357,7 @@ where
             async_sleep(Duration::new(0, 500)).await;
             msgs
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let channel = exchange.network().clone();
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
@@ -372,7 +372,7 @@ where
             async_sleep(Duration::new(0, 500)).await;
             msgs
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
     let network_state: NetworkMessageTaskState<_, _> = NetworkMessageTaskState {
