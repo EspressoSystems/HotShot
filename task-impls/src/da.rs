@@ -186,7 +186,7 @@ where
                         .await;
 
                     state.accumulator = Right(dac.clone());
-                    let _ = state
+                    state
                         .committee_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -259,7 +259,10 @@ where
                     return None;
                 }
 
-                error!("Got a DA block with {} transactions!", proposal.data.deltas.contained_transactions().len());
+                error!(
+                    "Got a DA block with {} transactions!",
+                    proposal.data.deltas.contained_transactions().len()
+                );
                 let block_commitment = proposal.data.deltas.commit();
 
                 // ED Is this the right leader?
@@ -405,8 +408,7 @@ where
                 self.cur_view = view;
                 // Inject view info into network
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
-                let _ = self
-                    .committee_exchange
+                self.committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
                         *self.cur_view + 1,
@@ -423,8 +425,7 @@ where
                 error!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 // Start polling for DA votes for the "next view"
-                let _ = self
-                    .committee_exchange
+                self.committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
                     .await;
@@ -505,8 +506,7 @@ where
             }
 
             SequencingHotShotEvent::Timeout(view) => {
-                let _ = self
-                    .committee_exchange
+                self.committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;

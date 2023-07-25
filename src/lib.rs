@@ -86,7 +86,7 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx, ViewSyncEx,
         },
-        signature_key::{ SignatureKey},
+        signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
         State,
@@ -2036,7 +2036,12 @@ where
                     kind: MessageKind::from(message),
                     _phantom: PhantomData,
                 },
-                &self.inner.exchanges.committee_exchange().membership().clone(),
+                &self
+                    .inner
+                    .exchanges
+                    .committee_exchange()
+                    .membership()
+                    .clone(),
             )
             .await?;
         Ok(())

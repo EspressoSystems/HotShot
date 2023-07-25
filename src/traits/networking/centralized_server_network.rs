@@ -846,12 +846,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         Ok(())
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -978,12 +974,8 @@ where
         .await
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 

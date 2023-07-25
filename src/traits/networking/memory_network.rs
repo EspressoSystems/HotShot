@@ -21,7 +21,7 @@ use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
     traits::{
-        election::{Membership},
+        election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
@@ -458,12 +458,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         Ok(())
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -601,12 +597,8 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 

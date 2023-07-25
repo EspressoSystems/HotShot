@@ -20,7 +20,7 @@ use jf_primitives::{
         BLSSignatureScheme,
         SignatureScheme,
     },
-    vrf::{Vrf},
+    vrf::Vrf,
 };
 
 #[allow(deprecated)]
@@ -28,13 +28,7 @@ use jf_primitives::{
 use rand::SeedableRng;
 // use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    hash::Hash,
-    marker::PhantomData,
-    num::NonZeroU64,
-};
+use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 // use tracing::{error, info, instrument};
 
 // TODO wrong palce for this

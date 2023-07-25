@@ -8,7 +8,7 @@ use crate::{
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn_local},
-    channel::{UnboundedReceiver},
+    channel::UnboundedReceiver,
 };
 use futures::FutureExt;
 use hotshot_task::{
@@ -17,7 +17,7 @@ use hotshot_task::{
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
     },
-    task_impls::{ TaskBuilder},
+    task_impls::TaskBuilder,
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
@@ -25,10 +25,7 @@ use hotshot_task_impls::network::NetworkTaskKind;
 use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
-    consensus::{
-        consensus_event_filter, ConsensusTaskTypes,
-        SequencingConsensusTaskState,
-    },
+    consensus::{consensus_event_filter, ConsensusTaskTypes, SequencingConsensusTaskState},
     da::{DATaskState, DATaskTypes},
     events::SequencingHotShotEvent,
     network::{
@@ -39,7 +36,7 @@ use hotshot_task_impls::{
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::event::Event;
-use hotshot_types::message::{ Message, Messages, SequencingMessage};
+use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
@@ -66,12 +63,12 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{ info};
+use tracing::info;
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
 #[cfg(feature = "tokio-executor")]
-use tokio::task::{yield_now};
+use tokio::task::yield_now;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 

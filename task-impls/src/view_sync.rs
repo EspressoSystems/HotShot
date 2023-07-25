@@ -451,16 +451,14 @@ where
                 // TODO ED Make this a configurable variable
                 if self.num_timeouts_tracked == 2 {
                     // Start polling for view sync certificates
-                    let _ = self
-                        .exchange
+                    self.exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncCertificate(
                             *view_number + 1,
                         ))
                         .await;
 
-                    let _ = self
-                        .exchange
+                    self.exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncVotes(
                             *view_number + 1,
@@ -657,15 +655,13 @@ where
 
                 // The protocol has ended
                 if self.phase == ViewSyncPhase::Finalize {
-                    let _ = self
-                        .exchange
+                    self.exchange
                         .network()
                         .inject_consensus_info(
                             ConsensusIntentEvent::CancelPollForViewSyncCertificate(*self.next_view),
                         )
                         .await;
-                    let _ = self
-                        .exchange
+                    self.exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncVotes(
                             *self.next_view,

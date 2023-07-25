@@ -293,7 +293,7 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
         <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,

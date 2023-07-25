@@ -243,7 +243,7 @@ where
                         state.accumulator = Either::Right(qc.clone());
 
                         // No longer need to poll for votes
-                        let _ = state
+                        state
                             .quorum_exchange
                             .network()
                             .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -509,22 +509,19 @@ where
             // Start polling for proposals for the new view
             // error!("Polling for quorum proposal for view {}", *new_view);
 
-            let _ = self
-                .quorum_exchange
+            self.quorum_exchange
                 .network()
                 .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view))
                 .await;
 
-            let _ = self
-                .quorum_exchange
+            self.quorum_exchange
                 .network()
                 .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view))
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
                 error!("Polling for quorum votes for view {}", *self.cur_view);
-                let _ = self
-                    .quorum_exchange
+                self.quorum_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view))
                     .await;
@@ -1176,8 +1173,7 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
                 // TODO ED In the future send a timeout vote
-                let _ = self
-                    .quorum_exchange
+                self.quorum_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
