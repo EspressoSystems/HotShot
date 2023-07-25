@@ -222,7 +222,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 tx_index += 1;
                                 broadcast_poll_queue.push(tx.clone());
                             }
-                            // error!("tx index is {}", tx_index);
+                            error!("tx index is {}", tx_index);
                         }
                         MessagePurpose::Proposal => {
                             // warn!(

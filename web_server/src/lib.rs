@@ -69,6 +69,7 @@ struct WebServerState<KEY> {
     txn_lookup: HashMap<Vec<u8>, u64>,
     /// highest transaction index
     num_txns: u64,
+
     /// shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
     /// stake table with leader keys
@@ -228,6 +229,12 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut txns_to_return = vec![];
         let mut txn_vec_size = 0;
 
+        mut new_index = index; 
+
+        if index < (self.num_txns - MAX_TXNS) {
+            new_index = self.num_txns - MAX_TXNS
+        }
+
         for idx in index..=self.transactions.len().try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&idx) {
                 txns_to_return.push(txn.clone())
@@ -379,8 +386,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // Will continually write over old transactions older than MAX_TXNS
-        // self.transactions.insert(self.num_txns as usize % MAX_TXNS, txn);
+
+        // TODO ED Remove txs from txn_lookup
         if self.transactions.len() >= MAX_TXNS {
             self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
         }
