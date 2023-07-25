@@ -427,7 +427,7 @@ where
                         (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
                     )
                     .await;
-                if !self.committee_exchange.is_leader(self.cur_view + 3) {
+                if self.committee_exchange.is_leader(self.cur_view + 3) {
                     self.committee_exchange
                     .network()
                     .inject_consensus_info(
