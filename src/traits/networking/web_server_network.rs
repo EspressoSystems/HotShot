@@ -176,6 +176,7 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     dac_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     view_sync_cert_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     view_sync_vote_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
+    txn_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     tx_sender: UnboundedSender<ConsensusIntentEvent>,
 }
 
@@ -481,6 +482,7 @@ impl<
             dac_task_map: Arc::default(),
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
+            txn_task_map: Arc::default(),
             tx_sender,
         });
 
@@ -489,20 +491,20 @@ impl<
         // match is_da_server {
         //     // We are polling for DA-related events
         //     true => {
-        let tx_handle = async_spawn({
-            let inner_clone = inner.clone();
-            async move {
-                if let Err(e) = inner_clone
-                    .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
-                    .await
-                {
-                    error!(
-                        "Background receive proposal polling encountered an error: {:?}",
-                        e
-                    );
-                }
-            }
-        });
+        // let tx_handle = async_spawn({
+        //     let inner_clone = inner.clone();
+        //     async move {
+        //         if let Err(e) = inner_clone
+        //             .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
+        //             .await
+        //         {
+        //             error!(
+        //                 "Background receive proposal polling encountered an error: {:?}",
+        //                 e
+        //             );
+        //         }
+        //     }
+        // });
         //         let da_vote_handle = async_spawn({
         //             let inner_clone = inner.clone();
         //             async move {
@@ -1320,6 +1322,52 @@ impl<
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(
+                            (view_number),
+                        ))
+                        .await;
+                    Ok(())
+                } else {
+                    // ED - Do we want to return an err here?
+                    Ok(())
+                }
+            }
+            ConsensusIntentEvent::PollForTransactions(view_number) => {
+                let mut task_map = self.inner.txn_task_map.write().await;
+                if !task_map.contains_key(&view_number) {
+                    // create new task
+                    let (sender, receiver) = unbounded();
+                    task_map.insert(view_number, sender);
+                    async_spawn({
+                        let inner_clone = self.inner.clone();
+                        async move {
+                            if let Err(e) = inner_clone
+                                .poll_web_server_new(receiver, MessagePurpose::Data, view_number)
+                                .await
+                            {
+                                error!(
+                                                "Background receive transaction polling encountered an error: {:?}",
+                                                e
+                                            );
+                            }
+                        }
+                    });
+                } else {
+                    error!("Somehow task already existed!")
+                }
+
+                // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
+
+                Ok(())
+            }
+            ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
+                let mut task_map = self.inner.txn_task_map.write().await;
+
+                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                    // Send task cancel message to old task
+
+                    // If task already exited we expect an error
+                    let _res = sender
+                        .send(ConsensusIntentEvent::CancelPollForTransactions(
                             (view_number),
                         ))
                         .await;
