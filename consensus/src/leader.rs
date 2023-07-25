@@ -9,7 +9,7 @@ use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, ValidatingLeaf, ValidatingProposal},
     message::GeneralConsensusMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
@@ -136,7 +136,10 @@ where
         async_sleep(self.api.propose_min_round_time() - passed_time).await;
 
         let receiver = self.transactions.subscribe().await;
-        let mut block = <TYPES as NodeType>::StateType::next_block(Some(starting_state.clone()));
+        let mut block = <TYPES as NodeType>::StateType::next_block(
+            parent_leaf.get_deltas_commitment(),
+            Some(starting_state.clone()),
+        );
 
         // Wait until we have min_transactions for the block or we hit propose_max_round_time
         while task_start_time.elapsed() < self.api.propose_max_round_time() {

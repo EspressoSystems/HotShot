@@ -23,7 +23,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate, YesNoSignature},
-    data::{DAProposal, SequencingLeaf},
+    data::{DAProposal, LeafType, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -263,7 +263,8 @@ where
              return None;
          };
 
-        let mut block = <TYPES as NodeType>::StateType::next_block(None);
+        let mut block =
+            <TYPES as NodeType>::StateType::next_block(parent_leaf.get_deltas_commitment(), None);
         let txns = self.wait_for_transactions().await?;
 
         for txn in txns {
