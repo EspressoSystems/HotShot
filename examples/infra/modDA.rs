@@ -255,7 +255,7 @@ pub trait RunDA<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
-            config.config.total_nodes.get() as u64
+            config.config.da_committee_size.try_into().unwrap()
         );
 
         let exchanges = NODE::Exchanges::create(
@@ -313,7 +313,7 @@ pub trait RunDA<
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
         // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        let tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, 1) + 5);
+        let tx_to_gen = transactions_per_round * rounds * 3;
         {
             let mut txn_rng = rand::thread_rng();
             for _ in 0..tx_to_gen {
@@ -343,8 +343,6 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-        let mut should_submit_txns = node_index == (round % total_nodes_u64);
-
         let api = HotShotSequencingConsensusApi {
             inner: context.hotshot.inner.clone(),
         };
@@ -352,24 +350,6 @@ pub trait RunDA<
         context.hotshot.start_consensus().await;
 
         loop {
-            if should_submit_txns {
-                for _ in 0..transactions_per_round {
-                    let txn = txns.pop_front().unwrap();
-                    tracing::error!("Submitting txn on round {}", round);
-
-                    api.send_transaction(DataMessage::SubmitTransaction(
-                        txn.clone(),
-                        TYPES::Time::new(0),
-                    ))
-                    .await
-                    .expect("Could not send transaction");
-                    // return (None, state);
-                    // context.submit_transaction(txn).await.unwrap();
-                    total_transactions += 1;
-                }
-                should_submit_txns = false;
-            }
-
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
@@ -422,8 +402,25 @@ pub trait RunDA<
                             if *view_number > round {
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
-                                if (round % total_nodes_u64) == node_index {
-                                    should_submit_txns = true;
+                                for _ in 0..transactions_per_round {
+                                    let txn = txns.pop_front().unwrap();
+                                    tracing::error!("Submitting txn on round {}", round);
+
+                                    let result = api
+                                        .send_transaction(DataMessage::SubmitTransaction(
+                                            txn.clone(),
+                                            TYPES::Time::new(0),
+                                        ))
+                                        .await;
+
+                                    if result.is_err() {
+                                        error!(
+                                            "Could not send transaction to web server on round {}",
+                                            round
+                                        )
+                                    }
+                                    // return (None, state);
+                                    // context.submit_transaction(txn).await.unwrap();
                                 }
                             }
                         }
@@ -477,7 +474,7 @@ pub trait RunDA<
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in s{total_time_elapsed:?}  {timed_out_views} rounds timed out. s{total_size}s total bytes submitted");
         error!("Total commitments: {num_successful_commits}");
         error!("Total transactions committed: {total_transactions}");
     }

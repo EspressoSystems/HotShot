@@ -322,6 +322,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         | ConsensusIntentEvent::CancelPollForProposal(event_view)
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
+                        | ConsensusIntentEvent::CancelPollForTransactions(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number != event_view {
                                 panic!("Wrong event view number was sent to this task!");
@@ -449,18 +450,7 @@ impl<
         // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
-        // let healthcheck = format!("{base_url_string}/api");
-        // // Healthcheck
-        // if client.get(&healthcheck).send().await.is_err() {
-        //     panic!("healthcheck is not right");
-        // }
-
         let on_committee = _committee_nodes.contains(&key);
-        // let (consensus_intent_sender, consensus_intent_receiver) = unbounded();
-        // let (vote_sender, vote_receiver) = unbounded::<ConsensusIntentEvent>();
-        // let (proposal_sender, proposal_receiver) = unbounded::<ConsensusIntentEvent>();
-        // let (dac_sender, dac_receiver) = unbounded::<ConsensusIntentEvent>();
-        // let (view_sync_vote_sender, view_sync_vote_receiver) = unbounded::<ConsensusIntentEvent>();
 
         let (tx_sender, tx_receiver) = unbounded::<ConsensusIntentEvent>();
 
@@ -520,108 +510,6 @@ impl<
         //             }
         //         });
 
-        //         // da_proposal_handle.await;
-        //     }
-
-        //     // We are polling for regular consensus events
-        //     false => {
-        //         let quorum_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(proposal_receiver, MessagePurpose::Proposal)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-
-        //         let quorum_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(vote_receiver, MessagePurpose::Vote)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-
-        //         let dac_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(dac_receiver, MessagePurpose::DAC)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let view_sync_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(
-        //                         view_sync_certificate_receiver,
-        //                         MessagePurpose::ViewSyncProposal,
-        //                     )
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let view_sync_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(
-        //                         view_sync_vote_receiver,
-        //                         MessagePurpose::ViewSyncVote,
-        //                     )
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //     }
-        // }
-
-        // async_spawn({
-        //     let inner = Arc::clone(&inner);
-        //     async move {
-        //         while inner.running.load(Ordering::Relaxed) {
-        //             if let Err(e) = WebServerNetwork::<M, K, E, TYPES>::run_background_receive(
-        //                 Arc::clone(&inner),
-        //                 is_da_server,
-        //             )
-        //             .await
-        //             {
-        //                 error!(?e, "Background polling task exited");
-        //             }
-        //             inner.connected.store(false, Ordering::Relaxed);
-        //         }
-        //     }
-        // });
         Self {
             inner,
             server_shutdown_signal: None,
@@ -636,201 +524,12 @@ impl<
         match is_da {
             // TODO ED Deprecetate this funciton
             // We are polling for DA-related events
-            true => {
-
-                //     let da_proposal_handle = async_spawn({
-                //         let inner_clone = inner.clone();
-                //         async move {
-                //             if let Err(e) = inner_clone
-                //                 .poll_web_server_new()
-                //                 .await
-                //             {
-                //                 error!(
-                //                     "Background receive proposal polling encountered an error: {:?}",
-                //                     e
-                //                 );
-                //             }
-                //         }
-                //     });
-            }
+            true => {}
 
             // We are polling for regular consensus events
             false => {}
         }
 
-        // match is_da {
-        //     false => {
-        //         let quorum_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server(MessagePurpose::Proposal, 0)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let quorum_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 0).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let quorum_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 1).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let view_sync_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 // Exit task if we are not on committee
-
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server(MessagePurpose::ViewSyncProposal, 1)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let view_sync_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server(MessagePurpose::ViewSyncVote, 2)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let da_cert_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::DAC, 0).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-
-        //         let da_handle_2 = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::DAC, 1).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-
-        //         let task_handles = vec![
-        //             quorum_proposal_handle,
-        //             quorum_vote_handle,
-        //             view_sync_proposal_handle,
-        //             view_sync_vote_handle, // committee_transaction_handle,
-        //             da_cert_handle,
-        //             da_handle_2,
-        //         ];
-
-        //         let _children_finished = futures::future::join_all(task_handles).await;
-        //     }
-        //     true => {
-        //         let committee_transaction_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Data, 0).await {
-        //                     error!(
-        //                         "Background receive transaction polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let committee_proposal_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 // Exit task if we are not on committee
-        //                 if !inner_clone.on_committee {
-        //                     return;
-        //                 }
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server(MessagePurpose::Proposal, 1)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let committee_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 1).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let committee_vote_handle2 = async_spawn({
-        //             let inner_clone = inner.clone();
-
-        //             async move {
-        //                 if let Err(e) = inner_clone.poll_web_server(MessagePurpose::Vote, 0).await {
-        //                     error!(
-        //                         "Background receive vote polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-        //         let task_handles = vec![
-        //             committee_proposal_handle,
-        //             committee_vote_handle,
-        //             committee_transaction_handle,
-        //             committee_vote_handle2
-        //         ];
-
-        //         let _children_finished = futures::future::join_all(task_handles).await;
-        //     }
-        // }
         Ok(())
     }
 

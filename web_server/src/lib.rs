@@ -29,7 +29,9 @@ type Error = ServerError;
 /// How many views to keep in memory
 const MAX_VIEWS: usize = 100;
 /// How many transactions to keep in memory
-const MAX_TXNS: usize = 1000;
+const MAX_TXNS: usize = 500;
+/// How many transactions to return at once
+const TX_BATCH_SIZE: u64 = 10;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
@@ -223,12 +225,18 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
     /// In the future we will return batches of transactions
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        let mut txns = vec![];
-        if let Some(txn) = self.transactions.get(&index) {
-            txns.push(txn.clone())
+        let mut txns_to_return = vec![];
+        let mut txn_vec_size = 0;
+
+        for idx in index..=self.transactions.len().try_into().unwrap() {
+            if let Some(txn) = self.transactions.get(&idx) {
+                txns_to_return.push(txn.clone())
+            }
         }
-        if !txns.is_empty() {
-            Ok(Some(txns))
+
+        if !txns_to_return.is_empty() {
+            error!("Returning this many txs {}", txns_to_return.len());
+            Ok(Some(txns_to_return))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
@@ -368,7 +376,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // Only keep MAX_TXNS in memory
+        // Will continually write over old transactions older than MAX_TXNS
+        // self.transactions.insert(self.num_txns as usize % MAX_TXNS, txn);
         if self.transactions.len() >= MAX_TXNS {
             self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
         }
