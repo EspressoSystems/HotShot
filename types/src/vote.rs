@@ -272,6 +272,10 @@ pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone> {
     pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
     pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    /// Map of all view sync commit votes accumulated thus far
+    pub viewsync_commit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    /// Map of all view sync finalize votes accumulated thus far
+    pub viewsync_finalize_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
@@ -306,9 +310,7 @@ where
         let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
         = bincode_opts().deserialize(&sig.clone().0).expect("Deserialization on the signature shouldn't be able to fail.");
 
-        // update the active_keys and sig_lists
-        self.signers.set(node_id, true);
-        self.sig_lists.push(origianl_sig.clone());
+        
 
         let (total_stake_casted, total_vote_map) = self
             .total_vote_outcomes
@@ -334,6 +336,18 @@ where
             .viewsync_precommit_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_commit_stake_casted, viewsync_commit_vote_map) = self
+            .viewsync_commit_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_finalize_stake_casted, viewsync_finalize_vote_map) = self
+            .viewsync_finalize_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
@@ -344,52 +358,91 @@ where
             return Either::Left(self);
         }
 
+        // update the active_keys and sig_lists
+        self.signers.set(node_id, true);
+        self.sig_lists.push(origianl_sig.clone());
+
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
             VoteData::DA(_) => {
                 *da_stake_casted += u64::from(token.vote_count());
-                da_vote_map.insert(key, (sig.clone(), vote_data, token));
+                da_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
             VoteData::Yes(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig.clone(), vote_data, token));
+                yes_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
             VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig.clone(), vote_data, token));
+                no_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
             VoteData::ViewSyncPreCommit(_) => {
                 *viewsync_precommit_stake_casted += u64::from(token.vote_count());
-                viewsync_precommit_vote_map.insert(key, (sig.clone(), vote_data, token));
+                viewsync_precommit_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
-            VoteData::ViewSyncCommit(_)
-            | VoteData::ViewSyncFinalize(_)
-            | VoteData::Timeout(_) => {
+            VoteData::ViewSyncCommit(_) => {
+                *viewsync_commit_stake_casted += u64::from(token.vote_count());
+                viewsync_commit_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::ViewSyncFinalize(_) => {
+                *viewsync_finalize_stake_casted += u64::from(token.vote_count());
+                viewsync_finalize_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::Timeout(_) => {
                 unimplemented!()
             }
         }
 
         // This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
         if *total_stake_casted >= u64::from(self.success_threshold) {
+
+            // Do assemble for QC here
+            let real_qc_pp = QCParams {
+                stake_entries: entries.clone(),
+                threshold: U256::from(self.success_threshold.get()),
+                agg_sig_pp: (),
+            };
+
+            let real_qc_sig = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
+                &real_qc_pp,
+                self.signers.as_bitslice(),
+                &self.sig_lists[..],
+            ).expect("this assembling shouldn't fail");
+
             if *yes_stake_casted >= u64::from(self.success_threshold) {
-                let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(YesNoSignature::Yes(valid_signatures));
+                self.yes_vote_outcomes.remove(&commitment).unwrap().1;// Sishan NOTE TODO: Can we just use `clear` or something similar rather than deduct one vote?
+                return Either::Right(AssembledSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(AssembledSignature::No(real_qc_sig));
+            } else if *da_stake_casted >= u64::from(self.success_threshold) {
+                self.da_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::DA(real_qc_sig));
+            } else if *viewsync_commit_stake_casted >= u64::from(self.success_threshold) {
+                self.viewsync_commit_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::ViewSyncCommit(real_qc_sig));
+            } else if *viewsync_finalize_stake_casted >= u64::from(self.success_threshold) {
+                self.viewsync_finalize_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::ViewSyncFinalize(real_qc_sig));
             }
         }
-
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
-            let valid_signatures = self
-                .viewsync_precommit_vote_outcomes
-                .remove(&commitment)
-                .unwrap()
-                .1;
+            let real_qc_pp = QCParams {
+                stake_entries: entries.clone(),
+                threshold: U256::from(self.success_threshold.get()),
+                agg_sig_pp: (),
+            };
 
-            return Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
+            let real_qc_sig = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
+                &real_qc_pp,
+                self.signers.as_bitslice(),
+                &self.sig_lists[..],
+            ).unwrap();
+
+            self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
+            return Either::Right(AssembledSignature::ViewSyncPreCommit(real_qc_sig));
         }
         Either::Left(self)
     }

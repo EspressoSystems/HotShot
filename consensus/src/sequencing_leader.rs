@@ -12,7 +12,6 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
-use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -113,6 +112,8 @@ where
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
             sig_lists: Vec::new(),
@@ -488,6 +489,8 @@ where
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
             sig_lists: Vec::new(),

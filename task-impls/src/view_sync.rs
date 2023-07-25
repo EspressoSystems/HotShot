@@ -54,7 +54,7 @@ use std::ops::Deref;
 use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, instrument, warn};
-
+use bitvec::prelude::*;
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
     None,
@@ -384,11 +384,16 @@ where
 
                 let mut accumulator = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
                     no_vote_outcomes: HashMap::new(),
                     viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: self.exchange.success_threshold(),
                     failure_threshold: self.exchange.failure_threshold(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.exchange.total_nodes()],
                 };
 
                 let mut relay_state = ViewSyncRelayTaskState {
@@ -638,7 +643,7 @@ where
                     .exchange
                     .get_leader(certificate_internal.round + certificate_internal.relay);
 
-                if !relay_key.validate(&message.signature, &message.data.commit().as_ref()) {
+                if !relay_key.validate(message.ver_key, &message.signature, &message.data.commit().as_ref()) {
                     error!("Key does not validate for certificate sender");
                     return (None, self);
                 }
@@ -706,7 +711,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key());
+                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -797,7 +802,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key());
+                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -852,7 +857,7 @@ where
                     let maybe_vote_token = self
                         .exchange
                         .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key());
+                        .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {
@@ -985,6 +990,7 @@ where
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
                     &vote_internal.signature.1,
+                    vote_internal.signature.2,
                     view_sync_data.clone(),
                     vote_internal.vote_data,
                     vote_internal.vote_token.clone(),
@@ -996,11 +1002,12 @@ where
                 self.accumulator = match accumulator {
                     Left(new_accumulator) => Either::Left(new_accumulator),
                     Right(certificate) => {
-                        let signature =
+                        let (signature, ver_key) =
                             self.exchange.sign_certificate_proposal(certificate.clone());
                         let message = Proposal {
                             data: certificate.clone(),
                             signature,
+                            ver_key,
                         };
                         // error!("Sending view sync cert {:?}", message.clone());
                         self.event_stream
@@ -1013,12 +1020,16 @@ where
                         // Reset accumulator for new certificate
                         either::Left(VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: self.exchange.success_threshold(),
                             failure_threshold: self.exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: bitvec![0; self.exchange.total_nodes()],
                         })
                     }
                 };

@@ -16,6 +16,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+use hotshot_types::certificate::{QuorumCertificate, AssembledSignature};
 
 /// Internal state for a [`MemoryStorage`]
 struct MemoryStorageInternal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
@@ -118,7 +119,7 @@ mod test {
     use crate::traits::election::static_committee::StaticVoteToken;
 
     use super::*;
-    use hotshot_types::certificate::QuorumCertificate;
+    use hotshot_types::certificate::{QuorumCertificate, AssembledSignature};
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};

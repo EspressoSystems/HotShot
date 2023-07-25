@@ -72,7 +72,7 @@ use surf_disco::Client;
 use tracing::error;
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
-use hotshot_primitives::quorum_certificate::StakeTableEntry;
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand::prelude::*;
 use rand_core::SeedableRng;
 

@@ -269,7 +269,14 @@ impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
 
 impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        let mut builder = commit::RawCommitmentBuilder::new("View Sync Certificate Commitment");
+    
+        let signatures_bytes = serialize_signature(&self.signatures().clone());
+
+        let mut builder = commit::RawCommitmentBuilder::new("View Sync Certificate Commitment")
+            // .field("leaf commitment", self.leaf_commitment)
+            // .u64_field("view number", *self.view_number.deref())
+            .constant_str("justify_qc signatures")
+            .var_size_bytes(&signatures_bytes);
 
         // builder = builder
         //     .field("Leaf commitment", self.leaf_commitment)
@@ -290,30 +297,6 @@ impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
                 certificate_internal
             }
         };
-        let signatures = match self.signatures().clone() {
-            YesNoSignature::ViewSyncPreCommit(signatures) => {
-                builder =
-                    builder.var_size_field("Signature View Sync Phase", "PreCommit".as_bytes());
-                signatures
-            }
-            YesNoSignature::ViewSyncCommit(signatures) => {
-                builder = builder.var_size_field("Signature View Sync Phase", "Commit".as_bytes());
-                signatures
-            }
-            YesNoSignature::ViewSyncFinalize(signatures) => {
-                builder =
-                    builder.var_size_field("Signature View Sync Phase", "Finalize".as_bytes());
-                signatures
-            }
-            _ => unimplemented!(),
-        };
-        for (idx, (k, v)) in signatures.iter().enumerate() {
-            builder = builder
-                .var_size_field(&format!("Signature {idx} public key"), &k.0)
-                .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
-                .var_size_field(&format!("Signature {idx} vote data"), &v.1.as_bytes())
-                .field(&format!("Signature {idx} vote token"), v.2.commit());
-        }
 
         builder = builder
             .u64_field("Relay", certificate_internal.relay)
@@ -334,7 +317,7 @@ impl<TYPES: NodeType>
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+        signatures: AssembledSignature,
         commit: Commitment<ViewSyncData<TYPES>>,
         relay: Option<u64>,
     ) -> Self {
@@ -344,11 +327,11 @@ impl<TYPES: NodeType>
             signatures: signatures.clone(),
         };
         match signatures {
-            YesNoSignature::ViewSyncPreCommit(_) => {
+            AssembledSignature::ViewSyncPreCommit(_) => {
                 ViewSyncCertificate::PreCommit(certificate_internal)
             }
-            YesNoSignature::ViewSyncCommit(_) => ViewSyncCertificate::Commit(certificate_internal),
-            YesNoSignature::ViewSyncFinalize(_) => {
+            AssembledSignature::ViewSyncCommit(_) => ViewSyncCertificate::Commit(certificate_internal),
+            AssembledSignature::ViewSyncFinalize(_) => {
                 ViewSyncCertificate::Finalize(certificate_internal)
             }
             _ => unimplemented!(),
@@ -365,7 +348,7 @@ impl<TYPES: NodeType>
     }
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType> {
+    fn signatures(&self) -> AssembledSignature {
         match self.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal)
             | ViewSyncCertificate::Commit(certificate_internal)

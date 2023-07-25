@@ -184,7 +184,7 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
             min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
             known_nodes_qc: Vec::new(),
-            da_committee_size: val.total_nodes,
+            da_committee_size: val.total_nodes.into(),
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,

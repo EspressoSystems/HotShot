@@ -31,7 +31,7 @@ use hotshot_types::{
 use tracing::{debug, info, warn};
 
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
 use rand_chacha::ChaCha20Rng;
@@ -558,6 +558,7 @@ pub mod test {
         vote::DAVote,
     };
     use jf_primitives::signatures::BLSSignatureScheme;
+    use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(
@@ -578,7 +579,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = JfPubKey<BLSSignatureScheme>;
+        type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;

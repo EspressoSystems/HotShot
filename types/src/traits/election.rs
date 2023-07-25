@@ -40,6 +40,7 @@ use jf_primitives::aead::KeyPair;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
+use core::panic;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -117,11 +118,17 @@ impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMM
                     .field("view_number_commitment", view_number_commitment.clone())
                     .finalize(),
             VoteData::ViewSyncPreCommit(commitment) =>
-                unimplemented!(),
+                commit::RawCommitmentBuilder::new("ViewSyncPreCommit")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
             VoteData::ViewSyncCommit(commitment) =>
-                unimplemented!(),
+                commit::RawCommitmentBuilder::new("ViewSyncCommit")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
             VoteData::ViewSyncFinalize(commitment) =>
-                unimplemented!(),
+                commit::RawCommitmentBuilder::new("ViewSyncFinalize")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
         }
     }
 
@@ -365,7 +372,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
         match qc.signatures() {
-            // Sishan NOTE TODO: Discuss with Ed on " ED Write a test to check this fails if leaf_commitment != what commit was signed over"
             AssembledSignature::DA(qc) => {
                 let real_commit = VoteData::DA(leaf_commitment).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
@@ -413,7 +419,9 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             }
             AssembledSignature::ViewSyncPreCommit(_)
             | AssembledSignature::ViewSyncCommit(_)
-            | AssembledSignature::ViewSyncFinalize(_) => unimplemented!(),
+            | AssembledSignature::ViewSyncFinalize(_) => {
+                panic!("QC should not be ViewSync type here");
+            }
         }
     }
 
@@ -1056,7 +1064,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_precommit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature);
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
 
     /// Creates a commit vote
     fn create_commit_message<I: NodeImplementation<TYPES>>(
@@ -1070,7 +1078,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_commit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature);
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
 
     /// Creates a finalize vote
     fn create_finalize_message<I: NodeImplementation<TYPES>>(
@@ -1084,11 +1092,11 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_finalize_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature);
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 
-    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey);
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1158,13 +1166,13 @@ impl<
     fn sign_precommit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            self.key_pair.clone(),
             &VoteData::ViewSyncPreCommit(commitment).as_bytes(),
         );
 
-        (self.public_key.to_bytes(), signature)
+        (self.public_key.to_bytes(), signature, self.entry.clone())
     }
 
     fn create_commit_message<I: NodeImplementation<TYPES>>(
@@ -1199,13 +1207,13 @@ impl<
     fn sign_commit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            self.key_pair.clone(),
             &VoteData::ViewSyncCommit(commitment).as_bytes(),
         );
 
-        (self.public_key.to_bytes(), signature)
+        (self.public_key.to_bytes(), signature, self.entry.clone())
     }
 
     fn create_finalize_message<I: NodeImplementation<TYPES>>(
@@ -1240,15 +1248,16 @@ impl<
     fn sign_finalize_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
+    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
+            self.key_pair.clone(),
             &VoteData::ViewSyncFinalize(commitment).as_bytes(),
         );
 
-        (self.public_key.to_bytes(), signature)
+        (self.public_key.to_bytes(), signature, self.entry.clone())
     }
 
+    
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
         let (certificate_internal, threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
@@ -1288,30 +1297,56 @@ impl<
                 (certificate_internal, self.success_threshold(), vote_data)
             }
         };
-
-        let votes = match certificate_internal.signatures {
-            YesNoSignature::ViewSyncCommit(raw_signatures)
-            | YesNoSignature::ViewSyncPreCommit(raw_signatures)
-            | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
-                .iter()
-                .filter(|signature| {
-                    self.is_valid_vote(
-                        signature.0,
-                        &signature.1 .0,
-                        signature.1 .1.clone(),
-                        certificate_internal.round,
-                        Checked::Unchecked(signature.1 .2.clone()),
-                    ) && (matches!(&signature.1 .1, vote_data))
-                })
-                .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
-            _ => unimplemented!(),
-        };
-
-        return votes >= threshold.into();
+        match certificate_internal.signatures {
+            AssembledSignature::ViewSyncCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                let real_qc_pp = QCParams {
+                    stake_entries: self.membership().get_committee_qc_stake_table(), 
+                    threshold: U256::from(self.membership().success_threshold().get()),
+                    agg_sig_pp: (),
+                };
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                    &real_qc_pp, 
+                    &msg,
+                    &raw_signatures
+                ).is_ok()
+            }
+            AssembledSignature::ViewSyncPreCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                let real_qc_pp = QCParams {
+                    stake_entries: self.membership().get_committee_qc_stake_table(), 
+                    threshold: U256::from(self.membership().success_threshold().get()),
+                    agg_sig_pp: (),
+                };
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                    &real_qc_pp, 
+                    &msg,
+                    &raw_signatures
+                ).is_ok()
+            }
+            AssembledSignature::ViewSyncFinalize(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncFinalize(vote_data.commit()).commit();
+                let msg = GenericArray::from_slice(real_commit.as_ref());
+                let real_qc_pp = QCParams {
+                    stake_entries: self.membership().get_committee_qc_stake_table(), 
+                    threshold: U256::from(self.membership().success_threshold().get()),
+                    agg_sig_pp: (),
+                };
+                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                    &real_qc_pp, 
+                    &msg,
+                    &raw_signatures
+                ).is_ok()
+            }
+            _ => true,
+        }
     }
 
-    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        TYPES::SignatureKey::sign(&self.private_key, &certificate.commit().as_ref())
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey) {
+        (TYPES::SignatureKey::sign(self.key_pair.clone(), &certificate.commit().as_ref()),
+        self.key_pair.ver_key().clone())
     }
 }
 

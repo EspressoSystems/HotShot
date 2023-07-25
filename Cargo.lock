@@ -3387,6 +3387,7 @@ dependencies = [
  "async-trait",
  "atomic_enum",
  "bincode",
+ "bitvec",
  "commit",
  "either",
  "futures",

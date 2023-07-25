@@ -139,7 +139,7 @@ where
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
             known_nodes_qc,
-            da_committee_size: NonZeroUsize::new(da_committee_size).unwrap(),
+            da_committee_size: NonZeroUsize::new(da_committee_size).unwrap().into(),
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,

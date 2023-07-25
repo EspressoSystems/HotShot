@@ -103,6 +103,8 @@ where
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),
             failure_threshold: self.exchange.failure_threshold(),
             sig_lists: Vec::new(),

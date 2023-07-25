@@ -801,12 +801,21 @@ pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
                 signatures_bytes.extend("No".as_bytes());
                 Some(signatures.clone())
             }
+            AssembledSignature::ViewSyncPreCommit(signatures) => {
+                signatures_bytes.extend("ViewSyncPreCommit".as_bytes());
+                Some(signatures.clone())
+            }
+            AssembledSignature::ViewSyncCommit(signatures) => {
+                signatures_bytes.extend("ViewSyncCommit".as_bytes());
+                Some(signatures.clone())
+            }
+            AssembledSignature::ViewSyncFinalize(signatures) => {
+                signatures_bytes.extend("ViewSyncFinalize".as_bytes());
+                Some(signatures.clone())
+            } 
             AssembledSignature::Genesis() => {
                 None
             }
-            AssembledSignature::ViewSyncPreCommit(_)
-            | AssembledSignature::ViewSyncCommit(_)
-            | AssembledSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
     if signatures != None {
         let (sig, proof) = signatures
