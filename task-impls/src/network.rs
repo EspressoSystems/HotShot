@@ -264,17 +264,18 @@ impl<
             kind: message_kind,
             _phantom: PhantomData,
         };
-        match transmit_type {
-            TransmitType::Direct => self
-                .channel
-                .direct_message(message, recipient.unwrap())
-                .await
-                .expect("Failed to direct message"),
-            TransmitType::Broadcast => self
-                .channel
-                .broadcast_message(message, membership)
-                .await
-                .expect("Failed to broadcast message"),
+        let transmit_result = match transmit_type {
+            TransmitType::Direct => {
+                self.channel
+                    .direct_message(message, recipient.unwrap())
+                    .await
+            }
+            TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,
+        };
+
+        match transmit_result {
+            Ok(()) => {}
+            Err(e) => error!("Failed to send message from network task: {:?}", e)
         }
 
         None

@@ -3,14 +3,17 @@ use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
-use hotshot::traits::TestableNodeImplementation;
-use hotshot_types::message::Message;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
-use hotshot_types::{ExecutionType, HotShotConfig};
-
+use hotshot_types::message::SequencingMessage;
 use crate::test_builder::TimingData;
 use crate::test_launcher::ResourceGenerators;
+use hotshot::traits::TestableNodeImplementation;
+use hotshot_types::message::Message;
+use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::SequencingExchangesType;
+use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
+use hotshot_types::{ExecutionType, HotShotConfig};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
 use super::safety_task::SafetyTaskDescription;
@@ -65,7 +68,9 @@ impl Default for TestMetadata {
             },
             overall_safety_properties: OverallSafetyPropertiesDescription {},
             // arbitrary, haven't done the math on this
-            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
+            // Set the duration large to make the transaction submission slow, avoiding memory
+            // leaks.
+            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(1000)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // TODO ED Put a configurable time here - 10 seconds for now
@@ -91,6 +96,10 @@ impl TestMetadata {
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
         >,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        <I as NodeImplementation<TYPES>>::Exchanges:
+            SequencingExchangesType<TYPES, Message<TYPES, I>>,
+            I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>
     {
         let TestMetadata {
             total_nodes,

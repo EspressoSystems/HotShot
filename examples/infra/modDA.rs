@@ -1,4 +1,4 @@
-use crate::infra::{load_config_from_file, OrchestratorArgs, OrchestratorClient, ValidatorArgs};
+use crate::infra::{load_config_from_file, OrchestratorArgs};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
@@ -13,8 +13,12 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
+use hotshot::HotShotSequencingConsensusApi;
+use hotshot_consensus::traits::SequencingConsensusApi;
+use hotshot_types::message::DataMessage;
 use hotshot_orchestrator::{
     self,
+    client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
@@ -327,7 +331,7 @@ pub trait RunDA<
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
         let mut timed_out_views: u64 = 0;
-        let mut round = 1;
+        let mut round = 0;
         let mut total_transactions = 0;
         let mut total_commitments = 0;
 
@@ -340,7 +344,11 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-        let mut should_submit_txns = node_index == (*anchor_view % total_nodes_u64);
+        let mut should_submit_txns = node_index == (round % total_nodes_u64);
+
+        let api = HotShotSequencingConsensusApi {
+            inner: context.hotshot.inner.clone(),
+        };
 
         context.hotshot.start_consensus().await;
 
@@ -349,7 +357,12 @@ pub trait RunDA<
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::error!("Submitting txn on round {}", round);
-                    context.submit_transaction(txn).await.unwrap();
+                    
+                    api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
+                        .await
+                        .expect("Could not send transaction");
+                    // return (None, state);
+                    // context.submit_transaction(txn).await.unwrap();
                     total_transactions += 1;
                 }
                 should_submit_txns = false;
@@ -365,8 +378,7 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc } => {
-                            error!("In decide handler");
+                        EventType::Decide { leaf_chain, qc, block_size } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -375,13 +387,21 @@ pub trait RunDA<
                                 if new_anchor >= anchor_view {
                                     anchor_view = leaf.view_number;
                                 }
-                                if (*anchor_view % total_nodes_u64) == node_index {
-                                    should_submit_txns = true;
-                                }
+    
                             }
+
+                            if block_size.is_some() {
+                                total_transactions += block_size.unwrap();
+                                
+                            }
+
                             num_successful_commits += leaf_chain.len();
                             if num_successful_commits >= rounds {
                                 break;
+                            }
+
+                            if leaf_chain.len() > 1 {
+                                error!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
                             }
                             // when we make progress, submit new events
                         }
@@ -392,7 +412,14 @@ pub trait RunDA<
                             error!("Timed out as the next leader in view {:?}", view_number);
                         }
                         EventType::ViewFinished { view_number } => {
-                            tracing::error!("view finished: {:?}", view_number);
+                            if *view_number > round {
+                                round = *view_number;
+                                tracing::error!("view finished: {:?}", view_number);
+                                if (round % total_nodes_u64) == node_index {
+                                    should_submit_txns = true;
+                                }
+
+                            }
                         }
                         _ => unimplemented!(),
                     }
@@ -445,7 +472,8 @@ pub trait RunDA<
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
-        error!("Total commitments: {total_commitments}");
+        error!("Total commitments: {num_successful_commits}");
+        error!("Total transactions committed: {total_transactions}");
     }
 
     /// Returns the da network for this run
@@ -572,12 +600,6 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-        let WebServerConfig {
-            host: da_host,
-            port: da_port,
-            wait_between_polls: da_wait_between_polls,
-        }: WebServerConfig = config.clone().web_server_config.unwrap();
-
         let known_nodes = config.config.known_nodes.clone();
 
         let mut _committee_nodes = known_nodes.clone();
@@ -602,19 +624,6 @@ where
             .into(),
         );
 
-        let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
-            WebCommChannel::new(
-                WebServerNetwork::create(
-                    &da_host.to_string(),
-                    da_port,
-                    da_wait_between_polls,
-                    pub_key.clone(),
-                    known_nodes.clone(),
-                    true,
-                )
-                .into(),
-            );
-
         let view_sync_network: WebCommChannel<
             TYPES,
             NODE,
@@ -626,12 +635,31 @@ where
                 &host.to_string(),
                 DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
                 wait_between_polls,
-                pub_key,
+                pub_key.clone(),
                 known_nodes.clone(),
                 false,
             )
             .into(),
         );
+
+        let WebServerConfig {
+            host,
+            port,
+            wait_between_polls,
+        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
+
+        let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
+            WebCommChannel::new(
+                WebServerNetwork::create(
+                    &host.to_string(),
+                    port,
+                    wait_between_polls,
+                    pub_key.clone(),
+                    known_nodes.clone(),
+                    true,
+                )
+                .into(),
+            );
 
         WebServerDARun {
             config,

@@ -1,3 +1,4 @@
+pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
@@ -159,7 +160,7 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
-        println!("{}", self.start);
+        // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -193,8 +194,12 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml")
-        .expect("api.toml file is not found");
+    let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/api.toml"
+    )))
+    .expect("API file is not valid toml");
+    let mut api = Api::<State, ServerError>::new(api_toml)?;
     api.post("postidentity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();

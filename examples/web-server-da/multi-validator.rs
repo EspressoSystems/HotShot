@@ -2,12 +2,11 @@ use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
+use hotshot_orchestrator::client::ValidatorArgs;
 use std::net::IpAddr;
 use tracing::instrument;
 
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
-
-use crate::infra::ValidatorArgs;
 
 pub mod types;
 

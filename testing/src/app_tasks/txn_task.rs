@@ -1,9 +1,14 @@
 use async_compatibility_layer::{art::async_sleep, channel::UnboundedStream};
-use std::{sync::Arc, time::Duration};
-
 use either::Either::{self, Left, Right};
 use futures::{future::BoxFuture, FutureExt};
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
+use hotshot::HotShotSequencingConsensusApi;
+use hotshot_consensus::traits::SequencingConsensusApi;
+use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::message::DataMessage;
+use hotshot_types::message::Message;
+use hotshot_types::message::SequencingMessage;
+use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_task::{
     boxed_sync,
     event_stream::{ChannelStream, SendableStream},
@@ -15,9 +20,11 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream, Merge,
 };
+use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use rand::thread_rng;
 use snafu::Snafu;
+use std::{sync::Arc, time::Duration};
 
 use crate::test_runner::Node;
 
@@ -75,7 +82,10 @@ impl TxnTaskDescription {
             ChannelStream<GlobalTestEvent>,
         )
             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    > {
+    > 
+    where TYPES: NodeType<ConsensusType = SequencingConsensus>, 
+    <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>, I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>
+    {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
                 // consistency check
@@ -128,8 +138,12 @@ impl TxnTaskDescription {
                                             &mut thread_rng(),
                                             0,
                                         );
-                                        node.handle
-                                            .submit_transaction(txn.clone())
+
+                                        // ED Shouldn't create this each time
+                                        let api = HotShotSequencingConsensusApi {
+                                            inner: node.handle.hotshot.inner.clone(),
+                                        };
+                                        api.send_transaction(DataMessage::SubmitTransaction(txn.clone(), TYPES::Time::new(0)))
                                             .await
                                             .expect("Could not send transaction");
                                         return (None, state);

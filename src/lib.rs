@@ -347,6 +347,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // we haven't worked out how this will work yet
         let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
+        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
+
         let api = self.clone();
         async_spawn(async move {
             let _result = api.send_broadcast_message(message).await.is_err();
@@ -1783,6 +1785,27 @@ where
         Ok(())
     }
 
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .quorum_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.quorum_exchange().membership().clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
     // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
@@ -1993,6 +2016,27 @@ where
                     .committee_exchange()
                     .membership()
                     .clone(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn send_transaction(
+        &self,
+        message: DataMessage<TYPES>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .exchanges
+            .committee_exchange()
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                    _phantom: PhantomData,
+                },
+                &self.inner.exchanges.committee_exchange().membership().clone(),
             )
             .await?;
         Ok(())
