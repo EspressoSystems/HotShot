@@ -238,7 +238,7 @@ where
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            SequencingHotShotEvent::TransactionRecv(transaction) => {
+            SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
                 self.consensus
@@ -246,7 +246,9 @@ where
                     .await
                     .get_transactions()
                     .modify(|txns| {
-                        let _new = txns.insert(transaction.commit(), transaction).is_none();
+                        for transaction in transactions {
+                            txns.insert(transaction.commit(), transaction);
+                        }
                     })
                     .await;
 
@@ -614,7 +616,7 @@ where
             SequencingHotShotEvent::DAProposalRecv(_, _)
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::TransactionRecv(_)
+            | SequencingHotShotEvent::TransactionsRecv(_)
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,

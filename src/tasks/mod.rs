@@ -388,9 +388,8 @@ where
             };
             let id = handle.hotshot.inner.id;
             async move {
-                for message in messages.0 {
-                    state.handle_message(message, id).await;
-                }
+               
+                state.handle_messages(messages.0, id).await;
                 (None, state)
             }
             .boxed()
