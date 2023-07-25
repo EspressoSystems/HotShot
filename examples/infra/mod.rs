@@ -391,7 +391,7 @@ pub trait Run<
                         EventType::Decide {
                             leaf_chain,
                             qc,
-                            num_block,
+                            block_size,
                         } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
