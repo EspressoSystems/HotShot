@@ -255,7 +255,7 @@ pub trait RunDA<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap()
+            config.config.da_committee_size.try_into().unwrap(),
         );
 
         let exchanges = NODE::Exchanges::create(
@@ -608,6 +608,15 @@ where
         let mut _committee_nodes = known_nodes.clone();
         //committee_nodes.truncate(config.config.da_committee_nodes.into());
 
+        let underlying_quorum_network = WebServerNetwork::create(
+            &host.to_string(),
+            port,
+            wait_between_polls,
+            pub_key.clone(),
+            known_nodes.clone(),
+            false,
+        );
+
         // Create the network
         let quorum_network: WebCommChannel<
             TYPES,
@@ -615,17 +624,7 @@ where
             QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
-        > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key.clone(),
-                known_nodes.clone(),
-                false,
-            )
-            .into(),
-        );
+        > = WebCommChannel::new(underlying_quorum_network.clone().into());
 
         let view_sync_network: WebCommChannel<
             TYPES,
@@ -633,17 +632,7 @@ where
             ViewSyncCertificate<TYPES>,
             ViewSyncVote<TYPES>,
             MEMBERSHIP,
-        > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
-                wait_between_polls,
-                pub_key.clone(),
-                known_nodes.clone(),
-                false,
-            )
-            .into(),
-        );
+        > = WebCommChannel::new(underlying_quorum_network.into());
 
         let WebServerConfig {
             host,
