@@ -405,19 +405,20 @@ pub trait RunDA<
                                 for _ in 0..transactions_per_round {
                                     let txn = txns.pop_front().unwrap();
                                     tracing::error!("Submitting txn on round {}", round);
+                                    if round % node_index < 10 {
+                                        let result = api
+                                            .send_transaction(DataMessage::SubmitTransaction(
+                                                txn.clone(),
+                                                TYPES::Time::new(0),
+                                            ))
+                                            .await;
 
-                                    let result = api
-                                        .send_transaction(DataMessage::SubmitTransaction(
-                                            txn.clone(),
-                                            TYPES::Time::new(0),
-                                        ))
-                                        .await;
-
-                                    if result.is_err() {
-                                        error!(
+                                        if result.is_err() {
+                                            error!(
                                             "Could not send transaction to web server on round {}",
                                             round
                                         )
+                                        }
                                     }
                                     // return (None, state);
                                     // context.submit_transaction(txn).await.unwrap();

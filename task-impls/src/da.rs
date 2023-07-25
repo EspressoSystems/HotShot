@@ -421,6 +421,8 @@ where
                 self.cur_view = view;
                 // Inject view info into network
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
+
+                // TODO ED Only poll if you are on the committee
                 self.committee_exchange
                     .network()
                     .inject_consensus_info(
