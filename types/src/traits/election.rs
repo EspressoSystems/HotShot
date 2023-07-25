@@ -1169,7 +1169,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
             self.key_pair.clone(),
-            &VoteData::ViewSyncPreCommit(commitment).as_bytes(),
+            &VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -1210,7 +1210,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
             self.key_pair.clone(),
-            &VoteData::ViewSyncCommit(commitment).as_bytes(),
+            &VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -1251,7 +1251,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
             self.key_pair.clone(),
-            &VoteData::ViewSyncFinalize(commitment).as_bytes(),
+            &VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -1259,48 +1259,43 @@ impl<
 
     
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        // Sishan NOTE TODO: would be better to re-examine this, looks like this func is never called.
+        println!("Inside is_valid_view_sync_cert()");
+        // Sishan NOTE TODO: would be better to test this, looks like this func is never called.
         let (certificate_internal, threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncPreCommit(
+                let vote_data = 
                     ViewSyncData::<TYPES> {
                         relay: self
                             .get_leader(round + certificate_internal.relay)
                             .to_bytes(),
                         round,
-                    }
-                    .commit(),
-                );
+                    };
                 (certificate_internal, self.failure_threshold(), vote_data)
             }
             ViewSyncCertificate::Commit(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncCommit(
+                let vote_data = 
                     ViewSyncData::<TYPES> {
                         relay: self
                             .get_leader(round + certificate_internal.relay)
                             .to_bytes(),
                         round,
-                    }
-                    .commit(),
-                );
+                    };
                 (certificate_internal, self.success_threshold(), vote_data)
             }
             ViewSyncCertificate::Finalize(certificate_internal) => {
-                let vote_data = VoteData::ViewSyncFinalize(
+                let vote_data = 
                     ViewSyncData::<TYPES> {
                         relay: self
                             .get_leader(round + certificate_internal.relay)
                             .to_bytes(),
                         round,
-                    }
-                    .commit(),
-                );
+                    };
                 (certificate_internal, self.success_threshold(), vote_data)
             }
         };
         match certificate_internal.signatures {
-            AssembledSignature::ViewSyncCommit(raw_signatures) => {
-                let real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
+            AssembledSignature::ViewSyncPreCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
                     stake_entries: self.membership().get_committee_qc_stake_table(), 
@@ -1313,8 +1308,8 @@ impl<
                     &raw_signatures
                 ).is_ok()
             }
-            AssembledSignature::ViewSyncPreCommit(raw_signatures) => {
-                let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
+            AssembledSignature::ViewSyncCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
                 let msg = GenericArray::from_slice(real_commit.as_ref());
                 let real_qc_pp = QCParams {
                     stake_entries: self.membership().get_committee_qc_stake_table(), 
@@ -1346,8 +1341,9 @@ impl<
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey) {
-        (TYPES::SignatureKey::sign(self.key_pair.clone(), &certificate.commit().as_ref()),
-        self.key_pair.ver_key().clone())
+        println!("Inside sign_certificate_proposal()");
+        let signature = TYPES::SignatureKey::sign(self.key_pair.clone(), &certificate.commit().as_ref());
+        ( signature, self.key_pair.ver_key().clone())
     }
 }
 
