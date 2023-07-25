@@ -232,6 +232,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             if let Some(txn) = self.transactions.get(&idx) {
                 txns_to_return.push(txn.clone())
             }
+            if txns_to_return.len() >= TX_BATCH_SIZE as usize {
+                break
+            }
         }
 
         if !txns_to_return.is_empty() {
