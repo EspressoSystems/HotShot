@@ -71,10 +71,10 @@ use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
 use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand::prelude::*;
-use rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use ethereum_types::U256;
 
 // ORCHESTRATOR
 
@@ -287,7 +287,7 @@ pub trait Run<
         // Get KeyPair for certificate Aggregation
         let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
             config.seed,
-            node_id.try_into().unwrap(),
+            config.node_index.try_into().unwrap(),
         );
         let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {

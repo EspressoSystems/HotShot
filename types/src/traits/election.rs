@@ -1259,6 +1259,7 @@ impl<
 
     
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
+        // Sishan NOTE TODO: would be better to re-examine this, looks like this func is never called.
         let (certificate_internal, threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
                 let vote_data = VoteData::ViewSyncPreCommit(
