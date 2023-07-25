@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
+    certificate::{DACertificate, AssembledSignature, QuorumCertificate, ViewSyncCertificate},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -28,6 +28,13 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::{Add, Div, Rem},
+};
+use bincode::Options;
+use hotshot_primitives::qc::bit_vector::BitVectorQC;
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
+use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::signatures::bls_over_bn254::{
+    BLSOverBN254CurveSignatureScheme, VerKey,
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -148,6 +155,8 @@ pub struct DAProposal<TYPES: NodeType> {
     pub deltas: TYPES::BlockType,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
+    /// the proposer's public key
+    pub ver_key: VerKey,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -170,6 +179,9 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// Data availibity certificate
     pub dac: Option<DACertificate<TYPES>>,
+
+    /// the proposer's public key
+    pub ver_key: VerKey,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
@@ -771,30 +783,57 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
+/// Serialization for the QC assembled signature
+pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
+    let mut signatures_bytes = vec![];
+    let signatures: Option<
+        <BitVectorQC<BLSOverBN254CurveSignatureScheme> as
+            AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC>  = match &signature {
+            AssembledSignature::DA(signatures) => {
+                signatures_bytes.extend("DA".as_bytes());
+                Some(signatures.clone())
+            }
+            AssembledSignature::Yes(signatures) => {
+                signatures_bytes.extend("Yes".as_bytes());
+                Some(signatures.clone())
+            }
+            AssembledSignature::No(signatures) => {
+                signatures_bytes.extend("No".as_bytes());
+                Some(signatures.clone())
+            }
+            AssembledSignature::Genesis() => {
+                None
+            }
+            AssembledSignature::ViewSyncPreCommit(_)
+            | AssembledSignature::ViewSyncCommit(_)
+            | AssembledSignature::ViewSyncFinalize(_) => unimplemented!(),
+        };
+    if signatures != None {
+        let (sig, proof) = signatures
+            .expect("Deserialization on (sig, proof) shouldn't be able to fail.");
+        let proof_bytes = bincode_opts()
+            .serialize(&proof.as_bitslice())
+            .expect("This serialization shouldn't be able to fail");
+        signatures_bytes.extend("bitvec proof".as_bytes());
+        signatures_bytes.extend(proof_bytes.as_slice());
+        let sig_bytes = bincode_opts()
+            .serialize(&sig)
+            .expect("This serialization shouldn't be able to fail");
+        signatures_bytes.extend("aggregated signature".as_bytes());
+        signatures_bytes.extend(sig_bytes.as_slice());
+    } else {
+        signatures_bytes.extend("genesis".as_bytes());
+    }
+
+    signatures_bytes
+}
+
 impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
-        let mut signatures_bytes = vec![];
-        let signatures = match &self.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) => {
-                signatures_bytes.extend("Yes".as_bytes());
-                signatures
-            }
-            YesNoSignature::No(signatures) => {
-                signatures_bytes.extend("No".as_bytes());
-                signatures
-            }
-            YesNoSignature::ViewSyncPreCommit(_)
-            | YesNoSignature::ViewSyncCommit(_)
-            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
-        };
-        for (k, v) in signatures {
-            signatures_bytes.extend(&k.0);
-            signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(&v.1.as_bytes());
-            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
-        }
-        commit::RawCommitmentBuilder::new("Leaf Comm")
-            .u64_field("view_number", *self.view_number)
+        let signatures_bytes = serialize_signature(&self.justify_qc.signatures);
+
+        commit::RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", *self.view_number)
             .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("block commitment", self.deltas.commit())
@@ -823,30 +862,11 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
             Either::Left(block) => block.commit(),
             Either::Right(commitment) => *commitment,
         };
-        let mut signatures_bytes = vec![];
-        let signatures = match &self.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) => {
-                signatures_bytes.extend("Yes".as_bytes());
 
-                signatures
-            }
-            YesNoSignature::No(signatures) => {
-                signatures_bytes.extend("No".as_bytes());
+        let signatures_bytes = serialize_signature(&self.justify_qc.signatures);
 
-                signatures
-            }
-            YesNoSignature::ViewSyncPreCommit(_)
-            | YesNoSignature::ViewSyncCommit(_)
-            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
-        };
-        for (k, v) in signatures {
-            signatures_bytes.extend(&k.0);
-            signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(&v.1.as_bytes());
-            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
-        }
-        commit::RawCommitmentBuilder::new("Leaf Comm")
-            .u64_field("view_number", *self.view_number)
+        commit::RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", *self.view_number)
             .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("block commitment", block_commitment)

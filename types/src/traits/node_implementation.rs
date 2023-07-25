@@ -44,7 +44,8 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 /// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;
 
@@ -177,12 +178,14 @@ pub trait ExchangesType<
 
     /// Create all exchanges.
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair: QCKeyPair,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// Get the quorum exchange.
@@ -262,23 +265,27 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair: QCKeyPair,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
             quorum_exchange: QUORUMEXCHANGE::create(
+                entries.clone(),
                 keys.clone(),
                 configs.0.clone(),
                 networks.0,
                 pk.clone(),
+                key_pair.clone(),
+                entry.clone(),
                 sk.clone(),
-                ek.clone(),
             ),
-            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, configs.0, networks.1, pk, sk, ek),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(entries, keys, configs.0, networks.1, pk, key_pair, entry, sk),
             _phantom: PhantomData,
         }
     }
@@ -359,30 +366,36 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
+        entries: Vec<StakeTableEntry<VerKey>>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
+        key_pair: QCKeyPair,
+        entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.0.clone(),
             networks.0,
             pk.clone(),
+            key_pair.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         let view_sync_exchange = VIEWSYNCEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.0,
             networks.1,
             pk.clone(),
+            key_pair.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.2, pk, sk, ek);
+        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys, configs.1, networks.2, pk, key_pair, entry, sk);
 
         Self {
             quorum_exchange,

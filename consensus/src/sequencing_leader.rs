@@ -22,8 +22,8 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
-    data::{DAProposal, SequencingLeaf},
+    certificate::{DACertificate, QuorumCertificate, AssembledSignature},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -43,6 +43,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use bitvec::prelude::*;
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
@@ -102,16 +103,20 @@ where
         &self,
         cur_view: TYPES::Time,
         threshold: NonZeroU64,
+        total_nodes_num: usize,
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
+            sig_lists: Vec::new(),
+            signers: bitvec![0; total_nodes_num],
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -149,6 +154,7 @@ where
                         match self.committee_exchange.accumulate_vote(
                             &vote.signature.0,
                             &vote.signature.1,
+                            vote.signature.2,
                             vote.block_commitment,
                             vote.vote_data,
                             vote.vote_token.clone(),
@@ -161,8 +167,11 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    YesNoSignature::Yes(map) => {
-                                        info!("Number of DA signatures in this QC: {}", map.len());
+                                    AssembledSignature::Yes(signature) => {
+                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
+                                    }
+                                    AssembledSignature::DA(signature) => {
+                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
                                     }
                                     _ => unimplemented!(),
                                 };
@@ -275,15 +284,17 @@ where
         let block_commitment = block.commit();
 
         let consensus = self.consensus.read().await;
-        let signature = self.committee_exchange.sign_da_proposal(&block.commit());
+        let (signature, ver_key) = self.committee_exchange.sign_da_proposal(&block.commit());
         let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
+            ver_key,
         };
         let message =
             SequencingMessage::<TYPES, I>(Right(CommitteeConsensusMessage::DAProposal(Proposal {
                 data,
                 signature,
+                ver_key,
             })));
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
@@ -301,6 +312,7 @@ where
             .wait_for_votes(
                 self.cur_view,
                 self.committee_exchange.success_threshold(),
+                self.committee_exchange.total_nodes(),
                 block_commitment,
             )
             .await
@@ -380,7 +392,7 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
-        let signature = self
+        let (signature, ver_key) = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -391,12 +403,13 @@ where
             justify_qc: self.high_qc.clone(),
             dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
+            ver_key: ver_key,
         };
-
         let message =
             SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
                 signature,
+                ver_key,
             })));
         if let Err(e) = self
             .api
@@ -469,14 +482,16 @@ where
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
-
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
+            sig_lists: Vec::new(),
+            signers: bitvec![0; self.quorum_exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -499,6 +514,7 @@ where
                                 match self.quorum_exchange.accumulate_vote(
                                     &vote.signature.0,
                                     &vote.signature.1,
+                                    vote.signature.2,
                                     vote.leaf_commitment,
                                     vote.vote_data,
                                     vote.vote_token.clone(),
@@ -511,9 +527,9 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            YesNoSignature::Yes(map) => info!(
+                                            AssembledSignature::Yes(signature) => info!(
                                                 "Number of qurorum signatures in this QC: {}",
-                                                map.len()
+                                                signature.1.len()
                                             ),
                                             _ => unimplemented!(),
                                         };

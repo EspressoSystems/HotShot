@@ -126,15 +126,13 @@ where
                                 if view_leader_key != sender {
                                     continue;
                                 }
-
                                 let block_commitment = p.data.deltas.commit();
                                 if !view_leader_key
-                                    .validate(&p.signature, block_commitment.as_ref())
+                                    .validate(p.ver_key, &p.signature, block_commitment.as_ref())
                                 {
                                     warn!(?p.signature, "Could not verify proposal.");
                                     continue;
                                 }
-
                                 let vote_token = self.exchange.make_vote_token(self.cur_view);
                                 match vote_token {
                                     Err(e) => {

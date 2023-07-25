@@ -24,10 +24,13 @@ mod tests {
         // And the matching public key
         let pub_key = Ed25519Pub::from_private(&priv_key);
 
+        // KeyPair with signature scheme for certificate Aggregation
+        let key_pair = QCKeyPair::generate(&mut rand::thread_rng());
+
         // Sign the data with it
-        let signature = Ed25519Pub::sign(&priv_key, &data);
+        let signature = Ed25519Pub::sign(key_pair, &data);
         // Verify the signature
-        assert!(pub_key.validate(&signature, &data));
+        assert!(pub_key.validate(key_pair.ver_key(), &signature, &data));
     }
 
     // Make sure serialization round trip works

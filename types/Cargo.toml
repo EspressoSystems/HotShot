@@ -61,10 +61,8 @@ futures = "0.3.28"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", default-features = false }
-hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
-  "std",
-] }
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
@@ -88,6 +86,10 @@ tokio = { version = "1", optional = true, features = [
     "tracing",
 ] }
 tracing = "0.1.37"
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
+bit-vec = "0.6.3"
+typenum = { version = "1.16.0" }
 
 [dev-dependencies]
 serde_json = "1.0.96"

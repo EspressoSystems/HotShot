@@ -2,6 +2,7 @@ use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -10,7 +11,8 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey},
     },
 };
-use jf_primitives::signatures::BLSSignatureScheme;
+use jf_primitives::signatures::{bls_over_bn254::VerKey};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -23,8 +25,10 @@ use tracing::error;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
+    nodes_qc: Vec<StakeTableEntry<VerKey>>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
+    committee_nodes_qc: Vec<StakeTableEntry<VerKey>>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -32,17 +36,19 @@ pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: Signa
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, JfPubKey<BLSSignatureScheme>>;
+pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, JfPubKey<BLSOverBN254CurveSignatureScheme>>;
 
 impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
 {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(nodes: Vec<PUBKEY>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>, nodes_qc: Vec<StakeTableEntry<VerKey>>) -> Self {
         Self {
             nodes: nodes.clone(),
+            nodes_qc: nodes_qc.clone(),
             committee_nodes: nodes,
+            committee_nodes_qc: nodes_qc,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -107,6 +113,19 @@ where
     ) -> Self::StakeTable {
         self.nodes.clone()
     }
+    /// Clone the public key and corresponding stake table
+    fn get_qc_stake_table (
+            &self,
+        ) -> Vec<StakeTableEntry<VerKey>> {
+            self.nodes_qc.clone()
+    }
+
+    fn get_committee_qc_stake_table (
+        &self,
+    ) -> Vec<StakeTableEntry<VerKey>> {
+        self.committee_nodes_qc.clone()
+    }
+
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = (*view_number % self.nodes.len() as u64) as usize;
@@ -118,6 +137,7 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &<PUBKEY as SignatureKey>::PrivateKey,
+        key_pair: QCKeyPair,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
@@ -126,7 +146,9 @@ where
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
-        let signature = PUBKEY::sign(private_key, &message);
+        // Change the length from 8 to 32 to make it consistent with other commitments, use defined constant? instead of 32.
+        message.extend_from_slice(&[0u8; 32 - 8]);
+        let signature = PUBKEY::sign(key_pair, &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 
@@ -152,15 +174,23 @@ where
         StaticElectionConfig { num_nodes }
     }
 
-    fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys_qc: Vec<StakeTableEntry<VerKey>>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
+        let mut committee_nodes_qc = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_qc.truncate(config.num_nodes.try_into().unwrap());
         Self {
+            nodes_qc: keys_qc,
             nodes: keys,
             committee_nodes,
+            committee_nodes_qc,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
+    }
+
+    fn total_nodes(&self) -> usize {
+        self.committee_nodes.len()
     }
 
     fn success_threshold(&self) -> NonZeroU64 {

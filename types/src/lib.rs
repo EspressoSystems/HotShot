@@ -11,6 +11,9 @@
 
 use std::{num::NonZeroUsize, time::Duration};
 
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
+use jf_primitives::signatures::bls_over_bn254::VerKey;
+
 pub mod certificate;
 pub mod constants;
 pub mod data;
@@ -46,6 +49,8 @@ pub struct HotShotConfig<K, ELECTIONCONFIG> {
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
+    /// List of known node's public keys under KeyPair for certificate aggregation, and list of entries serve as public parameter
+    pub known_nodes_qc: Vec<StakeTableEntry<VerKey>>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds

@@ -5,6 +5,7 @@
 // use ark_bls12_381::Parameters as Param381;
 // use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
+use digest::generic_array::GenericArray;
 // use blake3::Hasher;
 // use commit::{Commitment, Committable, RawCommitmentBuilder};
 // use derivative::Derivative;
@@ -16,17 +17,18 @@ use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     // hash_to_group::TEHashToGroup,
     signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-        SignatureScheme,
+        SignatureScheme
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
+use hotshot_primitives::qc::bit_vector::BitVectorQC;
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
+use typenum::U32;
+
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
-// use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -67,7 +69,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
 }
 
 /// concrete type for bls public key
-pub type BlsPubKey = JfPubKey<BLSSignatureScheme>;
+pub type BlsPubKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
 
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
@@ -199,24 +201,41 @@ where
 {
     type PrivateKey = (SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey);
 
-    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
-        let x: Result<SIGSCHEME::Signature, _> = bincode_opts().deserialize(&signature.0);
+    fn validate(&self, ver_key: QCVerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
+            bincode_opts().deserialize(&signature.0);
         match x {
             Ok(s) => {
                 // First hash the data into a constant sized digest
-                SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok()
+                // This is the validation for QC partial signature before append().
+                let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                BLSOverBN254CurveSignatureScheme::verify(
+                    &(),
+                    &ver_key, 
+                    &generic_msg,
+                    &s,
+                ).is_ok()
             }
             Err(_) => false,
         }
     }
 
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
+    fn sign(key_pair: QCKeyPair, 
+            data: &[u8]) -> EncodedSignature {
         // Sign it
-        let signature = SIGSCHEME::sign(&(), &private_key.0, data, &mut rand::thread_rng())
-            .expect("This signature shouldn't be able to fail");
+        let generic_msg = GenericArray::from_slice(data);
+        
+        let individual_signature =
+            BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+                &(),
+                &generic_msg,
+                key_pair.sign_key_ref(),
+                &mut rand::thread_rng()
+            ).expect("Individual signing should not fail");
+
         // Encode it
         let bytes = bincode_opts()
-            .serialize(&signature)
+            .serialize(&individual_signature)
             .expect("This serialization shouldn't be able to fail");
         EncodedSignature(bytes)
     }

@@ -27,6 +27,7 @@ use std::{
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
+use bitvec::prelude::*;
 
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
@@ -95,13 +96,17 @@ where
         let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
+
         let mut accumlator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),
             failure_threshold: self.exchange.failure_threshold(),
+            sig_lists: Vec::new(),
+            signers: bitvec![0; self.exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -122,6 +127,7 @@ where
                             match self.exchange.accumulate_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
+                                vote.signature.2,
                                 vote.leaf_commitment,
                                 vote.vote_data,
                                 vote.vote_token.clone(),

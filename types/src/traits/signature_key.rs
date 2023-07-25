@@ -4,6 +4,7 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 
 #[cfg(feature = "demo")]
 pub mod ed25519;
@@ -21,13 +22,19 @@ pub mod ed25519;
     PartialOrd,
     Ord,
 )]
-pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
+pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] 
+    pub Vec<u8>
+    // pub <BLSOverBN254CurveSignatureScheme as SignatureScheme>::VerificationKey
+);
 
 /// Type saftey wrapper for byte encoded signature
 #[derive(
     Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
 )]
-pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
+pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] 
+    pub Vec<u8>
+    // pub <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature
+);
 
 impl AsRef<[u8]> for EncodedSignature {
     fn as_ref(&self) -> &[u8] {
@@ -55,9 +62,9 @@ pub trait SignatureKey:
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature
-    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool;
+    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature;
+    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature;
     /// Produce a public key from a private key
     fn from_private(private_key: &Self::PrivateKey) -> Self;
     /// Serialize a public key to bytes

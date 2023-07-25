@@ -216,7 +216,7 @@ impl RoundSafetyCheckBuilder {
                 );
 
                 let runner_nodes = runner.nodes();
-                let num_required_successful_nodes = {
+                let num_required_successful_nodes = { 
                     let num_nodes = runner.nodes().collect::<Vec<_>>().len();
                     // prevent overflow
                     if num_nodes < num_out_of_sync {

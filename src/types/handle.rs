@@ -33,8 +33,13 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use std::sync::Arc;
-use tracing::error;
+
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use tracing::{debug, error};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
@@ -313,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-    ) -> EncodedSignature {
+    ) -> (EncodedSignature, VerKey) {
         let inner = self.hotshot.inner.clone();
         inner
             .exchanges

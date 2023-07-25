@@ -111,6 +111,7 @@ where
                 }
                 match msg {
                     ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
+
                         if view_leader_key != sender {
                             continue;
                         }
@@ -177,7 +178,7 @@ where
                             continue;
                         };
 
-                        if !view_leader_key.validate(&p.signature, leaf.commit().as_ref()) {
+                        if !view_leader_key.validate(p.ver_key, &p.signature, leaf.commit().as_ref()) {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }

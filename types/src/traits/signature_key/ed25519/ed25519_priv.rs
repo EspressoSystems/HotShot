@@ -21,6 +21,15 @@ impl Ed25519Priv {
         Self { priv_key }
     }
 
+    /// Get real seed used for random key generation funtion
+    pub fn get_seed_from_seed_indexed(seed: [u8; 32], index: u64) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        new_seed
+    }
+
     /// Generate a new private key from a seed
     #[must_use]
     pub fn generate_from_seed(seed: [u8; 32]) -> Self {

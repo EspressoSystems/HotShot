@@ -1,60 +1,60 @@
-// use ark_bls12_381::Parameters as Param381;
-// use hotshot::{
-//     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
-//     traits::{
-//         election::{
-//             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-//             vrf::JfPubKey,
-//         },
-//         implementations::{
-//             CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
-//         },
-//         NodeImplementation,
-//     },
-// };
-// use hotshot_testing::test_builder::TestBuilder;
-// use hotshot_types::data::QuorumProposal;
-// use hotshot_types::message::{Message, SequencingMessage};
-// use hotshot_types::traits::election::ViewSyncExchange;
-// use hotshot_types::vote::QuorumVote;
-// use hotshot_types::vote::ViewSyncVote;
-// use hotshot_types::{
-//     data::{DAProposal, SequencingLeaf, ViewNumber},
-//     traits::{
-//         consensus_type::sequencing_consensus::SequencingConsensus,
-//         election::{CommitteeExchange, QuorumExchange},
-//         node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
-//     },
-//     vote::DAVote,
-// };
-// use jf_primitives::signatures::BLSSignatureScheme;
-// use serde::{Deserialize, Serialize};
-// use tracing::instrument;
+// Sishan NOTE TODO: Whether we should comment these for easier testing
+use ark_bls12_381::Parameters as Param381;
+use hotshot::{
+    demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
+    traits::{
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
+            vrf::JfPubKey,
+        },
+        implementations::{
+            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+        },
+        NodeImplementation,
+    },
+};
+use hotshot_testing::test_builder::TestBuilder;
+use hotshot_types::data::QuorumProposal;
+use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::vote::QuorumVote;
+use hotshot_types::{
+    data::{DAProposal, SequencingLeaf, ViewNumber},
+    traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
+        election::{CommitteeExchange, QuorumExchange},
+        node_implementation::{NodeType, SequencingExchanges},
+    },
+    vote::DAVote,
+};
+use jf_primitives::signatures::BLSSignatureScheme;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
-// #[derive(
-//     Copy,
-//     Clone,
-//     Debug,
-//     Default,
-//     Hash,
-//     PartialEq,
-//     Eq,
-//     PartialOrd,
-//     Ord,
-//     serde::Serialize,
-//     serde::Deserialize,
-// )]
-// pub struct SequencingTestTypes;
-// impl NodeType for SequencingTestTypes {
-//     type ConsensusType = SequencingConsensus;
-//     type Time = ViewNumber;
-//     type BlockType = SDemoBlock;
-//     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-//     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
-//     type Transaction = SDemoTransaction;
-//     type ElectionConfigType = StaticElectionConfig;
-//     type StateType = SDemoState;
-// }
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct SequencingTestTypes;
+impl NodeType for SequencingTestTypes {
+    type ConsensusType = SequencingConsensus;
+    type Time = ViewNumber;
+    type BlockType = SDemoBlock;
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
+    type Transaction = SDemoTransaction;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = SDemoState;
+}
 
 // #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 // pub struct SequencingMemoryImpl {}

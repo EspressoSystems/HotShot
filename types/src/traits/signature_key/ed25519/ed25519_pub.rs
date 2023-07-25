@@ -1,5 +1,5 @@
 use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
-use ed25519_compact::{PublicKey, Signature};
+use ed25519_compact::{PublicKey};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{
@@ -9,11 +9,20 @@ use std::{
 };
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
-
+use hotshot_primitives::qc::bit_vector::BitVectorQC;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
+use jf_primitives::signatures::SignatureScheme;
+use blake3::traits::digest::generic_array::GenericArray;
+use typenum::U32;
+use bincode::Options;
+use hotshot_utils::bincode::bincode_opts;
 /// Public key type for an ed25519 [`SignatureKey`] pair
 ///
 /// This type makes use of noise for non-determinisitc signatures.
 #[derive(Clone, PartialEq, Eq, Hash, Copy)]
+
+
 pub struct Ed25519Pub {
     /// The public key for this keypair
     pub_key: PublicKey,
@@ -56,32 +65,39 @@ impl SignatureKey for Ed25519Pub {
     type PrivateKey = Ed25519Priv;
 
     #[instrument(skip(self))]
-    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
-        let signature = &signature.0[..];
-        // Convert to the signature type
-        match Signature::from_slice(signature) {
-            Ok(signature) => {
-                // Validate the signature
-                match self.pub_key.verify(data, &signature) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        debug!(?e, "Signature failed verification");
-                        false
-                    }
+    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
+            bincode_opts().deserialize(&signature.0);
+            match x {
+                Ok(s) => {
+                    // This is the validation for QC partial signature before append().
+                    let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
+                    BLSOverBN254CurveSignatureScheme::verify(
+                        &(),
+                        &ver_key, 
+                        &generic_msg,
+                        &s,
+                    ).is_ok()
                 }
+                Err(_) => false,
             }
-            Err(e) => {
-                // Log and error
-                debug!(?e, "signature was structurally invalid");
-                false
-            }
-        }
     }
 
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
-        let signature = private_key.priv_key.sign(data, None);
+    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
+        let generic_msg = GenericArray::from_slice(data);
+        let agg_signature_test = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+            &(),
+            // &msg_test.into(),
+            &generic_msg,
+            key_pair.sign_key_ref(),
+            &mut rand::thread_rng(),
+        ).unwrap();
         // Convert the signature to bytes and return
-        EncodedSignature(signature.to_vec())
+        let bytes = bincode_opts()
+            .serialize(&agg_signature_test)
+            .expect("This serialization shouldn't be able to fail");
+        // let print_bytes = String::from_utf8_lossy(&bytes);
+        EncodedSignature(bytes)
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {

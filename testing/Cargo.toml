@@ -70,10 +70,8 @@ hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
-hotshot-primitives = { git = "ssh://git@github.com/EspressoSystems/hotshot-primitives.git", branch = 'update_jellyfish_0.4.0_pre.0' }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "36dceb6", features = [
-  "std",
-] }
+hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
 # nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
@@ -98,6 +96,9 @@ console-subscriber = { version = "0.1.10"}
 tracing = "0.1.37"
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 serde = { version = "1.0.164", features = ["derive"] }
+# serde = { version = "1.0.163", features = ["derive"] } # Sishan NOTE TODO: change to this version if last one cannot work
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
 
 [dev-dependencies]
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
