@@ -3,11 +3,11 @@ use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
-use hotshot_types::message::SequencingMessage;
 use crate::test_builder::TimingData;
 use crate::test_launcher::ResourceGenerators;
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_types::message::Message;
+use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -97,7 +97,7 @@ impl TestMetadata {
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         <I as NodeImplementation<TYPES>>::Exchanges:
             SequencingExchangesType<TYPES, Message<TYPES, I>>,
-            I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
         let TestMetadata {
             total_nodes,

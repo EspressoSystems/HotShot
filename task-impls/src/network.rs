@@ -286,7 +286,7 @@ impl<
 
         match transmit_result {
             Ok(()) => {}
-            Err(e) => error!("Failed to send message from network task: {:?}", message)
+            Err(e) => error!("Failed to send message from network task: {:?}", e),
         }
 
         return None;
