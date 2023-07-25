@@ -322,6 +322,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         | ConsensusIntentEvent::CancelPollForProposal(event_view)
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
+                        | ConsensusIntentEvent::CancelPollForTransactions(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number != event_view {
                                 panic!("Wrong event view number was sent to this task!");

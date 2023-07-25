@@ -65,7 +65,7 @@ struct WebServerState<KEY> {
 
     /// index -> transaction
     // TODO ED Make indexable by hash of tx
-    transactions: Vec<Vec<u8>>,
+    transactions: HashMap<u64, Vec<u8>>,
     txn_lookup: HashMap<Vec<u8>, u64>,
     /// highest transaction index
     num_txns: u64,
@@ -90,7 +90,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             shutdown: None,
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
-            transactions: Vec::new(),
+            transactions: HashMap::new(),
             txn_lookup: HashMap::new(),
             _prng: StdRng::from_entropy(),
             view_sync_proposals: HashMap::new(),
@@ -228,12 +228,10 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut txns_to_return = vec![];
         let mut txn_vec_size = 0;
 
-        // Hopefully the compiler will make this loop more efficient
-        for i in (index as usize % MAX_TXNS)..self.transactions.len() {
-            let tx = self.transactions[i].clone();
-            // TODO ED Break prematurely if response is getting too large
-            txn_vec_size += tx.len();
-            txns_to_return.push(tx);
+        for idx in index..=self.transactions.len().try_into().unwrap() {
+            if let Some(txn) = self.transactions.get(&idx) {
+                txns_to_return.push(txn.clone())
+            }
         }
 
         if !txns_to_return.is_empty() {
@@ -379,7 +377,12 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
         // Will continually write over old transactions older than MAX_TXNS
-        self.transactions.insert(self.num_txns as usize % MAX_TXNS, txn);
+        // self.transactions.insert(self.num_txns as usize % MAX_TXNS, txn);
+        if self.transactions.len() >= MAX_TXNS {
+            self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
+        }
+        self.txn_lookup.insert(txn.clone(), self.num_txns);
+        self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
         error!(
