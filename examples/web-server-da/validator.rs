@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
 
-use crate::infra::ValidatorArgs;
+use hotshot_orchestrator::client::ValidatorArgs;
 
 pub mod types;
 

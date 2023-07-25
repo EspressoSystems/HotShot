@@ -1,4 +1,4 @@
-use crate::infra::{load_config_from_file, OrchestratorArgs, OrchestratorClient, ValidatorArgs};
+use crate::infra::{load_config_from_file, OrchestratorArgs};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
@@ -18,6 +18,7 @@ use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_types::message::DataMessage;
 use hotshot_orchestrator::{
     self,
+    client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
