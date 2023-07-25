@@ -266,7 +266,10 @@ where
                     return None;
                 }
 
-                error!("Got a DA block with {} transactions!", proposal.data.deltas.contained_transactions().len());
+                error!(
+                    "Got a DA block with {} transactions!",
+                    proposal.data.deltas.contained_transactions().len()
+                );
                 let block_commitment = proposal.data.deltas.commit();
 
                 // ED Is this the right leader?
@@ -424,6 +427,14 @@ where
                         (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
                     )
                     .await;
+                if !self.committee_exchange.is_leader(self.cur_view + 3) {
+                    self.committee_exchange
+                    .network()
+                    .inject_consensus_info(
+                        (ConsensusIntentEvent::PollForTransactions(*self.cur_view + 3)),
+                    )
+                    .await;
+                }
 
                 // TODO ED Make this a new task so it doesn't block main DA task
 
@@ -497,7 +508,10 @@ where
                 let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
-
+                self.committee_exchange
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
+                    .await;
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;

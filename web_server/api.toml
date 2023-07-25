@@ -74,6 +74,14 @@ DOC = """
 Post a transaction to the web server
 """
 
+# POST a transaction removal
+[route.postcompletedtransaction]
+PATH = ["transactionscomplet"]
+METHOD = "POST"
+DOC = """
+Post a transaction removal to the web server
+"""
+
 # POST stake table
 [route.poststaketable]
 PATH = ["staketable"]

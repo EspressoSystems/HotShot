@@ -2050,7 +2050,12 @@ where
                     kind: MessageKind::from(message),
                     _phantom: PhantomData,
                 },
-                &self.inner.exchanges.committee_exchange().membership().clone(),
+                &self
+                    .inner
+                    .exchanges
+                    .committee_exchange()
+                    .membership()
+                    .clone(),
             )
             .await?;
         Ok(())

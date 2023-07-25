@@ -7,14 +7,15 @@ use async_std::future::TimeoutError;
 use futures::future::BoxFuture;
 use hotshot_task::BoxSyncFuture;
 use libp2p_networking::network::NetworkNodeHandleError;
+use nll::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
@@ -142,6 +143,8 @@ pub enum ConsensusIntentEvent {
     PollForViewSyncVotes(u64),
     /// Poll for view sync proposals (certificates) for a particular view
     PollForViewSyncCertificate(u64),
+    /// Poll for new transactions
+    PollForTransactions(u64),
     /// Cancel polling for votes
     CancelPollForVotes(u64),
     /// Cancel polling for votes
@@ -152,6 +155,8 @@ pub enum ConsensusIntentEvent {
     CancelPollForDAC(u64),
 
     CancelPollForViewSyncCertificate(u64),
+
+    CancelPollForTransactions(u64),
 }
 
 impl ConsensusIntentEvent {
@@ -167,6 +172,8 @@ impl ConsensusIntentEvent {
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number,
+            ConsensusIntentEvent::PollForTransactions(v) => *v,
+            ConsensusIntentEvent::CancelPollForTransactions(v) => *v,
         }
     }
 }
