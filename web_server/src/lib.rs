@@ -27,9 +27,9 @@ type Error = ServerError;
 
 // TODO ED: Below values should be in a config file
 /// How many views to keep in memory
-const MAX_VIEWS: usize = 100;
+const MAX_VIEWS: usize = 25;
 /// How many transactions to keep in memory
-const MAX_TXNS: usize = 500;
+const MAX_TXNS: usize = 250;
 /// How many transactions to return at once
 const TX_BATCH_SIZE: u64 = 1;
 

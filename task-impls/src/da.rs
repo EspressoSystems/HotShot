@@ -486,6 +486,11 @@ where
                 let mut block = <TYPES as NodeType>::StateType::next_block(None);
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
+                self.committee_exchange
+                .network()
+                .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
+                .await;
+
                 for txn in txns {
                     if let Ok(new_block) = block.add_transaction_raw(&txn) {
                         block = new_block;
@@ -509,10 +514,7 @@ where
                 let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
-                self.committee_exchange
-                    .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
-                    .await;
+   
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;
