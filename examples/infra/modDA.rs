@@ -363,7 +363,7 @@ pub trait RunDA<
                         EventType::Decide {
                             leaf_chain,
                             qc,
-                            num_block,
+                            block_size,
                         } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
@@ -375,8 +375,8 @@ pub trait RunDA<
                                 }
                             }
 
-                            if num_block.is_some() {
-                                total_transactions += num_block.unwrap();
+                            if block_size.is_some() {
+                                total_transactions += block_size.unwrap();
                             }
 
                             num_successful_commits += leaf_chain.len();
