@@ -1,9 +1,10 @@
 use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
+use hotshot_orchestrator::client::ValidatorArgs;
 use tracing::instrument;
 
 use crate::{
-    infra::{main_entry_point, ValidatorArgs},
+    infra::main_entry_point,
     types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun},
 };
 

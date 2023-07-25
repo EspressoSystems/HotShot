@@ -1,6 +1,7 @@
-use crate::infra::{main_entry_point, ValidatorArgs};
+use crate::infra::main_entry_point;
 use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
+use hotshot_orchestrator::client::ValidatorArgs;
 use tracing::instrument;
 
 use crate::types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun};
