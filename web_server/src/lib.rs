@@ -229,13 +229,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut txns_to_return = vec![];
         let mut txn_vec_size = 0;
 
-        // let mut new_index = index as usize; 
+        let mut new_index = index as usize; 
 
-        // if index < (self.num_txns as usize - MAX_TXNS) {
-        //     new_index = self.num_txns - MAX_TXNS
-        // }
+        if index as usize < (self.num_txns  - MAX_TXNS) {
+            new_index = self.num_txns  - MAX_TXNS
+        }
 
-        for idx in index..=self.transactions.len().try_into().unwrap() {
+        for idx in new_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&idx) {
                 txns_to_return.push(txn.clone())
             }
