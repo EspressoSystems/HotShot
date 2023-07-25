@@ -428,6 +428,7 @@ where
                     )
                     .await;
                 if self.committee_exchange.is_leader(self.cur_view + 3) {
+                    error!("Polling for transactions for view {}", *self.cur_view + 3);
                     self.committee_exchange
                     .network()
                     .inject_consensus_info(
