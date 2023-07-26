@@ -568,7 +568,7 @@ where
             Either::Left(block) => block.contained_transactions(),
             Either::Right(_commitment) => HashSet::new(),
         };
-        previous_used_txns.clear(); 
+        
         let consensus = self.consensus.read().await;
 
         let receiver = consensus.transactions.subscribe().await;
