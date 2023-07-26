@@ -564,10 +564,11 @@ where
         let task_start_time = Instant::now();
 
         // let parent_leaf = self.parent_leaf().await?;
-        let previous_used_txns = match parent_leaf.deltas {
+        let mut previous_used_txns = match parent_leaf.deltas {
             Either::Left(block) => block.contained_transactions(),
             Either::Right(_commitment) => HashSet::new(),
         };
+        previous_used_txns.clear(); 
         let consensus = self.consensus.read().await;
 
         let receiver = consensus.transactions.subscribe().await;
