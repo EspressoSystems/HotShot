@@ -31,7 +31,7 @@ const MAX_VIEWS: usize = 25;
 /// How many transactions to keep in memory
 const MAX_TXNS: usize = 250;
 /// How many transactions to return at once
-const TX_BATCH_SIZE: u64 = 5;
+const TX_BATCH_SIZE: u64 = 1;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
