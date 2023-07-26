@@ -1,4 +1,4 @@
-use crate::infra::{load_config_from_file, OrchestratorArgs, OrchestratorClient, ValidatorArgs};
+use crate::infra::{load_config_from_file, OrchestratorArgs};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
@@ -17,6 +17,7 @@ use hotshot::{
 use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_orchestrator::{
     self,
+    client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
@@ -380,11 +381,7 @@ pub trait RunDA<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide {
-                            leaf_chain,
-                            qc,
-                            num_block,
-                        } => {
+                        EventType::Decide { leaf_chain, qc, block_size } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -395,8 +392,8 @@ pub trait RunDA<
                                 }
                             }
 
-                            if num_block.is_some() {
-                                total_transactions += num_block.unwrap();
+                            if block_size.is_some() {
+                                total_transactions += block_size.unwrap();
                             }
 
                             num_successful_commits += leaf_chain.len();

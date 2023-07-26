@@ -6,6 +6,7 @@ use async_compatibility_layer::async_primitives::subscribable_rwlock::Subscribab
 use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
+use bincode::Options;
 use commit::Commitment;
 use commit::Committable;
 use either::Either;
@@ -44,6 +45,7 @@ use hotshot_types::{
     },
     vote::VoteAccumulator,
 };
+use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -237,15 +239,28 @@ where
         event: SequencingHotShotEvent<TYPES, I>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            SequencingHotShotEvent::TransactionRecv(transaction) => {
+            SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
-                self.consensus
-                    .read()
-                    .await
+                let consensus = self.consensus.read().await;
+                consensus
                     .get_transactions()
                     .modify(|txns| {
-                        let _new = txns.insert(transaction.commit(), transaction).is_none();
+                        for transaction in transactions {
+                            let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
+                            // If we didn't already know about this transaction, update our mempool metrics.
+                            if txns.insert(transaction.commit(), transaction).is_none() {
+                                consensus.metrics.outstanding_transactions.update(1);
+                                consensus
+                                    .metrics
+                                    .outstanding_transactions_memory_size
+                                    .update(i64::try_from(size).unwrap_or_else(|e| {
+                                        warn!("Conversion failed: {e}. Using the max value.");
+                                        i64::MAX
+                                    }));
+                            }
+                        }
                     })
                     .await;
 
@@ -259,9 +274,10 @@ where
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.get_view_number();
 
-                // This should still be fine to do because we shouldn't be receiving a DA proposal for a view less than the one we are currently in
-                if view < self.cur_view {
-                    error!("Throwing away DA proposal");
+                // Allow a DA proposal that is one view older, in case we have voted on a quorum
+                // proposal and updated the view.
+                if view < self.cur_view - 1 {
+                    error!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
 
@@ -554,6 +570,7 @@ where
 
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
             let txns = consensus.transactions.cloned().await;
+            error!("Size of transactions: {}", txns.len());
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
@@ -595,7 +612,7 @@ where
             SequencingHotShotEvent::DAProposalRecv(_, _)
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::TransactionRecv(_)
+            | SequencingHotShotEvent::TransactionsRecv(_)
             | SequencingHotShotEvent::Timeout(_)
             | SequencingHotShotEvent::ViewChange(_) => true,
             _ => false,
