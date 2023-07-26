@@ -34,7 +34,7 @@ use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
 use hotshot_types::{
     certificate::DACertificate,
-    data::{LeafType, ProposalType, SequencingLeaf, ViewNumber},
+    data::{ProposalType, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -477,10 +477,7 @@ where
 
                 drop(consensus);
 
-                let mut block = <TYPES as NodeType>::StateType::next_block(
-                    parent_leaf.get_deltas_commitment(),
-                    None,
-                );
+                let mut block = <TYPES as NodeType>::StateType::next_block(None);
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
                 for txn in txns {

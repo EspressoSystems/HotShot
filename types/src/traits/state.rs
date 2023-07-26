@@ -46,15 +46,8 @@ pub trait State:
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
-    /// Returns an empty, template next block.
-    ///
-    /// The next block may depend on a commitment to the previous block. It may also depend on the
-    /// contents of the current state, if available. In sequencing consensus, `state` will be
-    /// [`None`].
-    fn next_block(
-        parent: commit::Commitment<Self::BlockType>,
-        state: Option<Self>,
-    ) -> Self::BlockType;
+    /// Returns an empty, template next block given this current state
+    fn next_block(prev_commitment: Option<Self>) -> Self::BlockType;
 
     /// Returns true if and only if the provided block is valid and can extend this state
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool;
@@ -171,10 +164,7 @@ pub mod dummy {
         type BlockType = DummyBlock;
         type Time = ViewNumber;
 
-        fn next_block(
-            parent: commit::Commitment<Self::BlockType>,
-            state: Option<Self>,
-        ) -> Self::BlockType {
+        fn next_block(state: Option<Self>) -> Self::BlockType {
             match state {
                 Some(state) => DummyBlock { nonce: state.nonce },
                 None => unimplemented!(),
