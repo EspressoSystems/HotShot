@@ -475,9 +475,9 @@ pub trait RunDA<
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in s{total_time_elapsed:?}  {timed_out_views} rounds timed out. s{total_size}s total bytes submitted");
-        error!("Total commitments: {num_successful_commits}");
-        error!("Total transactions committed: {total_transactions}");
+        error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
+        // error!("Total commitments: s{num_successful_commits}s");
+        // error!("Total transactions committed: s{total_transactions}");
     }
 
     /// Returns the da network for this run
@@ -641,6 +641,7 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
+        // Each node runs the DA network so that leaders have access to transactions and DA votes
         let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
             WebCommChannel::new(
                 WebServerNetwork::create(
