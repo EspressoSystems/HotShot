@@ -127,7 +127,7 @@ pub trait WebServerDataSource<KEY> {
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
-    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error>;
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
@@ -225,7 +225,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
     /// In the future we will return batches of transactions
-    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+    fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error> {
         let mut txns_to_return = vec![];
         let mut txn_vec_size = 0;
 
@@ -251,7 +251,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             error!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some(txns_to_return))
+            Ok(Some((new_index.try_into().unwrap(), txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
