@@ -22,13 +22,21 @@ async fn test_basic() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_with_failures() {
-    use hotshot_testing::spinning_task::SpinningTaskDescription;
+    use std::time::Duration;
+
+    use hotshot_testing::{spinning_task::SpinningTaskDescription, overall_safety_task::OverallSafetyPropertiesDescription, completion_task::TimeBasedCompletionTaskDescription};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata = hotshot_testing::test_builder::TestMetadata {
         total_nodes: 20,
         start_nodes: 20,
+        num_bootstrap_nodes: 20,
+        completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
+        // overall_safety_properties: OverallSafetyPropertiesDescription {
+        //     threshold_calculator: std::sync::Arc::new(|_, _| {10}),
+        //     ..Default::default()
+        // },
         ..hotshot_testing::test_builder::TestMetadata::default()
     };
     let dead_nodes = vec![

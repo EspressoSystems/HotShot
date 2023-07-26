@@ -31,7 +31,7 @@ use hotshot_types::{
 use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::marker::PhantomData;
-use tracing::info;
+use tracing::{info, error};
 
 use crate::test_runner::Node;
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
@@ -253,12 +253,12 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
                 num_no_progress += 1;
             }
         }
-        info!(
+        error!(
             "states for this view {:#?}\nblocks for this view {:#?}",
             states, blocks
         );
 
-        info!(
+        error!(
             "Number of nodes who made zero progress: {:#?}",
             num_no_progress
         );
@@ -282,7 +282,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         }
 
         if check_block {
-            for (block, num_nodes) in blocks {
+            for (block, num_nodes) in blocks.clone() {
                 if num_nodes >= threshold {
                     result_block = Some(block.clone());
                     self.success = true;
@@ -292,6 +292,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
 
             if let None = result_block {
                 self.success = false;
+                error!("Inconsistent blocks, blocks: {:?}", blocks);
                 return Err(OverallSafetyTaskErr::InconsistentBlocks);
             }
         }
