@@ -829,6 +829,8 @@ where
                         }
                         #[allow(clippy::cast_precision_loss)]
                         if new_decide_reached {
+                            let mut included_txn_size = 0;
+                            let mut included_txn_count = 0;
                             consensus
                                 .transactions
                                 .modify(|txns| {
@@ -836,6 +838,10 @@ where
                                         .drain()
                                         .filter(|(txn_hash, txn)| {
                                             if included_txns_set.contains(txn_hash) {
+                                                included_txn_count += 1;
+                                                included_txn_size += bincode_opts()
+                                                    .serialized_size(txn)
+                                                    .unwrap_or_default();
                                                 false
                                             } else {
                                                 true
@@ -844,6 +850,14 @@ where
                                         .collect();
                                 })
                                 .await;
+                            consensus
+                                .metrics
+                                .outstanding_transactions
+                                .update(-included_txn_count);
+                            consensus
+                                .metrics
+                                .outstanding_transactions_memory_size
+                                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
                             warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {

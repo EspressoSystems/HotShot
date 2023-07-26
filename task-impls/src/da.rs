@@ -6,6 +6,7 @@ use async_compatibility_layer::async_primitives::subscribable_rwlock::Subscribab
 use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
+use bincode::Options;
 use commit::Commitment;
 use commit::Committable;
 use either::Either;
@@ -44,6 +45,7 @@ use hotshot_types::{
     },
     vote::VoteAccumulator,
 };
+use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -241,13 +243,24 @@ where
             SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
-                self.consensus
-                    .read()
-                    .await
+                let consensus = self.consensus.read().await;
+                consensus
                     .get_transactions()
                     .modify(|txns| {
                         for transaction in transactions {
-                            txns.insert(transaction.commit(), transaction);
+                            let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
+                            // If we didn't already know about this transaction, update our mempool metrics.
+                            if txns.insert(transaction.commit(), transaction).is_none() {
+                                consensus.metrics.outstanding_transactions.update(1);
+                                consensus
+                                    .metrics
+                                    .outstanding_transactions_memory_size
+                                    .update(i64::try_from(size).unwrap_or_else(|e| {
+                                        warn!("Conversion failed: {e}. Using the max value.");
+                                        i64::MAX
+                                    }));
+                            }
                         }
                     })
                     .await;
