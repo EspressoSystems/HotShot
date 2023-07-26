@@ -26,6 +26,7 @@ use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
+use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::network::ConsensusIntentEvent;
@@ -426,20 +427,29 @@ where
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
 
                 // TODO ED Only poll if you are on the committee
-                self.committee_exchange
-                    .network()
-                    .inject_consensus_info(
-                        (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
-                    )
-                    .await;
+                let is_da = self
+                    .committee_exchange
+                    .membership()
+                    .get_committee(self.cur_view + 1)
+                    .contains(self.committee_exchange.public_key());
+
+                if is_da {
+                    error!("Polling for DA proposals for view {}", *self.cur_view + 1);
+                    self.committee_exchange
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
+                        )
+                        .await;
+                }
                 if self.committee_exchange.is_leader(self.cur_view + 3) {
                     error!("Polling for transactions for view {}", *self.cur_view + 3);
                     self.committee_exchange
-                    .network()
-                    .inject_consensus_info(
-                        (ConsensusIntentEvent::PollForTransactions(*self.cur_view + 3)),
-                    )
-                    .await;
+                        .network()
+                        .inject_consensus_info(
+                            (ConsensusIntentEvent::PollForTransactions(*self.cur_view + 3)),
+                        )
+                        .await;
                 }
 
                 // TODO ED Make this a new task so it doesn't block main DA task
@@ -492,9 +502,9 @@ where
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
                 self.committee_exchange
-                .network()
-                .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
-                .await;
+                    .network()
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
+                    .await;
 
                 for txn in txns {
                     if let Ok(new_block) = block.add_transaction_raw(&txn) {
@@ -519,7 +529,7 @@ where
                 let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
-   
+
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;
@@ -568,7 +578,7 @@ where
             Either::Left(block) => block.contained_transactions(),
             Either::Right(_commitment) => HashSet::new(),
         };
-        
+
         let consensus = self.consensus.read().await;
 
         let receiver = consensus.transactions.subscribe().await;
