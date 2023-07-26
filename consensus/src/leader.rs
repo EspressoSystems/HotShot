@@ -185,7 +185,6 @@ where
             .add_point(task_start_time.elapsed().as_secs_f64());
 
         let proposal_build_start = Instant::now();
-
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = ValidatingLeaf {
                 view_number: self.cur_view,
@@ -198,7 +197,7 @@ where
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: pk.to_bytes(),
             };
-            let signature = self
+            let (signature, ver_key) = self
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
@@ -206,6 +205,7 @@ where
                 ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
                     data,
                     signature,
+                    ver_key,
                 }));
             consensus
                 .metrics

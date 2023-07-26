@@ -30,6 +30,12 @@ use hotshot_types::{
 };
 use tracing::{debug, info, warn};
 
+use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
+use ethereum_types::U256;
+use rand_chacha::ChaCha20Rng;
+
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
@@ -177,6 +183,7 @@ where
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
+
         let mut results = vec![];
         for _i in 0..count {
             tracing::error!("running node{}", _i);
@@ -259,11 +266,19 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
+        let known_nodes_qc = config.known_nodes_qc.clone();
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
+        // Generate key pair for certificate aggregation
+        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+            [0_u8; 32],
+            (node_id as u64).try_into().unwrap(),
+        );
+        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
+        let entry = StakeTableEntry {
+            stake_key: key_pair.ver_key(),
+            stake_amount: U256::from(1u8),
+        };
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -274,6 +289,7 @@ where
         let committee_election_config = I::committee_election_config_generator();
 
         let exchanges = I::Exchanges::create(
+            known_nodes_qc.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,
@@ -282,8 +298,9 @@ where
             // TODO ED Add view sync network here
             (quorum_network, nll_todo(), committee_network),
             public_key.clone(),
+            key_pair.clone(),
+            entry.clone(),
             private_key.clone(),
-            ek.clone(),
         );
         let handle = SystemContext::init(
             public_key,
@@ -541,6 +558,7 @@ pub mod test {
         vote::DAVote,
     };
     use jf_primitives::signatures::BLSSignatureScheme;
+    use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(
@@ -561,7 +579,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = JfPubKey<BLSSignatureScheme>;
+        type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;

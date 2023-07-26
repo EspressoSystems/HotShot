@@ -86,6 +86,10 @@ tokio = { version = "1", optional = true, features = [
     "tracing",
 ] }
 tracing = "0.1.37"
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
+bit-vec = "0.6.3"
+typenum = { version = "1.16.0" }
 
 [dev-dependencies]
 serde_json = "1.0.96"

@@ -68,6 +68,11 @@ use std::{
 };
 #[allow(deprecated)]
 use tracing::error;
+use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
+use rand_chacha::ChaCha20Rng;
+use ethereum_types::U256;
 
 // ORCHESTRATOR
 
@@ -109,6 +114,20 @@ pub fn load_config_from_file<TYPES: NodeType>(
             .0
         })
         .collect();
+
+    config.config.known_nodes_qc = (0..config.config.total_nodes.get())
+    .map(|node_id| {
+        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+                config.seed,
+                node_id.try_into().unwrap(),
+            );
+        let entry = StakeTableEntry {
+                stake_key: QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed)).ver_key(),
+                stake_amount: U256::from(1u8),
+            };
+        entry
+    })
+    .collect();
 
     config
 }
@@ -245,10 +264,18 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
+        // Get KeyPair for certificate Aggregation
+        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+            config.seed,
+            config.node_index.try_into().unwrap(),
+        );
+        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
+        let entry = StakeTableEntry {
+            stake_key: key_pair.ver_key(),
+            stake_amount: U256::from(1u8),
+        };
         let known_nodes = config.config.known_nodes.clone();
+        let known_nodes_qc = config.config.known_nodes_qc.clone();
 
         let network = self.get_network();
 
@@ -267,13 +294,15 @@ pub trait Run<
         });
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_qc.clone(),
             known_nodes.clone(),
             (election_config.clone(), ()),
             //Kaley todo: add view sync network
             (network.clone(), nll_todo(), ()),
             pk.clone(),
+            key_pair.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         let hotshot = SystemContext::init(
             pk,

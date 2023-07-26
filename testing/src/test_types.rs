@@ -27,7 +27,7 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-use jf_primitives::signatures::BLSSignatureScheme;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme};
 use serde::{Deserialize, Serialize};
 
 // #[derive(
@@ -76,8 +76,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme>>;
+    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSOverBN254CurveSignatureScheme>>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;

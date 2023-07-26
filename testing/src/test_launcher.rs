@@ -16,6 +16,12 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
+use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
+use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use ethereum_types::U256;
 
 /// generators for resources used by each node
 pub struct ResourceGenerators<
@@ -68,6 +74,7 @@ where
     pub(super) round: Round<TYPES, I>,
 }
 
+
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 where
@@ -79,6 +86,7 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
+    
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(metadata: TestMetadata, round: Round<TYPES, I>) -> Self
@@ -106,6 +114,23 @@ where
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
+        let known_nodes_qc: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
+        .map(|id| {
+            let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+                [0_u8; 32],
+                (id as u64).try_into().unwrap(),
+            );
+
+            let entry = StakeTableEntry {
+                stake_key: QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed)).ver_key(),
+                stake_amount: U256::from(1u8),
+            };
+
+            entry
+
+        })
+        .collect();
+
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
@@ -113,7 +138,8 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            da_committee_size,
+            known_nodes_qc,
+            da_committee_size: NonZeroUsize::new(da_committee_size).unwrap().into(),
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,

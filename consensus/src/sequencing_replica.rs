@@ -264,7 +264,7 @@ where
                                         }
                                         // Validate the signature.
                                         else if !view_leader_key
-                                            .validate(&p.signature, leaf_commitment.as_ref())
+                                            .validate(p.ver_key, &p.signature, leaf_commitment.as_ref())
                                         {
                                             warn!(?p.signature, "Could not verify proposal.");
                                             message = self.quorum_exchange.create_no_message(

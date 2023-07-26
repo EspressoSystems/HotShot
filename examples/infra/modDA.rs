@@ -54,6 +54,13 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
+
+use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use hotshot_primitives::qc::bit_vector::StakeTableEntry;
+use ethereum_types::U256;
+use rand_chacha::ChaCha20Rng;
+
 use hotshot_web_server::config::{DEFAULT_WEB_SERVER_DA_PORT, DEFAULT_WEB_SERVER_VIEW_SYNC_PORT};
 use nll::nll_todo::nll_todo;
 // use libp2p::{
@@ -235,14 +242,23 @@ pub trait RunDA<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed,
-        ));
         let known_nodes = config.config.known_nodes.clone();
+        let known_nodes_qc = config.config.known_nodes_qc.clone();
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
         let view_sync_network = self.get_view_sync_network();
+
+        // Get KeyPair for certificate Aggregation
+        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+            config.seed,
+            config.node_index.try_into().unwrap(),
+        );
+        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
+        let entry = StakeTableEntry {
+            stake_key: key_pair.ver_key(),
+            stake_amount: U256::from(1u8),
+        };
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
@@ -260,6 +276,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_qc.clone(),
             known_nodes.clone(),
             (quorum_election_config, _committee_election_config),
             (
@@ -268,8 +285,9 @@ pub trait RunDA<
                 da_network.clone(),
             ),
             pk.clone(),
+            key_pair.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
 
         let hotshot = SystemContext::init(

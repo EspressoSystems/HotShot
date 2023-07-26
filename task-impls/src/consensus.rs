@@ -61,6 +61,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
+use bitvec::prelude::*;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{error, info, instrument, warn};
@@ -227,6 +228,7 @@ where
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
                     &vote.signature.1,
+                    vote.signature.2,
                     vote.leaf_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
@@ -574,7 +576,7 @@ where
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 error!(
-                    "Receved Quorum Propsoal for view {}",
+                    "Received Quorum Propsoal for view {}",
                     *proposal.data.view_number
                 );
 
@@ -673,7 +675,7 @@ where
                         }
                         // Validate the signature.
                         else if !view_leader_key
-                            .validate(&proposal.signature, leaf_commitment.as_ref())
+                            .validate(proposal.ver_key, &proposal.signature, leaf_commitment.as_ref())
                         {
                             error!(?proposal.signature, "Could not verify proposal.");
                             message = self.quorum_exchange.create_no_message(
@@ -965,21 +967,27 @@ where
 
                         let acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: self.quorum_exchange.success_threshold(),
                             failure_threshold: self.quorum_exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: bitvec![0; self.quorum_exchange.total_nodes()],
                         };
+
                         // Todo check if we are the leader
                         let accumulator = self.quorum_exchange.accumulate_vote(
-                            &vote.signature.0,
-                            &vote.signature.1,
-                            vote.leaf_commitment,
-                            vote.vote_data.clone(),
-                            vote.vote_token.clone(),
-                            vote.current_view,
+                            &vote.clone().signature.0,
+                            &vote.clone().signature.1,
+                            vote.clone().signature.2,
+                            vote.clone().leaf_commitment,
+                            vote.clone().vote_data.clone(),
+                            vote.clone().vote_token.clone(),
+                            vote.clone().current_view,
                             acc,
                             None,
                         );
@@ -1189,7 +1197,7 @@ where
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.api.public_key().to_bytes(),
                 };
-                let signature = self
+                let (signature, ver_key) = self
                     .quorum_exchange
                     .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
                 // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1200,11 +1208,13 @@ where
                     justify_qc: consensus.high_qc.clone(),
                     proposer_id: leaf.proposer_id,
                     dac: None,
+                    ver_key: ver_key,
                 };
 
                 let message = Proposal {
                     data: proposal,
                     signature,
+                    ver_key,
                 };
                 // warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 warn!("Sending proposal for view {:?}", message.data.clone());
@@ -1320,7 +1330,7 @@ where
         };
         // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
 
-        let signature = self
+        let (signature, ver_key) = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1331,11 +1341,13 @@ where
             justify_qc: consensus.high_qc.clone(),
             proposer_id: leaf.proposer_id,
             dac: None,
+            ver_key: ver_key,
         };
 
         let message = Proposal {
             data: proposal,
             signature,
+            ver_key,
         };
         error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 
