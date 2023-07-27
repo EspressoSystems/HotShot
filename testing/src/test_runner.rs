@@ -1,20 +1,15 @@
-use crate::{
-    round::{Round, RoundCtx, RoundResult},
-    test_errors::ConsensusTestError,
-    test_launcher::TestLauncher,
-};
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+use super::overall_safety_task::OverallSafetyTask;
+use super::overall_safety_task::RoundCtx;
+use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use crate::test_launcher::TestLauncher;
+use hotshot::types::SystemContextHandle;
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_task::{
-    event_stream::ChannelStream, global_registry::GlobalRegistry, task::FilterEvent,
-    task_launcher::TaskRunner,
+    event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -28,21 +23,9 @@ use hotshot_types::{
     HotShotConfig,
 };
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
-use std::{collections::HashMap, sync::Arc};
-use tracing::{debug, info, warn};
-
-use crate::overall_safety_task::OverallSafetyTaskErr;
-
-use super::overall_safety_task::OverallSafetyTask;
-use super::overall_safety_task::RoundCtx;
-use super::{
-    completion_task::{self, CompletionTask},
-    test_launcher::TestLauncher,
-    txn_task::TxnTask,
-};
-use hotshot::types::SystemContextHandle;
+use std::sync::Arc;
+use tracing::info;
 
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {

@@ -4,21 +4,20 @@ use std::{
 };
 
 use async_compatibility_layer::art::async_sleep;
-use futures::{future::BoxFuture, FutureExt};
+use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
-    global_registry::{GlobalRegistry, HotShotTaskId},
+    global_registry::GlobalRegistry,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
 use hotshot_types::traits::node_implementation::NodeType;
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 
-use crate::{test_runner::Node, GlobalTestEvent};
+use crate::{test_launcher::TaskFuture, test_runner::Node, GlobalTestEvent};
 
 #[derive(Snafu, Debug)]
 pub struct SpinningTaskErr {}
@@ -76,8 +75,7 @@ impl SpinningTaskDescription {
             SpinningTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     > {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {

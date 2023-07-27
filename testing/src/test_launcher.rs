@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_compatibility_layer::channel::UnboundedStream;
 use futures::future::BoxFuture;
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_task::{
@@ -10,7 +9,6 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 use hotshot_types::{
-    event::Event,
     message::Message,
     traits::{
         election::ConsensusExchange,
@@ -38,6 +36,9 @@ pub type QuorumNetworkGenerator<TYPES, I, T> =
 pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
 pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
+
+/// A box future for a hotshot task.
+pub type TaskFuture = BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>;
 
 /// generators for resources used by each node
 pub struct ResourceGenerators<
@@ -82,12 +83,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
     pub metadata: TestMetadata,
     /// overrideable txn task generator function
     pub txn_task_generator: Box<
-        dyn FnOnce(
-            TxnTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
     >,
     /// overrideable timeout task generator function
     pub completion_task_generator: Box<
@@ -95,8 +91,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             CompletionTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     >,
     /// overall safety task generator
     pub overall_safety_task_generator: Box<
@@ -104,8 +99,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             OverallSafetyTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     >,
 
     pub spinning_task_generator: Box<
@@ -113,21 +107,10 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             SpinningTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     >,
 
-    pub hooks: Vec<
-        Box<
-            dyn FnOnce(
-                GlobalRegistry,
-                ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
-        >,
-    >,
+    pub hooks: Vec<Box<dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture>>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
@@ -151,10 +134,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 OverallSafetyTask<TYPES, I>,
                 GlobalRegistry,
                 ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
+            ) -> TaskFuture,
         >,
     ) -> Self {
         Self {
@@ -171,10 +151,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 SpinningTask<TYPES, I>,
                 GlobalRegistry,
                 ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
+            ) -> TaskFuture,
         >,
     ) -> Self {
         Self {
@@ -191,10 +168,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 CompletionTask<TYPES, I>,
                 GlobalRegistry,
                 ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
+            ) -> TaskFuture,
         >,
     ) -> Self {
         Self {
@@ -211,10 +185,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 TxnTask<TYPES, I>,
                 GlobalRegistry,
                 ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
+            ) -> TaskFuture,
         >,
     ) -> Self {
         Self {
@@ -234,15 +205,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     /// add a hook
     pub fn add_hook(
         mut self,
-        hook: Box<
-            dyn FnOnce(
-                GlobalRegistry,
-                ChannelStream<GlobalTestEvent>,
-            ) -> BoxFuture<
-                'static,
-                (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>),
-            >,
-        >,
+        hook: Box<dyn FnOnce(GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture>,
     ) -> Self {
         self.hooks.push(hook);
         self

@@ -1,27 +1,19 @@
+use crate::test_runner::Node;
 use async_compatibility_layer::art::async_sleep;
-use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::SequencingConsensusApi;
+use futures::FutureExt;
+use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
     global_registry::GlobalRegistry,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, TaskErr, TS},
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-use hotshot_types::message::DataMessage;
-use hotshot_types::message::Message;
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
-use hotshot_types::traits::state::ConsensusTime;
 use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};
-
-use crate::test_runner::Node;
 
 use super::test_launcher::TaskFuture;
 use super::GlobalTestEvent;
@@ -72,12 +64,7 @@ impl TxnTaskDescription {
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
     ) -> Box<
-        dyn FnOnce(
-            TxnTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
     > {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {

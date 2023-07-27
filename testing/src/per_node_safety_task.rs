@@ -168,7 +168,7 @@
 //             ChannelStream<GlobalTestEvent>,
 //             UnboundedStream<Event<TYPES, I::Leaf>>,
 //         )
-//             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+//             -> TaskFuture,
 //     > {
 //         Box::new(
 //             move |state, mut registry, test_event_stream, hotshot_event_stream| {

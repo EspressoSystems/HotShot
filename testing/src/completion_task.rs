@@ -1,15 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use async_compatibility_layer::art::async_sleep;
+use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-        TS,
-    },
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };

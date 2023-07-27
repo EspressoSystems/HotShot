@@ -5,7 +5,7 @@ use std::{
 };
 
 use async_compatibility_layer::channel::UnboundedStream;
-use futures::{future::BoxFuture, FutureExt};
+use futures::FutureExt;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     HotShotError,
@@ -13,10 +13,8 @@ use hotshot::{
 use hotshot_task::task::TS;
 use hotshot_task::{
     event_stream::ChannelStream,
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-    },
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
@@ -27,12 +25,10 @@ use hotshot_types::{
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
-use std::marker::PhantomData;
-use tracing::{error, info};
+use tracing::error;
 
-use crate::test_runner::Node;
+use crate::{test_launcher::TaskFuture, test_runner::Node};
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
 use super::GlobalTestEvent;
@@ -352,8 +348,7 @@ impl OverallSafetyPropertiesDescription {
             OverallSafetyTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     > {
         let Self {
             check_leaf,
