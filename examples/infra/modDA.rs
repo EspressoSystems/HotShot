@@ -404,8 +404,10 @@ pub trait RunDA<
                                 tracing::error!("view finished: {:?}", view_number);
                                 for _ in 0..transactions_per_round {
                                     let txn = txns.pop_front().unwrap();
+
                                     tracing::error!("Submitting txn on round {}", round);
-                                    if (round + 10) % (node_index + 1) <= 10 {
+                                    if round % total_nodes_u64 == 0 {
+                                    // if (round + 10) % (node_index + 1) <= 10 {
                                         let result = api
                                             .send_transaction(DataMessage::SubmitTransaction(
                                                 txn.clone(),
