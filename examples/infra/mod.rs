@@ -330,7 +330,6 @@ pub trait Run<
         error!("Generated {} transactions", tx_to_gen);
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut timed_out_views: u64 = 0;
         let mut round = 1;
         let mut total_transactions = 0;
 
@@ -352,6 +351,7 @@ pub trait Run<
                     let txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
                     context.submit_transaction(txn).await.unwrap();
+                    total_transactions += 1;
                 }
                 should_submit_txns = false;
             }
@@ -396,6 +396,8 @@ pub trait Run<
                     }
                 }
             }
+
+            round += 1;
         }
 
         // while round <= rounds {
@@ -441,7 +443,7 @@ pub trait Run<
         let total_size = total_transactions * (padding as u64);
         //
         // // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
     }
 
     /// Returns the network for this run

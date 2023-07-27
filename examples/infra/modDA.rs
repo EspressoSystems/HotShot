@@ -313,7 +313,6 @@ pub trait RunDA<
         error!("Generated {} transactions", tx_to_gen);
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut timed_out_views: u64 = 0;
         let mut round = 0;
         let mut total_transactions = 0;
 
@@ -414,6 +413,8 @@ pub trait RunDA<
                     }
                 }
             }
+
+            round += 1;
         }
         // while round <= rounds {
         //     error!("Round {}:", round);
@@ -460,7 +461,7 @@ pub trait RunDA<
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
         error!("Total commitments: {num_successful_commits}");
         error!("Total transactions committed: {total_transactions}");
     }

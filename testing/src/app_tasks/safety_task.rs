@@ -9,7 +9,7 @@ use super::{
 };
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::{future::BoxFuture, FutureExt};
-use hotshot::traits::TestableNodeImplementation;
+use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_task::{
     event_stream::ChannelStream,
     global_registry::GlobalRegistry,
@@ -258,7 +258,7 @@ pub type SafetyTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     SafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,
-    Event<TYPES, I::Leaf>,
-    UnboundedStream<Event<TYPES, I::Leaf>>,
+    Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    UnboundedStream<Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
     SafetyTask<TYPES, I>,
 >;
