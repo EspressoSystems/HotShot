@@ -41,4 +41,3 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     // Event to send DA block data from DA leader to next quorum leader (which should always be the same node)
     SendDABlockData(TYPES::BlockType),
 }
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> PassType for SequencingHotShotEvent<TYPES, I> {}

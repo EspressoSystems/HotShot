@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
-use snafu::Snafu;
 
 // context for a round
 // TODO eventually we want these to just be futures
@@ -39,14 +38,12 @@ pub struct ViewFailed<TYPES: NodeType>(pub Arc<HotShotError<TYPES>>);
 
 #[derive(Debug, Clone)]
 pub struct ViewSuccess<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// Transactions that were committed
-    pub txns: Vec<TYPES::Transaction>,
     /// state after decide event
-    pub agreed_state: Option<LEAF::MaybeState>,
+    pub agreed_state: LEAF::MaybeState,
 
     /// block after decide event
-    pub agreed_block: Option<LEAF::DeltasType>,
+    pub agreed_block: LEAF::DeltasType,
 
     /// leaf after decide event
-    pub agreed_leaf: Option<LEAF>,
+    pub agreed_leaf: LEAF,
 }
