@@ -568,10 +568,10 @@ where
 
         let receiver = consensus.transactions.subscribe().await;
 
-        while task_start_time.elapsed() < self.api.propose_max_round_time() {
-            let txns = consensus.transactions.cloned().await;
-            error!("Size of transactions: {}", txns.len());
-            let unclaimed_txns: Vec<_> = txns
+        loop {
+            let all_txns = consensus.transactions.cloned().await;
+            error!("Size of transactions: {}", all_txns.len());
+            let unclaimed_txns: Vec<_> = all_txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
                 .collect();
@@ -597,13 +597,20 @@ where
                     Ok(Ok(_)) => continue,
                 }
             }
-            let mut txns = vec![];
-            for (_hash, txn) in unclaimed_txns {
-                txns.push(txn.clone());
-            }
-            return Some(txns);
+            break;
         }
-        None
+        let all_txns = consensus.transactions.cloned().await;
+        let txns: Vec<TYPES::Transaction> = all_txns
+            .iter()
+            .filter_map(|(txn_hash, txn)| {
+                if !previous_used_txns.contains(txn_hash) {
+                    Some(txn.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        return Some(txns);
     }
 
     /// Filter the DA event.
