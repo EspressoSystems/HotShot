@@ -2,13 +2,12 @@ use crate::events::SequencingHotShotEvent;
 use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HotShotTaskCompleted, TaskErr, TS},
+    task::{FilterEvent, HotShotTaskCompleted, TS},
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
+use hotshot_types::message::Message;
 use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
-use hotshot_types::message::{DataMessage, Message};
-use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::{GeneralConsensusMessage, MessageKind, Messages},
@@ -63,7 +62,7 @@ impl<
     > NetworkMessageTaskState<TYPES, I>
 {
     /// Handle the message.
-    pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>, id: u64) {
+    pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>) {
         // We will send only one event for a vector of transactions.
         let mut transactions = Vec::new();
         for message in messages {

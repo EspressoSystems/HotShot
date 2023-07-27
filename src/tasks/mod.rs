@@ -14,9 +14,7 @@ use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-    },
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
     task_impls::TaskBuilder,
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
@@ -367,7 +365,7 @@ where
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
             async move {
-                state.handle_messages(messages.0, id).await;
+                state.handle_messages(messages.0).await;
                 (None, state)
             }
             .boxed()

@@ -13,7 +13,7 @@ use hotshot_task::task::HotShotTaskTypes;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TaskErr, TS},
+    task::{FilterEvent, TS},
     task_impls::HSTWithEvent,
 };
 use hotshot_types::traits::election::Membership;

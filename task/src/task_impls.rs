@@ -238,7 +238,7 @@ pub mod test {
 
     use crate::event_stream;
     use crate::event_stream::ChannelStream;
-    use crate::task::{PassType, TaskErr, TS};
+    use crate::task::TS;
 
     use super::{HSTWithEvent, HSTWithEventAndMessage, HSTWithMessage};
     use crate::event_stream::EventStream;

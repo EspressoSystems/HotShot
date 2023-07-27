@@ -180,7 +180,7 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
 
 #[cfg(test)]
 pub mod test {
-    use crate::{event_stream::EventStream, task::PassType, StreamExt};
+    use crate::{event_stream::EventStream, StreamExt};
     use async_compatibility_layer::art::{async_sleep, async_spawn};
     use std::time::Duration;
 

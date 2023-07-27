@@ -15,8 +15,7 @@ use hotshot_task::{
     event_stream::ChannelStream,
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-        TaskErr,
+        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
     },
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,

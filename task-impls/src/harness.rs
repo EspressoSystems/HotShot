@@ -5,7 +5,7 @@ use futures::FutureExt;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::{
     event_stream::{self, ChannelStream},
-    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS},
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };

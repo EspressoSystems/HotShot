@@ -1,4 +1,3 @@
-use hotshot_task::task::PassType;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::data::{DAProposal, ViewNumber};
 use hotshot_types::message::Proposal;

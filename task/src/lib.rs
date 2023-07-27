@@ -48,19 +48,21 @@ pub mod task_launcher;
 /// the task implementations with different features
 pub mod task_impls;
 
-// merge `N` streams of the same type
+/// merge `N` streams of the same type
 #[pin_project]
 pub struct MergeN<T: Stream> {
+    /// Streams to be merged.
     #[pin]
     streams: Vec<Fuse<T>>,
-    // idx to start polling
+    /// idx to start polling
     idx: usize,
 }
 
 impl<T: Stream> MergeN<T> {
     /// create a new stream
+    #[must_use]
     pub fn new(streams: Vec<T>) -> MergeN<T> {
-        let fused_streams = streams.into_iter().map(|x| x.fuse()).collect();
+        let fused_streams = streams.into_iter().map(StreamExt::fuse).collect();
         MergeN {
             streams: fused_streams,
             idx: 0,
@@ -81,6 +83,7 @@ impl<T: Stream + Sync + Send + 'static> SendableStream for MergeN<T> {}
 // slices.
 //
 // From: https://github.com/rust-lang/rust/pull/78370/files
+/// Get a pinned mutable pointer from a list.
 pub(crate) fn get_pin_mut_from_vec<T, I>(
     slice: Pin<&mut Vec<T>>,
     index: I,
@@ -299,9 +302,8 @@ impl<O> Stream for GeneratedStream<O> {
             }
             None => {
                 let wrapped_fut = (*projection.generator)();
-                let mut fut = match wrapped_fut {
-                    Some(fut) => fut,
-                    None => return Poll::Ready(None),
+                let Some( mut fut )=  wrapped_fut else {
+                    return Poll::Ready(None);
                 };
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {

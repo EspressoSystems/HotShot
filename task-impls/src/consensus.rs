@@ -4,6 +4,7 @@ use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
+use bincode::Options;
 use commit::Committable;
 use core::time::Duration;
 use either::Either;
@@ -20,7 +21,7 @@ use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
 use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::data::LeafType;
@@ -49,6 +50,7 @@ use hotshot_types::{
     },
     vote::{QuorumVote, VoteAccumulator},
 };
+use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::collections::HashSet;

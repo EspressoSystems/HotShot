@@ -5,7 +5,7 @@ use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
-use commit::Commitment;
+use bincode::config::Options;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
@@ -18,7 +18,7 @@ use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_types::data::DAProposal;
@@ -597,7 +597,6 @@ where
             SequencingHotShotEvent::DAProposalRecv(_, _)
                 | SequencingHotShotEvent::DAVoteRecv(_)
                 | SequencingHotShotEvent::Shutdown
-                | SequencingHotShotEvent::TransactionRecv(_)
                 | SequencingHotShotEvent::Timeout(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )

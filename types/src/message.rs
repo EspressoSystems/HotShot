@@ -21,7 +21,6 @@ use crate::{
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
-use hotshot_task::task::PassType;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
