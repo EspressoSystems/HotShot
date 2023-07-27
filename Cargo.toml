@@ -166,7 +166,7 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 num = "0.4.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.171", features = ["derive", "rc"] }
+serde = { version = "1.0.176", features = ["derive", "rc"] }
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
 time = "0.3.23"
