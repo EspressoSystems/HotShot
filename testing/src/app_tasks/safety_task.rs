@@ -2,39 +2,29 @@
 
 use std::{ops::Deref, sync::Arc};
 
-use async_compatibility_layer::channel::UnboundedStream;
-use either::Either;
-use futures::{
-    future::{BoxFuture, LocalBoxFuture},
-    FutureExt,
+use super::{
+    node_ctx::{NodeCtx, ViewFailed, ViewStatus, ViewSuccess},
+    test_launcher::TaskFuture,
+    GlobalTestEvent,
 };
+use async_compatibility_layer::channel::UnboundedStream;
+use futures::{future::BoxFuture, FutureExt};
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     event_stream::ChannelStream,
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-        HST, TS,
-    },
-    task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, TaskErr, TS},
+    task_impls::{HSTWithEventAndMessage, TaskBuilder},
 };
 use hotshot_types::{
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use tracing::log::warn;
 
-use crate::test_errors::ConsensusTestError;
-
-use super::{
-    completion_task::CompletionTask,
-    node_ctx::{NodeCtx, ViewFailed, ViewStatus, ViewSuccess},
-    GlobalTestEvent,
-};
-
 // TODO
+/// Properties to describe the overall safety.
 #[derive(Clone, Debug)]
 pub struct OverallSafetyPropertiesDescription {}
 
@@ -42,7 +32,9 @@ pub struct OverallSafetyPropertiesDescription {}
 #[derive(Snafu, Debug)]
 pub enum SafetyTaskErr {
     // TODO make this more detailed
+    /// There are too many failures.
     TooManyFailures,
+    /// The number of decides isn't enough.
     NotEnoughDecides,
 }
 impl TaskErr for SafetyTaskErr {}
@@ -74,7 +66,9 @@ pub enum SafetyTaskDescription<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
 > {
+    /// General properties.
     GenProperties(NodeSafetyPropertiesDescription),
+    /// Customized propoerties.
     CustomProperties(SafetyFinisher<TYPES, I>),
 }
 
@@ -130,7 +124,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                 async move {
                     let mut num_failed = 0;
                     let mut num_decided = 0;
-                    for (_view_num, view_status) in &ctx.round_results {
+                    for view_status in ctx.round_results.values() {
                         match view_status {
                             ViewStatus::InProgress(_) => {}
                             ViewStatus::ViewFailed(_) => {
@@ -171,8 +165,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
             UnboundedStream<Event<TYPES, I::Leaf>>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     > {
         Box::new(
             move |state, mut registry, test_event_stream, hotshot_event_stream| {
@@ -190,13 +183,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                             Ok(()) => HotShotTaskCompleted::ShutDown,
                                             Err(err) => HotShotTaskCompleted::Error(Box::new(err)),
                                         };
-                                        return (Some(result), state);
+                                        (Some(result), state)
                                         // return (Some(HotShotTaskCompleted, finisher(state.ctx).await)
                                         // TODO run lambda on gathered state
                                         // return (Some(HotShotTaskCompleted::ShutDown), state);
-                                    }
-                                    _ => {
-                                        unimplemented!()
                                     }
                                 }
                             }
@@ -216,7 +206,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                             ViewStatus::ViewFailed(ViewFailed(error)),
                                         );
                                     }
-                                    EventType::Decide { leaf_chain, qc, .. } => {
+                                    EventType::Decide { .. } => {
                                         // for leaf in leaf_chain {
                                         // TODO how to test this
                                         // }
@@ -232,9 +222,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
                                         );
                                     }
                                     // these aren't failures
-                                    EventType::ReplicaViewTimeout { view_number }
-                                    | EventType::NextLeaderViewTimeout { view_number }
-                                    | EventType::ViewFinished { view_number } => {}
+                                    EventType::ReplicaViewTimeout { view_number: _ }
+                                    | EventType::NextLeaderViewTimeout { view_number: _ }
+                                    | EventType::ViewFinished { view_number: _ } => {}
                                     _ => todo!(),
                                 }
                                 (None, state)
@@ -263,11 +253,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     }
 }
 
-// /// Data Availability task types
-pub type SafetyTaskTypes<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-> = HSTWithEventAndMessage<
+/// Data Availability task types
+pub type SafetyTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     SafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,

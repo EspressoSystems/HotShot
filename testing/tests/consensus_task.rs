@@ -81,6 +81,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -1,34 +1,30 @@
-use async_compatibility_layer::{art::async_sleep, channel::UnboundedStream};
-use either::Either::{self, Left, Right};
-use futures::{future::BoxFuture, FutureExt};
+use async_compatibility_layer::art::async_sleep;
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_task::{
     boxed_sync,
-    event_stream::{ChannelStream, SendableStream},
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-        HST, TS,
-    },
-    task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder},
-    GeneratedStream, Merge,
+    event_stream::ChannelStream,
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, TaskErr, TS},
+    task_impls::{HSTWithEventAndMessage, TaskBuilder},
+    GeneratedStream,
 };
 use hotshot_types::message::DataMessage;
 use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};
 
 use crate::test_runner::Node;
 
-use super::{completion_task::CompletionTaskTypes, GlobalTestEvent, TestTask};
+use super::test_launcher::TaskFuture;
+use super::GlobalTestEvent;
 
 // the obvious idea here is to pass in a "stream" that completes every `n` seconds
 // the stream construction can definitely be fancier but that's the baseline idea
@@ -41,7 +37,9 @@ impl TaskErr for TxnTaskErr {}
 /// state of task that decides when things are completed
 pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     // TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
+    /// Handles for all nodes.
     pub handles: Vec<Node<TYPES, I>>,
+    /// Optional index of the next node.
     pub next_node_idx: Option<usize>,
 }
 
@@ -51,15 +49,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 }
 
 /// types for task that deices when things are completed
-pub type TxnTaskTypes<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> =
-    HSTWithEventAndMessage<
-        TxnTaskErr,
-        GlobalTestEvent,
-        ChannelStream<GlobalTestEvent>,
-        (),
-        GeneratedStream<()>,
-        TxnTask<TYPES, I>,
-    >;
+pub type TxnTaskTypes<TYPES, I> = HSTWithEventAndMessage<
+    TxnTaskErr,
+    GlobalTestEvent,
+    ChannelStream<GlobalTestEvent>,
+    (),
+    GeneratedStream<()>,
+    TxnTask<TYPES, I>,
+>;
 
 /// build the transaction task
 #[derive(Clone, Debug)]
@@ -76,12 +73,7 @@ impl TxnTaskDescription {
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
     ) -> Box<
-        dyn FnOnce(
-            TxnTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
     >
     where
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -107,18 +99,14 @@ impl TxnTaskDescription {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
-                                    return (Some(HotShotTaskCompleted::ShutDown), state);
-                                }
-                                // TODO
-                                _ => {
-                                    unimplemented!()
+                                    (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
                             }
                         }
                         .boxed()
                     }));
                 let message_handler =
-                    HandleMessage::<TxnTaskTypes<TYPES, I>>(Arc::new(move |msg, mut state| {
+                    HandleMessage::<TxnTaskTypes<TYPES, I>>(Arc::new(move |_, mut state| {
                         async move {
                             if let Some(idx) = state.next_node_idx {
                                 // submit to idx handle
@@ -152,7 +140,7 @@ impl TxnTaskDescription {
                                         ))
                                         .await
                                         .expect("Could not send transaction");
-                                        return (None, state);
+                                        (None, state)
                                     }
                                 }
                             } else {

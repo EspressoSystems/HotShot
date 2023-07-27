@@ -13,14 +13,10 @@ use hotshot_types::traits::signature_key::{
     EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    // hash_to_group::TEHashToGroup,
-    signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-        SignatureScheme,
-    },
-    vrf::Vrf,
+use jf_primitives::signatures::{
+    // bls_over_bls12381::{BLSSignature, BLSVerKey},
+    BLSSignatureScheme,
+    SignatureScheme,
 };
 
 #[allow(deprecated)]

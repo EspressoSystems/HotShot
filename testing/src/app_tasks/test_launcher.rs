@@ -16,6 +16,9 @@ use super::{
     test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
 };
 
+/// A boxed future of a task.
+pub type TaskFuture = BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>;
+
 /// test launcher
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
 {
@@ -25,12 +28,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
     pub metadata: TestMetadata,
     /// overrideable txn task generator function
     pub txn_task_generator: Box<
-        dyn FnOnce(
-            TxnTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
     >,
     /// overrideable safety task generator function
     pub per_node_safety_task_generator: Box<
@@ -39,8 +37,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
             UnboundedStream<Event<TYPES, I::Leaf>>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     >,
     /// overrideable timeout task generator function
     pub completion_task_generator: Box<
@@ -48,8 +45,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Co
             CompletionTask<TYPES, I>,
             GlobalRegistry,
             ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+        ) -> TaskFuture,
     >,
 }
 
@@ -58,6 +54,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 {
     // TODO overrides
 
+    /// Launch the test.
     pub fn launch(self) -> TestRunner<TYPES, I> {
         TestRunner {
             launcher: self,

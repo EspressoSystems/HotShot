@@ -1,6 +1,11 @@
 use rand::SeedableRng;
 use std::sync::Arc;
 
+use super::{
+    completion_task::CompletionTask, node_ctx::NodeCtx, safety_task::SafetyTask,
+    test_launcher::TestLauncher, txn_task::TxnTask,
+};
+use crate::{test_errors::ConsensusTestError, test_runner::Node};
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
@@ -8,10 +13,7 @@ use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task::FilterEvent,
     task_launcher::TaskRunner,
 };
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -23,17 +25,6 @@ use hotshot_types::{
         node_implementation::{NodeType, QuorumCommChannel, QuorumEx},
     },
     HotShotConfig,
-};
-use nll::nll_todo::nll_todo;
-
-use crate::{test_errors::ConsensusTestError, test_runner::Node};
-
-use super::{
-    completion_task::{self, CompletionTask},
-    node_ctx::NodeCtx,
-    safety_task::SafetyTask,
-    test_launcher::TestLauncher,
-    txn_task::TxnTask,
 };
 
 /// The runner of a test network
@@ -66,15 +57,6 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
-        Self {
-            nodes: Vec::new(),
-            next_node_id: 0,
-            launcher,
-            task_runner: TaskRunner::default(),
-        }
-    }
-
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
@@ -96,7 +78,7 @@ where
         let TestRunner {
             launcher,
             nodes,
-            next_node_id,
+            next_node_id: _,
             mut task_runner,
         } = self;
         let registry = GlobalRegistry::default();
@@ -131,7 +113,7 @@ where
             let safety_task_state = SafetyTask {
                 ctx: NodeCtx::default(),
             };
-            let (stream, stream_id) = node
+            let (stream, _) = node
                 .handle
                 .get_event_stream_known_impl(FilterEvent::default())
                 .await;
@@ -156,6 +138,7 @@ where
         Ok(())
     }
 
+    /// Add `count` nodes to the network. These will be spawned with the default node config and state.
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,

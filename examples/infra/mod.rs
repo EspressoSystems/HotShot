@@ -1,11 +1,7 @@
-use async_compatibility_layer::{
-    art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
-use futures::Future;
 use futures::StreamExt;
 use hotshot::{
     traits::{
@@ -26,9 +22,9 @@ use hotshot_task::task::FilterEvent;
 use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::{data::ViewNumber, vote::ViewSyncVote};
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
-    data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
@@ -52,6 +48,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
@@ -270,6 +267,7 @@ pub trait Run<
             known_nodes.clone(),
             (election_config.clone(), ()),
             //Kaley todo: add view sync network
+            #[allow(deprecated)]
             (network.clone(), nll_todo(), ()),
             pk.clone(),
             sk.clone(),
@@ -362,13 +360,13 @@ pub trait Run<
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
                 }
-                Some(Event { view_number, event }) => {
+                Some(Event { event, .. }) => {
                     match event {
                         EventType::Error { error } => {
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, .. } => {
+                        EventType::Decide { leaf_chain, .. } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 let new_anchor = leaf.view_number;
@@ -858,15 +856,8 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key,
-                nll_todo(),
-                false,
-            )
-            .into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, false)
+                .into(),
         );
         WebServerRun { config, network }
     }

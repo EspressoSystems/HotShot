@@ -1,12 +1,4 @@
-use async_compatibility_layer::art::async_sleep;
-use futures::stream::unfold;
-use futures::Future;
-use futures::{stream::Unfold, Stream};
-use hotshot_task::event_stream::SendableStream;
 use hotshot_task::{event_stream::ChannelStream, task::PassType, task_impls::HSTWithEvent};
-use rand::{prelude::Distribution, thread_rng};
-use std::marker::PhantomData;
-use std::time::Duration;
 
 ///  builder
 pub mod test_builder;
@@ -34,18 +26,24 @@ pub mod node_ctx;
 
 // TODO node changer (spin up and down)
 
+/// Event for global testing.
 #[derive(Clone, Debug)]
 pub enum GlobalTestEvent {
+    /// shutdown event.
     ShutDown,
 }
 
 impl PassType for GlobalTestEvent {}
 
+/// Reason for shutdown.
 pub enum ShutDownReason {
+    /// There's a safety violation.
     SafetyViolation,
+    /// The task is completed.
     SuccessfullyCompleted,
 }
 
+/// Task for testing.
 pub type TestTask<ERR, STATE> =
     HSTWithEvent<ERR, GlobalTestEvent, ChannelStream<GlobalTestEvent>, STATE>;
 

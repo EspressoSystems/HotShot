@@ -1,14 +1,9 @@
-use nll::nll_todo::nll_todo;
-use rand::SeedableRng;
-use std::{collections::HashMap, sync::Arc};
-
 use crate::{
     round::{Round, RoundCtx, RoundResult},
     test_errors::ConsensusTestError,
     test_launcher::TestLauncher,
 };
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-use console_subscriber;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{Message, SystemContextHandle},
@@ -28,6 +23,10 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
+use rand::SeedableRng;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{debug, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -40,6 +39,7 @@ pub type QuorumNetworkGenerator<TYPES, I, T> =
 /// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
+/// Wrapper Type for view sync function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
 /// The runner of a test network
@@ -59,9 +59,12 @@ where
     next_node_id: u64,
 }
 
+/// A node with an ID and event stream handle.
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+    /// ID of the node.
     pub node_id: u64,
+    /// Handle of the event stream.
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
@@ -280,6 +283,7 @@ where
                 committee_election_config(config.da_committee_size as u64),
             ),
             // TODO ED Add view sync network here
+            #[allow(deprecated)]
             (quorum_network, nll_todo(), committee_network),
             public_key.clone(),
             private_key.clone(),
@@ -370,9 +374,10 @@ where
         let mut results = HashMap::new();
 
         info!("EXECUTOR: running one round");
-        for handle in self.nodes() {
+        for _handle in self.nodes() {
             info!("STARTING ONE ROUND");
             // TODO (justin) fix this. we need long running tasks
+            #[allow(deprecated)]
             let _: () = nll_todo();
             // handle.start_one_round().await;
         }
@@ -382,6 +387,7 @@ where
             info!("EXECUTOR: COLLECTING NODE {:?}", node.node_id.clone());
             // let result = node.handle.collect_round_events().await;
             // TODO (justin) fix this. we need long running tasks
+            #[allow(deprecated)]
             let result = nll_todo();
             info!(
                 "EXECUTOR: collected node {:?} results: {}",
@@ -511,7 +517,6 @@ where
 
 #[cfg(test)]
 pub mod test {
-    use ark_bls12_381::Parameters as Param381;
     use hotshot::{
         demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
         traits::{
@@ -519,10 +524,7 @@ pub mod test {
                 static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
                 vrf::JfPubKey,
             },
-            implementations::{
-                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
-                WebCommChannel,
-            },
+            implementations::{MemoryCommChannel, MemoryStorage, WebCommChannel},
             NodeImplementation,
         },
     };
@@ -542,7 +544,6 @@ pub mod test {
     };
     use jf_primitives::signatures::BLSSignatureScheme;
     use serde::{Deserialize, Serialize};
-    use tracing::instrument;
     #[derive(
         Copy,
         Clone,

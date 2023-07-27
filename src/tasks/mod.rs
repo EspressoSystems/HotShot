@@ -391,13 +391,11 @@ where
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
     let networking_task = NetworkMessageTaskTypes::build(networking_task_builder).launch();
 
-    let task_runner = task_runner.add_task(
+    task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    );
-
-    task_runner
+    )
 }
 
 /// Add the network task to handle events and send messages.
@@ -473,13 +471,11 @@ where
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
     let networking_task = NetworkEventTaskTypes::build(networking_task_builder).launch();
 
-    let task_runner = task_runner.add_task(
+    task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    );
-
-    task_runner
+    )
 }
 
 /// add the consensus task

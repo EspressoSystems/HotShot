@@ -4,7 +4,6 @@ use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
-use bincode::config::Options;
 use commit::Committable;
 use core::time::Duration;
 use either::Either;
@@ -50,7 +49,6 @@ use hotshot_types::{
     },
     vote::{QuorumVote, VoteAccumulator},
 };
-use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -819,12 +817,8 @@ where
                                 .modify(|txns| {
                                     *txns = txns
                                         .drain()
-                                        .filter(|(txn_hash, txn)| {
-                                            if included_txns_set.contains(txn_hash) {
-                                                false
-                                            } else {
-                                                true
-                                            }
+                                        .filter(|(txn_hash, _)| {
+                                            !included_txns_set.contains(txn_hash)
                                         })
                                         .collect();
                                 })

@@ -61,7 +61,6 @@ use hotshot_consensus::{
     ConsensusSharedApi, DALeader, DAMember, NextValidatingLeader, Replica, SequencingReplica,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, traits::election::Membership};
@@ -162,8 +161,10 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<TYPES::Time>>>>,
 
     // global_registry: GlobalRegistry,
+    /// Access to the output event stream.
     output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
-    // /// access to the internal event stream, in case we need to, say, shut something down
+
+    /// access to the internal event stream, in case we need to, say, shut something down
     internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 
     /// uid for instrumentation
@@ -272,7 +273,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         })
     }
 
-    /// "Starts" consensus by sending a ViewChange event
+    /// "Starts" consensus by sending a `ViewChange` event
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
@@ -371,6 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
     }
 
     /// Returns a copy of the consensus struct
+    #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
         self.inner.consensus.clone()
     }

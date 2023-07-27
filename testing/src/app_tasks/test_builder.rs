@@ -38,11 +38,11 @@ pub struct TestMetadata {
     /// per-node safety property description
     /// TODO rename this
     pub per_node_safety_properties: NodeSafetyPropertiesDescription,
-    // overall safety property description
+    /// overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
-    // txns timing
+    /// txns timing
     pub txn_description: TxnTaskDescription,
-    // completion task
+    /// completion task
     pub completion_task_description: CompletionTaskDescription,
     /// Minimum transactions required for a block
     pub min_transactions: usize,
@@ -82,6 +82,7 @@ impl Default for TestMetadata {
 }
 
 impl TestMetadata {
+    /// Generate a tets launcher.
     pub fn gen_launcher<
         TYPES: NodeType,
         I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
