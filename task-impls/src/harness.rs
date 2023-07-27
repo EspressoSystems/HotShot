@@ -36,7 +36,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for TestHarnessState<TYPE
 
 #[derive(Snafu, Debug)]
 pub struct TestHarnessTaskError {}
-impl TaskErr for TestHarnessTaskError {}
 
 pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessTaskError,

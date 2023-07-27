@@ -76,7 +76,7 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
 
-    /// Send a direct message.
+    /// send direct message to node
     async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 
@@ -190,8 +190,6 @@ pub mod test {
         Two,
         Three,
     }
-
-    impl PassType for TestMessage {}
 
     #[cfg(test)]
     #[cfg_attr(

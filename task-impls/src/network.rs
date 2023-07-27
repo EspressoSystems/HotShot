@@ -63,53 +63,64 @@ impl<
     > NetworkMessageTaskState<TYPES, I>
 {
     /// Handle the message.
-    pub async fn handle_message(&mut self, message: Message<TYPES, I>) {
-        let sender = message.sender;
-        let event = match message.kind {
-            MessageKind::Consensus(consensus_message) => match consensus_message.0 {
-                Either::Left(general_message) => match general_message {
-                    GeneralConsensusMessage::Proposal(proposal) => {
-                        SequencingHotShotEvent::QuorumProposalRecv(proposal, sender)
-                    }
-                    GeneralConsensusMessage::Vote(vote) => {
-                        SequencingHotShotEvent::QuorumVoteRecv(vote)
-                    }
-                    GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
-                        SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
-                    }
-                    GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
-                        SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
-                    }
-                    _ => {
-                        error!("Got unexpected message type in network task!");
-                        return;
-                    }
-                },
-                Either::Right(committee_message) => match committee_message {
-                    CommitteeConsensusMessage::DAProposal(proposal) => {
-                        SequencingHotShotEvent::DAProposalRecv(proposal, sender)
-                    }
-                    CommitteeConsensusMessage::DAVote(vote) => {
-                        // error!("DA Vote message recv {:?}", vote.current_view);
-                        SequencingHotShotEvent::DAVoteRecv(vote)
-                    }
-                    CommitteeConsensusMessage::DACertificate(cert) => {
-                        // panic!("Recevid DA C! ");
-                        SequencingHotShotEvent::DACRecv(cert)
-                    }
-                },
-            },
-            MessageKind::Data(message) => {
-                match message {
-                    // ED Why do we need the view number in the transaction?
-                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
-                        SequencingHotShotEvent::TransactionRecv(transaction)
-                    }
+    pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>, id: u64) {
+        // We will send only one event for a vector of transactions.
+        let mut transactions = Vec::new();
+        for message in messages {
+            let sender = message.sender;
+            match message.kind {
+                MessageKind::Consensus(consensus_message) => {
+                    let event = match consensus_message.0 {
+                        Either::Left(general_message) => match general_message {
+                            GeneralConsensusMessage::Proposal(proposal) => {
+                                SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
+                            }
+                            GeneralConsensusMessage::Vote(vote) => {
+                                SequencingHotShotEvent::QuorumVoteRecv(vote.clone())
+                            }
+                            GeneralConsensusMessage::ViewSyncVote(view_sync_message) => {
+                                SequencingHotShotEvent::ViewSyncVoteRecv(view_sync_message)
+                            }
+                            GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
+                                SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
+                            }
+                            _ => {
+                                error!("Got unexpected message type in network task!");
+                                return;
+                            }
+                        },
+                        Either::Right(committee_message) => match committee_message {
+                            CommitteeConsensusMessage::DAProposal(proposal) => {
+                                SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                            }
+                            CommitteeConsensusMessage::DAVote(vote) => {
+                                // error!("DA Vote message recv {:?}", vote.current_view);
+                                SequencingHotShotEvent::DAVoteRecv(vote.clone())
+                            }
+                            CommitteeConsensusMessage::DACertificate(cert) => {
+                                // panic!("Recevid DA C! ");
+                                SequencingHotShotEvent::DACRecv(cert)
+                            }
+                        },
+                    };
+                    // TODO (Keyao benchmarking) Update these event variants (similar to the
+                    // `TransactionsRecv` event) so we can send one event for a vector of messages.
+                    // <https://github.com/EspressoSystems/HotShot/issues/1428>
+                    self.event_stream.publish(event).await;
                 }
-            }
-            MessageKind::_Unreachable(_) => unimplemented!(),
-        };
-        self.event_stream.publish(event).await;
+                MessageKind::Data(message) => match message {
+                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
+                        transactions.push(transaction)
+                    }
+                },
+                MessageKind::_Unreachable(_) => unimplemented!(),
+            };
+        }
+        if !transactions.is_empty() {
+            self.event_stream
+                .publish(SequencingHotShotEvent::TransactionsRecv(transactions))
+                .await;
+        }
     }
 }
 
@@ -236,15 +247,6 @@ impl<
                     Some(membership.get_leader(vote.round() + vote.relay())),
                 )
             }
-            SequencingHotShotEvent::TransactionSend(transaction, sender) => (
-                sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from(DataMessage::SubmitTransaction(
-                    transaction,
-                    TYPES::Time::new(*self.view),
-                )),
-                TransmitType::Broadcast,
-                None,
-            ),
             SequencingHotShotEvent::ViewChange(view) => {
                 // only if view actually changes
                 self.view = view;
@@ -307,7 +309,6 @@ impl<
                 | SequencingHotShotEvent::DAVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::ViewChange(_)
-                | SequencingHotShotEvent::TransactionSend(_, _)
         )
     }
 
@@ -324,7 +325,6 @@ impl<
 
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
-impl TaskErr for NetworkTaskError {}
 
 pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkTaskError,

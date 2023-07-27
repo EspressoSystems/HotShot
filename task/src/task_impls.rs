@@ -257,8 +257,6 @@ pub mod test {
     #[derive(Snafu, Debug)]
     pub struct Error {}
 
-    impl TaskErr for Error {}
-
     #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub struct State {}
 
@@ -273,21 +271,15 @@ pub mod test {
         Dummy,
     }
 
-    impl PassType for Event {}
-
     impl TS for State {}
-    impl PassType for State {}
 
     impl TS for CounterState {}
-    impl PassType for CounterState {}
 
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub enum Message {
         Finished,
         Dummy,
     }
-
-    impl PassType for Message {}
 
     // TODO fill in generics for stream
 

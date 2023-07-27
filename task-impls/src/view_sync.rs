@@ -61,7 +61,6 @@ pub struct ViewSyncTaskInfo {
 
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError {}
 
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,

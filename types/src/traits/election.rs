@@ -294,6 +294,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let leaf_commitment = qc.leaf_commitment();
 
         if leaf_commitment != commit {
+            error!("Leaf commitment does not equal parent commitment");
             return false;
         }
 

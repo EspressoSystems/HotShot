@@ -25,7 +25,6 @@ use super::{test_launcher::TaskFuture, GlobalTestEvent};
 /// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct CompletionTaskErr {}
-impl TaskErr for CompletionTaskErr {}
 
 /// Data availability task state
 pub struct CompletionTask<
@@ -51,7 +50,6 @@ pub type CompletionTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     CompletionTask<TYPES, I>,
 >;
 
-// TODO this is broken. Need to communicate to handles to kill everything
 /// Description for a time-based completion task.
 #[derive(Clone, Debug)]
 pub struct TimeBasedCompletionTaskDescription {
@@ -102,10 +100,6 @@ impl TimeBasedCompletionTaskDescription {
     > {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
-                // TODO we'll possibly want multiple criterion including:
-                // - certain number of txns committed
-                // - anchor of certain depth
-                // - some other stuff? probably?
                 let event_handler =
                     HandleEvent::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
                         async move {
@@ -138,7 +132,7 @@ impl TimeBasedCompletionTaskDescription {
                     let fut = async move {
                         async_sleep(self.duration).await;
                     };
-                    boxed_sync(fut)
+                    Some(boxed_sync(fut))
                 }));
                 let builder = TaskBuilder::<CompletionTaskTypes<TYPES, I>>::new(
                     "Test Completion Task".to_string(),

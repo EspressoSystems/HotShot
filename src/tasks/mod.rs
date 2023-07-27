@@ -294,7 +294,6 @@ pub enum GlobalEvent {
     /// dummy (TODO delete later)
     Dummy,
 }
-impl PassType for GlobalEvent {}
 
 /// Add the network task to handle messages and publish events.
 /// # Panics
@@ -339,7 +338,7 @@ where
             async_sleep(Duration::new(0, 500)).await;
             msgs
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let channel = exchange.network().clone();
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
@@ -354,7 +353,7 @@ where
             async_sleep(Duration::new(0, 500)).await;
             msgs
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
     let network_state: NetworkMessageTaskState<_, _> = NetworkMessageTaskState {
@@ -368,9 +367,7 @@ where
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
             async move {
-                for message in messages.0 {
-                    state.handle_message(message).await;
-                }
+                state.handle_messages(messages.0, id).await;
                 (None, state)
             }
             .boxed()

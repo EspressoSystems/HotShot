@@ -60,7 +60,6 @@ use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 // #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
@@ -812,17 +811,35 @@ where
                         }
                         #[allow(clippy::cast_precision_loss)]
                         if new_decide_reached {
+                            let mut included_txn_size = 0;
+                            let mut included_txn_count = 0;
                             consensus
                                 .transactions
                                 .modify(|txns| {
                                     *txns = txns
                                         .drain()
-                                        .filter(|(txn_hash, _)| {
-                                            !included_txns_set.contains(txn_hash)
+                                        .filter(|(txn_hash, txn)| {
+                                            if included_txns_set.contains(txn_hash) {
+                                                included_txn_count += 1;
+                                                included_txn_size += bincode_opts()
+                                                    .serialized_size(txn)
+                                                    .unwrap_or_default();
+                                                false
+                                            } else {
+                                                true
+                                            }
                                         })
                                         .collect();
                                 })
                                 .await;
+                            consensus
+                                .metrics
+                                .outstanding_transactions
+                                .update(-included_txn_count);
+                            consensus
+                                .metrics
+                                .outstanding_transactions_memory_size
+                                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
                             warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
@@ -1199,7 +1216,7 @@ where
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-            // This should have been added by the replica? 
+            // This should have been added by the replica?
             error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return false;
         };

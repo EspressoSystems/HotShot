@@ -32,7 +32,6 @@ use super::GlobalTestEvent;
 /// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct TxnTaskErr {}
-impl TaskErr for TxnTaskErr {}
 
 /// state of task that decides when things are completed
 pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
@@ -73,14 +72,13 @@ impl TxnTaskDescription {
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
     ) -> Box<
-        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
-    >
-    where
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        <I as NodeImplementation<TYPES>>::Exchanges:
-            SequencingExchangesType<TYPES, Message<TYPES, I>>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    {
+        dyn FnOnce(
+            TxnTask<TYPES, I>,
+            GlobalRegistry,
+            ChannelStream<GlobalTestEvent>,
+        )
+            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+    > {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
                 // consistency check
@@ -129,17 +127,10 @@ impl TxnTaskDescription {
                                             &mut thread_rng(),
                                             0,
                                         );
-
-                                        // ED Shouldn't create this each time
-                                        let api = HotShotSequencingConsensusApi {
-                                            inner: node.handle.hotshot.inner.clone(),
-                                        };
-                                        api.send_transaction(DataMessage::SubmitTransaction(
-                                            txn.clone(),
-                                            TYPES::Time::new(0),
-                                        ))
-                                        .await
-                                        .expect("Could not send transaction");
+                                        node.handle
+                                            .submit_transaction(txn.clone())
+                                            .await
+                                            .expect("Could not send transaction");
                                         (None, state)
                                     }
                                 }
@@ -158,7 +149,7 @@ impl TxnTaskDescription {
                             let fut = async move {
                                 async_sleep(duration).await;
                             };
-                            boxed_sync(fut)
+                            Some(boxed_sync(fut))
                         }))
                     }
                     TxnTaskDescription::DistributionBased => unimplemented!(),
