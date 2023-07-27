@@ -498,7 +498,6 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
-#[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct SequencingLeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
