@@ -497,6 +497,8 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                             match fut.as_mut().poll(cx) {
                                 Poll::Ready((result, state)) => {
                                     if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
                                         *self.r_val = Some(completed);
                                         let result = self.launch_shutdown_fut(cx);
                                         *self.message_stream = Some(inner_message_stream);
