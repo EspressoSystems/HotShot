@@ -25,7 +25,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
-    fmt::{Debug, Display},
+    fmt::{Debug, Display, Formatter},
     hash::Hash,
     ops::{Add, Div, Rem},
 };
@@ -226,7 +226,7 @@ pub trait ProposalType:
 /// provides an interface for resolving the commitment to a full block if the full block is
 /// available.
 pub trait DeltasType<Block: Committable>:
-    Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync
+    Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Eq + Hash + Send + Serialize + Sync
 {
     /// Errors reported by this type.
     type Error: std::error::Error;
@@ -273,7 +273,7 @@ where
         + for<'a> Deserialize<'a>
         + PartialEq
         + Eq
-        + std::hash::Hash
+        + Hash
         + Send
         + Serialize
         + Sync,
@@ -310,7 +310,7 @@ where
         + for<'a> Deserialize<'a>
         + PartialEq
         + Eq
-        + std::hash::Hash
+        + Hash
         + Send
         + Serialize
         + Sync,
@@ -361,7 +361,8 @@ pub trait LeafType:
     + Send
     + Sync
     + Eq
-    + std::hash::Hash
+    + Hash
+    + VerboselyDebug
 {
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
@@ -373,7 +374,7 @@ pub trait LeafType:
         + for<'a> Deserialize<'a>
         + PartialEq
         + Eq
-        + std::hash::Hash
+        + Hash
         + Send
         + Serialize
         + Sync;
@@ -494,9 +495,62 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
     pub proposer_id: EncodedPublicKey,
 }
 
+/// verbosity of logging
+#[derive(Clone, Copy)]
+pub struct Verbosity(pub usize);
+
+/// custom logging
+pub struct VerboseDebug<'a, T: VerboselyDebug + ?Sized> {
+    /// the verbosity level
+    pub verbosity: Verbosity,
+    /// the inner container
+    pub field: &'a T,
+}
+
+impl<'a, T: VerboselyDebug> Debug for VerboseDebug<'a, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        T::custom_fmt(self, f)
+    }
+}
+
+/// another debug trait
+pub trait VerboselyDebug {
+    /// wrap up with a verbosity
+    fn wrap<'a>(&'a self, verbosity: Verbosity) -> VerboseDebug<'a, Self> {
+        VerboseDebug {
+            field: self,
+            verbosity
+        }
+    }
+
+    /// custom formatter
+    fn custom_fmt(debug: &VerboseDebug<'_, Self>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
+}
+
+// T which implements VerboselyDebug
+// T.wrap(verbosity)
+// use debug impl
+// blanket debug impl uses custom debug
+
+impl<TYPES: NodeType> VerboselyDebug for SequencingLeaf<TYPES> {
+    fn custom_fmt(debug: &VerboseDebug<'_, Self>, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let num_txns = match debug.field.deltas {
+            Either::Left(ref block) => block.contained_transactions().len().to_string(),
+            Either::Right(_) => "NOT KNOWN".to_string(),
+        };
+        f.debug_struct("SequencingLeaf")
+            .field("view_number", &debug.field.view_number.to_string())
+            .field("height", &debug.field.height)
+            .field("rejected_num", &debug.field.rejected.len())
+            .field("num_txns: ", &num_txns)
+            .finish()
+    }
+}
+
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+/// TODO manually implement partialeq and hash to hash deltas before using them
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct SequencingLeaf<TYPES: NodeType> {
@@ -528,21 +582,11 @@ pub struct SequencingLeaf<TYPES: NodeType> {
 
 impl<TYPES: NodeType> PartialEq for SequencingLeaf<TYPES> {
     fn eq(&self, other: &Self) -> bool {
-        let delta_left = match &self.deltas {
-            Either::Left(deltas) => deltas.commit(),
-            Either::Right(deltas) => deltas.clone(),
-        };
-        let delta_right = match &other.deltas {
-            Either::Left(deltas) => {
-                deltas.commit()
-            },
-            Either::Right(deltas) => deltas.clone(),
-        };
         self.view_number == other.view_number
             && self.height == other.height
             && self.justify_qc == other.justify_qc
             && self.parent_commitment == other.parent_commitment
-            && delta_left == delta_right
+            && self.get_deltas_commitment() == other.get_deltas_commitment()
             && self.rejected == other.rejected
     }
 }
@@ -573,6 +617,13 @@ impl<TYPES: NodeType> Display for ValidatingLeaf<TYPES> {
             "view: {:?}, height: {:?}, justify: {}",
             self.view_number, self.height, self.justify_qc
         )
+    }
+}
+
+impl<TYPES: NodeType> VerboselyDebug for ValidatingLeaf<TYPES> {
+    fn custom_fmt(debug: &VerboseDebug<'_, Self>, _f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        //deprecated, so not bothering to implement
+        unimplemented!()
     }
 }
 

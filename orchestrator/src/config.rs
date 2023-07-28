@@ -182,7 +182,6 @@ pub struct HotShotConfigFile {
 impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
     fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
-            execution_type: ExecutionType::Continuous,
             total_nodes: val.total_nodes,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,

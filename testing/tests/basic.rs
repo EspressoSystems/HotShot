@@ -24,40 +24,51 @@ async fn test_basic() {
 async fn test_with_failures() {
     use std::time::Duration;
 
-    use hotshot_testing::{spinning_task::SpinningTaskDescription, overall_safety_task::OverallSafetyPropertiesDescription, completion_task::TimeBasedCompletionTaskDescription};
+    use hotshot_testing::{spinning_task::SpinningTaskDescription, overall_safety_task::OverallSafetyPropertiesDescription, completion_task::{TimeBasedCompletionTaskDescription, CompletionTaskDescription}};
+
+    // TODO add test with icnreased DA committee size
+    // DA comimttee where all nodes are in the DA committee
+    // none of DA comitee members get shut down
+    // half of DA committee gets shut down
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata = hotshot_testing::test_builder::TestMetadata {
+        timing_data: hotshot_testing::test_builder::TimingData {
+            next_view_timeout: 1000,
+            ..Default::default()
+        },
         total_nodes: 20,
         start_nodes: 20,
         num_bootstrap_nodes: 20,
-        completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
-        // overall_safety_properties: OverallSafetyPropertiesDescription {
-        //     threshold_calculator: std::sync::Arc::new(|_, _| {10}),
-        //     ..Default::default()
-        // },
+        overall_safety_properties: OverallSafetyPropertiesDescription {
+            check_block: false,
+            ..Default::default()
+        },
+        completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription { duration: Duration::new(90, 0) })
+        ,
+
         ..hotshot_testing::test_builder::TestMetadata::default()
     };
     let dead_nodes = vec![
         hotshot_testing::spinning_task::ChangeNode {
-            idx: 0,
+            idx: 10,
             updown: hotshot_testing::spinning_task::UpDown::Down,
         },
         hotshot_testing::spinning_task::ChangeNode {
-            idx: 1,
+            idx: 11,
             updown: hotshot_testing::spinning_task::UpDown::Down,
         },
         hotshot_testing::spinning_task::ChangeNode {
-            idx: 2,
+            idx: 12,
             updown: hotshot_testing::spinning_task::UpDown::Down,
         },
         hotshot_testing::spinning_task::ChangeNode {
-            idx: 3,
+            idx: 13,
             updown: hotshot_testing::spinning_task::UpDown::Down,
         },
         hotshot_testing::spinning_task::ChangeNode {
-            idx: 4,
+            idx: 14,
             updown: hotshot_testing::spinning_task::UpDown::Down,
         },
     ];

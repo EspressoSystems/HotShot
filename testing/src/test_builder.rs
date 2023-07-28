@@ -192,8 +192,6 @@ impl TestMetadata {
             .collect();
         // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
-            // TODO this doesn't exist anymore
-            execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,

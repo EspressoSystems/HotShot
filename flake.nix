@@ -168,6 +168,7 @@
         buildDeps = with pkgs;
           [
             cargo-vet
+            cargo-expand
             curl.out
             cargo-expand
             cargo-workspaces

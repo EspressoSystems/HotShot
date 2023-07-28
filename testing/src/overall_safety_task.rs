@@ -1,7 +1,8 @@
 use hotshot_task::event_stream::EventStream;
+use tracing::error;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
-    sync::Arc,
+    sync::Arc, fmt::Formatter,
 };
 
 use async_compatibility_layer::channel::UnboundedStream;
@@ -15,23 +16,19 @@ use hotshot_task::{
     event_stream::ChannelStream,
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-        TaskErr,
+        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes,
     },
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::LeafType,
+    data::{LeafType, VerboselyDebug, VerboseDebug, Verbosity},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
-use std::marker::PhantomData;
-use tracing::{info, error};
 
 use crate::test_runner::Node;
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
@@ -115,6 +112,39 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<
             agreed_state: Default::default(),
             success: false,
         }
+    }
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VerboselyDebug for RoundResult<TYPES, LEAF> {
+    fn custom_fmt(debug: &VerboseDebug<'_, Self>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let leaf =
+            if let Some(ref leaf) = debug.field.agreed_leaf {
+                format!("{:?}", leaf.wrap(Verbosity(0)))
+            } else {
+                "None".to_string()
+            };
+        f.debug_struct("RoundResult")
+            .field("Success", &debug.field.success.to_string())
+            .field("AgreedLeaf", &leaf)
+            .finish()
+    }
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> VerboselyDebug for RoundCtx<TYPES, I> {
+    fn custom_fmt(debug: &VerboseDebug<'_, Self>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let round_results =
+            debug
+            .field
+            .round_results
+            .iter()
+            .map(|(k, v)| (k, v.wrap(debug.verbosity)))
+            .collect::<HashMap<_, _>>();
+
+        f.debug_struct("RoundCtx")
+            .field("FailedViews", &format!("{:?}", debug.field.failed_views))
+            .field("SuccessViews", &format!("{:?}", debug.field.successful_views))
+            .field("RoundResults", &format!("{:#?}", round_results))
+            .finish()
     }
 }
 
@@ -255,7 +285,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         }
         error!(
             "states for this view {:#?}\nblocks for this view {:#?}",
-            states, blocks
+            states.len(), blocks.len()
         );
 
         error!(
@@ -292,7 +322,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
 
             if let None = result_block {
                 self.success = false;
-                error!("Inconsistent blocks, blocks: {:?}", blocks);
+                error!("Inconsistent blocks for this view! Blocks: {:?}, View summary: {:?}", blocks, self.wrap(Verbosity(0)));
                 return Err(OverallSafetyTaskErr::InconsistentBlocks);
             }
         }
@@ -393,6 +423,7 @@ impl OverallSafetyPropertiesDescription {
                                         - state.ctx.failed_views.len();
 
                                     if state.ctx.successful_views.len() < num_successful_views {
+                                        error!("ERRROR NOT EOUGH DECIDES. CTX: {:#?}", state.ctx.wrap(Verbosity(0)));
                                         return (
                                             Some(HotShotTaskCompleted::Error(Box::new(
                                                 OverallSafetyTaskErr::NotEnoughDecides {
@@ -512,6 +543,7 @@ impl OverallSafetyPropertiesDescription {
                                 view.success = true;
                                 state.ctx.successful_views.insert(view_number);
                                 if state.ctx.successful_views.len() >= num_successful_views {
+                                    error!("SUCCESSFUL VIEWCOUNT REACHED! SHUTTING DOWN!");
                                     state
                                         .test_event_stream
                                         .publish(GlobalTestEvent::ShutDown)
