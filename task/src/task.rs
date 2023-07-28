@@ -3,8 +3,8 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use async_compatibility_layer::art::async_yield_now;
 use either::Either::{self, Left, Right};
-use futures::stream::Unfold;
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
@@ -411,7 +411,9 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
     ) -> Either<Poll<HotShotTaskCompleted>, bool> {
         let event_stream = self.event_stream.take();
         if let Some(mut inner_event_stream) = event_stream {
+            let mut i = 0;
             while let Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
+                tracing::error!("YEET I IS: {:?}", i);
                 if let Some(event) = maybe_event {
                     if let Some(handle_event) = self.handle_event {
                         let maybe_state = self.state.take();
@@ -419,13 +421,29 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                             let mut fut = handle_event(event, state);
                             match fut.as_mut().poll(cx) {
                                 Poll::Ready((result, state)) => {
-                                    *self.in_progress_fut = None;
-                                    *self.state = Some(state);
                                     if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
                                         *self.r_val = Some(completed);
                                         let result = self.launch_shutdown_fut(cx);
                                         *self.event_stream = Some(inner_event_stream);
                                         return Left(result);
+                                    } else {
+                                        let mut fut = async move {
+                                            async_yield_now().await;
+                                            (None, state)
+                                        }
+                                        .boxed();
+                                        if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                            *self.state = Some(state);
+                                            *self.in_progress_fut = None;
+                                            // NOTE: don't need to set event stream because
+                                            // that will be done on the next iteration
+                                            continue;
+                                        }
+                                        *self.event_stream = Some(inner_event_stream);
+                                        *self.in_progress_fut = Some(fut);
+                                        return Left(Poll::Pending);
                                     }
                                 }
                                 Poll::Pending => {
@@ -480,13 +498,27 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                             let mut fut = handle_msg(msg, state);
                             match fut.as_mut().poll(cx) {
                                 Poll::Ready((result, state)) => {
-                                    *self.in_progress_fut = None;
-                                    *self.state = Some(state);
                                     if let Some(completed) = result {
                                         *self.r_val = Some(completed);
                                         let result = self.launch_shutdown_fut(cx);
                                         *self.message_stream = Some(inner_message_stream);
                                         return Left(result);
+                                    } else {
+                                        let mut fut = async move {
+                                            async_yield_now().await;
+                                            (None, state)
+                                        }
+                                        .boxed();
+                                        if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                            *self.state = Some(state);
+                                            *self.in_progress_fut = None;
+                                            // NOTE: don't need to set event stream because
+                                            // that will be done on the next iteration
+                                            continue;
+                                        }
+                                        *self.message_stream = Some(inner_message_stream);
+                                        *self.in_progress_fut = Some(fut);
+                                        return Left(Poll::Pending);
                                     }
                                 }
                                 Poll::Pending => {
