@@ -104,7 +104,7 @@ use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
@@ -244,6 +244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
+            seen_transactions: HashSet::new(),
             saved_leaves,
             saved_blocks,
             // TODO this is incorrect

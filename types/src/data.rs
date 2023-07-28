@@ -533,9 +533,7 @@ impl<TYPES: NodeType> PartialEq for SequencingLeaf<TYPES> {
             Either::Right(deltas) => deltas.clone(),
         };
         let delta_right = match &other.deltas {
-            Either::Left(deltas) => {
-                deltas.commit()
-            },
+            Either::Left(deltas) => deltas.commit(),
             Either::Right(deltas) => deltas.clone(),
         };
         self.view_number == other.view_number
@@ -556,10 +554,10 @@ impl<TYPES: NodeType> Hash for SequencingLeaf<TYPES> {
         match &self.deltas {
             Either::Left(deltas) => {
                 deltas.commit().hash(state);
-            },
+            }
             Either::Right(commitment) => {
                 commitment.hash(state);
-            },
+            }
         }
         // self.deltas.hash(state.commit());
         self.rejected.hash(state);

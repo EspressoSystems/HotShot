@@ -28,6 +28,7 @@ pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
+use std::collections::HashSet;
 pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
 pub use utils::{View, ViewInner};
 
@@ -70,6 +71,9 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// A list of undecided transactions
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
+
+    /// A list of transactions we've seen decided, but didn't receive
+    pub seen_transactions: HashSet<Commitment<TYPES::Transaction>>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
