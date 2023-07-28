@@ -31,7 +31,7 @@ use hotshot_types::{
 use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::marker::PhantomData;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::test_runner::Node;
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
