@@ -243,8 +243,9 @@ where
         })
     }
 
-    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
         hasher.update(&index.to_le_bytes());
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);
