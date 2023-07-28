@@ -427,11 +427,18 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                                         *self.event_stream = Some(inner_event_stream);
                                         return Left(result);
                                     } else {
+                                        // run a yield to tell the executor to go do work on other
+                                        // tasks if they are available
+                                        // this is necessary otherwise we could end up with one
+                                        // task that returns really quickly blocking the executor
+                                        // from dealing with other tasks.
                                         let mut fut = async move {
                                             async_yield_now().await;
                                             (None, state)
                                         }
                                         .boxed();
+                                        // if the executor has no extra work to do,
+                                        // continue to poll the event stream
                                         if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
                                             *self.state = Some(state);
                                             *self.in_progress_fut = None;
@@ -439,6 +446,8 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                                             // that will be done on the next iteration
                                             continue;
                                         }
+                                        // otherwise, return pending and finish executing the
+                                        // yield later
                                         *self.event_stream = Some(inner_event_stream);
                                         *self.in_progress_fut = Some(fut);
                                         return Left(Poll::Pending);
@@ -504,11 +513,18 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                                         *self.message_stream = Some(inner_message_stream);
                                         return Left(result);
                                     } else {
+                                        // run a yield to tell the executor to go do work on other
+                                        // tasks if they are available
+                                        // this is necessary otherwise we could end up with one
+                                        // task that returns really quickly blocking the executor
+                                        // from dealing with other tasks.
                                         let mut fut = async move {
                                             async_yield_now().await;
                                             (None, state)
                                         }
                                         .boxed();
+                                        // if the executor has no extra work to do,
+                                        // continue to poll the event stream
                                         if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
                                             *self.state = Some(state);
                                             *self.in_progress_fut = None;
@@ -516,6 +532,8 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                                             // that will be done on the next iteration
                                             continue;
                                         }
+                                        // otherwise, return pending and finish executing the
+                                        // yield later
                                         *self.message_stream = Some(inner_message_stream);
                                         *self.in_progress_fut = Some(fut);
                                         return Left(Poll::Pending);
