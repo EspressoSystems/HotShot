@@ -411,9 +411,7 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
     ) -> Either<Poll<HotShotTaskCompleted>, bool> {
         let event_stream = self.event_stream.take();
         if let Some(mut inner_event_stream) = event_stream {
-            let mut i = 0;
             while let Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
-                tracing::error!("YEET I IS: {:?}", i);
                 if let Some(event) = maybe_event {
                     if let Some(handle_event) = self.handle_event {
                         let maybe_state = self.state.take();
