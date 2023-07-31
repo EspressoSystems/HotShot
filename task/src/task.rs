@@ -589,8 +589,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         }
 
         // check if task is complete
-        match projected.status.as_mut().poll_next(cx) {
-            Poll::Ready(Some(state_change)) => match state_change {
+        match projected.status.as_mut().try_next() {
+            Some(state_change) => match state_change {
                 TaskStatus::NotStarted | TaskStatus::Paused => {
                     return Poll::Pending;
                 }
@@ -600,12 +600,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                     return projected.launch_shutdown_fut(cx);
                 }
             },
-            // this primitive's stream will never end
-            Poll::Ready(None) => {
-                unreachable!()
-            }
             // if there's nothing, that's fine
-            Poll::Pending => {}
+            None => {}
         }
 
         // check if there's an in progress future
