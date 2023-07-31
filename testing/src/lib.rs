@@ -4,11 +4,9 @@ use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 pub mod test_builder;
 
 /// launcher
-#[cfg(test)]
 pub mod test_launcher;
 
 /// runner
-#[cfg(test)]
 pub mod test_runner;
 
 /// task that's consuming events and asserting safety

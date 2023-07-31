@@ -9,7 +9,6 @@ use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
-    global_registry::GlobalRegistry,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
@@ -17,7 +16,7 @@ use hotshot_task::{
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
-use crate::{test_launcher::TaskFuture, test_runner::Node, GlobalTestEvent};
+use crate::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
 
 #[derive(Snafu, Debug)]
 pub struct SpinningTaskErr {}
@@ -34,7 +33,6 @@ pub type SpinningTaskTypes<TYPES, I> = HSTWithEventAndMessage<
 
 pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
 {
-    pub(crate) test_event_stream: ChannelStream<GlobalTestEvent>,
     pub(crate) handles: Vec<Node<TYPES, I>>,
     pub(crate) changes: Vec<Vec<ChangeNode>>,
 }
@@ -70,13 +68,7 @@ pub struct SpinningTaskDescription {
 impl SpinningTaskDescription {
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            SpinningTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        ) -> TaskFuture,
-    > {
+    ) -> TaskGenerator<SpinningTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
                 let event_handler =
@@ -84,10 +76,7 @@ impl SpinningTaskDescription {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
-                                    return (Some(HotShotTaskCompleted::ShutDown), state);
-                                }
-                                _ => {
-                                    unimplemented!()
+                                    (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
                             }
                         }
@@ -105,15 +94,12 @@ impl SpinningTaskDescription {
                     let atomic_idx = atomic_idx.clone();
                     let sleep_durations = sleep_durations.clone();
                     let atomic_idx = atomic_idx.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    sleep_durations
-                        .get(atomic_idx)
-                        .map(|x| x.clone())
-                        .map(|duration| {
-                            let fut = async move {
-                                async_sleep(duration).await;
-                            };
-                            boxed_sync(fut)
-                        })
+                    sleep_durations.get(atomic_idx).copied().map(|duration| {
+                        let fut = async move {
+                            async_sleep(duration).await;
+                        };
+                        boxed_sync(fut)
+                    })
                 }));
                 let message_handler = HandleMessage::<SpinningTaskTypes<TYPES, I>>(Arc::new(
                     move |_msg, mut state| {

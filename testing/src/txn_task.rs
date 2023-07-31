@@ -5,7 +5,6 @@ use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
-    global_registry::GlobalRegistry,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
@@ -15,7 +14,7 @@ use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};
 
-use super::test_launcher::TaskFuture;
+use super::test_launcher::TaskGenerator;
 use super::GlobalTestEvent;
 
 // the obvious idea here is to pass in a "stream" that completes every `n` seconds
@@ -63,9 +62,7 @@ impl TxnTaskDescription {
     /// build a task
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> Box<
-        dyn FnOnce(TxnTask<TYPES, I>, GlobalRegistry, ChannelStream<GlobalTestEvent>) -> TaskFuture,
-    > {
+    ) -> TaskGenerator<TxnTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
                 // consistency check

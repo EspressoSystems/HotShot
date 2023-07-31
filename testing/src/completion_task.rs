@@ -6,7 +6,6 @@ use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
     event_stream::{ChannelStream, EventStream},
-    global_registry::GlobalRegistry,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
@@ -16,7 +15,7 @@ use snafu::Snafu;
 
 use crate::test_runner::Node;
 
-use super::{test_launcher::TaskFuture, GlobalTestEvent};
+use super::{test_launcher::TaskGenerator, GlobalTestEvent};
 
 /// the idea here is to run as long as we want
 
@@ -69,13 +68,7 @@ impl CompletionTaskDescription {
         I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     >(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            CompletionTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        ) -> TaskFuture,
-    > {
+    ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         match self {
             CompletionTaskDescription::TimeBasedCompletionTaskBuilder(td) => td.build_and_launch(),
         }
@@ -89,13 +82,7 @@ impl TimeBasedCompletionTaskDescription {
         I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     >(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            CompletionTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        ) -> TaskFuture,
-    > {
+    ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
                 let event_handler =

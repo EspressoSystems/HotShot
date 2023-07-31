@@ -63,15 +63,6 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
-        Self {
-            nodes: Vec::new(),
-            next_node_id: 0,
-            launcher,
-            task_runner: TaskRunner::default(),
-        }
-    }
-
     /// excecute test
     pub async fn run_test(mut self)
     where
@@ -100,7 +91,7 @@ where
         let TestRunner {
             launcher,
             nodes,
-            next_node_id,
+            next_node_id: _,
             mut task_runner,
         } = self;
         let registry = GlobalRegistry::default();
@@ -136,8 +127,7 @@ where
         // add spinning task
         let spinning_task_state = crate::spinning_task::SpinningTask {
             handles: nodes.clone(),
-            test_event_stream: test_event_stream.clone(),
-            changes: spinning_changes.into_iter().map(|(a, b)| b).collect(),
+            changes: spinning_changes.into_iter().map(|(_, b)| b).collect(),
         };
         let (id, task) = (launcher.spinning_task_generator)(
             spinning_task_state,
