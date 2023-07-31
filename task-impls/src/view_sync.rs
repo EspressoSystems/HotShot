@@ -1,8 +1,6 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::art::async_spawn;
-#[cfg(feature = "async-std-executor")]
-use async_std::task::JoinHandle;
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;

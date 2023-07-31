@@ -64,7 +64,7 @@ use std::{
 use tracing::info;
 
 #[cfg(feature = "async-std-executor")]
-use async_std::task::{yield_now, JoinHandle};
+use async_std::task::yield_now;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::yield_now;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]

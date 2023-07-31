@@ -1,13 +1,5 @@
-use async_lock::Mutex;
-
-use commit::Committable;
-use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::{
-    certificate::QuorumCertificate,
-    demos::vdemo::random_validating_leaf,
-    traits::{Storage, TestableNodeImplementation},
-    HotShotType, SystemContext,
-};
+use futures::FutureExt;
+use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation, SystemContext};
 
 use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
@@ -19,18 +11,16 @@ use hotshot::traits::election::static_committee::StaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::traits::election::static_committee::StaticVoteToken;
 use hotshot::traits::election::vrf::JfPubKey;
-use hotshot::traits::implementations::CentralizedCommChannel;
 use hotshot::traits::implementations::MemoryCommChannel;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::traits::Block;
 use hotshot::types::SignatureKey;
 use hotshot::HotShotInitializer;
 use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::task::FilterEvent;
 use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted};
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::consensus::ConsensusTaskTypes;
@@ -42,8 +32,8 @@ use hotshot_types::data::DAProposal;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
-use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::election::Membership;
@@ -57,21 +47,14 @@ use hotshot_types::traits::node_implementation::SequencingExchanges;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::SequencingQuorumEx;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
+use hotshot_types::traits::{
+    election::ConsensusExchange,
+    node_implementation::{NodeImplementation, NodeType},
+    state::ConsensusTime,
+};
 use hotshot_types::vote::DAVote;
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
-use hotshot_types::{
-    data::{LeafType, ValidatingLeaf, ValidatingProposal},
-    message::Proposal,
-    traits::{
-        consensus_type::validating_consensus::ValidatingConsensus,
-        election::{ConsensusExchange, SignedCertificate, TestableElection},
-        node_implementation::{
-            NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
-        },
-        state::ConsensusTime,
-    },
-};
 use jf_primitives::signatures::BLSSignatureScheme;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
@@ -79,10 +62,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
-use std::{iter::once, sync::atomic::AtomicU8};
-use tracing::{instrument, warn};
 
 #[derive(
     Copy,
@@ -188,7 +167,9 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     }
 }
 
-async fn build_consensus_task<
+// TODO (Keyao) `pub` was added to avoid the `function never used` warning, but we can remove it
+// once we have unit tests using this function.
+pub async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
@@ -306,6 +287,7 @@ where
     let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
 
     let registry = task_runner.registry.clone();
+    #[allow(deprecated)]
     let consensus_state =
         SequencingConsensusTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>> {
             registry: registry.clone(),

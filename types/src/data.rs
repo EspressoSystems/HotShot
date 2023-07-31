@@ -530,11 +530,11 @@ impl<TYPES: NodeType> PartialEq for SequencingLeaf<TYPES> {
     fn eq(&self, other: &Self) -> bool {
         let delta_left = match &self.deltas {
             Either::Left(deltas) => deltas.commit(),
-            Either::Right(deltas) => deltas.clone(),
+            Either::Right(deltas) => *deltas,
         };
         let delta_right = match &other.deltas {
             Either::Left(deltas) => deltas.commit(),
-            Either::Right(deltas) => deltas.clone(),
+            Either::Right(deltas) => *deltas,
         };
         self.view_number == other.view_number
             && self.height == other.height

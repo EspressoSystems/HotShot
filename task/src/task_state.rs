@@ -1,12 +1,9 @@
+use atomic_enum::atomic_enum;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
-    sync::{atomic::Ordering, Arc, Mutex},
-    task::Waker,
+    sync::{atomic::Ordering, Arc},
 };
-
-use atomic_enum::atomic_enum;
-use futures::Stream;
-use serde::{Deserialize, Serialize};
 
 /// Nit: wish this was for u8 but sadly no
 /// Represents the status of a hotshot task
@@ -120,6 +117,8 @@ impl TaskState {
 // }
 
 impl TaskState {
+    /// Try to get the next task status.
+    #[must_use]
     pub fn try_next(self: std::pin::Pin<&mut Self>) -> Option<TaskStatus> {
         let next = self.next.load(Ordering::SeqCst);
         let prev = self.prev.swap(next, Ordering::SeqCst);
@@ -140,9 +139,6 @@ impl TaskState {
 
 #[cfg(test)]
 pub mod test {
-    use async_compatibility_layer::art::{async_sleep, async_spawn};
-    use async_compatibility_layer::logging::setup_logging;
-    use futures::StreamExt;
 
     // #[cfg(test)]
     // #[cfg_attr(

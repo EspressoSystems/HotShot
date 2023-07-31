@@ -3,8 +3,6 @@ use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
-#[cfg(feature = "async-std-executor")]
-use async_std::task::JoinHandle;
 use bincode::config::Options;
 use commit::Committable;
 use either::Either;
@@ -594,7 +592,7 @@ where
                 }
             })
             .collect();
-        return Some(txns);
+        Some(txns)
     }
 
     /// Filter the DA event.
