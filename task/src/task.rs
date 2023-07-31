@@ -3,6 +3,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use async_compatibility_layer::art::async_yield_now;
 use either::Either::{self, Left, Right};
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
@@ -419,13 +420,38 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                             let mut fut = handle_event(event, state);
                             match fut.as_mut().poll(cx) {
                                 Poll::Ready((result, state)) => {
-                                    *self.in_progress_fut = None;
-                                    *self.state = Some(state);
                                     if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
                                         *self.r_val = Some(completed);
                                         let result = self.launch_shutdown_fut(cx);
                                         *self.event_stream = Some(inner_event_stream);
                                         return Left(result);
+                                    } else {
+                                        // run a yield to tell the executor to go do work on other
+                                        // tasks if they are available
+                                        // this is necessary otherwise we could end up with one
+                                        // task that returns really quickly blocking the executor
+                                        // from dealing with other tasks.
+                                        let mut fut = async move {
+                                            async_yield_now().await;
+                                            (None, state)
+                                        }
+                                        .boxed();
+                                        // if the executor has no extra work to do,
+                                        // continue to poll the event stream
+                                        if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                            *self.state = Some(state);
+                                            *self.in_progress_fut = None;
+                                            // NOTE: don't need to set event stream because
+                                            // that will be done on the next iteration
+                                            continue;
+                                        }
+                                        // otherwise, return pending and finish executing the
+                                        // yield later
+                                        *self.event_stream = Some(inner_event_stream);
+                                        *self.in_progress_fut = Some(fut);
+                                        return Left(Poll::Pending);
                                     }
                                 }
                                 Poll::Pending => {
@@ -480,13 +506,38 @@ impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
                             let mut fut = handle_msg(msg, state);
                             match fut.as_mut().poll(cx) {
                                 Poll::Ready((result, state)) => {
-                                    *self.in_progress_fut = None;
-                                    *self.state = Some(state);
                                     if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
                                         *self.r_val = Some(completed);
                                         let result = self.launch_shutdown_fut(cx);
                                         *self.message_stream = Some(inner_message_stream);
                                         return Left(result);
+                                    } else {
+                                        // run a yield to tell the executor to go do work on other
+                                        // tasks if they are available
+                                        // this is necessary otherwise we could end up with one
+                                        // task that returns really quickly blocking the executor
+                                        // from dealing with other tasks.
+                                        let mut fut = async move {
+                                            async_yield_now().await;
+                                            (None, state)
+                                        }
+                                        .boxed();
+                                        // if the executor has no extra work to do,
+                                        // continue to poll the event stream
+                                        if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                            *self.state = Some(state);
+                                            *self.in_progress_fut = None;
+                                            // NOTE: don't need to set event stream because
+                                            // that will be done on the next iteration
+                                            continue;
+                                        }
+                                        // otherwise, return pending and finish executing the
+                                        // yield later
+                                        *self.message_stream = Some(inner_message_stream);
+                                        *self.in_progress_fut = Some(fut);
+                                        return Left(Poll::Pending);
                                     }
                                 }
                                 Poll::Pending => {
@@ -539,8 +590,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
         }
 
         // check if task is complete
-        match projected.status.as_mut().poll_next(cx) {
-            Poll::Ready(Some(state_change)) => match state_change {
+        match projected.status.as_mut().try_next() {
+            Some(state_change) => match state_change {
                 TaskStatus::NotStarted | TaskStatus::Paused => {
                     return Poll::Pending;
                 }
@@ -550,12 +601,8 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                     return projected.launch_shutdown_fut(cx);
                 }
             },
-            // this primitive's stream will never end
-            Poll::Ready(None) => {
-                unreachable!()
-            }
             // if there's nothing, that's fine
-            Poll::Pending => {}
+            None => {}
         }
 
         // check if there's an in progress future

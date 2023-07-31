@@ -327,14 +327,19 @@ where
     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let network = channel.clone();
         let closure = async move {
-            let msgs = Messages(
-                network
-                    .recv_msgs(TransmitType::Broadcast)
-                    .await
-                    .expect("Failed to receive broadcast messages"),
-            );
-            async_sleep(Duration::new(0, 500)).await;
-            msgs
+            loop {
+                let msgs = Messages(
+                    network
+                        .recv_msgs(TransmitType::Broadcast)
+                        .await
+                        .expect("Failed to receive broadcast messages"),
+                );
+                if msgs.0.is_empty() {
+                    async_sleep(Duration::new(0, 500)).await;
+                } else {
+                    break msgs;
+                }
+            }
         };
         Some(boxed_sync(closure))
     }));
@@ -342,14 +347,19 @@ where
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let network = channel.clone();
         let closure = async move {
-            let msgs = Messages(
-                network
-                    .recv_msgs(TransmitType::Direct)
-                    .await
-                    .expect("Failed to receive direct messages"),
-            );
-            async_sleep(Duration::new(0, 500)).await;
-            msgs
+            loop {
+                let msgs = Messages(
+                    network
+                        .recv_msgs(TransmitType::Direct)
+                        .await
+                        .expect("Failed to receive direct messages"),
+                );
+                if msgs.0.is_empty() {
+                    async_sleep(Duration::new(0, 500)).await;
+                } else {
+                    break msgs;
+                }
+            }
         };
         Some(boxed_sync(closure))
     }));
