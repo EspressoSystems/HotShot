@@ -1,6 +1,7 @@
 use async_lock::RwLock;
 use either::Either;
 use futures::{future::BoxFuture, FutureExt};
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -32,12 +33,12 @@ pub struct GlobalRegistry {
     /// up-to-date shared list of statuses
     /// only used if `state_cpy` is out of date
     /// or if appending
-    state_list: Arc<RwLock<Vec<(TaskState, String)>>>,
+    state_list: Arc<RwLock<BTreeMap<HotShotTaskId, (TaskState, String)>>>,
     /// possibly stale read version of state
     /// NOTE: must include entire state in order to
     /// support both incrementing and reading.
     /// Writing to the status should gracefully shut down the task
-    state_cache: Vec<(TaskState, String)>,
+    state_cache: BTreeMap<HotShotTaskId, (TaskState, String)>,
 }
 
 /// function to modify state
@@ -55,8 +56,8 @@ impl GlobalRegistry {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            state_list: Arc::new(RwLock::new(vec![])),
-            state_cache: vec![],
+            state_list: Arc::new(RwLock::new(Default::default())),
+            state_cache: Default::default(),
         }
     }
 
@@ -66,14 +67,16 @@ impl GlobalRegistry {
     /// and the unique identifier of the task
     pub async fn register(&mut self, name: &str, status: TaskState) -> (ShutdownFn, HotShotTaskId) {
         let mut list = self.state_list.write().await;
-        let next_id = list.len();
+        let next_id = list
+            .last_key_value()
+            .map(|(k, _v)| k)
+            .cloned()
+            .unwrap_or_default();
         let new_entry = (status.clone(), name.to_string());
         let new_entry_dup = new_entry.0.clone();
-        list.push(new_entry);
+        list.insert(next_id, new_entry.clone());
 
-        for i in self.state_cache.len()..list.len() {
-            self.state_cache.push(list[i].clone());
-        }
+        self.state_cache.insert(next_id, new_entry);
 
         let shutdown_fn = ShutdownFn(Arc::new(move || {
             new_entry_dup.set_state(TaskStatus::Completed);
@@ -84,9 +87,29 @@ impl GlobalRegistry {
 
     /// update the cache
     async fn update_cache(&mut self) {
+        // NOTE: this can be done much more cleverly
+        // avoid one intersection by comparing max keys (constant time op vs O(n + m))
+        // and debatable how often the other op needs to be run
+        // probably much much less often
         let list = self.state_list.read().await;
-        for i in self.state_cache.len()..list.len() {
-            self.state_cache.push(list[i].clone());
+        let list_keys: BTreeSet<usize> = list.iter().map(|(k, _v)| k).cloned().collect();
+        let cache_keys: BTreeSet<usize> =
+            self.state_cache.iter().map(|(k, _v)| k).cloned().collect();
+        // bleh not as efficient
+        let missing_key_list = list_keys.difference(&cache_keys);
+        let expired_key_list = cache_keys.difference(&list_keys);
+
+        for expired_key in expired_key_list {
+            self.state_cache.remove(expired_key);
+        }
+
+        for key in missing_key_list {
+            // technically shouldn't be possible for this to be none since
+            // we have a read lock
+            // nevertheless, this seems easier
+            if let Some(val) = list.get(key) {
+                self.state_cache.insert(*key, val.clone());
+            }
         }
     }
 
@@ -98,14 +121,14 @@ impl GlobalRegistry {
         modifier: Modifier,
     ) -> Either<TaskStatus, bool> {
         // the happy path
-        if uid < self.state_cache.len() {
-            modifier.0(&self.state_cache[uid].0)
+        if let Some(ele) = self.state_cache.get(&uid) {
+            modifier.0(&ele.0)
         }
         // the sad path
         else {
             self.update_cache().await;
-            if uid < self.state_cache.len() {
-                modifier.0(&self.state_cache[uid].0)
+            if let Some(ele) = self.state_cache.get(&uid) {
+                modifier.0(&ele.0)
             } else {
                 Either::Right(false)
             }
@@ -159,16 +182,19 @@ impl GlobalRegistry {
             state.set_state(TaskStatus::Completed);
             Either::Right(true)
         }));
-        match self.operate_on_task(uid, modifier).await {
+        let result = match self.operate_on_task(uid, modifier).await {
             Either::Left(_) => unreachable!(),
             Either::Right(b) => b,
-        }
+        };
+        let mut list = self.state_list.write().await;
+        list.remove(&uid);
+        result
     }
 
     /// checks if all registered tasks have completed
     pub async fn is_shutdown(&mut self) -> bool {
         let task_list = self.state_list.read().await;
-        for task in task_list.iter() {
+        for (_uid, task) in task_list.iter() {
             if task.0.get_status() != TaskStatus::Completed {
                 return false;
             }
@@ -178,9 +204,9 @@ impl GlobalRegistry {
 
     /// shut down all tasks in registry
     pub async fn shutdown_all(&mut self) {
-        let task_list = self.state_list.read().await;
-        for task in task_list.iter() {
-            task.0.set_state(TaskStatus::Completed)
+        let mut task_list = self.state_list.write().await;
+        while let Some((_uid, task)) = task_list.pop_last() {
+            task.0.set_state(TaskStatus::Completed);
         }
     }
 }
