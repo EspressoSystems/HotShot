@@ -71,7 +71,6 @@ pub struct ViewSyncTaskInfo {
 
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
-impl TaskErr for ViewSyncTaskError {}
 
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -464,7 +463,7 @@ where
                 }
 
                 self.num_timeouts_tracked += 1;
-                warn!("Num timeouts tracked is {}", self.num_timeouts_tracked);
+                error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 if self.num_timeouts_tracked > 2 {
                     panic!("Too many timeouts!  This shouldn't happen");

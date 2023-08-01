@@ -191,6 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![leaf]),
                         qc: Arc::new(qc),
+                        block_size: None,
                     },
                 };
                 self.output_event_stream.publish(event).await;
@@ -202,7 +203,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// begin consensus by sending a genesis event
-    pub async fn start_consensus(&self) {
+    /// Use `start_consensus` on SystemContext instead
+    #[deprecated]
+    pub async fn start_consensus_deprecated(&self) {
         self.maybe_do_genesis_init().await;
     }
 

@@ -1,196 +1,27 @@
+use hotshot::types::SignatureKey;
+use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
-use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
-use hotshot_types::{
-    message::Message,
-    traits::{
-        election::ConsensusExchange,
-        network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
-    },
+use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
+use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::node_implementation::{
+    NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType,
 };
+use hotshot_types::{ExecutionType, HotShotConfig};
 
-use snafu::Snafu;
+use crate::spinning_task::SpinningTaskDescription;
+use crate::test_launcher::ResourceGenerators;
 
-use crate::round::Round;
-use crate::round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder};
+use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
+use super::test_launcher::TestLauncher;
 
-use crate::test_launcher::TestLauncher;
-
-/// metadata describing a test
-#[derive(Clone, Debug)]
-pub struct TestMetadata {
-    /// Total number of nodes in the test
-    pub total_nodes: usize,
-    /// nodes available at start
-    pub start_nodes: usize,
-    /// number of bootstrap nodes
-    pub num_bootstrap_nodes: usize,
-    /// number of successful/passing rounds required for test to pass
-    /// equivalent to num_sucessful_views
-    pub num_succeeds: usize,
-    /// max number of failing rounds before test is failed
-    pub failure_threshold: usize,
-    /// number of txn per round
-    /// TODO in the future we should make this sample from a distribution
-    /// much like how network reliability is implemented
-    pub num_txns_per_view: usize,
-    /// Description of the network reliability
-    /// `None` == perfect network
-    pub network_reliability: Option<Arc<dyn NetworkReliability>>,
-    /// Maximum transactions allowed in a block
-    pub max_transactions: NonZeroUsize,
-    /// Minimum transactions required for a block
-    pub min_transactions: usize,
-    /// timing data
-    pub timing_data: TimingData,
-    /// Size of the DA committee for the test.  0 == no DA.
-    pub da_committee_size: usize,
-}
-
-impl Default for TestMetadata {
-    /// by default, just a single round
-    fn default() -> Self {
-        Self {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 10,
-            failure_threshold: 10,
-            network_reliability: None,
-            num_bootstrap_nodes: 5,
-            max_transactions: NonZeroUsize::new(999999).unwrap(),
-            min_transactions: 0,
-            timing_data: TimingData::default(),
-            num_txns_per_view: 20,
-            da_committee_size: 0,
-        }
-    }
-}
-
-impl TestMetadata {
-    /// generate a reasonable round description
-    pub fn gen_sane_round<
-        TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-    >(
-        metadata: &TestMetadata,
-    ) -> Round<TYPES, I>
-    where
-        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-        I::Exchanges: ExchangesType<
-            TYPES::ConsensusType,
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Networks = (
-                QuorumCommChannel<TYPES, I>,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
-        >,
-        QuorumCommChannel<TYPES, I>: CommunicationChannel<
-            TYPES,
-            Message<TYPES, I>,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
-        >,
-    {
-        Round {
-            setup_round: RoundSetupBuilder {
-                num_txns_per_round: metadata.num_txns_per_view,
-                ..RoundSetupBuilder::default()
-            }
-            .build(),
-            safety_check: RoundSafetyCheckBuilder {
-                num_failed_rounds_total: metadata.failure_threshold,
-                ..RoundSafetyCheckBuilder::default()
-            }
-            .build(),
-            hooks: vec![],
-        }
-    }
-}
-
-impl Default for TimingData {
-    fn default() -> Self {
-        Self {
-            next_view_timeout: 10000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::new(5, 0),
-        }
-    }
-}
-
-impl TestBuilder {
-    /// Default constructor for multiple rounds.
-    pub fn default_multiple_rounds() -> Self {
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 10,
-                start_nodes: 10,
-                num_succeeds: 20,
-                timing_data: TimingData {
-                    start_delay: 120000,
-                    round_start_delay: 25,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-
-    /// Default Constructor for multiple rounds and a DA committee
-    pub fn default_multiple_rounds_da() -> Self {
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 10,
-                start_nodes: 10,
-                num_succeeds: 20,
-                timing_data: TimingData {
-                    start_delay: 120000,
-                    round_start_delay: 25,
-                    ..TimingData::default()
-                },
-                da_committee_size: 5,
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-
-    /// Default constructor for stress testing.
-    pub fn default_stress() -> Self {
-        TestBuilder {
-            metadata: TestMetadata {
-                num_bootstrap_nodes: 15,
-                total_nodes: 100,
-                start_nodes: 100,
-                num_succeeds: 5,
-                timing_data: TimingData {
-                    next_view_timeout: 2000,
-                    timeout_ratio: (1, 1),
-                    start_delay: 20000,
-                    round_start_delay: 25,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-}
-
-#[derive(Debug, Snafu)]
-enum RoundError<TYPES: NodeType> {
-    SystemContext { source: HotShotError<TYPES> },
-}
+use super::{
+    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
+};
 
 /// data describing how a round should be timed.
 #[derive(Clone, Debug, Copy)]
@@ -209,35 +40,125 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-/// Builder for a test
-#[derive(Default)]
-pub struct TestBuilder {
-    /// metadata with which to generate round
-    pub metadata: TestMetadata,
-    /// optional override to build safety check
-    pub check: Option<RoundSafetyCheckBuilder>,
-    /// optional override to build setup
-    pub setup: Option<RoundSetupBuilder>,
+/// metadata describing a test
+#[derive(Clone, Debug)]
+pub struct TestMetadata {
+    /// Total number of nodes in the test
+    pub total_nodes: usize,
+    /// nodes available at start
+    pub start_nodes: usize,
+    /// number of bootstrap nodes (libp2p usage only)
+    pub num_bootstrap_nodes: usize,
+    /// Size of the DA committee for the test.  0 == no DA.
+    pub da_committee_size: usize,
+    // overall safety property description
+    pub overall_safety_properties: OverallSafetyPropertiesDescription,
+    /// spinning properties
+    pub spinning_properties: SpinningTaskDescription,
+    // txns timing
+    pub txn_description: TxnTaskDescription,
+    // completion task
+    pub completion_task_description: CompletionTaskDescription,
+    /// Minimum transactions required for a block
+    pub min_transactions: usize,
+    /// timing data
+    pub timing_data: TimingData,
 }
 
-impl TestBuilder {
-    /// build a test description from a detailed testing spec
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+impl Default for TimingData {
+    fn default() -> Self {
+        Self {
+            next_view_timeout: 10000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            propose_min_round_time: Duration::new(0, 0),
+            propose_max_round_time: Duration::new(5, 0),
+        }
+    }
+}
+
+impl TestMetadata {
+    pub fn default_stress() -> Self {
+        TestMetadata {
+            num_bootstrap_nodes: 15,
+            total_nodes: 100,
+            start_nodes: 100,
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: 50,
+                check_leaf: true,
+                check_state: true,
+                check_block: true,
+                num_failed_views: 15,
+                threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
+            },
+            timing_data: TimingData {
+                next_view_timeout: 2000,
+                timeout_ratio: (1, 1),
+                start_delay: 20000,
+                round_start_delay: 25,
+                ..TimingData::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
+
+    pub fn default_multiple_rounds() -> TestMetadata {
+        TestMetadata {
+            total_nodes: 10,
+            start_nodes: 10,
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: 20,
+                check_leaf: true,
+                check_state: true,
+                check_block: true,
+                num_failed_views: 8,
+                threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
+            },
+            timing_data: TimingData {
+                start_delay: 120000,
+                round_start_delay: 25,
+                ..TimingData::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
+}
+
+impl Default for TestMetadata {
+    /// by default, just a single round
+    fn default() -> Self {
+        Self {
+            timing_data: TimingData::default(),
+            min_transactions: 0,
+            total_nodes: 5,
+            start_nodes: 5,
+            num_bootstrap_nodes: 5,
+            da_committee_size: 5,
+            spinning_properties: SpinningTaskDescription {
+                node_changes: vec![],
+            },
+            overall_safety_properties: OverallSafetyPropertiesDescription::default(),
+            // arbitrary, haven't done the math on this
+            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                TimeBasedCompletionTaskDescription {
+                    // TODO ED Put a configurable time here - 10 seconds for now
+                    duration: Duration::from_millis(10000),
+                },
+            ),
+        }
+    }
+}
+
+impl TestMetadata {
+    pub fn gen_launcher<
+        TYPES: NodeType,
+        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+    >(
         self,
     ) -> TestLauncher<TYPES, I>
     where
-        SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-        I::Exchanges: ExchangesType<
-            TYPES::ConsensusType,
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Networks = (
-                QuorumCommChannel<TYPES, I>,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
-        >,
         QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
@@ -245,34 +166,99 @@ impl TestBuilder {
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
         >,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        <I as NodeImplementation<TYPES>>::Exchanges:
+            SequencingExchangesType<TYPES, Message<TYPES, I>>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
-        let sane_round = TestMetadata::gen_sane_round(&self.metadata);
+        let TestMetadata {
+            total_nodes,
+            num_bootstrap_nodes,
+            min_transactions,
+            timing_data,
+            da_committee_size,
+            txn_description,
+            completion_task_description,
+            overall_safety_properties,
+            spinning_properties,
+            ..
+        } = self.clone();
 
-        let setup_round = self
-            .setup
-            .map(|x| x.build())
-            .unwrap_or_else(|| sane_round.setup_round);
-        let safety_check = self
-            .check
-            .map(|x| x.build())
-            .unwrap_or_else(|| sane_round.safety_check);
-
-        let round = Round {
-            hooks: vec![],
-            setup_round,
-            safety_check,
+        let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
+            .map(|id| {
+                let priv_key = I::generate_test_key(id as u64);
+                TYPES::SignatureKey::from_private(&priv_key)
+            })
+            .collect();
+        // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
+        let config = HotShotConfig {
+            // TODO this doesn't exist anymore
+            execution_type: ExecutionType::Incremental,
+            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            num_bootstrap: num_bootstrap_nodes,
+            min_transactions,
+            max_transactions: NonZeroUsize::new(99999).unwrap(),
+            known_nodes,
+            da_committee_size,
+            next_view_timeout: 500,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            // TODO do we use these fields??
+            propose_min_round_time: Duration::from_millis(0),
+            propose_max_round_time: Duration::from_millis(1000),
+            // TODO what's the difference between this and the second config?
+            election_config: Some(<QuorumEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(
+                total_nodes as u64
+            )),
         };
-        TestLauncher::new(self.metadata, round)
+        let network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
+        let secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
+        let TimingData {
+            next_view_timeout,
+            timeout_ratio,
+            round_start_delay,
+            start_delay,
+            propose_min_round_time,
+            propose_max_round_time,
+        } = timing_data;
+        let mod_config =
+            // TODO this should really be using the timing config struct
+            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+                a.next_view_timeout = next_view_timeout;
+                a.timeout_ratio = timeout_ratio;
+                a.round_start_delay = round_start_delay;
+                a.start_delay = start_delay;
+                a.propose_min_round_time = propose_min_round_time;
+                a.propose_max_round_time = propose_max_round_time;
+            };
+
+        let txn_task_generator = txn_description.build();
+        let completion_task_generator = completion_task_description.build_and_launch();
+        let overall_safety_task_generator = overall_safety_properties.build();
+        let spinning_task_generator = spinning_properties.build();
+        TestLauncher {
+            resource_generator: ResourceGenerators {
+                network_generator,
+                secondary_network_generator,
+                quorum_network: I::quorum_comm_channel_generator(),
+                committee_network: I::committee_comm_channel_generator(),
+                view_sync_network: I::view_sync_comm_channel_generator(),
+                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                config,
+            },
+            metadata: self,
+            txn_task_generator,
+            overall_safety_task_generator,
+            completion_task_generator,
+            spinning_task_generator,
+            hooks: vec![],
+        }
+        .modify_default_config(mod_config)
     }
-}
-
-/// given `num_nodes`, calculate min number of honest nodes
-/// for consensus to function properly
-pub fn get_threshold(num_nodes: u64) -> u64 {
-    ((num_nodes * 2) / 3) + 1
-}
-
-/// given `num_nodes`, calculate max number of byzantine nodes
-pub fn get_tolerance(num_nodes: u64) -> u64 {
-    num_nodes - get_threshold(num_nodes)
 }

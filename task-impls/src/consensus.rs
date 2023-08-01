@@ -67,7 +67,6 @@ use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 // #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
@@ -778,7 +777,7 @@ where
                                         consensus.saved_blocks.get(leaf.get_deltas_commitment())
                                     {
                                         if let Err(err) = leaf.fill_deltas(block.clone()) {
-                                            warn!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                            error!("unable to fill leaf {} with block {}, block will not be available: {}",
                                                 leaf.commit(), block.commit(), err);
                                         }
                                     }
@@ -833,6 +832,7 @@ where
                         #[allow(clippy::cast_precision_loss)]
                         if new_decide_reached {
                             let mut included_txn_size = 0;
+                            let mut included_txn_count = 0;
                             consensus
                                 .transactions
                                 .modify(|txns| {
@@ -840,6 +840,7 @@ where
                                         .drain()
                                         .filter(|(txn_hash, txn)| {
                                             if included_txns_set.contains(txn_hash) {
+                                                included_txn_count += 1;
                                                 included_txn_size += bincode_opts()
                                                     .serialized_size(txn)
                                                     .unwrap_or_default();
@@ -851,6 +852,14 @@ where
                                         .collect();
                                 })
                                 .await;
+                            consensus
+                                .metrics
+                                .outstanding_transactions
+                                .update(-included_txn_count);
+                            consensus
+                                .metrics
+                                .outstanding_transactions_memory_size
+                                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
                             warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
@@ -858,6 +867,7 @@ where
                                 event: EventType::Decide {
                                     leaf_chain: Arc::new(leaf_views),
                                     qc: Arc::new(new_decide_qc.unwrap()),
+                                    block_size: Some(included_txns_set.len().try_into().unwrap()),
                                 },
                             });
                             let old_anchor_view = consensus.last_decided_view;
@@ -1087,23 +1097,26 @@ where
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                // warn!("View Change event for view {}", *new_view);
+                warn!("View Change event for view {}", *new_view);
+
+                let old_view_number = self.cur_view;
 
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
+                // Publish a view change event to the application
+                self.output_event_stream
+                    .publish(Event {
+                        view_number: old_view_number,
+                        event: EventType::ViewFinished {
+                            view_number: old_view_number,
+                        },
+                    })
+                    .await;
                 if !self.update_view(new_view).await {
                     return;
                 }
 
-                // If we are next leader poll for votes
-                // if self.quorum_exchange.is_leader(new_view) {
-                //     self.quorum_exchange
-                //     .network()
-                //     .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*new_view)))
-                //     .await;
-                // }
-
-                // error!("View Change event for view {}", *new_view);
+                error!("View Change event for view {}", *new_view);
 
                 // If we are the next leader start polling for votes for this view
                 // if self.quorum_exchange.is_leader(self.cur_view + 1) {
@@ -1240,7 +1253,7 @@ where
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-            // This should have been added by the replica? 
+            // This should have been added by the replica?
             error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return false;
         };

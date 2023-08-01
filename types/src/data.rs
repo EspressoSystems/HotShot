@@ -498,7 +498,6 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
-#[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct SequencingLeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
@@ -521,12 +520,48 @@ pub struct SequencingLeaf<TYPES: NodeType> {
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
-    #[derivative(PartialEq = "ignore")]
     pub timestamp: i128,
 
     /// the proposer id of the leaf
-    #[derivative(PartialEq = "ignore")]
     pub proposer_id: EncodedPublicKey,
+}
+
+impl<TYPES: NodeType> PartialEq for SequencingLeaf<TYPES> {
+    fn eq(&self, other: &Self) -> bool {
+        let delta_left = match &self.deltas {
+            Either::Left(deltas) => deltas.commit(),
+            Either::Right(deltas) => deltas.clone(),
+        };
+        let delta_right = match &other.deltas {
+            Either::Left(deltas) => deltas.commit(),
+            Either::Right(deltas) => deltas.clone(),
+        };
+        self.view_number == other.view_number
+            && self.height == other.height
+            && self.justify_qc == other.justify_qc
+            && self.parent_commitment == other.parent_commitment
+            && delta_left == delta_right
+            && self.rejected == other.rejected
+    }
+}
+
+impl<TYPES: NodeType> Hash for SequencingLeaf<TYPES> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.view_number.hash(state);
+        self.height.hash(state);
+        self.justify_qc.hash(state);
+        self.parent_commitment.hash(state);
+        match &self.deltas {
+            Either::Left(deltas) => {
+                deltas.commit().hash(state);
+            }
+            Either::Right(commitment) => {
+                commitment.hash(state);
+            }
+        }
+        // self.deltas.hash(state.commit());
+        self.rejected.hash(state);
+    }
 }
 
 impl<TYPES: NodeType> Display for ValidatingLeaf<TYPES> {

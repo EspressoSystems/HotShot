@@ -312,7 +312,6 @@ pub enum GlobalEvent {
     /// dummy (TODO delete later)
     Dummy,
 }
-impl PassType for GlobalEvent {}
 
 /// Add the network task to handle messages and publish events.
 /// # Panics
@@ -349,31 +348,41 @@ where
     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let network = channel.clone();
         let closure = async move {
-            let msgs = Messages(
-                network
-                    .recv_msgs(TransmitType::Broadcast)
-                    .await
-                    .expect("Failed to receive broadcast messages"),
-            );
-            async_sleep(Duration::new(0, 500)).await;
-            msgs
+            loop {
+                let msgs = Messages(
+                    network
+                        .recv_msgs(TransmitType::Broadcast)
+                        .await
+                        .expect("Failed to receive broadcast messages"),
+                );
+                if msgs.0.is_empty() {
+                    async_sleep(Duration::new(0, 500)).await;
+                } else {
+                    break msgs;
+                }
+            }
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let channel = exchange.network().clone();
     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
         let network = channel.clone();
         let closure = async move {
-            let msgs = Messages(
-                network
-                    .recv_msgs(TransmitType::Direct)
-                    .await
-                    .expect("Failed to receive direct messages"),
-            );
-            async_sleep(Duration::new(0, 500)).await;
-            msgs
+            loop {
+                let msgs = Messages(
+                    network
+                        .recv_msgs(TransmitType::Direct)
+                        .await
+                        .expect("Failed to receive direct messages"),
+                );
+                if msgs.0.is_empty() {
+                    async_sleep(Duration::new(0, 500)).await;
+                } else {
+                    break msgs;
+                }
+            }
         };
-        boxed_sync(closure)
+        Some(boxed_sync(closure))
     }));
     let message_stream = Merge::new(broadcast_stream, direct_stream);
     let network_state: NetworkMessageTaskState<_, _> = NetworkMessageTaskState {
@@ -388,9 +397,7 @@ where
             };
             let id = handle.hotshot.inner.id;
             async move {
-                for message in messages.0 {
-                    state.handle_message(message, id).await;
-                }
+                state.handle_messages(messages.0, id).await;
                 (None, state)
             }
             .boxed()
