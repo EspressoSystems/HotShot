@@ -408,7 +408,7 @@ pub trait RunDA<
                                     tracing::error!("Submitting txn on round {}", round);
                                     // if round % total_nodes_u64 == 0 {
                                     // Only relevant for 1000 nodes
-                                    if node_index % 100 % round % 10 == 0 {
+                                    if node_index >= 990 {
                                         // if (round + 10) % (node_index + 1) <= 10 {
                                         let result = api
                                             .send_transaction(DataMessage::SubmitTransaction(
