@@ -550,6 +550,7 @@ where
     let consensus_state = SequencingConsensusTaskState {
         registry: registry.clone(),
         consensus,
+        timeout: handle.hotshot.inner.config.next_view_timeout,
         cur_view: ViewNumber::new(0),
         block: TYPES::BlockType::new(),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
