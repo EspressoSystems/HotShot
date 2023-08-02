@@ -92,9 +92,9 @@ impl GlobalRegistry {
         // and debatable how often the other op needs to be run
         // probably much much less often
         let list = self.state_list.read().await;
-        let list_keys: BTreeSet<usize> = list.iter().map(|(k, _v)| k).cloned().collect();
+        let list_keys: BTreeSet<usize> = list.keys().cloned().collect();
         let cache_keys: BTreeSet<usize> =
-            self.state_cache.iter().map(|(k, _v)| k).cloned().collect();
+            self.state_cache.keys().cloned().collect();
         // bleh not as efficient
         let missing_key_list = list_keys.difference(&cache_keys);
         let expired_key_list = cache_keys.difference(&list_keys);
