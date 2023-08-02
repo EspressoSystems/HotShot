@@ -602,6 +602,7 @@ where
             SequencingHotShotEvent::DAProposalRecv(_, _)
                 | SequencingHotShotEvent::DAVoteRecv(_)
                 | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::TransactionsRecv(_)
                 | SequencingHotShotEvent::Timeout(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )
