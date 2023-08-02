@@ -291,6 +291,6 @@ members = [
         # "testing-macros",
         "task",
         "task-impls",
-        # "crates/hotshot-qc",
+        "crates/hotshot-qc",
         "crates/hotshot-stake-table"
 ]

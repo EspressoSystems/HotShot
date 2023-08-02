@@ -3127,6 +3127,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-qc"
+version = "0.3.3"
+dependencies = [
+ "ark-std 0.4.0",
+ "bincode",
+ "bitvec",
+ "ethereum-types",
+ "generic-array",
+ "hotshot-stake-table",
+ "hotshot-types",
+ "jf-primitives",
+ "jf-utils",
+ "serde",
+ "typenum",
+]
+
+[[package]]
 name = "hotshot-stake-table"
 version = "0.3.3"
 dependencies = [
@@ -3792,7 +3809,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#58eb45ab189364a2538e5ccaa912a3afdabd2bd1"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3812,6 +3829,7 @@ dependencies = [
  "blst",
  "chacha20poly1305 0.10.1",
  "crypto_kx",
+ "curve25519-dalek 4.0.0-rc.1",
  "derivative",
  "digest 0.10.7",
  "displaydoc",
@@ -3837,7 +3855,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#58eb45ab189364a2538e5ccaa912a3afdabd2bd1"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381 0.4.0",
@@ -3863,7 +3881,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#470a8330c744a1f2e6b543ae3f6ddf5a1622906d"
+source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#58eb45ab189364a2538e5ccaa912a3afdabd2bd1"
 dependencies = [
  "ark-ec 0.4.2",
  "ark-ff 0.4.2",
