@@ -239,6 +239,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if (index as usize) < lowest_in_memory_txs {
             new_index = lowest_in_memory_txs;
         }
+        else {
+            new_index = index as usize;
+        }
 
         for idx in new_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
@@ -251,7 +254,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             error!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some((index, txns_to_return)))
+            Ok(Some((new_index.try_into().unwrap(), txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
