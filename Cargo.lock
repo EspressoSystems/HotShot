@@ -3130,6 +3130,14 @@ dependencies = [
 name = "hotshot-qc"
 version = "0.3.3"
 dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381 0.4.0",
+ "ark-bn254",
+ "ark-ec 0.4.2",
+ "ark-ff 0.4.2",
+ "ark-pallas",
+ "ark-poly",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "bincode",
  "bitvec",
@@ -3138,6 +3146,7 @@ dependencies = [
  "hotshot-stake-table",
  "hotshot-types",
  "jf-primitives",
+ "jf-relation",
  "jf-utils",
  "serde",
  "typenum",
