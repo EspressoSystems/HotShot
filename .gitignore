@@ -8,3 +8,4 @@
 */target_dirs
 /target_dirs
 /.vscode/settings.json
+**/.DS_Store
