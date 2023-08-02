@@ -71,7 +71,8 @@ impl GlobalRegistry {
             .last_key_value()
             .map(|(k, _v)| k)
             .cloned()
-            .unwrap_or_default();
+            .unwrap_or_default()
+            + 1;
         let new_entry = (status.clone(), name.to_string());
         let new_entry_dup = new_entry.0.clone();
         list.insert(next_id, new_entry.clone());
@@ -93,8 +94,7 @@ impl GlobalRegistry {
         // probably much much less often
         let list = self.state_list.read().await;
         let list_keys: BTreeSet<usize> = list.keys().cloned().collect();
-        let cache_keys: BTreeSet<usize> =
-            self.state_cache.keys().cloned().collect();
+        let cache_keys: BTreeSet<usize> = self.state_cache.keys().cloned().collect();
         // bleh not as efficient
         let missing_key_list = list_keys.difference(&cache_keys);
         let expired_key_list = cache_keys.difference(&list_keys);
