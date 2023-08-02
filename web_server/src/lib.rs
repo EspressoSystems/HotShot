@@ -29,7 +29,7 @@ type Error = ServerError;
 /// How many views to keep in memory
 const MAX_VIEWS: usize = 25;
 /// How many transactions to keep in memory
-const MAX_TXNS: usize = 750;
+const MAX_TXNS: usize = 25;
 /// How many transactions to return at once
 const TX_BATCH_SIZE: u64 = 1;
 
