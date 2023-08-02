@@ -196,7 +196,8 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut tx_index = 0;
 
         if message_purpose == MessagePurpose::Data {
-            let tx_index = *self.tx_index.write().await;
+            let tx_index = *self.tx_index.read().await;
+            error!("Previous tx index was {}", tx_index);
 
         };
 
@@ -222,7 +223,8 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 let possible_message = self.get_txs_from_web_server(endpoint).await;
                 match possible_message {
                     Ok(Some((index, deserialized_messages))) => {
-                        tx_index = index;
+                        // tx_index = index;
+                        // Going to assume node can keep up.  
                         let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
                                 for tx in &deserialized_messages {
                                     tx_index += 1;

@@ -254,7 +254,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             error!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some((new_index.try_into().unwrap(), txns_to_return)))
+            Ok(Some((index.try_into().unwrap(), txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
