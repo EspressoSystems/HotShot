@@ -10,7 +10,7 @@ use libp2p::{
     kad::{
         /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapError, BootstrapOk,
         GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, ProgressStep,
-        PutRecordResult, QueryId, QueryResult, Quorum, Record,
+        PutRecordResult, QueryId, QueryResult, Quorum, Record, Mode,
     },
     swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
@@ -107,10 +107,16 @@ impl DHTBehaviour {
     /// Create a new DHT behaviour
     #[must_use]
     pub fn new(
-        kadem: Kademlia<MemoryStore>,
+        mut kadem: Kademlia<MemoryStore>,
         pid: PeerId,
         replication_factor: NonZeroUsize,
     ) -> Self {
+        // needed because otherwise we stay in client mode when testing locally
+        // and don't publish keys stuff
+        // e.g. dht just doesn't work. We'd need to add mdns and that doesn't seem worth it since
+        // we won't have a local network
+        // <https://github.com/libp2p/rust-libp2p/issues/4194>
+        kadem.set_mode(Some(Mode::Server));
         Self {
             begin_bootstrap: false,
             bootstrap_nodes: HashMap::default(),
