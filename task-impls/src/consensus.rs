@@ -91,6 +91,8 @@ pub struct SequencingConsensusTaskState<
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
+    /// View timeout from config.
+    pub timeout: u64,
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
 
@@ -531,6 +533,7 @@ where
                 .await;
 
             // Spawn a timeout task if we did actually update view
+            let timeout = self.timeout;
             self.timeout_task = async_spawn({
                 // let next_view_timeout = hotshot.inner.config.next_view_timeout;
                 // let next_view_timeout = next_view_timeout;
@@ -540,7 +543,7 @@ where
                 let view_number = self.cur_view;
                 async move {
                     // ED: Changing to 1 second to test timeout logic
-                    async_sleep(Duration::from_millis(30000)).await;
+                    async_sleep(Duration::from_millis(timeout)).await;
                     stream
                         .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                             *view_number,

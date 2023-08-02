@@ -292,6 +292,7 @@ where
         SequencingConsensusTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>> {
             registry: registry.clone(),
             consensus,
+            timeout: nll_todo(),
             cur_view: TYPES::Time::new(0),
             block: TYPES::BlockType::new(),
             quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
