@@ -31,7 +31,7 @@ pub type HotShotTaskId = usize;
 #[derive(Debug, Clone)]
 pub struct GlobalRegistry {
     /// up-to-date shared list of statuses
-    /// only used if `state_cpy` is out of date
+    /// only used if `state_cache` is out of date
     /// or if appending
     state_list: Arc<RwLock<BTreeMap<HotShotTaskId, (TaskState, String)>>>,
     /// possibly stale read version of state
