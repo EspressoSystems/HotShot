@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use tracing::error;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
@@ -89,9 +88,9 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncVoteInternal<TYPES: NodeType> {
-    /// The relay this vote is intended for
+    /// The public key associated with the relay.
     pub relay_pub_key: EncodedPublicKey,
-
+    /// The relay this vote is intended for
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::Time,
@@ -137,6 +136,7 @@ pub enum ViewSyncVote<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ViewSyncVote<TYPES> {
+    /// Get the encoded signature.
     pub fn signature(&self) -> EncodedSignature {
         match &self {
             ViewSyncVote::PreCommit(vote_internal)
@@ -144,6 +144,9 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
             | ViewSyncVote::Finalize(vote_internal) => vote_internal.signature.1.clone(),
         }
     }
+    /// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
     pub fn signature_key(&self) -> TYPES::SignatureKey {
         let encoded = match &self {
             ViewSyncVote::PreCommit(vote_internal)
@@ -152,7 +155,7 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
         };
         <TYPES::SignatureKey as SignatureKey>::from_bytes(&encoded).unwrap()
     }
-
+    /// Get the relay.
     pub fn relay(&self) -> u64 {
         match &self {
             ViewSyncVote::PreCommit(vote_internal)
@@ -160,7 +163,7 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
             | ViewSyncVote::Finalize(vote_internal) => vote_internal.relay,
         }
     }
-
+    /// Get the round number.
     pub fn round(&self) -> TYPES::Time {
         match &self {
             ViewSyncVote::PreCommit(vote_internal)
@@ -189,6 +192,9 @@ impl<TYPES: NodeType> VoteType<TYPES> for DAVote<TYPES> {
 }
 
 impl<TYPES: NodeType> DAVote<TYPES> {
+    /// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
     pub fn signature_key(&self) -> TYPES::SignatureKey {
         <TYPES::SignatureKey as SignatureKey>::from_bytes(&self.signature.0).unwrap()
     }
@@ -206,12 +212,16 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES>
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> QuorumVote<TYPES, LEAF> {
+    /// Get the encoded signature.
     pub fn signature(&self) -> EncodedSignature {
         match &self {
             Self::Yes(vote) | Self::No(vote) => vote.signature.1.clone(),
             Self::Timeout(vote) => vote.signature.1.clone(),
         }
     }
+    /// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
     pub fn signature_key(&self) -> TYPES::SignatureKey {
         let encoded = match &self {
             Self::Yes(vote) | Self::No(vote) => vote.signature.0.clone(),
@@ -318,7 +328,7 @@ where
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
-        match vote_data.clone() {
+        match vote_data {
             VoteData::DA(_)
             | VoteData::Yes(_)
             | VoteData::ViewSyncCommit(_)

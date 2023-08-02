@@ -9,20 +9,18 @@
     clippy::panic
 )]
 
-use Poll::{Pending, Ready};
-
+use crate::task::PassType;
 use either::Either;
-use event_stream::{EventStream, SendableStream};
+use event_stream::SendableStream;
+use Poll::{Pending, Ready};
 // The spawner of the task should be able to fire and forget the task if it makes sense.
-use futures::{future::BoxFuture, stream::Fuse, Future, Stream, StreamExt};
+use futures::{stream::Fuse, Future, Stream, StreamExt};
 use std::{
-    marker::PhantomData,
     pin::Pin,
     slice::SliceIndex,
     sync::Arc,
     task::{Context, Poll},
 };
-use task::PassType;
 // NOTE use pin_project here because we're already bring in procedural macros elsewhere
 // so there is no reason to use pin_project_lite
 use pin_project::pin_project;
@@ -50,19 +48,21 @@ pub mod task_launcher;
 /// the task implementations with different features
 pub mod task_impls;
 
-// merge `N` streams of the same type
+/// merge `N` streams of the same type
 #[pin_project]
 pub struct MergeN<T: Stream> {
+    /// Streams to be merged.
     #[pin]
     streams: Vec<Fuse<T>>,
-    // idx to start polling
+    /// idx to start polling
     idx: usize,
 }
 
 impl<T: Stream> MergeN<T> {
     /// create a new stream
+    #[must_use]
     pub fn new(streams: Vec<T>) -> MergeN<T> {
-        let fused_streams = streams.into_iter().map(|x| x.fuse()).collect();
+        let fused_streams = streams.into_iter().map(StreamExt::fuse).collect();
         MergeN {
             streams: fused_streams,
             idx: 0,
@@ -83,6 +83,7 @@ impl<T: Stream + Sync + Send + 'static> SendableStream for MergeN<T> {}
 // slices.
 //
 // From: https://github.com/rust-lang/rust/pull/78370/files
+/// Get a pinned mutable pointer from a list.
 pub(crate) fn get_pin_mut_from_vec<T, I>(
     slice: Pin<&mut Vec<T>>,
     index: I,
@@ -260,7 +261,9 @@ pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + '
 #[pin_project(project = ProjectedStreamableThing)]
 pub struct GeneratedStream<O> {
     // todo maybe type wrapper is in order
+    /// Stream generator.
     generator: Arc<dyn Fn() -> Option<BoxSyncFuture<'static, O>> + Sync + Send>,
+    /// Optional in-progress future.
     in_progress_fut: Option<BoxSyncFuture<'static, O>>,
 }
 
@@ -292,27 +295,24 @@ impl<O> Stream for GeneratedStream<O> {
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
-                        return Poll::Ready(Some(val));
+                        Poll::Ready(Some(val))
                     }
-                    Pending => {
-                        return Poll::Pending;
-                    }
+                    Pending => Poll::Pending,
                 }
             }
             None => {
                 let wrapped_fut = (*projection.generator)();
-                let mut fut = match wrapped_fut {
-                    Some(fut) => fut,
-                    None => return Poll::Ready(None),
+                let Some( mut fut )=  wrapped_fut else {
+                    return Poll::Ready(None);
                 };
                 match fut.as_mut().poll(cx) {
                     Ready(val) => {
                         *projection.in_progress_fut = None;
-                        return Poll::Ready(Some(val));
+                        Poll::Ready(Some(val))
                     }
                     Pending => {
                         *projection.in_progress_fut = Some(fut);
-                        return Poll::Pending;
+                        Poll::Pending
                     }
                 }
             }
@@ -340,7 +340,7 @@ impl<O: Sync + Send + 'static> SendableStream for GeneratedStream<O> {}
 
 #[cfg(test)]
 pub mod test {
-    use crate::*;
+    use crate::{boxed_sync, Arc, GeneratedStream, StreamExt};
 
     #[cfg(test)]
     #[cfg_attr(
@@ -381,7 +381,7 @@ pub mod test {
                     let actual_value = value.load(Ordering::Relaxed);
                     value.store(actual_value + 1, Ordering::Relaxed);
                     async_sleep(Duration::new(0, 500)).await;
-                    actual_value as u32
+                    u32::from(actual_value)
                 };
                 Some(boxed_sync(closure))
             }),

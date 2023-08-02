@@ -319,7 +319,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_view_sync_proposal(
         &mut self,
         view_number: u64,
-        mut proposal: Vec<u8>,
+        proposal: Vec<u8>,
     ) -> Result<(), Error> {
         // Only keep proposal history for MAX_VIEWS number of view
         if self.view_sync_proposals.len() >= MAX_VIEWS {

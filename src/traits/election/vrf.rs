@@ -13,30 +13,18 @@ use hotshot_types::traits::signature_key::{
     EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    // hash_to_group::TEHashToGroup,
-    signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-        SignatureScheme,
-    },
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
+use jf_primitives::signatures::{
+    // bls_over_bls12381::{BLSSignature, BLSVerKey},
+    BLSSignatureScheme,
+    SignatureScheme,
 };
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
+
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 // use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    hash::Hash,
-    marker::PhantomData,
-    num::NonZeroU64,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 // use tracing::{error, info, instrument};
 
 // TODO wrong palce for this

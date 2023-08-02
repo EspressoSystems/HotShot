@@ -15,7 +15,6 @@ use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
-use tracing::error;
 
 /// Dummy implementation of [`Membership`]
 
@@ -138,10 +137,10 @@ where
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Valid(t) | Checked::Unchecked(t) => {
-                if !self.committee_nodes.contains(&pub_key) {
-                    Ok(Checked::Inval(t))
-                } else {
+                if self.committee_nodes.contains(&pub_key) {
                     Ok(Checked::Valid(t))
+                } else {
+                    Ok(Checked::Inval(t))
                 }
             }
             Checked::Inval(t) => Ok(Checked::Inval(t)),

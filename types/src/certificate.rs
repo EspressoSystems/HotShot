@@ -17,7 +17,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
-use tracing::{error, warn};
+use tracing::warn;
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -72,15 +72,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+/// Certificate for view sync.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum ViewSyncCertificate<TYPES: NodeType> {
+    /// Pre-commit phase.
     PreCommit(ViewSyncCertificateInternal<TYPES>),
+    /// Commit phase.
     Commit(ViewSyncCertificateInternal<TYPES>),
+    /// Finalize phase.
     Finalize(ViewSyncCertificateInternal<TYPES>),
 }
 
 impl<TYPES: NodeType> ViewSyncCertificate<TYPES> {
+    /// Serialize the certificate into bytes.
+    /// # Panics
+    /// If the serialization fails.
     pub fn as_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
     }
@@ -110,10 +117,11 @@ pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken>
     /// Means these signatures could be a combination of either Yes or No signatures
     No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
 
+    /// These signatures are for a `PreCommit` view sync certificate.
     ViewSyncPreCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
-
+    /// These signatures are for a `Commit` view sync certificate.
     ViewSyncCommit(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
-
+    /// These signatures are for a `Finalize` view sync certificate.
     ViewSyncFinalize(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
 }
 
@@ -144,7 +152,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         view_number: TYPES::Time,
         signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
         commit: Commitment<LEAF>,
-        relay: Option<u64>,
+        _relay: Option<u64>,
     ) -> Self {
         let qc = QuorumCertificate {
             leaf_commitment: commit,
@@ -237,7 +245,7 @@ impl<TYPES: NodeType>
         view_number: TYPES::Time,
         signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>,
         commit: Commitment<TYPES::BlockType>,
-        relay: Option<u64>,
+        _relay: Option<u64>,
     ) -> Self {
         DACertificate {
             view_number,
@@ -298,7 +306,7 @@ impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
                 certificate_internal
             }
         };
-        let signatures = match self.signatures().clone() {
+        let signatures = match self.signatures() {
             YesNoSignature::ViewSyncPreCommit(signatures) => {
                 builder =
                     builder.var_size_field("Signature View Sync Phase", "PreCommit".as_bytes());
@@ -343,7 +351,7 @@ impl<TYPES: NodeType>
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
-        commit: Commitment<ViewSyncData<TYPES>>,
+        _commit: Commitment<ViewSyncData<TYPES>>,
         relay: Option<u64>,
     ) -> Self {
         let certificate_internal = ViewSyncCertificateInternal {

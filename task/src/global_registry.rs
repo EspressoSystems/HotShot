@@ -56,8 +56,8 @@ impl GlobalRegistry {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            state_list: Arc::new(RwLock::new(Default::default())),
-            state_cache: Default::default(),
+            state_list: Arc::new(RwLock::new(BTreeMap::default())),
+            state_cache: BTreeMap::default(),
         }
     }
 
@@ -70,7 +70,7 @@ impl GlobalRegistry {
         let next_id = list
             .last_key_value()
             .map(|(k, _v)| k)
-            .cloned()
+            .copied()
             .unwrap_or_default()
             + 1;
         let new_entry = (status.clone(), name.to_string());
@@ -93,8 +93,8 @@ impl GlobalRegistry {
         // and debatable how often the other op needs to be run
         // probably much much less often
         let list = self.state_list.read().await;
-        let list_keys: BTreeSet<usize> = list.keys().cloned().collect();
-        let cache_keys: BTreeSet<usize> = self.state_cache.keys().cloned().collect();
+        let list_keys: BTreeSet<usize> = list.keys().copied().collect();
+        let cache_keys: BTreeSet<usize> = self.state_cache.keys().copied().collect();
         // bleh not as efficient
         let missing_key_list = list_keys.difference(&cache_keys);
         let expired_key_list = cache_keys.difference(&list_keys);

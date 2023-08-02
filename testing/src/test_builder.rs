@@ -13,11 +13,9 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
 
-use crate::spinning_task::SpinningTaskDescription;
-use crate::test_launcher::ResourceGenerators;
-
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use super::test_launcher::TestLauncher;
+use crate::spinning_task::SpinningTaskDescription;
+use crate::test_launcher::{ResourceGenerators, TestLauncher};
 
 use super::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
