@@ -170,6 +170,8 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     /// Whether we are connecting to a DA server
     is_da: bool,
 
+    tx_index: Arc<RwLock<u64>>, 
+
     // TODO ED This should be TYPES::Time
     // Theoretically there should never be contention for this lock...
     proposal_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
@@ -192,6 +194,11 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
+
+        if message_purpose == MessagePurpose::Data {
+            let tx_index = *self.tx_index.write().await;
+
+        };
 
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_purpose {
@@ -346,7 +353,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         | ConsensusIntentEvent::CancelPollForProposal(event_view)
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
-                        | ConsensusIntentEvent::CancelPollForTransactions(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number != event_view {
                                 panic!("Wrong event view number was sent to this task!");
@@ -355,7 +361,19 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 error!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
+                        }, 
+                        ConsensusIntentEvent::CancelPollForTransactions(event_view) => {
+                            // Write the most recent tx index so we can pick up where we left off later
+                            *self.tx_index.write().await = tx_index; 
+                            if view_number != event_view {
+                                panic!("Wrong event view number was sent to this task!");
+                            } else {
+                                // Shutdown this task
+                                error!("Shutting down polling task for view {}", event_view);
+                                return Ok(());
+                            }
                         }
+
                         _ => unimplemented!(),
                     }
                 }
@@ -516,6 +534,7 @@ impl<
             wait_between_polls,
             _own_key: key,
             is_da: is_da_server,
+            tx_index: Arc::default(), 
             proposal_task_map: Arc::default(),
             vote_task_map: Arc::default(),
             dac_task_map: Arc::default(),
