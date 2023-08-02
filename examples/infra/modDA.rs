@@ -405,7 +405,7 @@ pub trait RunDA<
                                 for _ in 0..transactions_per_round {
                                     // if round % total_nodes_u64 == 0 {
                                     // Only relevant for 1000 nodes
-                                    if node_index >= 990 {
+                                    if node_index >= total_nodes_u64 - 10 {
                                         let txn = txns.pop_front().unwrap();
 
                                         tracing::error!("Submitting txn on round {}", round);
