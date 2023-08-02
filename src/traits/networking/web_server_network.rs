@@ -196,7 +196,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         let mut tx_index = 0;
 
         if message_purpose == MessagePurpose::Data {
-            let tx_index = *self.tx_index.read().await;
+            tx_index = *self.tx_index.read().await;
             error!("Previous tx index was {}", tx_index);
 
         };
@@ -248,12 +248,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     Ok(Some(deserialized_messages)) => {
                         match message_purpose {
                             MessagePurpose::Data => {
-                                let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
-                                for tx in &deserialized_messages {
-                                    tx_index += 1;
-                                    broadcast_poll_queue.push(tx.clone());
-                                }
-                                error!("tx index is {}", tx_index);
+                               panic!();
                             }
                             MessagePurpose::Proposal => {
                                 // warn!(
@@ -366,7 +361,11 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         }, 
                         ConsensusIntentEvent::CancelPollForTransactions(event_view) => {
                             // Write the most recent tx index so we can pick up where we left off later
-                            *self.tx_index.write().await = tx_index; 
+                        
+                            let mut lock = self.tx_index.write().await;
+                            *lock = tx_index;  
+
+                            error!("Lock is {:?}", lock);
                             if view_number != event_view {
                                 panic!("Wrong event view number was sent to this task!");
                             } else {
@@ -1142,7 +1141,7 @@ impl<
                         .await;
                     Ok(())
                 } else {
-                    // ED - Do we want to return an err here?
+                    error!("Task map entry should have existed");
                     Ok(())
                 }
             }

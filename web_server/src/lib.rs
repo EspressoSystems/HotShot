@@ -230,7 +230,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut txn_vec_size = 0;
 
         let mut new_index = index as usize; 
-        let lowest_in_memory_txs = if self.num_txns < MAX_VIEWS.try_into().unwrap() {
+        let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
             0
         } else {
             (self.num_txns as usize - MAX_TXNS)

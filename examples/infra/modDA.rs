@@ -403,12 +403,13 @@ pub trait RunDA<
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
                                 for _ in 0..transactions_per_round {
-                                    let txn = txns.pop_front().unwrap();
-
-                                    tracing::error!("Submitting txn on round {}", round);
                                     // if round % total_nodes_u64 == 0 {
                                     // Only relevant for 1000 nodes
                                     if node_index >= 990 {
+                                        let txn = txns.pop_front().unwrap();
+
+                                        tracing::error!("Submitting txn on round {}", round);
+
                                         // if (round + 10) % (node_index + 1) <= 10 {
                                         let result = api
                                             .send_transaction(DataMessage::SubmitTransaction(

@@ -503,7 +503,7 @@ where
 
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*view)))
+                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*self.cur_view + 1)))
                     .await;
 
                 for txn in txns {
