@@ -3224,6 +3224,8 @@ dependencies = [
  "commit",
  "custom_debug",
  "derivative",
+ "digest 0.10.7",
+ "displaydoc",
  "ed25519-compact",
  "either",
  "espresso-systems-common 0.4.1",
