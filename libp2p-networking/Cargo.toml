@@ -9,7 +9,7 @@ authors = ["Espresso Systems <hello@espressosys.com>"]
 
 [features]
 default = []
-full-ci = ["async-std-executor", "lossy_network", "webui"]
+full-ci = ["async-std-executor", "lossy_network", "webui", "channel-async-std"]
 tokio-ci = ["tokio-executor", "lossy_network", "webui"]
 webui = ["tide"]
 
@@ -54,9 +54,9 @@ derive_builder = "0.12.0"
 either = { version = "1.8.1" }
 futures = "0.3.28"
 hotshot-utils = { path = "../utils"}
-libp2p-swarm-derive = { version = "=0.32.0" }
-libp2p-identity = "0.1.2"
-libp2p = { version = "0.51.3", default-features = false, features = [
+libp2p-swarm-derive = { version = "=0.33.0" }
+libp2p-identity = "0.2.0"
+libp2p = { version = "0.52.0", default-features = false, features = [
     "macros",
     "autonat",
     "deflate",
@@ -66,7 +66,6 @@ libp2p = { version = "0.51.3", default-features = false, features = [
     "identify",
     "kad",
     "mdns",
-    "mplex",
     "noise",
     "ping",
     "plaintext",
@@ -82,7 +81,7 @@ libp2p = { version = "0.51.3", default-features = false, features = [
     "websocket",
     "yamux",
 ] }
-libp2p-noise = { version = "0.42.2", default-features = false }
+libp2p-noise = { version = "0.43.0", default-features = false }
 parking_lot = "0.12.1"
 rand = "0.8.5"
 serde = { version = "1.0.164", features = ["derive"] }

@@ -30,7 +30,7 @@ pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 /// - p2p broadcast
 /// - connection management
 #[derive(NetworkBehaviour, custom_debug::Debug)]
-#[behaviour(out_event = "NetworkEventInternal")]
+#[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
