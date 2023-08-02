@@ -109,7 +109,8 @@ where
     }
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        let index = (*view_number % self.nodes.len() as u64) as usize;
+        // Testing benchmarking theory that leader is bottleneck
+        let index = (*view_number % 10 as u64) as usize;
         self.nodes[index].clone()
     }
 
