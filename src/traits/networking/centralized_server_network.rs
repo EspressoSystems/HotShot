@@ -846,12 +846,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         Ok(())
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -881,7 +877,7 @@ impl<
     pub fn new(
         network: Arc<CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>>,
     ) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 
     /// passthru for example?
@@ -978,12 +974,8 @@ where
         .await
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -1048,7 +1040,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                &NoMetrics::default(),
+                &NoMetrics,
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),
@@ -1080,7 +1072,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CentralizedServerNetwork<
             TYPES::SignatureKey,
@@ -1090,7 +1082,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            _is_da
+            is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

@@ -12,7 +12,7 @@ use std::{
     fmt::Debug,
     hash::Hash,
     ops,
-    ops::{Add, Deref, Div, Rem, Sub},
+    ops::{Deref, Sub},
 };
 
 /// Abstraction over the state that blocks modify

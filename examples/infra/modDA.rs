@@ -2,14 +2,12 @@ use crate::infra::{load_config_from_file, OrchestratorArgs};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
-use commit::Commitment;
-use either::Either;
 use futures::StreamExt;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
-        NodeImplementation, Storage,
+        NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
@@ -32,16 +30,12 @@ use hotshot_types::{
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        consensus_type::validating_consensus::ValidatingConsensus,
         election::{ConsensusExchange, ViewSyncExchange},
         node_implementation::{CommitteeEx, QuorumEx},
     },
 };
 use hotshot_types::{
-    data::{
-        DAProposal, LeafType, QuorumProposal, SequencingLeaf, TestableLeaf, ValidatingLeaf,
-        ValidatingProposal,
-    },
+    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
     message::SequencingMessage,
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -54,8 +48,7 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
-use hotshot_web_server::config::{DEFAULT_WEB_SERVER_DA_PORT, DEFAULT_WEB_SERVER_VIEW_SYNC_PORT};
-use nll::nll_todo::nll_todo;
+use hotshot_web_server::config::DEFAULT_WEB_SERVER_VIEW_SYNC_PORT;
 // use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -272,7 +265,7 @@ pub trait RunDA<
             ek.clone(),
         );
 
-        let hotshot = SystemContext::init(
+        SystemContext::init(
             pk,
             sk,
             config.node_index,
@@ -283,16 +276,7 @@ pub trait RunDA<
             NoMetrics::boxed(),
         )
         .await
-        .expect("Could not init hotshot");
-
-        // let state = hotshot
-        //     .storage()
-        //     .get_anchored_view()
-        //     .await
-        //     .expect("Couldn't get HotShot's anchored view")
-        //     .state;
-
-        hotshot
+        .expect("Could not init hotshot")
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
@@ -309,7 +293,6 @@ pub trait RunDA<
         let size = mem::size_of::<TYPES::Transaction>();
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
-        let state = context.get_state().await;
 
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
@@ -330,10 +313,8 @@ pub trait RunDA<
         error!("Generated {} transactions", tx_to_gen);
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut timed_out_views: u64 = 0;
         let mut round = 0;
         let mut total_transactions = 0;
-        let mut total_commitments = 0;
 
         let start = Instant::now();
 
@@ -375,13 +356,17 @@ pub trait RunDA<
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
                 }
-                Some(Event { view_number, event }) => {
+                Some(Event { event, .. }) => {
                     match event {
                         EventType::Error { error } => {
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, block_size } => {
+                        EventType::Decide {
+                            leaf_chain,
+                            qc: _,
+                            block_size,
+                        } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 error!("Decide event for leaf: {}", *leaf.view_number);
@@ -392,8 +377,8 @@ pub trait RunDA<
                                 }
                             }
 
-                            if block_size.is_some() {
-                                total_transactions += block_size.unwrap();
+                            if let Some(size) = block_size {
+                                total_transactions += size;
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -428,6 +413,8 @@ pub trait RunDA<
                     }
                 }
             }
+
+            round += 1;
         }
         // while round <= rounds {
         //     error!("Round {}:", round);
@@ -474,7 +461,7 @@ pub trait RunDA<
         let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
         error!("Total commitments: {num_successful_commits}");
         error!("Total transactions committed: {total_transactions}");
     }
@@ -603,11 +590,6 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-        let known_nodes = config.config.known_nodes.clone();
-
-        let mut _committee_nodes = known_nodes.clone();
-        //committee_nodes.truncate(config.config.da_committee_nodes.into());
-
         // Create the network
         let quorum_network: WebCommChannel<
             TYPES,
@@ -621,7 +603,6 @@ where
                 port,
                 wait_between_polls,
                 pub_key.clone(),
-                known_nodes.clone(),
                 false,
             )
             .into(),
@@ -639,7 +620,6 @@ where
                 DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
                 wait_between_polls,
                 pub_key.clone(),
-                known_nodes.clone(),
                 false,
             )
             .into(),
@@ -657,8 +637,7 @@ where
                     &host.to_string(),
                     port,
                     wait_between_polls,
-                    pub_key.clone(),
-                    known_nodes.clone(),
+                    pub_key,
                     true,
                 )
                 .into(),

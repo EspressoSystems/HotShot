@@ -13,30 +13,18 @@ use hotshot_types::traits::signature_key::{
     EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    // hash_to_group::TEHashToGroup,
-    signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-        SignatureScheme,
-    },
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
+use jf_primitives::signatures::{
+    // bls_over_bls12381::{BLSSignature, BLSVerKey},
+    BLSSignatureScheme,
+    SignatureScheme,
 };
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
+
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 // use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    hash::Hash,
-    marker::PhantomData,
-    num::NonZeroU64,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 // use tracing::{error, info, instrument};
 
 // TODO wrong palce for this
@@ -243,8 +231,9 @@ where
         })
     }
 
-    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
         hasher.update(&index.to_le_bytes());
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);

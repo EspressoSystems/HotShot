@@ -1,4 +1,3 @@
-use ark_bls12_381::Parameters as Param381;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
@@ -7,8 +6,8 @@ use hotshot::{
             vrf::JfPubKey,
         },
         implementations::{
-            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
-            WebCommChannel, WebServerWithFallbackCommChannel,
+            Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
+            WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
     },
@@ -29,9 +28,7 @@ use hotshot_types::{
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
-use crate::test_runner::TestRunner;
 #[derive(
     Copy,
     Clone,

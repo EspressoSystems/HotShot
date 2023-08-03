@@ -4,7 +4,6 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
-use futures::future::BoxFuture;
 use hotshot_task::BoxSyncFuture;
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
@@ -131,6 +130,7 @@ pub enum NetworkError {
 
 #[derive(Clone, Debug)]
 // Storing view number as a u64 to avoid the need TYPES generic
+/// Events to poll or cancel consensus processes.
 pub enum ConsensusIntentEvent {
     /// Poll for votes for a particular view
     PollForVotes(u64),
@@ -144,17 +144,19 @@ pub enum ConsensusIntentEvent {
     PollForViewSyncCertificate(u64),
     /// Cancel polling for votes
     CancelPollForVotes(u64),
-    /// Cancel polling for votes
+    /// Cancel polling for view sync votes.
     CancelPollForViewSyncVotes(u64),
-
+    /// Cancel polling for proposals.
     CancelPollForProposal(u64),
-
+    /// Cancal polling for DAC.
     CancelPollForDAC(u64),
-
+    /// Cancel polling for view sync certificate.
     CancelPollForViewSyncCertificate(u64),
 }
 
 impl ConsensusIntentEvent {
+    /// Get the view number of the event.
+    #[must_use]
     pub fn view_number(&self) -> u64 {
         match &self {
             ConsensusIntentEvent::PollForVotes(view_number)
@@ -249,7 +251,7 @@ pub trait CommunicationChannel<
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
 }
 
 /// represents a networking implmentration
@@ -305,7 +307,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
 }
 
 /// Describes additional functionality needed by the test network implementation

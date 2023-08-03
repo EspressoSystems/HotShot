@@ -4,7 +4,6 @@ use hotshot::{
     demos::sdemo::SDemoTypes,
     traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
 };
-use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
     election::{CommitteeExchange, QuorumExchange},
@@ -15,9 +14,6 @@ use hotshot_types::{
     data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
     traits::{
-        consensus_type::{
-            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
-        },
         election::ViewSyncExchange,
         node_implementation::{ChannelMaps, NodeType},
     },

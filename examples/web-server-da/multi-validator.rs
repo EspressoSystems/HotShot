@@ -55,7 +55,7 @@ async fn main() {
                 NodeImpl,
                 ThisRun,
             >(ValidatorArgs {
-                host: args.host,
+                host: args.host.to_string(),
                 port: args.port,
                 public_ip: args.public_ip,
             })

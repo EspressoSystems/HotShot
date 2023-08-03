@@ -1,5 +1,5 @@
 use hotshot_testing::{
-    node_types::{SequencingLibp2pImpl, SequencingTestTypes, StaticFallbackImpl},
+    node_types::{SequencingLibp2pImpl, SequencingTestTypes},
     test_builder::TestMetadata,
 };
 use tracing::instrument;

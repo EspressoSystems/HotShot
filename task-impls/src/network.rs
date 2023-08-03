@@ -2,12 +2,12 @@ use crate::events::SequencingHotShotEvent;
 use either::Either::{self, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HotShotTaskCompleted, TaskErr, TS},
+    task::{FilterEvent, HotShotTaskCompleted, TS},
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
-use hotshot_types::message::{DataMessage, Message};
-use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::message::Message;
+use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::{GeneralConsensusMessage, MessageKind, Messages},
@@ -16,19 +16,12 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::EncodedSignature,
     },
     vote::VoteType,
 };
-use hotshot_types::{
-    message::{CommitteeConsensusMessage, SequencingMessage},
-    traits::election::SignedCertificate,
-};
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
-use tracing::warn;
 
 #[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
@@ -69,7 +62,7 @@ impl<
     > NetworkMessageTaskState<TYPES, I>
 {
     /// Handle the message.
-    pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>, id: u64) {
+    pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>) {
         // We will send only one event for a vector of transactions.
         let mut transactions = Vec::new();
         for message in messages {
@@ -189,7 +182,7 @@ impl<
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal.clone()))),
+                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -208,9 +201,7 @@ impl<
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(
-                        proposal.clone(),
-                    ))),
+                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(proposal))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -227,9 +218,7 @@ impl<
             SequencingHotShotEvent::DACSend(certificate, sender) => (
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(
-                        certificate.clone(),
-                    ))),
+                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(certificate))),
                 ),
                 TransmitType::Broadcast,
                 None,
@@ -238,7 +227,7 @@ impl<
                 sender,
                 MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
                     SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
-                        certificate_proposal.clone(),
+                        certificate_proposal,
                     ))),
                 ),
                 TransmitType::Broadcast,
@@ -290,7 +279,7 @@ impl<
             Err(e) => error!("Failed to send message from network task: {:?}", e),
         }
 
-        return None;
+        None
     }
 
     pub fn filter(task_kind: NetworkTaskKind) -> FilterEvent<SequencingHotShotEvent<TYPES, I>> {
@@ -302,37 +291,34 @@ impl<
     }
 
     fn quorum_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::QuorumProposalSend(_, _)
-            | SequencingHotShotEvent::QuorumVoteSend(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::DACSend(_, _)
-            | SequencingHotShotEvent::ViewChange(_) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::QuorumVoteSend(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::DACSend(_, _)
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 
     fn committee_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::DAProposalSend(_, _)
-            | SequencingHotShotEvent::DAVoteSend(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::DAVoteSend(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 
     fn view_sync_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::ViewSyncVoteSend(_)
-            | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::ViewChange(_) => true,
-
-            _ => false,
-        }
+                | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 }
 

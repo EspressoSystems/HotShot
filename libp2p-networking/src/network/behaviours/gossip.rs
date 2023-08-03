@@ -61,7 +61,7 @@ impl GossipBehaviour {
 impl NetworkBehaviour for GossipBehaviour {
     type ConnectionHandler = <Behaviour as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = GossipEvent;
+    type ToSwarm = GossipEvent;
 
     fn on_swarm_event(
         &mut self,
@@ -100,9 +100,6 @@ impl NetworkBehaviour for GossipBehaviour {
                         event,
                     });
                 }
-                ToSwarm::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
-                }
                 ToSwarm::CloseConnection {
                     peer_id,
                     connection,
@@ -111,6 +108,21 @@ impl NetworkBehaviour for GossipBehaviour {
                         peer_id,
                         connection,
                     });
+                }
+                ToSwarm::ListenOn { opts } => {
+                    return Poll::Ready(ToSwarm::ListenOn { opts });
+                }
+                ToSwarm::RemoveListener { id } => {
+                    return Poll::Ready(ToSwarm::RemoveListener { id });
+                }
+                ToSwarm::NewExternalAddrCandidate(c) => {
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(c));
+                }
+                ToSwarm::ExternalAddrConfirmed(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(c));
+                }
+                ToSwarm::ExternalAddrExpired(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(c));
                 }
             }
         }

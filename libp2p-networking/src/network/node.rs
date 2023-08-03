@@ -19,7 +19,7 @@ use crate::network::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent},
-        direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
+        direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
         exponential_backoff::ExponentialBackoff,
         gossip::GossipEvent,
     },
@@ -46,7 +46,7 @@ use libp2p::{
     request_response::{
         Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
     },
-    swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
+    swarm::{SwarmBuilder, SwarmEvent},
     Multiaddr, Swarm,
 };
 use libp2p_identity::PeerId;
@@ -248,7 +248,6 @@ impl NetworkNode {
             let rrconfig = RequestResponseConfig::default();
 
             let request_response = RequestResponse::new(
-                DirectMessageCodec(),
                 [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
                 rrconfig,
             );
@@ -414,7 +413,7 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEventInternal,
-            Either<Either<Either<void::Void, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
+            Either<Either<Either<void::Void, Error>, Error>, void::Void>,
         >,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
@@ -424,6 +423,7 @@ impl NetworkNode {
         #[allow(deprecated)]
         match event {
             SwarmEvent::ConnectionEstablished {
+                connection_id: _,
                 peer_id,
                 endpoint,
                 num_established,
@@ -440,6 +440,7 @@ impl NetworkNode {
                 }
             }
             SwarmEvent::ConnectionClosed {
+                connection_id: _,
                 peer_id,
                 endpoint,
                 num_established,
@@ -454,8 +455,11 @@ impl NetworkNode {
                     info!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
                 }
             }
-            SwarmEvent::Dialing(p) => {
-                info!("{:?} is dialing {:?}", self.peer_id, p);
+            SwarmEvent::Dialing {
+                peer_id,
+                connection_id: _,
+            } => {
+                info!("{:?} is dialing {:?}", self.peer_id, peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: _,
@@ -471,10 +475,10 @@ impl NetworkNode {
                 address: _,
             }
             | SwarmEvent::IncomingConnection {
+                connection_id: _,
                 local_addr: _,
                 send_back_addr: _,
-            }
-            | SwarmEvent::BannedPeer { .. } => {}
+            } => {}
             SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
                     NetworkEventInternal::DHTEvent(e) => match e {
@@ -534,10 +538,15 @@ impl NetworkNode {
                         .map_err(|_e| NetworkError::StreamClosed)?;
                 }
             }
-            SwarmEvent::OutgoingConnectionError { peer_id: _, error } => {
+            SwarmEvent::OutgoingConnectionError {
+                connection_id: _,
+                peer_id: _,
+                error,
+            } => {
                 info!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
             }
             SwarmEvent::IncomingConnectionError {
+                connection_id: _,
                 local_addr,
                 send_back_addr,
                 error,

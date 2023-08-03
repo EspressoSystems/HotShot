@@ -211,12 +211,6 @@ where
                                         let leaf_commitment = leaf.commit();
                                         let Some(dac) = p.data.dac else {
                                             warn!("No DAC in proposal! Skipping proposal.");
-                                            message = self.quorum_exchange.create_no_message(
-                                                justify_qc_commitment,
-                                                leaf_commitment,
-                                                self.cur_view,
-                                                vote_token,
-                                            );
                                             continue;
                                         };
 

@@ -156,6 +156,7 @@ pub trait ValidatingConsensusApi<
         message: ValidatingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
+    /// Send a message with a transaction.
     async fn send_transaction(
         &self,
         message: DataMessage<TYPES>,
@@ -203,6 +204,7 @@ pub trait SequencingConsensusApi<
         message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
+    /// Send a message with a transaction.
     async fn send_transaction(
         &self,
         message: DataMessage<TYPES>,
