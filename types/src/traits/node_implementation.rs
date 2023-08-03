@@ -8,7 +8,7 @@ use super::{
     consensus_type::ConsensusType,
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType,
-        ViewSyncExchange, ViewSyncExchangeType, VoteToken,
+        ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -17,7 +17,6 @@ use super::{
     State,
 };
 use crate::traits::election::Membership;
-use crate::vote::ViewSyncVote;
 use crate::{data::TestableLeaf, message::Message};
 use crate::{
     data::{LeafType, SequencingLeaf, ValidatingLeaf},
@@ -166,6 +165,7 @@ pub trait ExchangesType<
     /// Protocol for exchanging quorum proposals and votes.
     type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
+    /// Protocol for exchanging view sync proposals and votes.
     type ViewSyncExchange: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug;
 
     /// Networking implementations for quorum and committee exchanges, the latter of which is only
@@ -188,6 +188,7 @@ pub trait ExchangesType<
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
+    /// Get the view sync exchange.
     fn view_sync_exchange(&self) -> &Self::ViewSyncExchange;
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
@@ -230,6 +231,7 @@ pub struct ValidatingExchanges<
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
 
+    /// View sync exchange.
     view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Phantom data.
@@ -312,6 +314,7 @@ pub struct SequencingExchanges<
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
 
+    /// View sync exchange.
     view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Committee exchange.
@@ -444,6 +447,7 @@ pub type CommitteeEx<TYPES, I> =
         Message<TYPES, I>,
     >>::CommitteeExchange;
 
+/// Alias for the [`ViewSyncExchange`] type.
 pub type ViewSyncEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
     <TYPES as NodeType>::ConsensusType,
     TYPES,
@@ -459,13 +463,16 @@ pub trait TestableNodeImplementation<
     TYPES: NodeType<ConsensusType = CONSENSUS>,
 >: NodeImplementation<TYPES>
 {
-    /// Communication channel the DA committee. Only needed for the sequencing consensus.
+    /// Communication channel for the DA committee. Only needed for the sequencing consensus.
     type CommitteeCommChannel;
 
     /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
 
+    /// Communication channel for view sync.
     type ViewSyncCommChannel;
+
+    /// Connected network for view sync.
     type ViewSyncNetwork;
 
     /// Election config for the DA committee
@@ -507,6 +514,7 @@ pub trait TestableNodeImplementation<
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static>;
 
+    /// Generate a view sync communication channel given the network.
     fn view_sync_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::ViewSyncCommChannel + 'static>;
 
@@ -782,6 +790,7 @@ pub type QuorumProposalType<TYPES, I> =
 pub type CommitteeProposalType<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
+/// A proposal to sync the view.
 pub type ViewSyncProposalType<TYPES, I> =
     <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
@@ -793,6 +802,7 @@ pub type QuorumVoteType<TYPES, I> =
 pub type CommitteeVote<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
+/// A vote on a [`ViewSyncProposal`].
 pub type ViewSyncVoteType<TYPES, I> =
     <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
@@ -800,6 +810,7 @@ pub type ViewSyncVoteType<TYPES, I> =
 pub type QuorumCommChannel<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
+/// Communication channel for [`ViewSyncProposalType`] and [`ViewSyncVote`].
 pub type ViewSyncCommChannel<TYPES, I> =
     <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
@@ -815,6 +826,7 @@ pub type QuorumMembership<TYPES, I> =
 pub type CommitteeMembership<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership;
 
+/// Protocol for determining membership in a view sync committee.
 pub type ViewSyncMembership<TYPES, I> = QuorumMembership<TYPES, I>;
 
 /// Type for the underlying quorum `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
@@ -835,6 +847,7 @@ pub type CommitteeNetwork<TYPES, I> = <CommitteeCommChannel<TYPES, I> as Communi
     CommitteeMembership<TYPES, I>,
 >>::NETWORK;
 
+/// Type for the underlying view sync `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
 pub type ViewSyncNetwork<TYPES, I> = <ViewSyncCommChannel<TYPES, I> as CommunicationChannel<
     TYPES,
     Message<TYPES, I>,

@@ -1,10 +1,7 @@
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use libp2p::{
-    core::{
-        upgrade::{read_length_prefixed, write_length_prefixed},
-        ProtocolName,
-    },
+    core::upgrade::{read_length_prefixed, write_length_prefixed},
     request_response::Codec,
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +11,7 @@ use std::io;
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
 /// Codec for direct messages
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct DirectMessageCodec();
 /// Wrapper type describing a serialized direct message
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,14 +20,14 @@ pub struct DirectMessageRequest(pub Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectMessageResponse(pub Vec<u8>);
 
-impl ProtocolName for DirectMessageProtocol {
-    fn protocol_name(&self) -> &[u8] {
-        "/HotShot/request_response/1.0".as_bytes()
-    }
-}
-
 /// Maximum size of a direct message
 pub const MAX_MSG_SIZE_DM: usize = 100_000_000;
+
+impl AsRef<str> for DirectMessageProtocol {
+    fn as_ref(&self) -> &str {
+        "/HotShot/request_response/1.0"
+    }
+}
 
 #[async_trait]
 impl Codec for DirectMessageCodec {

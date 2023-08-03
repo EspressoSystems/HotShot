@@ -1,18 +1,15 @@
-use rand::SeedableRng;
-use std::sync::Arc;
-use tracing::info;
-
+use super::overall_safety_task::OverallSafetyTask;
+use super::overall_safety_task::RoundCtx;
+use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use crate::test_launcher::TestLauncher;
+use hotshot::types::SystemContextHandle;
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_task::{
-    event_stream::ChannelStream, global_registry::GlobalRegistry, task::FilterEvent,
-    task_launcher::TaskRunner,
+    event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -25,18 +22,10 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use nll::nll_todo::nll_todo;
-
-use crate::overall_safety_task::OverallSafetyTaskErr;
-
-use super::overall_safety_task::OverallSafetyTask;
-use super::overall_safety_task::RoundCtx;
-use super::{
-    completion_task::{self, CompletionTask},
-    test_launcher::TestLauncher,
-    txn_task::TxnTask,
-};
-use hotshot::types::SystemContextHandle;
+#[allow(deprecated)]
+use rand::SeedableRng;
+use std::sync::Arc;
+use tracing::info;
 
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
@@ -74,15 +63,6 @@ where
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
     >,
 {
-    pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
-        Self {
-            nodes: Vec::new(),
-            next_node_id: 0,
-            launcher,
-            task_runner: TaskRunner::default(),
-        }
-    }
-
     /// excecute test
     pub async fn run_test(mut self)
     where
@@ -111,7 +91,7 @@ where
         let TestRunner {
             launcher,
             nodes,
-            next_node_id,
+            next_node_id: _,
             mut task_runner,
         } = self;
         let registry = GlobalRegistry::default();
@@ -147,8 +127,7 @@ where
         // add spinning task
         let spinning_task_state = crate::spinning_task::SpinningTask {
             handles: nodes.clone(),
-            test_event_stream: test_event_stream.clone(),
-            changes: spinning_changes.into_iter().map(|(a, b)| b).collect(),
+            changes: spinning_changes.into_iter().map(|(_, b)| b).collect(),
         };
         let (id, task) = (launcher.spinning_task_generator)(
             spinning_task_state,

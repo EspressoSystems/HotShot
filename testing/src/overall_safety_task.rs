@@ -5,7 +5,7 @@ use std::{
 };
 
 use async_compatibility_layer::channel::UnboundedStream;
-use futures::{future::BoxFuture, FutureExt};
+use futures::FutureExt;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     HotShotError,
@@ -13,11 +13,7 @@ use hotshot::{
 use hotshot_task::task::TS;
 use hotshot_task::{
     event_stream::ChannelStream,
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-        TaskErr,
-    },
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
@@ -28,12 +24,10 @@ use hotshot_types::{
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
-use std::marker::PhantomData;
-use tracing::{error, info};
+use tracing::error;
 
-use crate::test_runner::Node;
+use crate::{test_launcher::TaskGenerator, test_runner::Node};
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
 use super::GlobalTestEvent;
@@ -179,7 +173,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
     pub fn gen_leaves(&self) -> HashMap<LEAF, usize> {
         let mut leaves = HashMap::<LEAF, usize>::new();
 
-        for (id, (leaf_vec, qc)) in &self.success_nodes {
+        for (leaf_vec, _) in self.success_nodes.values() {
             let most_recent_leaf = leaf_vec.iter().last();
             if let Some(leaf) = most_recent_leaf {
                 match leaves.entry(leaf.clone()) {
@@ -275,7 +269,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
                 }
             }
 
-            if let None = result_state {
+            if result_state.is_none() {
                 self.success = false;
                 return Err(OverallSafetyTaskErr::InconsistentStates);
             }
@@ -290,7 +284,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
                 }
             }
 
-            if let None = result_block {
+            if result_block.is_none() {
                 self.success = false;
                 error!("Inconsistent blocks, blocks: {:?}", blocks);
                 return Err(OverallSafetyTaskErr::InconsistentBlocks);
@@ -348,14 +342,7 @@ impl OverallSafetyPropertiesDescription {
     /// build a task
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            OverallSafetyTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    > {
+    ) -> TaskGenerator<OverallSafetyTask<TYPES, I>> {
         let Self {
             check_leaf,
             check_state,
@@ -420,7 +407,6 @@ impl OverallSafetyPropertiesDescription {
                                     // TODO check if we got enough successful views
                                     (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
-                                _ => (None, state),
                             }
                         }
                         .boxed()
@@ -556,14 +542,11 @@ impl OverallSafetyPropertiesDescription {
 }
 
 /// overall types for safety task
-pub type OverallSafetyTaskTypes<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-> = HSTWithEventAndMessage<
+pub type OverallSafetyTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     OverallSafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,
-    (usize, Event<TYPES, I::Leaf>),
-    MergeN<UnboundedStream<Event<TYPES, I::Leaf>>>,
+    (usize, Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>),
+    MergeN<UnboundedStream<Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>>,
     OverallSafetyTask<TYPES, I>,
 >;

@@ -7,20 +7,15 @@ use crate::{
     SystemContext, ViewRunner,
 };
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn_local, async_timeout},
-    channel::{UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn_local},
+    channel::UnboundedReceiver,
 };
-use async_lock::RwLock;
 use futures::FutureExt;
-use hotshot_consensus::{Consensus, SequencingConsensusApi};
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, PassType,
-        TaskErr, TS,
-    },
-    task_impls::{HSTWithEvent, TaskBuilder},
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
+    task_impls::TaskBuilder,
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
@@ -28,10 +23,7 @@ use hotshot_task_impls::network::NetworkTaskKind;
 use hotshot_task_impls::view_sync::ViewSyncTaskState;
 use hotshot_task_impls::view_sync::ViewSyncTaskStateTypes;
 use hotshot_task_impls::{
-    consensus::{
-        consensus_event_filter, ConsensusTaskError, ConsensusTaskTypes,
-        SequencingConsensusTaskState,
-    },
+    consensus::{consensus_event_filter, ConsensusTaskTypes, SequencingConsensusTaskState},
     da::{DATaskState, DATaskTypes},
     events::SequencingHotShotEvent,
     network::{
@@ -42,7 +34,7 @@ use hotshot_task_impls::{
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::event::Event;
-use hotshot_types::message::{self, Message, Messages, SequencingMessage};
+use hotshot_types::message::{Message, Messages, SequencingMessage};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::vote::ViewSyncData;
@@ -51,18 +43,15 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{
             CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
         },
-        signature_key::EncodedSignature,
         state::ConsensusTime,
         Block,
     },
     vote::VoteType,
 };
-use snafu::Snafu;
 use std::{
     collections::HashMap,
     marker::PhantomData,
@@ -72,12 +61,12 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info};
+use tracing::info;
 
 #[cfg(feature = "async-std-executor")]
-use async_std::task::{yield_now, JoinHandle};
+use async_std::task::yield_now;
 #[cfg(feature = "tokio-executor")]
-use tokio::task::{yield_now, JoinHandle};
+use tokio::task::yield_now;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
@@ -252,15 +241,6 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         let lock = hotshot.inner.recv_network_lookup.lock().await;
 
         if let Ok(Some(cur_view)) = lock.recv().await {
-            // Injecting consensus data into the networking implementation
-            // let _result = networking
-            //     .inject_consensus_info((
-            //         (*cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view),
-            //         inner.exchanges.quorum_exchange().is_leader(cur_view + 1),
-            //     ))
-            //     .await;
-
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
             // perform pruning
@@ -337,7 +317,6 @@ pub async fn add_network_message_task<
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
-    handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 where
@@ -395,9 +374,8 @@ where
             let messages = match messages {
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
-            let id = handle.hotshot.inner.id;
             async move {
-                state.handle_messages(messages.0, id).await;
+                state.handle_messages(messages.0).await;
                 (None, state)
             }
             .boxed()
@@ -418,13 +396,11 @@ where
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
     let networking_task = NetworkMessageTaskTypes::build(networking_task_builder).launch();
 
-    let task_runner = task_runner.add_task(
+    task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    );
-
-    task_runner
+    )
 }
 
 /// Add the network task to handle events and send messages.
@@ -500,13 +476,11 @@ where
     let networking_task_id = networking_task_builder.get_task_id().unwrap();
     let networking_task = NetworkEventTaskTypes::build(networking_task_builder).launch();
 
-    let task_runner = task_runner.add_task(
+    task_runner.add_task(
         networking_task_id,
         networking_name.to_string(),
         networking_task,
-    );
-
-    task_runner
+    )
 }
 
 /// add the consensus task
@@ -550,6 +524,7 @@ where
     let consensus_state = SequencingConsensusTaskState {
         registry: registry.clone(),
         consensus,
+        timeout: handle.hotshot.inner.config.next_view_timeout,
         cur_view: ViewNumber::new(0),
         block: TYPES::BlockType::new(),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),

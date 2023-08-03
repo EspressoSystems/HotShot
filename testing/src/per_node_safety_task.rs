@@ -161,14 +161,8 @@
 //         // registry: &mut GlobalRegistry,
 //         // test_event_stream: ChannelStream<GlobalTestEvent>,
 //         // hotshot_event_stream: UnboundedStream<Event<TYPES, I::Leaf>>,
-//     ) -> Box<
-//         dyn Fn(
-//             PerNodeSafetyTask<TYPES, I>,
-//             GlobalRegistry,
-//             ChannelStream<GlobalTestEvent>,
-//             UnboundedStream<Event<TYPES, I::Leaf>>,
-//         )
-//             -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
+//     ) -> TaskGenerator<
+//         PerNodeSafetyTask<TYPES, I>
 //     > {
 //         Box::new(
 //             move |state, mut registry, test_event_stream, hotshot_event_stream| {

@@ -1,11 +1,7 @@
-use async_compatibility_layer::{
-    art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
-use futures::Future;
 use futures::StreamExt;
 use hotshot::{
     traits::{
@@ -26,9 +22,9 @@ use hotshot_task::task::FilterEvent;
 use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::{data::ViewNumber, vote::ViewSyncVote};
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
-    data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
@@ -52,6 +48,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
@@ -270,6 +267,7 @@ pub trait Run<
             known_nodes.clone(),
             (election_config.clone(), ()),
             //Kaley todo: add view sync network
+            #[allow(deprecated)]
             (network.clone(), nll_todo(), ()),
             pk.clone(),
             sk.clone(),
@@ -332,7 +330,6 @@ pub trait Run<
         error!("Generated {} transactions", tx_to_gen);
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut timed_out_views: u64 = 0;
         let mut round = 1;
         let mut total_transactions = 0;
 
@@ -354,6 +351,7 @@ pub trait Run<
                     let txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
                     context.submit_transaction(txn).await.unwrap();
+                    total_transactions += 1;
                 }
                 should_submit_txns = false;
             }
@@ -362,13 +360,13 @@ pub trait Run<
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
                 }
-                Some(Event { view_number, event }) => {
+                Some(Event { event, .. }) => {
                     match event {
                         EventType::Error { error } => {
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, qc, .. } => {
+                        EventType::Decide { leaf_chain, .. } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 let new_anchor = leaf.view_number;
@@ -398,6 +396,8 @@ pub trait Run<
                     }
                 }
             }
+
+            round += 1;
         }
 
         // while round <= rounds {
@@ -443,7 +443,7 @@ pub trait Run<
         let total_size = total_transactions * (padding as u64);
         //
         // // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
     }
 
     /// Returns the network for this run
@@ -497,9 +497,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
     let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
-    let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
-    #[allow(deprecated)]
-    Keypair::Ed25519(ed_kp)
+    <EdKeypair as From<SecretKey>>::from(sk_bytes).into()
 }
 
 /// libp2p helper function
@@ -858,15 +856,8 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key,
-                nll_todo(),
-                false,
-            )
-            .into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, false)
+                .into(),
         );
         WebServerRun { config, network }
     }
