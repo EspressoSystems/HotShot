@@ -1,21 +1,23 @@
+//! Trait for stake table data structures
+
 use ark_std::{rand::SeedableRng, string::ToString, vec::Vec};
 use digest::crypto_common::rand_core::CryptoRngCore;
 use displaydoc::Display;
 use jf_primitives::errors::PrimitivesError;
 
 /// Snapshots of the stake table
-/// - the latest "Head" where all new changes are applied to
-/// - `EpochStart` marks the snapshot at the beginning of the current epoch
-/// - `LastEpochStart` marks the beginning of the last epoch
-/// - `BlockNum(u64)` at arbitrary block height
 pub enum SnapshotVersion {
+    /// the latest "Head" where all new changes are applied to
     Head,
+    /// marks the snapshot at the beginning of the current epoch
     EpochStart,
+    /// marks the beginning of the last epoch
     LastEpochStart,
+    /// at arbitrary block height
     BlockNum(u64),
 }
 
-/// Common interfaces required for a stake table used in HotShot System.
+/// Common interfaces required for a stake table used in `HotShot` System.
 /// APIs that doesn't take `version: SnapshotVersion` as an input by default works on the head/latest version.
 pub trait StakeTableScheme {
     /// type for stake key
@@ -30,11 +32,19 @@ pub trait StakeTableScheme {
     type IntoIter: Iterator<Item = (Self::Key, Self::Amount)>;
 
     /// Register a new key into the stake table.
+    ///
+    /// # Errors
+    ///
+    /// Return err if key is already registered.
     fn register(&mut self, new_key: Self::Key, amount: Self::Amount)
         -> Result<(), StakeTableError>;
 
     /// Batch register a list of new keys. A default implementation is provided
     /// w/o batch optimization.
+    ///
+    /// # Errors
+    ///
+    /// Return err if any of `new_keys` fails to register.
     fn batch_register<I, J>(&mut self, new_keys: I, amounts: J) -> Result<(), StakeTableError>
     where
         I: IntoIterator<Item = Self::Key>,
@@ -49,10 +59,16 @@ pub trait StakeTableScheme {
 
     /// Deregister an existing key from the stake table.
     /// Returns error if some keys are not found.
+    ///
+    /// # Errors
+    /// Return err if `existing_key` wasn't registered.
     fn deregister(&mut self, existing_key: &Self::Key) -> Result<(), StakeTableError>;
 
     /// Batch deregister a list of keys. A default implementation is provided
     /// w/o batch optimization.
+    ///
+    /// # Errors
+    /// Return err if any of `existing_keys` fail to deregister.
     fn batch_deregister<'a, I>(&mut self, existing_keys: I) -> Result<(), StakeTableError>
     where
         I: IntoIterator<Item = &'a <Self as StakeTableScheme>::Key>,
@@ -65,13 +81,22 @@ pub trait StakeTableScheme {
     }
 
     /// Returns the commitment to the `version` of stake table.
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported.
     fn commitment(&self, version: SnapshotVersion) -> Result<Self::Commitment, StakeTableError>;
 
     /// Returns the accumulated stakes of all registered keys of the `version`
     /// of stake table.
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported.
     fn total_stake(&self, version: SnapshotVersion) -> Result<Self::Amount, StakeTableError>;
 
     /// Returns the number of keys in the `version` of the table.
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported.
     fn len(&self, version: SnapshotVersion) -> Result<usize, StakeTableError>;
 
     /// Returns true if `key` is currently registered, else returns false.
@@ -79,6 +104,9 @@ pub trait StakeTableScheme {
 
     /// Lookup the stake under a key against a specific historical `version`,
     /// returns error if keys unregistered.
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported or `key` doesn't exist.
     fn lookup(
         &self,
         version: SnapshotVersion,
@@ -87,6 +115,9 @@ pub trait StakeTableScheme {
 
     /// Returns the stakes withhelded by a public key, None if the key is not registered.
     /// If you need a lookup proof, use [`Self::lookup()`] instead (which is usually more expensive).
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported or `key` doesn't exist.
     fn simple_lookup(
         &self,
         version: SnapshotVersion,
@@ -95,6 +126,9 @@ pub trait StakeTableScheme {
 
     /// Update the stake of the `key` with `(negative ? -1 : 1) * delta`.
     /// Return the updated stake or error.
+    ///
+    /// # Errors
+    /// Return err if the `key` doesn't exist of if the update overflow/underflow.
     fn update(
         &mut self,
         key: &Self::Key,
@@ -105,6 +139,9 @@ pub trait StakeTableScheme {
     /// Batch update the stake balance of `keys`. Read documentation about
     /// [`Self::update()`]. By default, we call `Self::update()` on each
     /// (key, amount, negative) tuple.
+    ///
+    /// # Errors
+    /// Return err if any one of the `update` failed.
     fn batch_update(
         &mut self,
         keys: &[Self::Key],
@@ -121,7 +158,7 @@ pub trait StakeTableScheme {
         Ok(updated_amounts)
     }
 
-    /// Randomly sample a (key, stake_amount) pair proportional to the stake distributions,
+    /// Randomly sample a (key, stake amount) pair proportional to the stake distributions,
     /// given a fixed seed for `rng`, this sampling should be deterministic.
     fn sample(
         &self,
@@ -129,9 +166,13 @@ pub trait StakeTableScheme {
     ) -> Option<(&Self::Key, &Self::Amount)>;
 
     /// Returns an iterator over all (key, value) entries of the `version` of the table
-    fn iter(&self, version: SnapshotVersion) -> Result<Self::IntoIter, StakeTableError>;
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported.
+    fn try_iter(&self, version: SnapshotVersion) -> Result<Self::IntoIter, StakeTableError>;
 }
 
+/// Error type for [`StakeTableScheme`]
 #[derive(Debug, Display)]
 pub enum StakeTableError {
     /// Internal error caused by Rescue

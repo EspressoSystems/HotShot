@@ -37,6 +37,10 @@ pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'
     /// * `message` - message to be signed
     /// * `sk` - user signing key
     /// * `returns` - a "simple" signature
+    ///
+    /// # Errors
+    ///
+    /// Should return error if the underlying signature scheme fail to sign.
     fn sign<R: CryptoRng + RngCore>(
         agg_sig_pp: &A::PublicParameter,
         message: &GenericArray<A::MessageUnit, Self::MessageLength>,
@@ -48,9 +52,11 @@ pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'
     /// * `qc_pp` - public parameters for generating the QC
     /// * `signers` - a bool vector indicating the list of verification keys corresponding to the set of partial signatures
     /// * `sigs` - partial signatures on the same message
-    /// * `returns` - an error if some of the partial signatures provided are invalid
-    ///     or the number of partial signatures / verifications keys are different.
-    ///     Otherwise return an obtained quorum certificate.
+    ///
+    /// # Errors
+    ///
+    /// Will return error if some of the partial signatures provided are invalid or the number of
+    /// partial signatures / verifications keys are different.
     fn assemble(
         qc_pp: &Self::QCProverParams,
         signers: &BitSlice,
@@ -62,6 +68,11 @@ pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'
     /// * `message` - message to check the aggregated signature against
     /// * `qc` - quroum certificate
     /// * `returns` - the quorum size if the qc is valid, an error otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Return error if the QC is invalid, either because accumulated weight didn't exceed threshold,
+    /// or some partial signatures are invalid.
     fn check(
         qc_vp: &Self::QCVerifierParams,
         message: &GenericArray<A::MessageUnit, Self::MessageLength>,
@@ -69,6 +80,10 @@ pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'
     ) -> Result<Self::QuorumSize, PrimitivesError>;
 
     /// Trace the list of signers given a qc.
+    ///
+    /// # Errors
+    ///
+    /// Return error if the inputs mismatch (e.g. wrong verifier parameter or original message).
     fn trace(
         qc_vp: &Self::QCVerifierParams,
         message: &GenericArray<A::MessageUnit, Self::MessageLength>,
