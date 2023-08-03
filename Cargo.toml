@@ -281,9 +281,5 @@ members = [
         "utils",
         # "testing-macros",
         "task",
-<<<<<<< HEAD
         "task-impls"
 ]
-=======
-]
->>>>>>> main
