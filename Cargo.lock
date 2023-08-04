@@ -1170,9 +1170,9 @@ checksum = "a2698f953def977c68f935bb0dfa959375ad4638570e969e2f1e9f433cbf1af6"
 
 [[package]]
 name = "cc"
-version = "1.0.80"
+version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51f1226cd9da55587234753d1245dd5b132343ea240f26b6a9003d68706141ba"
+checksum = "6c6b2562119bf28c3439f7f02db99faf0aa1a8cdfe5772a2ee155d32227239f0"
 dependencies = [
  "libc",
 ]
@@ -1836,9 +1836,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8810e7e2cf385b1e9b50d68264908ec367ba642c96d02edfe61c39e88e2a3c01"
+checksum = "7684a49fb1af197853ef7b2ee694bc1f5b4179556f1e5710e1760c5db6f5e929"
 dependencies = [
  "serde",
 ]
@@ -2688,7 +2688,7 @@ dependencies = [
  "sha2 0.10.7",
  "snafu",
  "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?branch=main)",
- "time 0.3.24",
+ "time 0.3.25",
  "tokio",
  "toml 0.7.6",
  "tracing",
@@ -2733,7 +2733,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
- "time 0.3.24",
+ "time 0.3.25",
  "tokio",
  "tracing",
 ]
@@ -2855,17 +2855,14 @@ dependencies = [
  "async-compatibility-layer",
  "async-lock",
  "async-std",
- "async-stream",
  "async-trait",
  "atomic_enum",
- "commit",
  "either",
  "futures",
  "nll",
  "pin-project",
  "serde",
  "snafu",
- "time 0.3.24",
  "tokio",
  "tracing",
 ]
@@ -2894,7 +2891,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "serde",
  "snafu",
- "time 0.3.24",
+ "time 0.3.25",
  "tokio",
  "tracing",
 ]
@@ -2965,7 +2962,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64 0.2.4",
- "time 0.3.24",
+ "time 0.3.25",
  "tokio",
  "tracing",
 ]
@@ -3386,7 +3383,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b"
 dependencies = [
  "hermit-abi",
- "rustix 0.38.4",
+ "rustix 0.38.6",
  "windows-sys",
 ]
 
@@ -5965,9 +5962,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.4"
+version = "0.38.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a962918ea88d644592894bc6dc55acc6c0956488adcebbfb6e273506b7fd6e5"
+checksum = "1ee020b1716f0a80e2ace9b03441a749e402e86712f15f16fe8a8f75afac732f"
 dependencies = [
  "bitflags 2.3.3",
  "errno",
@@ -6251,7 +6248,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros",
- "time 0.3.24",
+ "time 0.3.25",
 ]
 
 [[package]]
@@ -6944,7 +6941,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.0.0",
  "redox_syscall 0.3.5",
- "rustix 0.38.4",
+ "rustix 0.38.6",
  "windows-sys",
 ]
 
@@ -7102,9 +7099,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.24"
+version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b79eabcd964882a646b3584543ccabeae7869e9ac32a46f6f22b7a5bd405308b"
+checksum = "b0fdd63d58b18d663fbdf70e049f00a22c8e42be082203be7f26589213cd75ea"
 dependencies = [
  "deranged",
  "itoa 1.0.9",

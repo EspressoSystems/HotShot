@@ -1,31 +1,13 @@
-// // Needed to avoid the non-biding `let` warning.
-// #![allow(clippy::let_underscore_untyped)]
-
-// use ark_ed_on_bls12_381::EdwardsConfig as Param381;
-// use ark_bls12_381::Parameters as Param381;
-// use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
-// use blake3::Hasher;
-// use commit::{Commitment, Committable, RawCommitmentBuilder};
-// use derivative::Derivative;
-// use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::signature_key::{
     EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::signatures::{
-    // bls_over_bls12381::{BLSSignature, BLSVerKey},
-    BLSSignatureScheme,
-    SignatureScheme,
-};
-
+use jf_primitives::signatures::{BLSSignatureScheme, SignatureScheme};
 #[allow(deprecated)]
-// use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
-// use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
-// use tracing::{error, info, instrument};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter

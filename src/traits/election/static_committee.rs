@@ -1,5 +1,4 @@
 use super::vrf::JfPubKey;
-// use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
