@@ -1,7 +1,10 @@
-/target
-/result
-/out*.txt
-.idea
+**/target
+**/result
+**/out*.txt
+**/out*.json
+**/.idea
 /*.pdf
+**/target_dirs
 /target_dirs
 /.vscode/settings.json
+**/.DS_Store

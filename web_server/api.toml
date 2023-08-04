@@ -20,6 +20,23 @@ DOC = """
 Post the proposal for a given view_number
 """
 
+# GET the DA certificate for a view, where the view is passed as an argument
+[route.getcertificate]
+PATH = ["certificate/:view_number"]
+":view_number" = "Integer"
+DOC = """
+Return the DA certificate for a given view number
+"""
+
+# POST a DA certificate, where the view is passed as an argument
+[route.postcertificate]
+PATH = ["certificate/:view_number"]
+METHOD = "POST"
+":view_number" = "Integer"
+DOC = """
+Post the DA certificate for a given view_number
+"""
+
 # GET all the votes from a given index for a given view number
 [route.getvotes]
 PATH = ["votes/:view_number/:index"]
@@ -75,4 +92,40 @@ DOC = """
 Secret path for leader to post proposal for a given view
 """
 
+# POST a view sync vote, where the view number is passed as an argument
+[route.postviewsyncvote]
+PATH = ["view_sync_vote/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a view sync vote
+"""
 
+# GET a view sync vote, where the view number is passed as an argument
+[route.getviewsyncvotes]
+PATH = ["view_sync_vote/:view_number/:index"]
+":view_number" = "Integer"
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+GET a view sync vote
+"""
+
+# POST a view sync proposal, where the view number is passed as an argument
+[route.postviewsyncproposal]
+PATH = ["view_sync_proposal/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a view sync vote
+"""
+
+# GET a view sync certificate, where the view number is passed as an argument
+[route.getviewsyncproposal]
+PATH = ["view_sync_proposal/:view_number/:index"]
+":view_number" = "Integer"
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+GET a view sync proposal
+"""

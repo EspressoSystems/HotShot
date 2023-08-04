@@ -7,7 +7,8 @@ use super::{
     block_contents::Transaction,
     consensus_type::ConsensusType,
     election::{
-        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
+        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType,
+        ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -15,6 +16,7 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
+use crate::traits::election::Membership;
 use crate::{data::TestableLeaf, message::Message};
 use crate::{
     data::{LeafType, SequencingLeaf, ValidatingLeaf},
@@ -121,7 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ChannelMaps<TYPES, I> {
 /// store or keep a reference to any value implementing this trait.
 
 pub trait NodeImplementation<TYPES: NodeType>:
-    Send + Sync + Debug + Clone + 'static + Serialize + for<'de> Deserialize<'de>
+    Send + Sync + Debug + Clone + Eq + Hash + 'static + Serialize + for<'de> Deserialize<'de>
 {
     /// Leaf type for this consensus implementation
     type Leaf: LeafType<NodeType = TYPES>;
@@ -163,14 +165,20 @@ pub trait ExchangesType<
     /// Protocol for exchanging quorum proposals and votes.
     type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
+    /// Protocol for exchanging view sync proposals and votes.
+    type ViewSyncExchange: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug;
+
     /// Networking implementations for quorum and committee exchanges, the latter of which is only
     /// applicable for sequencing consensus.
     type Networks;
 
+    /// Election configurations for exchanges
+    type ElectionConfigs;
+
     /// Create all exchanges.
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -179,6 +187,9 @@ pub trait ExchangesType<
 
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
+
+    /// Get the view sync exchange.
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange;
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
     /// networks.
@@ -215,51 +226,71 @@ pub struct ValidatingExchanges<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE>,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
+
+    /// View sync exchange.
+    view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE> ValidatingExchangesType<TYPES, MESSAGE>
-    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE> ValidatingExchangesType<TYPES, MESSAGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
 }
 
 #[async_trait]
-impl<TYPES, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
     ExchangesType<ValidatingConsensus, TYPES, ValidatingLeaf<TYPES>, MESSAGE>
-    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
-    type Networks = (QUORUMEXCHANGE::Networking, ());
+    type ViewSyncExchange = VIEWSYNCEXCHANGE;
+    type Networks = (QUORUMEXCHANGE::Networking, VIEWSYNCEXCHANGE::Networking, ());
+    type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
+            quorum_exchange: QUORUMEXCHANGE::create(
+                keys.clone(),
+                configs.0.clone(),
+                networks.0,
+                pk.clone(),
+                sk.clone(),
+                ek.clone(),
+            ),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(keys, configs.0, networks.1, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
 
     fn quorum_exchange(&self) -> &Self::QuorumExchange {
         &self.quorum_exchange
+    }
+
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange {
+        &self.view_sync_exchange
     }
 
     async fn wait_for_networks_ready(&self) {
@@ -278,9 +309,13 @@ pub struct SequencingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE>,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE>,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
+
+    /// View sync exchange.
+    view_sync_exchange: VIEWSYNCEXCHANGE,
 
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
@@ -289,13 +324,15 @@ pub struct SequencingExchanges<
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE> SequencingExchangesType<TYPES, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
+    SequencingExchangesType<TYPES, MESSAGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 
@@ -305,21 +342,28 @@ where
 }
 
 #[async_trait]
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
     ExchangesType<SequencingConsensus, TYPES, SequencingLeaf<TYPES>, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone,
+    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
-    type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
+    type ViewSyncExchange = VIEWSYNCEXCHANGE;
+    type Networks = (
+        QUORUMEXCHANGE::Networking,
+        VIEWSYNCEXCHANGE::Networking,
+        COMMITTEEEXCHANGE::Networking,
+    );
+    type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
-        config: TYPES::ElectionConfigType,
+        configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -327,22 +371,36 @@ where
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
-            config.clone(),
+            configs.0.clone(),
             networks.0,
             pk.clone(),
             sk.clone(),
             ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk, ek);
+        let view_sync_exchange = VIEWSYNCEXCHANGE::create(
+            keys.clone(),
+            configs.0,
+            networks.1,
+            pk.clone(),
+            sk.clone(),
+            ek.clone(),
+        );
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.2, pk, sk, ek);
+
         Self {
             quorum_exchange,
             committee_exchange,
+            view_sync_exchange,
             _phantom: PhantomData,
         }
     }
 
     fn quorum_exchange(&self) -> &Self::QuorumExchange {
         &self.quorum_exchange
+    }
+
+    fn view_sync_exchange(&self) -> &Self::ViewSyncExchange {
+        &self.view_sync_exchange
     }
 
     async fn wait_for_networks_ready(&self) {
@@ -389,6 +447,14 @@ pub type CommitteeEx<TYPES, I> =
         Message<TYPES, I>,
     >>::CommitteeExchange;
 
+/// Alias for the [`ViewSyncExchange`] type.
+pub type ViewSyncEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+    <TYPES as NodeType>::ConsensusType,
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::ViewSyncExchange;
+
 /// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]
 #[async_trait]
@@ -397,17 +463,27 @@ pub trait TestableNodeImplementation<
     TYPES: NodeType<ConsensusType = CONSENSUS>,
 >: NodeImplementation<TYPES>
 {
-    /// Communication channel the DA committee. Only needed for the sequencing consensus.
+    /// Communication channel for the DA committee. Only needed for the sequencing consensus.
     type CommitteeCommChannel;
 
     /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
+
+    /// Communication channel for view sync.
+    type ViewSyncCommChannel;
+
+    /// Connected network for view sync.
+    type ViewSyncNetwork;
+
+    /// Election config for the DA committee
+    type CommitteeElectionConfig;
 
     /// Generate a quorum network given an expected node count.
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>
     where
         QuorumCommChannel<TYPES, Self>: CommunicationChannel<
@@ -417,6 +493,10 @@ pub trait TestableNodeImplementation<
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Vote,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Membership,
         >;
+
+    /// Generates a committee-specific election
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static>;
 
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
@@ -433,6 +513,10 @@ pub trait TestableNodeImplementation<
     /// Generate a committee communication channel given the network.
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static>;
+
+    /// Generate a view sync communication channel given the network.
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::ViewSyncCommChannel + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -487,6 +571,14 @@ where
         QuorumMembership<TYPES, I>,
         QuorumNetwork<TYPES, I>,
     >,
+    ViewSyncCommChannel<TYPES, I>: TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        ViewSyncProposalType<TYPES, I>,
+        ViewSyncVoteType<TYPES, I>,
+        ViewSyncMembership<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
+    >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
@@ -495,18 +587,29 @@ where
 {
     type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
+    type CommitteeElectionConfig = ();
+
+    type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>;
+    type ViewSyncNetwork = ViewSyncNetwork<TYPES, I>;
 
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
+    }
+
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|_| ())
     }
 
     fn quorum_comm_channel_generator(
@@ -517,6 +620,11 @@ where
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> Self::CommitteeCommChannel + 'static> {
         Box::new(|_| ())
+    }
+
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::ViewSyncCommChannel + 'static> {
+        < ViewSyncCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
@@ -581,6 +689,14 @@ where
         CommitteeMembership<TYPES, I>,
         QuorumNetwork<TYPES, I>,
     >,
+    ViewSyncCommChannel<TYPES, I>: TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        ViewSyncProposalType<TYPES, I>,
+        ViewSyncVoteType<TYPES, I>,
+        ViewSyncMembership<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
+    >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
@@ -590,17 +706,28 @@ where
     type CommitteeCommChannel = CommitteeCommChannel<TYPES, I>;
     type CommitteeNetwork = CommitteeNetwork<TYPES, I>;
 
+    type ViewSyncCommChannel = ViewSyncCommChannel<TYPES, I>;
+    type ViewSyncNetwork = QuorumNetwork<TYPES, I>;
+    type CommitteeElectionConfig = TYPES::ElectionConfigType;
+
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
         <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
             da_committee_size,
+            is_da,
         )
+    }
+
+    fn committee_election_config_generator(
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|num_nodes| <CommitteeMembership<TYPES, I>>::default_election_config(num_nodes))
     }
 
     fn quorum_comm_channel_generator(
@@ -611,6 +738,11 @@ where
     fn committee_comm_channel_generator(
     ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::CommitteeCommChannel + 'static> {
         < CommitteeCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    }
+
+    fn view_sync_comm_channel_generator(
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> Self::ViewSyncCommChannel + 'static> {
+        < ViewSyncCommChannel<TYPES, I> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
@@ -658,6 +790,10 @@ pub type QuorumProposalType<TYPES, I> =
 pub type CommitteeProposalType<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
+/// A proposal to sync the view.
+pub type ViewSyncProposalType<TYPES, I> =
+    <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
+
 /// A vote on a [`QuorumProposalType`].
 pub type QuorumVoteType<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
@@ -666,9 +802,17 @@ pub type QuorumVoteType<TYPES, I> =
 pub type CommitteeVote<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
+/// A vote on a [`ViewSyncProposal`].
+pub type ViewSyncVoteType<TYPES, I> =
+    <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
+
 /// Communication channel for [`QuorumProposalType`] and [`QuorumVote`].
 pub type QuorumCommChannel<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
+
+/// Communication channel for [`ViewSyncProposalType`] and [`ViewSyncVote`].
+pub type ViewSyncCommChannel<TYPES, I> =
+    <ViewSyncEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
 /// Communication channel for [`CommitteeProposalType`] and [`DAVote`].
 pub type CommitteeCommChannel<TYPES, I> =
@@ -681,6 +825,9 @@ pub type QuorumMembership<TYPES, I> =
 /// Protocol for determining membership in a DA committee.
 pub type CommitteeMembership<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership;
+
+/// Protocol for determining membership in a view sync committee.
+pub type ViewSyncMembership<TYPES, I> = QuorumMembership<TYPES, I>;
 
 /// Type for the underlying quorum `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
 pub type QuorumNetwork<TYPES, I> = <QuorumCommChannel<TYPES, I> as CommunicationChannel<
@@ -698,6 +845,15 @@ pub type CommitteeNetwork<TYPES, I> = <CommitteeCommChannel<TYPES, I> as Communi
     CommitteeProposalType<TYPES, I>,
     CommitteeVote<TYPES, I>,
     CommitteeMembership<TYPES, I>,
+>>::NETWORK;
+
+/// Type for the underlying view sync `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
+pub type ViewSyncNetwork<TYPES, I> = <ViewSyncCommChannel<TYPES, I> as CommunicationChannel<
+    TYPES,
+    Message<TYPES, I>,
+    ViewSyncProposalType<TYPES, I>,
+    ViewSyncVoteType<TYPES, I>,
+    ViewSyncMembership<TYPES, I>,
 >>::NETWORK;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.

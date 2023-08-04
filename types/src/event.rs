@@ -41,6 +41,8 @@ pub enum EventType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
         qc: Arc<QuorumCertificate<TYPES, LEAF>>,
+        /// Optional information of the number of transactions in the block, for logging purposes.
+        block_size: Option<u64>,
     },
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {

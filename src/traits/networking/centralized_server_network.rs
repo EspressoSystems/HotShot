@@ -4,6 +4,8 @@
 //!
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
+use hotshot_task::{boxed_sync, BoxSyncFuture};
+
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -21,6 +23,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -767,9 +770,16 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::shut_down", skip_all)]
-    async fn shut_down(&self) {
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
         error!("SHUTTING DOWN CENTRALIZED SERVER");
-        self.inner.running.store(false, Ordering::Relaxed);
+        let closure = async move {
+            self.inner.running.store(false, Ordering::Relaxed);
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
@@ -802,23 +812,33 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     #[instrument(name = "CentralizedServer::recv_msgs", skip_all)]
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        match transmit_type {
-            TransmitType::Direct => self
-                .inner
-                .get_direct_messages()
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .context(FailedToDeserializeSnafu),
-            TransmitType::Broadcast => self
-                .inner
-                .get_broadcasts()
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .context(FailedToDeserializeSnafu),
-        }
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            match transmit_type {
+                TransmitType::Direct => self
+                    .inner
+                    .get_direct_messages()
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .context(FailedToDeserializeSnafu),
+                TransmitType::Broadcast => self
+                    .inner
+                    .get_broadcasts()
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .context(FailedToDeserializeSnafu),
+            }
+        };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
@@ -826,9 +846,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -858,7 +877,7 @@ impl<
     pub fn new(
         network: Arc<CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>>,
     ) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 
     /// passthru for example?
@@ -902,12 +921,19 @@ where
         .await
     }
 
-    async fn shut_down(&self) -> () {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::shut_down(&self.0)
-        .await;
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+            >>::shut_down(&self.0)
+            .await;
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(
@@ -928,11 +954,16 @@ where
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        self.0.recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move { self.0.recv_msgs(transmit_type).await };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
@@ -943,9 +974,8 @@ where
         .await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -988,6 +1018,7 @@ where
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -1009,7 +1040,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                &NoMetrics::default(),
+                &NoMetrics,
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),
@@ -1041,6 +1072,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CentralizedServerNetwork<
             TYPES::SignatureKey,
@@ -1050,6 +1082,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
+            is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

@@ -1,12 +1,8 @@
-use async_compatibility_layer::{
-    art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
-use futures::Future;
-use futures::FutureExt;
+use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
@@ -19,15 +15,20 @@ use hotshot::{
 };
 use hotshot_orchestrator::{
     self,
+    client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
+use hotshot_task::task::FilterEvent;
+use hotshot_types::event::{Event, EventType};
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::vote::ViewSyncVote;
 use hotshot_types::{
-    data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
-        election::Membership,
+        election::{Membership, ViewSyncExchange},
         metrics::NoMetrics,
         network::CommunicationChannel,
         node_implementation::{ExchangesType, NodeType, ValidatingExchanges},
@@ -47,6 +48,8 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
@@ -58,10 +61,8 @@ use std::{
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
-use surf_disco::error::ClientError;
-use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
 
@@ -75,11 +76,11 @@ use tracing::error;
 /// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
     /// The address the orchestrator runs on
-    host: IpAddr,
+    pub host: IpAddr,
     /// The port the orchestrator runs on
-    port: u16,
+    pub port: u16,
     /// The configuration file to be used for this run
-    config_file: String,
+    pub config_file: String,
 }
 
 /// Reads a network configuration from a given filepath
@@ -120,6 +121,13 @@ pub async fn run_orchestrator<
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
+            MEMBERSHIP,
+        > + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
@@ -132,6 +140,13 @@ pub async fn run_orchestrator<
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 NETWORK,
+                Message<TYPES, NODE>,
+            >,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
                 Message<TYPES, NODE>,
             >,
         >,
@@ -154,24 +169,6 @@ pub async fn run_orchestrator<
     .await;
 }
 
-// VALIDATOR
-
-#[derive(Parser, Debug, Clone)]
-#[command(
-    name = "Multi-machine consensus",
-    about = "Simulates consensus among multiple machines"
-)]
-/// Arguments passed to the validator
-pub struct ValidatorArgs {
-    /// The address the orchestrator runs on
-    host: IpAddr,
-    /// The port the orchestrator runs on
-    port: u16,
-    /// This node's public IP address, for libp2p
-    /// If no IP address is passed in, it will default to 127.0.0.1
-    public_ip: Option<IpAddr>,
-}
-
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait Run<
@@ -182,6 +179,13 @@ pub trait Run<
             Message<TYPES, NODE>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         > + Debug,
     NODE: NodeImplementation<
@@ -196,6 +200,13 @@ pub trait Run<
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 NETWORK,
+                Message<TYPES, NODE>,
+            >,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
                 Message<TYPES, NODE>,
             >,
         >,
@@ -254,8 +265,10 @@ pub trait Run<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            election_config.clone(),
-            (network.clone(), ()),
+            (election_config.clone(), ()),
+            //Kaley todo: add view sync network
+            #[allow(deprecated)]
+            (network.clone(), nll_todo(), ()),
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -283,7 +296,7 @@ pub trait Run<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    async fn run_hotshot(&self, mut hotshot: SystemContextHandle<TYPES, NODE>) {
+    async fn run_hotshot(&self, mut context: SystemContextHandle<TYPES, NODE>) {
         let NetworkConfig {
             padding,
             rounds,
@@ -296,7 +309,7 @@ pub trait Run<
         let size = mem::size_of::<TYPES::Transaction>();
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
-        let state = hotshot.get_state().await;
+        let state = context.get_state().await;
 
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
@@ -317,61 +330,127 @@ pub trait Run<
         error!("Generated {} transactions", tx_to_gen);
 
         error!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut timed_out_views: u64 = 0;
         let mut round = 1;
         let mut total_transactions = 0;
 
         let start = Instant::now();
 
         error!("Starting hotshot!");
-        hotshot.start().await;
-        while round <= rounds {
-            error!("Round {}:", round);
+        context.hotshot.start_consensus().await;
+        let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
+        let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
+        let mut num_successful_commits = 0;
 
-            let num_submitted = if node_index == ((round % total_nodes) as u64) {
+        let total_nodes_u64 = total_nodes.get() as u64;
+
+        let mut should_submit_txns = node_index == (*anchor_view % total_nodes_u64);
+
+        loop {
+            if should_submit_txns {
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
-                    hotshot.submit_transaction(txn).await.unwrap();
+                    context.submit_transaction(txn).await.unwrap();
+                    total_transactions += 1;
                 }
-                transactions_per_round
-            } else {
-                0
-            };
-            error!("Submitting {} transactions", num_submitted);
+                should_submit_txns = false;
+            }
 
-            // Start consensus
-            let view_results = hotshot.collect_round_events().await;
-
-            match view_results {
-                Ok((leaf_chain, _qc)) => {
-                    let blocks: Vec<TYPES::BlockType> = leaf_chain
-                        .into_iter()
-                        .map(|leaf| leaf.get_deltas())
-                        .collect();
-
-                    for block in blocks {
-                        total_transactions += block.txn_count();
+            match event_stream.next().await {
+                None => {
+                    panic!("Error! Event stream completed before consensus ended.");
+                }
+                Some(Event { event, .. }) => {
+                    match event {
+                        EventType::Error { error } => {
+                            error!("Error in consensus: {:?}", error);
+                            // TODO what to do here
+                        }
+                        EventType::Decide { leaf_chain, .. } => {
+                            // this might be a obob
+                            if let Some(leaf) = leaf_chain.get(0) {
+                                let new_anchor = leaf.view_number;
+                                if new_anchor >= anchor_view {
+                                    anchor_view = leaf.view_number;
+                                }
+                                if (*anchor_view % total_nodes_u64) == node_index {
+                                    should_submit_txns = true;
+                                }
+                            }
+                            num_successful_commits += leaf_chain.len();
+                            if num_successful_commits >= rounds {
+                                break;
+                            }
+                            // when we make progress, submit new events
+                        }
+                        EventType::ReplicaViewTimeout { view_number } => {
+                            error!("Timed out as a replicas in view {:?}", view_number);
+                        }
+                        EventType::NextLeaderViewTimeout { view_number } => {
+                            error!("Timed out as the next leader in view {:?}", view_number);
+                        }
+                        EventType::ViewFinished { view_number } => {
+                            tracing::info!("view finished: {:?}", view_number);
+                        }
+                        _ => unimplemented!(),
                     }
-                }
-                Err(e) => {
-                    timed_out_views += 1;
-                    error!("View: {:?}, failed with : {:?}", round, e);
                 }
             }
 
             round += 1;
         }
 
+        // while round <= rounds {
+        //     error!("Round {}:", round);
+        //
+        //     let num_submitted =
+        //     if node_index == ((round % total_nodes) as u64) {
+        //         for _ in 0..transactions_per_round {
+        //             let txn = txns.pop_front().unwrap();
+        //             tracing::info!("Submitting txn on round {}", round);
+        //             hotshot.submit_transaction(txn).await.unwrap();
+        //         }
+        //         transactions_per_round
+        //     } else {
+        //         0
+        //     };
+        //     error!("Submitting {} transactions", num_submitted);
+        //
+        //     // Start consensus
+        //     let view_results = nll_todo();
+        //
+        //     match view_results {
+        //         Ok((leaf_chain, _qc)) => {
+        //             let blocks: Vec<TYPES::BlockType> = leaf_chain
+        //                 .into_iter()
+        //                 .map(|leaf| leaf.get_deltas())
+        //                 .collect();
+        //
+        //             for block in blocks {
+        //                 total_transactions += block.txn_count();
+        //             }
+        //         }
+        //         Err(e) => {
+        //             timed_out_views += 1;
+        //             error!("View: {:?}, failed with : {:?}", round, e);
+        //         }
+        //     }
+        //
+        //     round += 1;
+        // }
+        //
         let total_time_elapsed = start.elapsed();
         let total_size = total_transactions * (padding as u64);
-
-        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
+        //
+        // // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
     }
 
     /// Returns the network for this run
     fn get_network(&self) -> NETWORK;
+
+    /// Returns view sync network for this run KALEY TODO
+    //fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
 
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
@@ -400,6 +479,13 @@ pub struct Libp2pRun<
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
     >,
+    // view_sync_network: Libp2pCommChannel<
+    //     TYPES,
+    //     I,
+    //     Proposal<TYPES>,
+    //     ViewSyncVote<TYPES>,
+    //     MEMBERSHIP,
+    // >,
     config:
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
@@ -411,9 +497,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
     let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
-    let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
-    #[allow(deprecated)]
-    Keypair::Ed25519(ed_kp)
+    <EdKeypair as From<SecretKey>>::from(sk_bytes).into()
 }
 
 /// libp2p helper function
@@ -458,6 +542,19 @@ impl<
                     >,
                     Message<TYPES, NODE>,
                 >,
+                ViewSyncExchange<
+                    TYPES,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                    Libp2pCommChannel<
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        ViewSyncVote<TYPES>,
+                        MEMBERSHIP,
+                    >,
+                    Message<TYPES, NODE>,
+                >,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
             ConsensusMessage = ValidatingMessage<TYPES, NODE>,
@@ -471,6 +568,13 @@ impl<
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        Libp2pCommChannel<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         >,
         NODE,
@@ -646,14 +750,8 @@ where
 // WEB SERVER
 
 /// Alias for the [`WebCommChannel`] for validating consensus.
-type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    <TYPES as NodeType>::ConsensusType,
-    TYPES,
-    I,
-    Proposal<TYPES>,
-    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> =
+    WebCommChannel<TYPES, I, Proposal<TYPES>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>, MEMBERSHIP>;
 
 /// Represents a web server-based run
 pub struct WebServerRun<
@@ -681,11 +779,23 @@ impl<
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
                     WebCommChannel<
-                        ValidatingConsensus,
                         TYPES,
                         NODE,
                         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                        MEMBERSHIP,
+                    >,
+                    Message<TYPES, NODE>,
+                >,
+                ViewSyncExchange<
+                    TYPES,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                    WebCommChannel<
+                        TYPES,
+                        NODE,
+                        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                        ViewSyncVote<TYPES>,
                         MEMBERSHIP,
                     >,
                     Message<TYPES, NODE>,
@@ -699,11 +809,17 @@ impl<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        WebCommChannel<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         >,
         NODE,
@@ -734,14 +850,14 @@ where
 
         // Create the network
         let network: WebCommChannel<
-            ValidatingConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, false)
+                .into(),
         );
         WebServerRun { config, network }
     }
@@ -749,7 +865,6 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
-        ValidatingConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,
@@ -764,105 +879,6 @@ where
     }
 }
 
-/// Holds the client connection to the orchestrator
-pub struct OrchestratorClient {
-    client: surf_disco::Client<ClientError>,
-}
-
-impl OrchestratorClient {
-    /// Creates the client that connects to the orchestrator
-    async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
-        let base_url = format!("{0}:{1}", args.host, args.port);
-        let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ClientError>::new(base_url);
-        // TODO ED: Add healthcheck wait here
-        OrchestratorClient { client }
-    }
-
-    /// Sends an identify message to the server
-    /// Returns this validator's node_index in the network
-    async fn identify_with_orchestrator(&self, identity: String) -> u16 {
-        let identity = identity.as_str();
-        let f = |client: Client<ClientError>| {
-            async move {
-                let node_index: Result<u16, ClientError> = client
-                    .post(&format!("api/identity/{identity}"))
-                    .send()
-                    .await;
-                node_index
-            }
-            .boxed()
-        };
-        self.wait_for_fn_from_orchestrator(f).await
-    }
-
-    /// Returns the run configuration from the orchestrator
-    /// Will block until the configuration is returned
-    async fn get_config_from_orchestrator<TYPES: NodeType>(
-        &self,
-        node_index: u16,
-    ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
-        let f = |client: Client<ClientError>| {
-            async move {
-                let config: Result<
-                    NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-                    ClientError,
-                > = client
-                    .post(&format!("api/config/{node_index}"))
-                    .send()
-                    .await;
-                config
-            }
-            .boxed()
-        };
-        self.wait_for_fn_from_orchestrator(f).await
-    }
-
-    /// Tells the orchestrator this validator is ready to start
-    /// Blocks until the orchestrator indicates all nodes are ready to start
-    async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
-        let send_ready_f = |client: Client<ClientError>| {
-            async move {
-                let result: Result<_, ClientError> = client
-                    .post("api/ready")
-                    .body_json(&node_index)
-                    .unwrap()
-                    .send()
-                    .await;
-                result
-            }
-            .boxed()
-        };
-        self.wait_for_fn_from_orchestrator::<_, _, ()>(send_ready_f)
-            .await;
-
-        let wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
-            async move { client.get("api/start").send().await }.boxed()
-        };
-        self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
-            .await
-    }
-
-    /// Generic function that waits for the orchestrator to return a non-error
-    /// Returns whatever type the given function returns
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
-    where
-        F: Fn(Client<ClientError>) -> Fut,
-        Fut: Future<Output = Result<GEN, ClientError>>,
-    {
-        loop {
-            let client = self.client.clone();
-            let res = f(client).await;
-            match res {
-                Ok(x) => break x,
-                Err(_x) => {
-                    async_sleep(Duration::from_millis(250)).await;
-                }
-            }
-        }
-    }
-}
-
 /// Main entry point for validators
 pub async fn main_entry_point<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -872,6 +888,13 @@ pub async fn main_entry_point<
             Message<TYPES, NODE>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<
+            TYPES,
+            Message<TYPES, NODE>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            ViewSyncVote<TYPES>,
             MEMBERSHIP,
         > + Debug,
     NODE: NodeImplementation<
@@ -888,11 +911,18 @@ pub async fn main_entry_point<
                 NETWORK,
                 Message<TYPES, NODE>,
             >,
+            ViewSyncExchange<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                VIEWSYNCNETWORK,
+                Message<TYPES, NODE>,
+            >,
         >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         ConsensusMessage = ValidatingMessage<TYPES, NODE>,
     >,
-    RUN: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
+    RUN: Run<TYPES, MEMBERSHIP, NETWORK, VIEWSYNCNETWORK, NODE>,
 >(
     args: ValidatorArgs,
 ) where

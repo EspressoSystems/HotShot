@@ -41,10 +41,17 @@ impl EventStream for DummyStream {
     }
 
     async fn unsubscribe(&self, _id: StreamId) {}
+
+    async fn direct_message(&self, _id: StreamId, _event: Self::EventType) {}
 }
+
+impl SendableStream for DummyStream {}
 
 /// this is only used for indexing
 pub type StreamId = usize;
+
+/// a stream that plays nicely with async
+pub trait SendableStream: Stream + Sync + Send + 'static {}
 
 /// Async pub sub event stream
 /// NOTE: static bound indicates that if the type points to data, that data lives for the lifetime
@@ -54,18 +61,23 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
     /// the type of stream to use
-    type StreamType: Stream<Item = Self::EventType> + Sync + Send + 'static;
+    type StreamType: SendableStream<Item = Self::EventType>;
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType);
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
+    /// TODO (justin) rethink API, we might be able just to use `StreamExt::filter` and `Filter`
+    /// That would certainly be cleaner
     async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
         -> (Self::StreamType, StreamId);
 
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
+
+    /// send direct message to node
+    async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 
 /// Event stream implementation using channels as the underlying primitive.
@@ -104,10 +116,30 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
     }
 }
 
+impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {}
+
 #[async_trait]
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
+
+    async fn direct_message(&self, id: StreamId, event: Self::EventType) {
+        let inner = self.inner.write().await;
+        match inner.subscribers.get(&id) {
+            Some((filter, sender)) => {
+                if filter(&event) {
+                    match sender.send(event.clone()).await {
+                        Ok(_) => (),
+                        // error sending => stream is closed so remove it
+                        Err(_) => self.unsubscribe(id).await,
+                    }
+                }
+            }
+            None => {
+                tracing::info!("Requested stream id not found");
+            }
+        }
+    }
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType) {
@@ -117,7 +149,10 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
                 match sender.send(event.clone()).await {
                     Ok(_) => (),
                     // error sending => stream is closed so remove it
-                    Err(_) => self.unsubscribe(*uid).await,
+                    Err(_) => {
+                        // error!("Channel was closed with uid {}", *uid);
+                        self.unsubscribe(*uid).await;
+                    }
                 }
             }
         }
@@ -140,5 +175,97 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     async fn unsubscribe(&self, uid: StreamId) {
         let mut inner = self.inner.write().await;
         inner.subscribers.remove(&uid);
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use crate::{event_stream::EventStream, StreamExt};
+    use async_compatibility_layer::art::{async_sleep, async_spawn};
+    use std::time::Duration;
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum TestMessage {
+        One,
+        Two,
+        Three,
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 20)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_channel_stream_basic() {
+        use crate::task::FilterEvent;
+
+        use super::ChannelStream;
+
+        let channel_stream = ChannelStream::<TestMessage>::new();
+        let (mut stream, _) = channel_stream.subscribe(FilterEvent::default()).await;
+        let dup_channel_stream = channel_stream.clone();
+
+        let dup_dup_channel_stream = channel_stream.clone();
+
+        async_spawn(async move {
+            let (mut stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
+            assert!(stream.next().await.unwrap() == TestMessage::Three);
+            assert!(stream.next().await.unwrap() == TestMessage::One);
+            assert!(stream.next().await.unwrap() == TestMessage::Two);
+        });
+
+        async_spawn(async move {
+            dup_dup_channel_stream.publish(TestMessage::Three).await;
+            dup_dup_channel_stream.publish(TestMessage::One).await;
+            dup_dup_channel_stream.publish(TestMessage::Two).await;
+        });
+        async_sleep(Duration::new(3, 0)).await;
+
+        assert!(stream.next().await.unwrap() == TestMessage::Three);
+        assert!(stream.next().await.unwrap() == TestMessage::One);
+        assert!(stream.next().await.unwrap() == TestMessage::Two);
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 1)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_channel_stream_xtreme() {
+        use crate::task::FilterEvent;
+
+        use super::ChannelStream;
+
+        let channel_stream = ChannelStream::<TestMessage>::new();
+        let mut streams = Vec::new();
+
+        for _i in 0..1000 {
+            let dup_channel_stream = channel_stream.clone();
+            let (stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
+            streams.push(stream);
+        }
+
+        let dup_dup_channel_stream = channel_stream.clone();
+
+        for _i in 0..1000 {
+            let mut stream = streams.pop().unwrap();
+            async_spawn(async move {
+                for event in [TestMessage::One, TestMessage::Two, TestMessage::Three] {
+                    for _ in 0..100 {
+                        assert!(stream.next().await.unwrap() == event);
+                    }
+                }
+            });
+        }
+
+        async_spawn(async move {
+            for event in [TestMessage::One, TestMessage::Two, TestMessage::Three] {
+                for _ in 0..100 {
+                    dup_dup_channel_stream.publish(event.clone()).await;
+                }
+            }
+        });
     }
 }

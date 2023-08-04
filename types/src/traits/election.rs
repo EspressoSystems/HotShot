@@ -10,24 +10,21 @@ use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
-use crate::message::{
-    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
-};
+
+use crate::message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message};
+use crate::vote::ViewSyncVoteInternal;
+
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::traits::{
-    consensus_type::sequencing_consensus::SequencingConsensus,
-    node_implementation::{ExchangesType, SequencingExchangesType},
+    consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::ExchangesType,
     state::ConsensusTime,
 };
 use crate::vote::ViewSyncData;
 use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-use crate::{
-    data::{LeafType, SequencingLeaf},
-    traits::signature_key::SignatureKey,
-};
+use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use derivative::Derivative;
@@ -82,20 +79,12 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
-    /// Vote to synch the network on a particular view
-    ViewSync(ViewSyncVoteData<COMMITTABLE>),
-}
-
-/// Data which `ViewSyncVotes` are signed over
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
-    /// A precommit vote
-    PreCommit(Commitment<COMMITTABLE>),
-    /// A commit vote
-    Commit(Commitment<COMMITTABLE>),
-    /// A finalize vote
-    Finalize(Commitment<COMMITTABLE>),
+    /// Vote to pre-commit the view sync.
+    ViewSyncPreCommit(Commitment<COMMITTABLE>),
+    /// Vote to commit the view sync.
+    ViewSyncCommit(Commitment<COMMITTABLE>),
+    /// Vote to finalize the view sync.
+    ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
@@ -119,6 +108,7 @@ pub trait VoteToken:
     + for<'de> serde::Deserialize<'de>
     + PartialEq
     + Hash
+    + Eq
     + Committable
 {
     // type StakeTable;
@@ -147,6 +137,7 @@ where
         view_number: TIME,
         signatures: YesNoSignature<COMMITTABLE, TOKEN>,
         commit: Commitment<COMMITTABLE>,
+        relay: Option<u64>,
     ) -> Self;
 
     /// Get the view number.
@@ -303,24 +294,32 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let leaf_commitment = qc.leaf_commitment();
 
         if leaf_commitment != commit {
+            error!("Leaf commitment does not equal parent commitment");
             return false;
         }
+
         // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
         match qc.signatures() {
             YesNoSignature::Yes(raw_signatures) => {
                 let yes_votes = raw_signatures
                     .iter()
                     .filter(|signature| {
-                        self.is_valid_vote(
+                        let res = self.is_valid_vote(
                             signature.0,
                             &signature.1 .0,
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
+                        );
+                        // TODO Is this logic correct?
+                        res && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
+                // error!(
+                //     // "Yes votes are: {}",
+                //     yes_votes
+                // );
                 yes_votes >= u64::from(self.success_threshold())
             }
 
@@ -338,16 +337,23 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                         if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
                         {
                             yes_votes += u64::from(signature.1 .2.vote_count());
-                        } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+                        } else if matches!(signature.1 .1, VoteData::No(thing) if thing == leaf_commitment)
                         {
                             no_votes += u64::from(signature.1 .2.vote_count());
                         }
                     }
                 }
 
+                if no_votes > 0 {
+                    error!("Too many no votes");
+                }
+
                 no_votes >= u64::from(self.failure_threshold())
                     && yes_votes + no_votes >= u64::from(self.success_threshold())
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         }
     }
 
@@ -393,6 +399,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             // Ignoring deserialization errors below since we are getting rid of it soon
             Checked::Unchecked(vota_meta.vote_token.clone()),
         ) {
+            error!("Invalid vote!");
             return Either::Left(accumulator);
         }
 
@@ -413,6 +420,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                     vota_meta.view_number,
                     signatures,
                     vota_meta.commitment,
+                    vota_meta.relay,
                 ))
             }
         }
@@ -430,6 +438,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
+        relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate>;
 
     /// The committee which votes on proposals.
@@ -460,17 +469,12 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    >(
+    fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I>
-    where
-        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>;
+    ) -> CommitteeConsensusMessage<TYPES>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -479,13 +483,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
 pub struct CommitteeExchange<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<
-        TYPES,
-        M,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+    NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
     /// The network being used by this exchange.
@@ -506,13 +504,7 @@ pub struct CommitteeExchange<
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > CommitteeExchangeType<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
@@ -539,21 +531,14 @@ impl<
         (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    >(
+    fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I>
-    where
-        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    {
+    ) -> CommitteeConsensusMessage<TYPES> {
         let signature = self.sign_da_vote(block_commitment);
-        CommitteeConsensusMessage::<TYPES, I>::DAVote(DAVote {
-            justify_qc_commitment,
+        CommitteeConsensusMessage::<TYPES>::DAVote(DAVote {
             signature,
             block_commitment,
             current_view,
@@ -566,18 +551,12 @@ impl<
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > ConsensusExchange<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = DAProposal<TYPES>;
-    type Vote = DAVote<TYPES, SequencingLeaf<TYPES>>;
+    type Vote = DAVote<TYPES>;
     type Certificate = DACertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
@@ -628,6 +607,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
+        _relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -636,6 +616,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay: None,
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -936,6 +917,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, LEAF>,
+        _relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, LEAF>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -944,6 +926,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay: None,
         };
         self.accumulate_internal(meta, accumlator)
     }
@@ -963,25 +946,57 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
     /// Creates a precommit vote
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a precommit vote
-    fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
+    fn sign_precommit_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a commit vote
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_commit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Signs a commit vote
-    fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
+    fn sign_commit_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I>;
 
     /// Sings a finalize vote
-    fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
+    fn sign_finalize_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Validate a certificate.
+    fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
+
+    /// Sign a certificate.
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
+#[derive(Derivative)]
+#[derivative(Clone, Debug)]
 pub struct ViewSyncExchange<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
@@ -996,6 +1011,7 @@ pub struct ViewSyncExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
+    #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key.
     _encryption_key: jf_primitives::aead::KeyPair,
@@ -1011,28 +1027,181 @@ impl<
         M: NetworkMsg,
     > ViewSyncExchangeType<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
-        todo!()
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I> {
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: relay_pub_key.clone(),
+            round,
+        };
+
+        let vote_data_internal_commitment = vote_data_internal.commit();
+
+        let signature = self.sign_precommit_message(vote_data_internal_commitment);
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::PreCommit(
+            ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature,
+                vote_token,
+                vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
+            },
+        ))
     }
 
-    fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature) {
-        todo!()
+    fn sign_precommit_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSyncPreCommit(commitment).as_bytes(),
+        );
+
+        (self.public_key.to_bytes(), signature)
     }
 
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
-        todo!()
+    fn create_commit_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I> {
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: relay_pub_key.clone(),
+            round,
+        };
+
+        let vote_data_internal_commitment = vote_data_internal.commit();
+
+        let signature = self.sign_commit_message(vote_data_internal_commitment);
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Commit(
+            ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature,
+                vote_token,
+                vote_data: VoteData::ViewSyncCommit(vote_data_internal_commitment),
+            },
+        ))
     }
 
-    fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature) {
-        todo!()
+    fn sign_commit_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSyncCommit(commitment).as_bytes(),
+        );
+
+        (self.public_key.to_bytes(), signature)
     }
 
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
-        todo!()
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(
+        &self,
+        round: TYPES::Time,
+        relay: u64,
+        vote_token: TYPES::VoteTokenType,
+    ) -> GeneralConsensusMessage<TYPES, I> {
+        let relay_pub_key = self.get_leader(round + relay).to_bytes();
+
+        let vote_data_internal: ViewSyncData<TYPES> = ViewSyncData {
+            relay: relay_pub_key.clone(),
+            round,
+        };
+
+        let vote_data_internal_commitment = vote_data_internal.commit();
+
+        let signature = self.sign_finalize_message(vote_data_internal_commitment);
+
+        GeneralConsensusMessage::<TYPES, I>::ViewSyncVote(ViewSyncVote::Finalize(
+            ViewSyncVoteInternal {
+                relay_pub_key,
+                relay,
+                round,
+                signature,
+                vote_token,
+                vote_data: VoteData::ViewSyncFinalize(vote_data_internal_commitment),
+            },
+        ))
     }
 
-    fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature) {
-        todo!()
+    fn sign_finalize_message(
+        &self,
+        commitment: Commitment<ViewSyncData<TYPES>>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::ViewSyncFinalize(commitment).as_bytes(),
+        );
+
+        (self.public_key.to_bytes(), signature)
+    }
+
+    fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
+        let (certificate_internal, threshold, data_commit) = match certificate {
+            ViewSyncCertificate::PreCommit(certificate_internal) => {
+                let commit = ViewSyncData::<TYPES> {
+                    relay: self
+                        .get_leader(round + certificate_internal.relay)
+                        .to_bytes(),
+                    round,
+                }
+                .commit();
+                (certificate_internal, self.failure_threshold(), commit)
+            }
+            ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => {
+                let commit = ViewSyncData::<TYPES> {
+                    relay: self
+                        .get_leader(round + certificate_internal.relay)
+                        .to_bytes(),
+                    round,
+                }
+                .commit();
+                (certificate_internal, self.success_threshold(), commit)
+            }
+        };
+
+        let votes = match certificate_internal.signatures {
+            YesNoSignature::ViewSyncCommit(raw_signatures)
+            | YesNoSignature::ViewSyncPreCommit(raw_signatures)
+            | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
+                .iter()
+                .filter(|signature| {
+                    self.is_valid_vote(
+                        signature.0,
+                        &signature.1 .0,
+                        signature.1 .1.clone(),
+                        certificate_internal.round,
+                        Checked::Unchecked(signature.1 .2.clone()),
+                    ) && (
+                        matches!(signature.1 .1, VoteData::ViewSyncPreCommit(commit) if commit == data_commit)
+                        || matches!(signature.1 .1, VoteData::ViewSyncCommit(commit) if commit == data_commit)
+                        || matches!(signature.1 .1, VoteData::ViewSyncFinalize(commit) if commit == data_commit)
+                    )
+                })
+                .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
+            _ => unimplemented!(),
+        };
+
+        votes >= threshold.into()
+    }
+
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
+        TYPES::SignatureKey::sign(&self.private_key, certificate.commit().as_ref())
     }
 }
 
@@ -1076,7 +1245,7 @@ impl<
     }
 
     fn vote_data(&self, _commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
-        todo!()
+        unimplemented!()
     }
 
     fn accumulate_vote(
@@ -1088,6 +1257,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+        relay: Option<u64>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
@@ -1096,6 +1266,7 @@ impl<
             data: vote_data,
             vote_token,
             view_number,
+            relay,
         };
         self.accumulate_internal(meta, accumlator)
     }

@@ -2,11 +2,11 @@ use futures::Stream;
 use std::marker::PhantomData;
 
 use crate::{
-    event_stream::{DummyStream, EventStream},
+    event_stream::{DummyStream, EventStream, SendableStream, StreamId},
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskHandler, HotShotTaskTypes, PassType,
-        HST, TS,
+        TaskErr, HST, TS,
     },
 };
 
@@ -30,6 +30,11 @@ impl<HSTT: HotShotTaskTypes> TaskBuilder<HSTT> {
             self.0
                 .register_handler(HotShotTaskHandler::HandleEvent(handler)),
         )
+    }
+
+    /// obtains stream id if it exists
+    pub fn get_stream_id(&self) -> Option<StreamId> {
+        self.0.stream_id
     }
 
     /// register a message handler
@@ -113,12 +118,8 @@ impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: 
 {
 }
 
-impl<
-        ERR: std::error::Error,
-        EVENT: PassType,
-        ESTREAM: EventStream<EventType = EVENT>,
-        STATE: TS,
-    > HotShotTaskTypes for HSTWithEvent<ERR, EVENT, ESTREAM, STATE>
+impl<ERR: TaskErr, EVENT: PassType, ESTREAM: EventStream<EventType = EVENT>, STATE: TS>
+    HotShotTaskTypes for HSTWithEvent<ERR, EVENT, ESTREAM, STATE>
 {
     type Event = EVENT;
     type State = STATE;
@@ -148,7 +149,7 @@ pub struct HSTWithMessage<
     _pd: PhantomData<(ERR, MSG, MSTREAM, STATE)>,
 }
 
-impl<ERR: std::error::Error, MSG: PassType, MSTREAM: Stream<Item = MSG>, STATE: TS> HotShotTaskTypes
+impl<ERR: TaskErr, MSG: PassType, MSTREAM: SendableStream<Item = MSG>, STATE: TS> HotShotTaskTypes
     for HSTWithMessage<ERR, MSG, MSTREAM, STATE>
 {
     type Event = ();
@@ -204,17 +205,17 @@ impl<
 }
 
 impl<
-        ERR: std::error::Error,
+        ERR: TaskErr,
         EVENT: PassType,
         ESTREAM: EventStream<EventType = EVENT>,
         MSG: PassType,
-        MSTREAM: Stream<Item = MSG>,
+        MSTREAM: SendableStream<Item = MSG>,
         STATE: TS,
     > HotShotTaskTypes for HSTWithEventAndMessage<ERR, EVENT, ESTREAM, MSG, MSTREAM, STATE>
 {
-    type Event = ();
+    type Event = EVENT;
     type State = STATE;
-    type EventStream = DummyStream;
+    type EventStream = ESTREAM;
     type Message = MSG;
     type MessageStream = MSTREAM;
     type Error = ERR;
@@ -237,7 +238,7 @@ pub mod test {
 
     use crate::event_stream;
     use crate::event_stream::ChannelStream;
-    use crate::task::{PassType, TS};
+    use crate::task::TS;
 
     use super::{HSTWithEvent, HSTWithEventAndMessage, HSTWithMessage};
     use crate::event_stream::EventStream;
@@ -256,39 +257,43 @@ pub mod test {
     #[derive(Snafu, Debug)]
     pub struct Error {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub struct State {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
+    pub struct CounterState {
+        num_events_recved: u64,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Hash)]
     pub enum Event {
         Finished,
         Dummy,
     }
 
-    impl PassType for Event {}
-
     impl TS for State {}
-    impl PassType for State {}
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    impl TS for CounterState {}
+
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub enum Message {
         Finished,
         Dummy,
     }
 
-    impl PassType for Message {}
-
     // TODO fill in generics for stream
 
     pub type AppliedHSTWithEvent = HSTWithEvent<Error, Event, ChannelStream<Event>, State>;
+    pub type AppliedHSTWithEventCounterState =
+        HSTWithEvent<Error, Event, ChannelStream<Event>, CounterState>;
     pub type AppliedHSTWithMessage =
         HSTWithMessage<Error, Message, UnboundedStream<Message>, State>;
     pub type AppliedHSTWithEventMessage = HSTWithEventAndMessage<
         Error,
-        Message,
-        UnboundedStream<Message>,
         Event,
         ChannelStream<Event>,
+        Message,
+        UnboundedStream<Message>,
         State,
     >;
 
@@ -331,10 +336,64 @@ pub mod test {
     async fn test_task_with_event_stream() {
         setup_logging();
         let event_stream: event_stream::ChannelStream<Event> = event_stream::ChannelStream::new();
+        let mut registry = GlobalRegistry::new();
+
+        let mut task_runner = crate::task_launcher::TaskRunner::default();
+
+        for i in 0..10000 {
+            let state = CounterState::default();
+            let event_handler = HandleEvent(Arc::new(move |event, mut state: CounterState| {
+                async move {
+                    if let Event::Dummy = event {
+                        state.num_events_recved += 1;
+                    }
+
+                    if state.num_events_recved == 100 {
+                        (Some(HotShotTaskCompleted::ShutDown), state)
+                    } else {
+                        (None, state)
+                    }
+                }
+                .boxed()
+            }));
+            let name = format!("Test Task {i:?}").to_string();
+            let built_task = TaskBuilder::<AppliedHSTWithEventCounterState>::new(name.clone())
+                .register_event_stream(event_stream.clone(), FilterEvent::default())
+                .await
+                .register_registry(&mut registry)
+                .await
+                .register_state(state)
+                .register_event_handler(event_handler);
+            let id = built_task.get_task_id().unwrap();
+            let result = AppliedHSTWithEventCounterState::build(built_task).launch();
+            task_runner = task_runner.add_task(id, name, result);
+        }
+
+        async_spawn(async move {
+            for _ in 0..100 {
+                event_stream.publish(Event::Dummy).await;
+            }
+        });
+
+        let results = task_runner.launch().await;
+        for result in results {
+            assert!(result.1 == HotShotTaskCompleted::ShutDown);
+        }
+    }
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_task_with_event_stream_xtreme() {
+        setup_logging();
+        let event_stream: event_stream::ChannelStream<Event> = event_stream::ChannelStream::new();
 
         let state = State {};
 
-        let mut registry = GlobalRegistry::spawn_new();
+        let mut registry = GlobalRegistry::new();
 
         let event_handler = HandleEvent(Arc::new(move |event, state| {
             async move {
@@ -370,7 +429,7 @@ pub mod test {
         setup_logging();
         let state = State {};
 
-        let mut registry = GlobalRegistry::spawn_new();
+        let mut registry = GlobalRegistry::new();
 
         let (s, r) = async_compatibility_layer::channel::unbounded();
 

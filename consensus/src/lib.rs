@@ -17,8 +17,8 @@ mod next_leader;
 mod replica;
 mod sequencing_leader;
 mod sequencing_replica;
-mod traits;
-mod utils;
+pub mod traits;
+pub mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use da_member::DAMember;
@@ -28,6 +28,7 @@ pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
+use std::collections::HashSet;
 pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
 pub use utils::{View, ViewInner};
 
@@ -70,6 +71,9 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// A list of undecided transactions
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
+
+    /// A list of transactions we've seen decided, but didn't receive
+    pub seen_transactions: HashSet<Commitment<TYPES::Transaction>>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
@@ -249,7 +253,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     }
 
     /// garbage collects based on state change
-    /// right now, this removes from both the `saved_leaves`
+    /// right now, this removes from both the `saved_blocks`
     /// and `state_map` fields of `Consensus`
     #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn collect_garbage(

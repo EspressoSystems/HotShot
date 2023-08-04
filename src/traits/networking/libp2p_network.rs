@@ -12,6 +12,8 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
+use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
@@ -40,6 +42,7 @@ use libp2p_networking::{
     },
     reexport::Multiaddr,
 };
+
 use serde::Serialize;
 use snafu::ResultExt;
 use std::{
@@ -137,6 +140,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -497,12 +501,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
-    async fn shut_down(&self) {
-        if self.inner.handle.is_killed() {
-            error!("Called shut down when already shut down! Noop.");
-        } else {
-            self.inner.handle.shutdown().await.unwrap();
-        }
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            if self.inner.handle.is_killed() {
+                error!("Called shut down when already shut down! Noop.");
+            } else {
+                self.inner.handle.shutdown().await.unwrap();
+            }
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
@@ -615,33 +626,43 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            match transmit_type {
-                TransmitType::Direct => {
-                    let result = self
-                        .inner
-                        .direct_recv
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
-                    self.inner.metrics.incoming_message_count.add(result.len());
-                    Ok(result)
-                }
-                TransmitType::Broadcast => {
-                    let result = self
-                        .inner
-                        .broadcast_recv
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
-                    self.inner.metrics.incoming_message_count.add(result.len());
-                    Ok(result)
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            if self.inner.handle.is_killed() {
+                Err(NetworkError::ShutDown)
+            } else {
+                match transmit_type {
+                    TransmitType::Direct => {
+                        let result = self
+                            .inner
+                            .direct_recv
+                            .drain_at_least_one()
+                            .await
+                            .map_err(|_x| NetworkError::ShutDown)?;
+                        self.inner.metrics.incoming_message_count.add(result.len());
+                        Ok(result)
+                    }
+                    TransmitType::Broadcast => {
+                        let result = self
+                            .inner
+                            .broadcast_recv
+                            .drain_at_least_one()
+                            .await
+                            .map_err(|_x| NetworkError::ShutDown)?;
+                        self.inner.metrics.incoming_message_count.add(result.len());
+                        Ok(result)
+                    }
                 }
             }
-        }
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "Libp2pNetwork::lookup_node", skip_all)]
@@ -680,9 +701,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -710,7 +730,7 @@ impl<
     /// create a new libp2p communication channel
     #[must_use]
     pub fn new(network: Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 }
 
@@ -740,6 +760,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES, I>,
@@ -748,7 +769,8 @@ where
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -783,8 +805,15 @@ where
         self.0.is_ready().await
     }
 
-    async fn shut_down(&self) -> () {
-        self.0.shut_down().await;
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            self.0.shut_down().await;
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message(
@@ -807,20 +836,24 @@ where
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
+    fn recv_msgs<'a, 'b>(
+        &'a self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        self.0.recv_msgs(transmit_type).await
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES, I>>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move { self.0.recv_msgs(transmit_type).await };
+        boxed_sync(closure)
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 

@@ -26,11 +26,14 @@ async fn main() {
         .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", opts.addr))
         .collect::<Vec<_>>();
     if addr.len() != 1 {
-        panic!(
+        // Create the message before calling `panic!` to avoid the `illegal instruction` error
+        // caused by a panic inside a panic.
+        let msg = format!(
             "{} resolves to {} addresses, cannot continue",
             opts.addr,
             addr.len()
         );
+        panic!("{}", msg);
     }
     let (read, write) = split_stream(
         TcpStream::connect(addr[0])

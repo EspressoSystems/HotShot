@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -40,6 +40,9 @@ use std::{
     Ord,
     Hash,
     Serialize,
+    // std::ops::Add,
+    // std::ops::Div,
+    // std::ops::Rem,
     Deserialize,
     CanonicalSerialize,
     CanonicalDeserialize,
@@ -83,6 +86,13 @@ impl std::ops::Deref for ViewNumber {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Sub<u64> for ViewNumber {
+    type Output = ViewNumber;
+    fn sub(self, rhs: u64) -> Self::Output {
+        Self(self.0 - rhs)
     }
 }
 
@@ -131,7 +141,7 @@ where
 }
 
 /// A proposal to start providing data availability for a block.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -139,8 +149,8 @@ pub struct DAProposal<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 }
 
-/// A proposal to append a new block commitment to the log.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+/// Proposal to append a block.
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The commitment to append.
@@ -155,11 +165,11 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 
-    /// Data availibity certificate
-    pub dac: DACertificate<TYPES>,
-
     /// the propser id
     pub proposer_id: EncodedPublicKey,
+
+    /// Data availibity certificate
+    pub dac: Option<DACertificate<TYPES>>,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
@@ -187,9 +197,20 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     }
 }
 
+impl<TYPES: NodeType> ProposalType for ViewSyncCertificate<TYPES> {
+    type NodeType = TYPES;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        match self {
+            ViewSyncCertificate::PreCommit(certificate_internal)
+            | ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) => certificate_internal.round,
+        }
+    }
+}
+
 /// A proposal to a network of voting nodes.
 pub trait ProposalType:
-    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq + Hash
 {
     /// Type of nodes that can vote on this proposal.
     type NodeType: NodeType;
@@ -477,7 +498,6 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
-#[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct SequencingLeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
@@ -500,12 +520,48 @@ pub struct SequencingLeaf<TYPES: NodeType> {
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
-    #[derivative(PartialEq = "ignore")]
     pub timestamp: i128,
 
     /// the proposer id of the leaf
-    #[derivative(PartialEq = "ignore")]
     pub proposer_id: EncodedPublicKey,
+}
+
+impl<TYPES: NodeType> PartialEq for SequencingLeaf<TYPES> {
+    fn eq(&self, other: &Self) -> bool {
+        let delta_left = match &self.deltas {
+            Either::Left(deltas) => deltas.commit(),
+            Either::Right(deltas) => *deltas,
+        };
+        let delta_right = match &other.deltas {
+            Either::Left(deltas) => deltas.commit(),
+            Either::Right(deltas) => *deltas,
+        };
+        self.view_number == other.view_number
+            && self.height == other.height
+            && self.justify_qc == other.justify_qc
+            && self.parent_commitment == other.parent_commitment
+            && delta_left == delta_right
+            && self.rejected == other.rejected
+    }
+}
+
+impl<TYPES: NodeType> Hash for SequencingLeaf<TYPES> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.view_number.hash(state);
+        self.height.hash(state);
+        self.justify_qc.hash(state);
+        self.parent_commitment.hash(state);
+        match &self.deltas {
+            Either::Left(deltas) => {
+                deltas.commit().hash(state);
+            }
+            Either::Right(commitment) => {
+                commitment.hash(state);
+            }
+        }
+        // self.deltas.hash(state.commit());
+        self.rejected.hash(state);
+    }
 }
 
 impl<TYPES: NodeType> Display for ValidatingLeaf<TYPES> {
@@ -762,6 +818,9 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
                 signatures_bytes.extend("No".as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
@@ -811,6 +870,9 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
 
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(_)
+            | YesNoSignature::ViewSyncCommit(_)
+            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
         };
         for (k, v) in signatures {
             signatures_bytes.extend(&k.0);

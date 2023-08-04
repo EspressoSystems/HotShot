@@ -4,10 +4,8 @@ use std::{
 };
 
 use libp2p::{
-    request_response::{
-        handler::RequestProtocol, Behaviour, Event, Message, RequestId, ResponseChannel,
-    },
-    swarm::{NetworkBehaviour, THandlerOutEvent, ToSwarm},
+    request_response::{Behaviour, Event, Message, RequestId, ResponseChannel},
+    swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -119,7 +117,7 @@ impl DMBehaviour {
 impl NetworkBehaviour for DMBehaviour {
     type ConnectionHandler = <Behaviour<DirectMessageCodec> as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = DMEvent;
+    type ToSwarm = DMEvent;
 
     fn on_swarm_event(
         &mut self,
@@ -142,7 +140,7 @@ impl NetworkBehaviour for DMBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> Poll<ToSwarm<DMEvent, RequestProtocol<DirectMessageCodec>>> {
+    ) -> Poll<ToSwarm<DMEvent, THandlerInEvent<Self>>> {
         while let Some(req) = self.failed_rr.pop_front() {
             if req.backoff.is_expired() {
                 self.add_direct_request(req);
@@ -172,9 +170,6 @@ impl NetworkBehaviour for DMBehaviour {
                         event,
                     });
                 }
-                ToSwarm::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
-                }
                 ToSwarm::CloseConnection {
                     peer_id,
                     connection,
@@ -183,6 +178,21 @@ impl NetworkBehaviour for DMBehaviour {
                         peer_id,
                         connection,
                     });
+                }
+                ToSwarm::ListenOn { opts } => {
+                    return Poll::Ready(ToSwarm::ListenOn { opts });
+                }
+                ToSwarm::RemoveListener { id } => {
+                    return Poll::Ready(ToSwarm::RemoveListener { id });
+                }
+                ToSwarm::NewExternalAddrCandidate(c) => {
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(c));
+                }
+                ToSwarm::ExternalAddrConfirmed(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(c));
+                }
+                ToSwarm::ExternalAddrExpired(c) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(c));
                 }
             }
         }

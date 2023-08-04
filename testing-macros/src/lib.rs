@@ -198,7 +198,7 @@ impl TestData {
                         hotshot_types::data::SequencingLeaf<TestTypes>
                     };
                     let vote = quote! {
-                        hotshot_types::vote::DAVote<TestTypes, #leaf>
+                        hotshot_types::vote::DAVote<TestTypes>
                     };
                     let proposal = quote! {
                         hotshot_types::data::DAProposal<TestTypes>

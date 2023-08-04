@@ -99,6 +99,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
+            viewsync_precommit_vote_outcomes: HashMap::new(),
             success_threshold: self.exchange.success_threshold(),
             failure_threshold: self.exchange.failure_threshold(),
         };
@@ -126,6 +127,7 @@ where
                                 vote.vote_token.clone(),
                                 self.cur_view,
                                 accumlator,
+                                None,
                             ) {
                                 Either::Left(acc) => {
                                     accumlator = acc;
@@ -152,7 +154,8 @@ where
                 ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
-                ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
+                ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
+                ProcessedGeneralConsensusMessage::ViewSyncVote(_) => todo!(),
             }
         }
 

@@ -1,12 +1,16 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
-use std::task::Poll;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
+use async_compatibility_layer::art::async_yield_now;
+use either::Either::{self, Left, Right};
 use futures::{future::BoxFuture, stream::Fuse, Stream};
 use futures::{Future, FutureExt, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
+use crate::event_stream::{SendableStream, StreamId};
 use crate::global_registry::{GlobalRegistry, HotShotTaskId};
 use crate::task_impls::TaskBuilder;
 use crate::task_state::TaskStatus;
@@ -15,13 +19,18 @@ use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::
 /// restrictions on types we wish to pass around.
 /// Includes messages and events
 pub trait PassType: Clone + Debug + Sync + Send + 'static {}
-impl PassType for () {}
 
 /// the task state
-pub trait TS: Debug + Sync + Send + 'static {}
+pub trait TS: Sync + Send + 'static {}
+
+/// a task error that has nice qualities
+#[allow(clippy::module_name_repetitions)]
+pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
+
+impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
 /// group of types needed for a hotshot task
-pub trait HotShotTaskTypes {
+pub trait HotShotTaskTypes: 'static {
     /// the event type from the event stream
     type Event: PassType;
     /// the state of the task
@@ -31,9 +40,9 @@ pub trait HotShotTaskTypes {
     /// the message stream to receive
     type Message: PassType;
     /// the steam of messages from other tasks
-    type MessageStream: Stream<Item = Self::Message>;
+    type MessageStream: SendableStream<Item = Self::Message>;
     /// the error to return
-    type Error: std::error::Error;
+    type Error: TaskErr + 'static + ?Sized;
 
     /// build a task
     /// NOTE: done here and not on `TaskBuilder` because
@@ -46,20 +55,22 @@ pub trait HotShotTaskTypes {
 }
 
 /// hot shot task
-#[pin_project]
-/// this is for `in_progress_fut`. The type is internal only so it's probably fine
-/// to not type alias
+#[pin_project(project = ProjectedHST)]
 #[allow(clippy::type_complexity)]
 pub struct HST<HSTT: HotShotTaskTypes> {
+    /// Optional ID of the stream.
+    pub(crate) stream_id: Option<StreamId>,
     /// the eventual return value, post-cleanup
-    r_val: Option<HotShotTaskCompleted<HSTT>>,
+    r_val: Option<HotShotTaskCompleted>,
     /// if we have a future for tracking shutdown progress
     in_progress_shutdown_fut: Option<BoxFuture<'static, ()>>,
     /// the in progress future
-    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>>,
+    in_progress_fut: Option<BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>>,
     /// name of task
     name: String,
     /// state of the task
+    /// TODO make this boxed. We don't want to assume this is a small future.
+    /// since it concievably may be stored on the stack
     #[pin]
     status: TaskState,
     /// functions performing cleanup
@@ -68,11 +79,9 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// the other should unsubscribe from the stream
     shutdown_fns: Vec<ShutdownFn>,
     /// shared stream
-    #[pin]
-    event_stream: Option<Fuse<<HSTT::EventStream as EventStream>::StreamType>>,
+    event_stream: MaybePinnedEventStream<HSTT>,
     /// stream of messages
-    #[pin]
-    message_stream: Option<Fuse<HSTT::MessageStream>>,
+    message_stream: Option<Pin<Box<Fuse<HSTT::MessageStream>>>>,
     /// state
     state: Option<HSTT::State>,
     /// handler for events
@@ -82,6 +91,10 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// task id
     pub(crate) tid: Option<HotShotTaskId>,
 }
+
+/// an option of a pinned boxed fused event stream
+pub type MaybePinnedEventStream<HSTT> =
+    Option<Pin<Box<Fuse<<<HSTT as HotShotTaskTypes>::EventStream as EventStream>::StreamType>>>>;
 
 /// ADT for wrapping all possible handler types
 #[allow(dead_code)]
@@ -101,15 +114,19 @@ pub(crate) enum HotShotTaskHandler<HSTT: HotShotTaskTypes> {
 pub struct HandleEvent<HSTT: HotShotTaskTypes>(
     pub  Arc<
         dyn Fn(
-            HSTT::Event,
-            HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+                HSTT::Event,
+                HSTT::State,
+            ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
+            + Sync
+            + Send,
     >,
 );
 
 impl<HSTT: HotShotTaskTypes> Default for HandleEvent<HSTT> {
     fn default() -> Self {
-        Self(Arc::new(|_event, state| async { (None, state) }.boxed()))
+        Self(Arc::new(|_event, state| {
+            async move { (None, state) }.boxed()
+        }))
     }
 }
 
@@ -117,8 +134,7 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
     type Target = dyn Fn(
         HSTT::Event,
         HSTT::State,
-    )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+    ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -130,17 +146,18 @@ impl<HSTT: HotShotTaskTypes> Deref for HandleEvent<HSTT> {
 pub struct HandleMessage<HSTT: HotShotTaskTypes>(
     pub  Arc<
         dyn Fn(
-            HSTT::Message,
-            HSTT::State,
-        ) -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>,
+                HSTT::Message,
+                HSTT::State,
+            ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>
+            + Sync
+            + Send,
     >,
 );
 impl<HSTT: HotShotTaskTypes> Deref for HandleMessage<HSTT> {
     type Target = dyn Fn(
         HSTT::Message,
         HSTT::State,
-    )
-        -> BoxFuture<'static, (Option<HotShotTaskCompleted<HSTT>>, HSTT::State)>;
+    ) -> BoxFuture<'static, (Option<HotShotTaskCompleted>, HSTT::State)>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -240,8 +257,9 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         // TODO perhaps GC the event stream
         // (unsunscribe)
         Self {
-            event_stream: Some(stream.fuse()),
+            event_stream: Some(Box::pin(stream.fuse())),
             shutdown_fns,
+            stream_id: Some(uid),
             ..self
         }
     }
@@ -250,7 +268,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     #[must_use]
     pub(crate) fn register_message_stream(self, stream: HSTT::MessageStream) -> Self {
         Self {
-            message_stream: Some(stream.fuse()),
+            message_stream: Some(Box::pin(stream.fuse())),
             ..self
         }
     }
@@ -279,6 +297,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// create a new task
     pub(crate) fn new(name: String) -> Self {
         Self {
+            stream_id: None,
             r_val: None,
             name,
             status: TaskState::new(),
@@ -297,19 +316,18 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
     /// launch the task
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
-    /// So, it should be safe to lanuch.
-    pub async fn launch(self) -> HotShotTaskCompleted<HSTT> {
-        self.await
+    /// So, it should be safe to launch.
+    pub fn launch(self) -> BoxFuture<'static, HotShotTaskCompleted> {
+        Box::pin(self)
     }
 }
 
 /// enum describing how the tasks completed
-#[derive(Eq)]
-pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
+pub enum HotShotTaskCompleted {
     /// the task shut down successfully
     ShutDown,
     /// the task encountered an error
-    Error(HSTT::Error),
+    Error(Box<dyn TaskErr>),
     /// the streams the task was listening for died
     StreamsDied,
     /// we somehow lost the state
@@ -317,21 +335,28 @@ pub enum HotShotTaskCompleted<HSTT: HotShotTaskTypes> {
     LostState,
     /// lost the return value somehow
     LostReturnValue,
+    /// Stream exists but missing handler
+    MissingHandler,
 }
 
-impl<HSTT: HotShotTaskTypes> Debug for HotShotTaskCompleted<HSTT> {
+impl std::fmt::Debug for HotShotTaskCompleted {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HotShotTaskCompleted::ShutDown => f.write_str("HotShotTaskCompleted::ShutDown"),
-            HotShotTaskCompleted::Error(_) => todo!("HotShotTaskCompleted::Error"),
-            HotShotTaskCompleted::StreamsDied => todo!("HotShotTaskCompleted::StreamsDied"),
-            HotShotTaskCompleted::LostState => todo!("HotShotTaskCompleted::LostState"),
-            HotShotTaskCompleted::LostReturnValue => todo!("HotShotTaskCompleted::LostReturnValue"),
+            HotShotTaskCompleted::Error(_) => f.write_str("HotShotTaskCompleted::Error"),
+            HotShotTaskCompleted::StreamsDied => f.write_str("HotShotTaskCompleted::StreamsDied"),
+            HotShotTaskCompleted::LostState => f.write_str("HotShotTaskCompleted::LostState"),
+            HotShotTaskCompleted::LostReturnValue => {
+                f.write_str("HotShotTaskCompleted::LostReturnValue")
+            }
+            HotShotTaskCompleted::MissingHandler => {
+                f.write_str("HotShotTaskCompleted::MissingHandler")
+            }
         }
     }
 }
 
-impl<HSTT: HotShotTaskTypes> PartialEq for HotShotTaskCompleted<HSTT> {
+impl PartialEq for HotShotTaskCompleted {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Error(_l0), Self::Error(_r0)) => false,
@@ -340,84 +365,237 @@ impl<HSTT: HotShotTaskTypes> PartialEq for HotShotTaskCompleted<HSTT> {
     }
 }
 
+impl<'pin, HSTT: HotShotTaskTypes> ProjectedHST<'pin, HSTT> {
+    /// launches the shutdown future
+    fn launch_shutdown_fut(&mut self, cx: &mut Context<'_>) -> Poll<HotShotTaskCompleted> {
+        let fut = self.create_shutdown_fut();
+        self.check_ip_shutdown_fut(fut, cx)
+    }
+
+    /// checks the in progress shutdown future, `fut`
+    fn check_ip_shutdown_fut(
+        &mut self,
+        mut fut: Pin<Box<dyn Future<Output = ()> + Send>>,
+        cx: &mut Context<'_>,
+    ) -> Poll<HotShotTaskCompleted> {
+        match fut.as_mut().poll(cx) {
+            Poll::Ready(_) => Poll::Ready(
+                self.r_val
+                    .take()
+                    .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
+            ),
+            Poll::Pending => {
+                *self.in_progress_shutdown_fut = Some(fut);
+                Poll::Pending
+            }
+        }
+    }
+
+    /// creates the shutdown future and returns it
+    fn create_shutdown_fut(&mut self) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        let shutdown_fns = self.shutdown_fns.clone();
+        let fut = async move {
+            for shutdown_fn in shutdown_fns {
+                shutdown_fn().await;
+            }
+        }
+        .boxed();
+        fut
+    }
+
+    /// check the event stream
+    /// returns either a poll if there's a future IP
+    /// or a bool stating whether or not the stream is finished
+    fn check_event_stream(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Either<Poll<HotShotTaskCompleted>, bool> {
+        let event_stream = self.event_stream.take();
+        if let Some(mut inner_event_stream) = event_stream {
+            while let Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
+                if let Some(event) = maybe_event {
+                    if let Some(handle_event) = self.handle_event {
+                        let maybe_state = self.state.take();
+                        if let Some(state) = maybe_state {
+                            let mut fut = handle_event(event, state);
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) => {
+                                    if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
+                                        *self.r_val = Some(completed);
+                                        let result = self.launch_shutdown_fut(cx);
+                                        *self.event_stream = Some(inner_event_stream);
+                                        return Left(result);
+                                    }
+                                    // run a yield to tell the executor to go do work on other
+                                    // tasks if they are available
+                                    // this is necessary otherwise we could end up with one
+                                    // task that returns really quickly blocking the executor
+                                    // from dealing with other tasks.
+                                    let mut fut = async move {
+                                        async_yield_now().await;
+                                        (None, state)
+                                    }
+                                    .boxed();
+                                    // if the executor has no extra work to do,
+                                    // continue to poll the event stream
+                                    if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                        *self.state = Some(state);
+                                        *self.in_progress_fut = None;
+                                        // NOTE: don't need to set event stream because
+                                        // that will be done on the next iteration
+                                        continue;
+                                    }
+                                    // otherwise, return pending and finish executing the
+                                    // yield later
+                                    *self.event_stream = Some(inner_event_stream);
+                                    *self.in_progress_fut = Some(fut);
+                                    return Left(Poll::Pending);
+                                }
+                                Poll::Pending => {
+                                    *self.in_progress_fut = Some(fut);
+                                    *self.event_stream = Some(inner_event_stream);
+                                    return Left(Poll::Pending);
+                                }
+                            }
+                        }
+                        // lost state case
+                        *self.r_val = Some(HotShotTaskCompleted::LostState);
+                        let result = self.launch_shutdown_fut(cx);
+                        *self.event_stream = Some(inner_event_stream);
+                        return Left(result);
+                    }
+                    // no handler case
+                    *self.r_val = Some(HotShotTaskCompleted::MissingHandler);
+                    let result = self.launch_shutdown_fut(cx);
+                    *self.event_stream = Some(inner_event_stream);
+                    return Left(result);
+                }
+                // this is a fused future so `None` will come every time after the stream
+                // finishes
+                *self.event_stream = Some(inner_event_stream);
+                return Right(true);
+            }
+            *self.event_stream = Some(inner_event_stream);
+            return Right(false);
+        }
+        // stream doesn't exist so trivially true
+        *self.event_stream = event_stream;
+        Right(true)
+    }
+
+    /// check the message stream
+    /// returns either a poll if there's a future IP
+    /// or a bool stating whether or not the stream is finished
+    fn check_message_stream(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Either<Poll<HotShotTaskCompleted>, bool> {
+        let message_stream = self.message_stream.take();
+        if let Some(mut inner_message_stream) = message_stream {
+            while let Poll::Ready(maybe_msg) = inner_message_stream.as_mut().poll_next(cx) {
+                if let Some(msg) = maybe_msg {
+                    if let Some(handle_msg) = self.handle_message {
+                        let maybe_state = self.state.take();
+                        if let Some(state) = maybe_state {
+                            let mut fut = handle_msg(msg, state);
+                            match fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) => {
+                                    if let Some(completed) = result {
+                                        *self.in_progress_fut = None;
+                                        *self.state = Some(state);
+                                        *self.r_val = Some(completed);
+                                        let result = self.launch_shutdown_fut(cx);
+                                        *self.message_stream = Some(inner_message_stream);
+                                        return Left(result);
+                                    }
+                                    // run a yield to tell the executor to go do work on other
+                                    // tasks if they are available
+                                    // this is necessary otherwise we could end up with one
+                                    // task that returns really quickly blocking the executor
+                                    // from dealing with other tasks.
+                                    let mut fut = async move {
+                                        async_yield_now().await;
+                                        (None, state)
+                                    }
+                                    .boxed();
+                                    // if the executor has no extra work to do,
+                                    // continue to poll the event stream
+                                    if let Poll::Ready((_, state)) = fut.as_mut().poll(cx) {
+                                        *self.state = Some(state);
+                                        *self.in_progress_fut = None;
+                                        // NOTE: don't need to set event stream because
+                                        // that will be done on the next iteration
+                                        continue;
+                                    }
+                                    // otherwise, return pending and finish executing the
+                                    // yield later
+                                    *self.message_stream = Some(inner_message_stream);
+                                    *self.in_progress_fut = Some(fut);
+                                    return Left(Poll::Pending);
+                                }
+                                Poll::Pending => {
+                                    *self.in_progress_fut = Some(fut);
+                                    *self.message_stream = Some(inner_message_stream);
+                                    return Left(Poll::Pending);
+                                }
+                            }
+                        }
+                        // lost state case
+                        *self.r_val = Some(HotShotTaskCompleted::LostState);
+                        let result = self.launch_shutdown_fut(cx);
+                        *self.message_stream = Some(inner_message_stream);
+                        return Left(result);
+                    }
+                    // no handler case
+                    *self.r_val = Some(HotShotTaskCompleted::MissingHandler);
+                    let result = self.launch_shutdown_fut(cx);
+                    *self.message_stream = Some(inner_message_stream);
+                    return Left(result);
+                }
+                // this is a fused future so `None` will come every time after the stream
+                // finishes
+                *self.message_stream = Some(inner_message_stream);
+                return Right(true);
+            }
+            *self.message_stream = Some(inner_message_stream);
+            return Right(false);
+        }
+        // stream doesn't exist so trivially true
+        *self.message_stream = message_stream;
+        Right(true)
+    }
+}
+
 // NOTE: this is a Future, but it could easily be a stream.
 // but these are semantically equivalent because instead of
 // returning when paused, we just return `Poll::Pending`
 impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
-    type Output = HotShotTaskCompleted<HSTT>;
+    type Output = HotShotTaskCompleted;
 
-    // NOTE: this is too many lines
-    // with a lot of repeated code
-    // but I'm not sure how to separate this out
-    // into separate functions. `projected` and `self` are hard to
-    // pass around
-    #[allow(clippy::too_many_lines)]
-    fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        tracing::info!("HotShot Task {:?} awakened", self.name);
-        // FIXME broken future
-        // useful if we ever need to use self later.
-        // this doesn't consume the reference
-        let projected = self.as_mut().project();
-        if let Some(fut) = projected.in_progress_shutdown_fut {
-            match fut.as_mut().poll(cx) {
-                Poll::Ready(_) => {
-                    return Poll::Ready(
-                        projected
-                            .r_val
-                            .take()
-                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                    );
-                }
-                Poll::Pending => {
-                    return Poll::Pending;
-                }
-            }
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut projected = self.as_mut().project();
+
+        if let Some(fut) = projected.in_progress_shutdown_fut.take() {
+            return projected.check_ip_shutdown_fut(fut, cx);
         }
 
         // check if task is complete
-        match projected.status.poll_next(cx) {
-            Poll::Ready(Some(state_change)) => match state_change {
+        if let Some(state_change) = projected.status.as_mut().try_next() {
+            match state_change {
                 TaskStatus::NotStarted | TaskStatus::Paused => {
                     return Poll::Pending;
                 }
                 TaskStatus::Running => {}
                 TaskStatus::Completed => {
-                    let shutdown_fns = projected.shutdown_fns.clone();
-                    let mut fut = async move {
-                        for shutdown_fn in shutdown_fns {
-                            shutdown_fn().await;
-                        }
-                    }
-                    .boxed();
                     *projected.r_val = Some(HotShotTaskCompleted::ShutDown);
-
-                    match fut.as_mut().poll(cx) {
-                        Poll::Ready(_) => {
-                            return Poll::Ready(
-                                projected
-                                    .r_val
-                                    .take()
-                                    .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                            );
-                        }
-                        Poll::Pending => {
-                            *projected.in_progress_shutdown_fut = Some(fut);
-                            return Poll::Pending;
-                        }
-                    }
+                    return projected.launch_shutdown_fut(cx);
                 }
-            },
-            // this primitive's stream will never end
-            Poll::Ready(None) => {
-                unreachable!()
             }
-            // if there's nothing, that's fine
-            Poll::Pending => {}
         }
 
+        // check if there's an in progress future
         if let Some(in_progress_fut) = projected.in_progress_fut {
             match in_progress_fut.as_mut().poll(cx) {
                 Poll::Ready((result, state)) => {
@@ -426,27 +604,7 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
                     // if the future errored out, return it, we're done
                     if let Some(completed) = result {
                         *projected.r_val = Some(completed);
-                        let shutdown_fns = projected.shutdown_fns.clone();
-                        let mut fut = async move {
-                            for shutdown_fn in shutdown_fns {
-                                shutdown_fn().await;
-                            }
-                        }
-                        .boxed();
-                        match fut.as_mut().poll(cx) {
-                            Poll::Ready(_) => {
-                                return Poll::Ready(
-                                    projected
-                                        .r_val
-                                        .take()
-                                        .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                                );
-                            }
-                            Poll::Pending => {
-                                *projected.in_progress_shutdown_fut = Some(fut);
-                                return Poll::Pending;
-                            }
-                        }
+                        return projected.launch_shutdown_fut(cx);
                     }
                 }
                 Poll::Pending => {
@@ -455,186 +613,21 @@ impl<HSTT: HotShotTaskTypes> Future for HST<HSTT> {
             }
         }
 
-        let event_stream = projected.event_stream.as_pin_mut();
+        let event_stream_finished = match projected.check_event_stream(cx) {
+            Left(result) => return result,
+            Right(finished) => finished,
+        };
 
-        let message_stream = projected.message_stream.as_pin_mut();
+        let message_stream_finished = match projected.check_message_stream(cx) {
+            Left(result) => return result,
+            Right(finished) => finished,
+        };
 
-        let mut event_stream_finished = false;
-        let mut message_stream_finished = false;
-
-        if let Some(mut shared_stream) = event_stream {
-            while let Poll::Ready(maybe_event) = shared_stream.as_mut().poll_next(cx) {
-                if let Some(event) = maybe_event {
-                    if let Some(handle_event) = projected.handle_event {
-                        let maybe_state = projected.state.take();
-                        if let Some(state) = maybe_state {
-                            let mut fut = handle_event(event, state);
-                            match fut.as_mut().poll(cx) {
-                                Poll::Ready((result, state)) => {
-                                    *projected.in_progress_fut = None;
-                                    *projected.state = Some(state);
-                                    if let Some(completed) = result {
-                                        *projected.r_val = Some(completed);
-                                        let shutdown_fns = projected.shutdown_fns.clone();
-                                        let mut fut = async move {
-                                            for shutdown_fn in shutdown_fns {
-                                                shutdown_fn().await;
-                                            }
-                                        }
-                                        .boxed();
-                                        match fut.as_mut().poll(cx) {
-                                            Poll::Ready(_) => {
-                                                return Poll::Ready(
-                                                    projected.r_val.take().unwrap_or_else(|| {
-                                                        HotShotTaskCompleted::LostReturnValue
-                                                    }),
-                                                );
-                                            }
-                                            Poll::Pending => {
-                                                *projected.in_progress_shutdown_fut = Some(fut);
-                                                return Poll::Pending;
-                                            }
-                                        }
-                                    }
-                                }
-                                Poll::Pending => {
-                                    *projected.in_progress_fut = Some(fut);
-                                    return Poll::Pending;
-                                }
-                            }
-                        } else {
-                            *projected.r_val = Some(HotShotTaskCompleted::LostState);
-                            let shutdown_fns = projected.shutdown_fns.clone();
-                            let mut fut = async move {
-                                for shutdown_fn in shutdown_fns {
-                                    shutdown_fn().await;
-                                }
-                            }
-                            .boxed();
-                            match fut.as_mut().poll(cx) {
-                                Poll::Ready(_) => {
-                                    return Poll::Ready(
-                                        projected.r_val.take().unwrap_or_else(|| {
-                                            HotShotTaskCompleted::LostReturnValue
-                                        }),
-                                    );
-                                }
-                                Poll::Pending => {
-                                    *projected.in_progress_shutdown_fut = Some(fut);
-                                    return Poll::Pending;
-                                }
-                            }
-                        }
-                    } else {
-                        // this is a fused future so `None` will come every time after the stream
-                        // finishes
-                        event_stream_finished = true;
-                        break;
-                    }
-                }
-            }
-        } else {
-            event_stream_finished = true;
-        }
-
-        if let Some(mut message_stream) = message_stream {
-            while let Poll::Ready(maybe_msg) = message_stream.as_mut().poll_next(cx) {
-                if let Some(msg) = maybe_msg {
-                    if let Some(handle_msg) = projected.handle_message {
-                        let maybe_state = projected.state.take();
-                        if let Some(state) = maybe_state {
-                            let mut fut = handle_msg(msg, state);
-                            match fut.as_mut().poll(cx) {
-                                Poll::Ready((result, state)) => {
-                                    *projected.in_progress_fut = None;
-                                    *projected.state = Some(state);
-                                    if let Some(completed) = result {
-                                        *projected.r_val = Some(completed);
-                                        let shutdown_fns = projected.shutdown_fns.clone();
-                                        let mut fut = async move {
-                                            for shutdown_fn in shutdown_fns {
-                                                shutdown_fn().await;
-                                            }
-                                        }
-                                        .boxed();
-                                        match fut.as_mut().poll(cx) {
-                                            Poll::Ready(_) => {
-                                                return Poll::Ready(
-                                                    projected.r_val.take().unwrap_or_else(|| {
-                                                        HotShotTaskCompleted::LostReturnValue
-                                                    }),
-                                                );
-                                            }
-                                            Poll::Pending => {
-                                                *projected.in_progress_shutdown_fut = Some(fut);
-                                                return Poll::Pending;
-                                            }
-                                        }
-                                    }
-                                }
-                                Poll::Pending => {
-                                    *projected.in_progress_fut = Some(fut);
-                                    return Poll::Pending;
-                                }
-                            };
-                        } else {
-                            *projected.r_val = Some(HotShotTaskCompleted::LostState);
-                            let shutdown_fns = projected.shutdown_fns.clone();
-                            let mut fut = async move {
-                                for shutdown_fn in shutdown_fns {
-                                    shutdown_fn().await;
-                                }
-                            }
-                            .boxed();
-                            match fut.as_mut().poll(cx) {
-                                Poll::Ready(_) => {
-                                    return Poll::Ready(
-                                        projected.r_val.take().unwrap_or_else(|| {
-                                            HotShotTaskCompleted::LostReturnValue
-                                        }),
-                                    );
-                                }
-                                Poll::Pending => {
-                                    *projected.in_progress_shutdown_fut = Some(fut);
-                                    return Poll::Pending;
-                                }
-                            }
-                        }
-                    }
-                    // this is a fused future so `None` will come every time after the stream
-                    // finishes
-                    else {
-                        message_stream_finished = true;
-                        break;
-                    }
-                }
-            }
-        } else {
-            message_stream_finished = true;
-        }
         if message_stream_finished && event_stream_finished {
+            tracing::error!("Message and event stream both finished!");
             *projected.r_val = Some(HotShotTaskCompleted::StreamsDied);
-            let shutdown_fns = projected.shutdown_fns.clone();
-            let mut fut = async move {
-                for shutdown_fn in shutdown_fns {
-                    shutdown_fn().await;
-                }
-            }
-            .boxed();
-            match fut.as_mut().poll(cx) {
-                Poll::Ready(_) => {
-                    return Poll::Ready(
-                        projected
-                            .r_val
-                            .take()
-                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                    );
-                }
-                Poll::Pending => {
-                    *projected.in_progress_shutdown_fut = Some(fut);
-                    return Poll::Pending;
-                }
-            }
+            let result = projected.launch_shutdown_fut(cx);
+            return result;
         }
 
         Poll::Pending

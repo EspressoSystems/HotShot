@@ -4,6 +4,7 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
+use hotshot_task::BoxSyncFuture;
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
@@ -127,6 +128,51 @@ pub enum NetworkError {
     UnableToCancel,
 }
 
+#[derive(Clone, Debug)]
+// Storing view number as a u64 to avoid the need TYPES generic
+/// Events to poll or cancel consensus processes.
+pub enum ConsensusIntentEvent {
+    /// Poll for votes for a particular view
+    PollForVotes(u64),
+    /// Poll for a proposal for a particular view
+    PollForProposal(u64),
+    /// Poll for a DAC for a particular view
+    PollForDAC(u64),
+    /// Poll for view sync votes starting at a particular view
+    PollForViewSyncVotes(u64),
+    /// Poll for view sync proposals (certificates) for a particular view
+    PollForViewSyncCertificate(u64),
+    /// Cancel polling for votes
+    CancelPollForVotes(u64),
+    /// Cancel polling for view sync votes.
+    CancelPollForViewSyncVotes(u64),
+    /// Cancel polling for proposals.
+    CancelPollForProposal(u64),
+    /// Cancal polling for DAC.
+    CancelPollForDAC(u64),
+    /// Cancel polling for view sync certificate.
+    CancelPollForViewSyncCertificate(u64),
+}
+
+impl ConsensusIntentEvent {
+    /// Get the view number of the event.
+    #[must_use]
+    pub fn view_number(&self) -> u64 {
+        match &self {
+            ConsensusIntentEvent::PollForVotes(view_number)
+            | ConsensusIntentEvent::PollForProposal(view_number)
+            | ConsensusIntentEvent::PollForDAC(view_number)
+            | ConsensusIntentEvent::PollForViewSyncVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForVotes(view_number)
+            | ConsensusIntentEvent::CancelPollForProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForDAC(view_number)
+            | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
+            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number,
+        }
+    }
+}
+
 /// common traits we would like our network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
@@ -166,7 +212,10 @@ pub trait CommunicationChannel<
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    async fn shut_down(&self) -> ();
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// broadcast message to those listening on the communication channel
     /// blocking
@@ -188,7 +237,13 @@ pub trait CommunicationChannel<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// look up a node
     /// blocking
@@ -196,7 +251,7 @@ pub trait CommunicationChannel<
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
 }
 
 /// represents a networking implmentration
@@ -216,7 +271,10 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// Blocks until the network is shut down
     /// then returns true
-    async fn shut_down(&self);
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// broadcast message to some subset of nodes
     /// blocking
@@ -234,7 +292,13 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b;
 
     /// look up a node
     /// blocking
@@ -243,7 +307,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
 }
 
 /// Describes additional functionality needed by the test network implementation
@@ -254,6 +318,7 @@ pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static>;
 
     /// Get the number of messages in-flight.
