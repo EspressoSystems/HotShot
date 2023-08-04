@@ -113,11 +113,7 @@ where
             )
         );
         Box::new(move |node_id| {
-            CombinedNetworks(
-                generators.0(node_id),
-                generators.1(node_id),
-                PhantomData::default(),
-            )
+            CombinedNetworks(generators.0(node_id), generators.1(node_id), PhantomData)
         })
     }
 

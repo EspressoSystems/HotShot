@@ -730,7 +730,7 @@ impl<
     /// create a new libp2p communication channel
     #[must_use]
     pub fn new(network: Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 }
 

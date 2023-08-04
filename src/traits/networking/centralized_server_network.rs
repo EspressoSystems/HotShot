@@ -877,7 +877,7 @@ impl<
     pub fn new(
         network: Arc<CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>>,
     ) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 
     /// passthru for example?
@@ -1040,7 +1040,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                &NoMetrics::default(),
+                &NoMetrics,
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),

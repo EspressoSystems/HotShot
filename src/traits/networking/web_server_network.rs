@@ -87,7 +87,7 @@ impl<
             >,
         >,
     ) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 }
 
