@@ -848,6 +848,39 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -862,6 +895,8 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
+<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
@@ -890,6 +925,7 @@
     },
     reexport::Multiaddr,
 };
+
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
@@ -987,6 +1023,7 @@
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        _is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="macro">assert!</span>(
             da_committee_size &lt;= expected_node_count,
@@ -1347,12 +1384,19 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::shut_down&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-            <span class="macro">error!</span>(<span class="string">&quot;Called shut down when already shut down! Noop.&quot;</span>);
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.inner.handle.shutdown().<span class="kw">await</span>.unwrap();
-        }
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
+                <span class="macro">error!</span>(<span class="string">&quot;Called shut down when already shut down! Noop.&quot;</span>);
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.inner.handle.shutdown().<span class="kw">await</span>.unwrap();
+            }
+        };
+        boxed_sync(closure)
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::broadcast_message&quot;</span>, skip_all)]
@@ -1465,33 +1509,43 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::recv_msgs&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>, transmit_type: TransmitType) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
-        <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-            <span class="prelude-val">Err</span>(NetworkError::ShutDown)
-        } <span class="kw">else </span>{
-            <span class="kw">match </span>transmit_type {
-                TransmitType::Direct =&gt; {
-                    <span class="kw">let </span>result = <span class="self">self
-                        </span>.inner
-                        .direct_recv
-                        .drain_at_least_one()
-                        .<span class="kw">await
-                        </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                    <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
-                    <span class="prelude-val">Ok</span>(result)
-                }
-                TransmitType::Broadcast =&gt; {
-                    <span class="kw">let </span>result = <span class="self">self
-                        </span>.inner
-                        .broadcast_recv
-                        .drain_at_least_one()
-                        .<span class="kw">await
-                        </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                    <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
-                    <span class="prelude-val">Ok</span>(result)
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+        transmit_type: TransmitType,
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
+                <span class="prelude-val">Err</span>(NetworkError::ShutDown)
+            } <span class="kw">else </span>{
+                <span class="kw">match </span>transmit_type {
+                    TransmitType::Direct =&gt; {
+                        <span class="kw">let </span>result = <span class="self">self
+                            </span>.inner
+                            .direct_recv
+                            .drain_at_least_one()
+                            .<span class="kw">await
+                            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+                        <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
+                        <span class="prelude-val">Ok</span>(result)
+                    }
+                    TransmitType::Broadcast =&gt; {
+                        <span class="kw">let </span>result = <span class="self">self
+                            </span>.inner
+                            .broadcast_recv
+                            .drain_at_least_one()
+                            .<span class="kw">await
+                            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+                        <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
+                        <span class="prelude-val">Ok</span>(result)
+                    }
                 }
             }
-        }
+        };
+        boxed_sync(closure)
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::lookup_node&quot;</span>, skip_all)]
@@ -1530,10 +1584,9 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
         <span class="comment">// Not required
-        </span><span class="prelude-val">Ok</span>(())
-    }
+    </span>}
 }
 
 <span class="doccomment">/// libp2p identity communication channel
@@ -1560,7 +1613,7 @@
     <span class="doccomment">/// create a new libp2p communication channel
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(network: Arc&lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(network, PhantomData::default())
+        <span class="self">Self</span>(network, PhantomData)
     }
 }
 
@@ -1590,6 +1643,7 @@
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;Libp2pNetwork&lt;
             Message&lt;TYPES, I&gt;,
@@ -1598,7 +1652,8 @@
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            is_da
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }
@@ -1633,8 +1688,15 @@
         <span class="self">self</span>.<span class="number">0</span>.is_ready().<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
-        <span class="self">self</span>.<span class="number">0</span>.shut_down().<span class="kw">await</span>;
+    <span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="self">self</span>.<span class="number">0</span>.shut_down().<span class="kw">await</span>;
+        };
+        boxed_sync(closure)
     }
 
     <span class="kw">async fn </span>broadcast_message(
@@ -1657,21 +1719,25 @@
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>recv_msgs(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await
-    </span>}
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt;&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await </span>};
+        boxed_sync(closure)
+    }
 
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.lookup_node(pk).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
         <span class="comment">// Not required
-        </span><span class="prelude-val">Ok</span>(())
-    }
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;

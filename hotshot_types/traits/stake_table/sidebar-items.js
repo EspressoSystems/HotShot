@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_Display_FOR_StakeTableError"],"enum":["SnapshotVersion","StakeTableError"],"trait":["StakeTableScheme"]};

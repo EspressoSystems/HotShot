@@ -277,6 +277,111 @@
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -288,7 +393,7 @@
     traits::{
         election::{VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
 <span class="kw">use </span>commit::{Commitment, Committable};
@@ -307,13 +412,9 @@
 }
 
 <span class="doccomment">/// A vote on DA proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>DAVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// TODO we should remove this
-    /// this is correct, but highly inefficient
-    /// we should check a cache, and if that fails request the qc
-    </span><span class="kw">pub </span>justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+</span><span class="kw">pub struct </span>DAVote&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec&lt;u8&gt;`]
     </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
@@ -328,7 +429,7 @@
 }
 
 <span class="doccomment">/// A positive or negative vote on validating or commitment proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>YesOrNoVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
     <span class="doccomment">/// TODO we should remove this
@@ -349,7 +450,7 @@
 }
 
 <span class="doccomment">/// A timeout vote.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>TimeoutVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
     <span class="doccomment">/// The justification qc for this view
@@ -368,11 +469,13 @@
 }
 
 <span class="doccomment">/// The internals of a view sync vote
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>ViewSyncVoteInternal&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// The public key associated with the relay.
+    </span><span class="kw">pub </span>relay_pub_key: EncodedPublicKey,
     <span class="doccomment">/// The relay this vote is intended for
-    </span><span class="kw">pub </span>relay: EncodedPublicKey,
+    </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// The view number we are trying to sync on
     </span><span class="kw">pub </span>round: TYPES::Time,
     <span class="doccomment">/// This node&#39;s signature over the VoteData
@@ -384,7 +487,7 @@
 }
 
 <span class="doccomment">/// The data View Sync votes are signed over
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>ViewSyncData&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The relay this vote is intended for
@@ -405,7 +508,7 @@
 }
 
 <span class="doccomment">/// Votes to synchronize the network on a single view
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>ViewSyncVote&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// PreCommit vote
@@ -416,8 +519,46 @@
     </span>Finalize(ViewSyncVoteInternal&lt;TYPES&gt;),
 }
 
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewSyncVote&lt;TYPES&gt; {
+    <span class="doccomment">/// Get the encoded signature.
+    </span><span class="kw">pub fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.signature.<span class="number">1</span>.clone(),
+        }
+    }
+    <span class="doccomment">/// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
+    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
+        <span class="kw">let </span>encoded = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.signature.<span class="number">0</span>.clone(),
+        };
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>encoded).unwrap()
+    }
+    <span class="doccomment">/// Get the relay.
+    </span><span class="kw">pub fn </span>relay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.relay,
+        }
+    }
+    <span class="doccomment">/// Get the round number.
+    </span><span class="kw">pub fn </span>round(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            ViewSyncVote::PreCommit(vote_internal)
+            | ViewSyncVote::Commit(vote_internal)
+            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.round,
+        }
+    }
+}
+
 <span class="doccomment">/// Votes on validating or commitment proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>QuorumVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
     <span class="doccomment">/// Posivite vote.
@@ -428,9 +569,18 @@
     </span>Timeout(TimeoutVote&lt;TYPES, LEAF&gt;),
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; VoteType&lt;TYPES&gt; <span class="kw">for </span>DAVote&lt;TYPES, LEAF&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VoteType&lt;TYPES&gt; <span class="kw">for </span>DAVote&lt;TYPES&gt; {
     <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.current_view
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; DAVote&lt;TYPES&gt; {
+    <span class="doccomment">/// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
+    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.signature.<span class="number">0</span>).unwrap()
     }
 }
 
@@ -442,6 +592,26 @@
             QuorumVote::Yes(v) | QuorumVote::No(v) =&gt; v.current_view,
             QuorumVote::Timeout(v) =&gt; v.current_view,
         }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; QuorumVote&lt;TYPES, LEAF&gt; {
+    <span class="doccomment">/// Get the encoded signature.
+    </span><span class="kw">pub fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::Yes(vote) | <span class="self">Self</span>::No(vote) =&gt; vote.signature.<span class="number">1</span>.clone(),
+            <span class="self">Self</span>::Timeout(vote) =&gt; vote.signature.<span class="number">1</span>.clone(),
+        }
+    }
+    <span class="doccomment">/// Get the signature key.
+    /// # Panics
+    /// If the deserialization fails.
+    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
+        <span class="kw">let </span>encoded = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::Yes(vote) | <span class="self">Self</span>::No(vote) =&gt; vote.signature.<span class="number">0</span>.clone(),
+            <span class="self">Self</span>::Timeout(vote) =&gt; vote.signature.<span class="number">0</span>.clone(),
+        };
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>encoded).unwrap()
     }
 }
 
@@ -475,14 +645,15 @@
 
 <span class="doccomment">/// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-</span><span class="comment">// TODO ED Change LEAF to COMMITTABLE
-</span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, LEAF: Committable + Serialize + Clone&gt; {
+</span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, COMMITMENT: Committable + Serialize + Clone&gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
-    </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;LEAF, TOKEN&gt;,
+    </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
     <span class="doccomment">/// Map of all yes signatures accumlated so far
-    </span><span class="kw">pub </span>yes_vote_outcomes: VoteMap&lt;LEAF, TOKEN&gt;,
+    </span><span class="kw">pub </span>yes_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
     <span class="doccomment">/// Map of all no signatures accumlated so far
-    </span><span class="kw">pub </span>no_vote_outcomes: VoteMap&lt;LEAF, TOKEN&gt;,
+    </span><span class="kw">pub </span>no_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
+    <span class="doccomment">/// Map of all view sync precommit votes accumulated thus far
+    </span><span class="kw">pub </span>viewsync_precommit_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
     <span class="doccomment">/// A quorum&#39;s worth of stake, generall 2f + 1
     </span><span class="kw">pub </span>success_threshold: NonZeroU64,
     <span class="doccomment">/// Enough stake to know that we cannot possibly get a quorum, generally f + 1
@@ -523,35 +694,74 @@
             </span>.no_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
+
+        <span class="kw">let </span>(viewsync_precommit_stake_casted, viewsync_precommit_vote_map) = <span class="self">self
+            </span>.viewsync_precommit_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
         <span class="comment">// Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
-        </span><span class="kw-2">*</span>total_stake_casted += u64::from(token.vote_count());
+
+        // Check for duplicate vote
+        </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>key) {
+            <span class="comment">// error!(&quot;Duplicate vote&quot;);
+            </span><span class="kw">return </span>Either::Left(<span class="self">self</span>);
+        }
+
+        <span class="kw-2">*</span>total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         <span class="kw">match </span>vote_data {
-            VoteData::DA(<span class="kw">_</span>) | VoteData::Yes(<span class="kw">_</span>) =&gt; {
+            VoteData::DA(<span class="kw">_</span>)
+            | VoteData::Yes(<span class="kw">_</span>)
+            | VoteData::ViewSyncCommit(<span class="kw">_</span>)
+            | VoteData::ViewSyncFinalize(<span class="kw">_</span>)
+            | VoteData::Timeout(<span class="kw">_</span>) =&gt; {
                 <span class="kw-2">*</span>yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data, token));
+                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
             VoteData::No(<span class="kw">_</span>) =&gt; {
                 <span class="kw-2">*</span>no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data, token));
+                no_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
-            VoteData::Timeout(<span class="kw">_</span>) =&gt; {
-                <span class="macro">unimplemented!</span>()
+            VoteData::ViewSyncPreCommit(<span class="kw">_</span>) =&gt; {
+                <span class="kw-2">*</span>viewsync_precommit_stake_casted += u64::from(token.vote_count());
+                viewsync_precommit_vote_map.insert(key, (sig, vote_data.clone(), token));
             }
-            VoteData::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         }
 
-        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
+        <span class="comment">// This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
+        </span><span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
             <span class="kw">if </span><span class="kw-2">*</span>yes_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
                 <span class="kw">let </span>valid_signatures = <span class="self">self</span>.yes_vote_outcomes.remove(<span class="kw-2">&amp;</span>commitment).unwrap().<span class="number">1</span>;
-                <span class="kw">return </span>Either::Right(YesNoSignature::Yes(valid_signatures));
+                <span class="kw">match </span>vote_data {
+                    VoteData::DA(<span class="kw">_</span>) | VoteData::Yes(<span class="kw">_</span>) =&gt; {
+                        <span class="kw">return </span>Either::Right(YesNoSignature::Yes(valid_signatures))
+                    }
+                    VoteData::ViewSyncPreCommit(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
+                    VoteData::ViewSyncCommit(<span class="kw">_</span>) =&gt; {
+                        <span class="kw">return </span>Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures))
+                    }
+                    VoteData::ViewSyncFinalize(<span class="kw">_</span>) =&gt; {
+                        <span class="kw">return </span>Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures))
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
+                }
             } <span class="kw">else if </span><span class="kw-2">*</span>no_stake_casted &gt;= u64::from(<span class="self">self</span>.failure_threshold) {
                 <span class="kw">let </span>valid_signatures = <span class="self">self</span>.total_vote_outcomes.remove(<span class="kw-2">&amp;</span>commitment).unwrap().<span class="number">1</span>;
                 <span class="kw">return </span>Either::Right(YesNoSignature::No(valid_signatures));
             }
+        }
+
+        <span class="kw">if </span><span class="kw-2">*</span>viewsync_precommit_stake_casted &gt;= u64::from(<span class="self">self</span>.failure_threshold) {
+            <span class="kw">let </span>valid_signatures = <span class="self">self
+                </span>.viewsync_precommit_vote_outcomes
+                .remove(<span class="kw-2">&amp;</span>commitment)
+                .unwrap()
+                .<span class="number">1</span>;
+
+            <span class="kw">return </span>Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
         }
         Either::Left(<span class="self">self</span>)
     }

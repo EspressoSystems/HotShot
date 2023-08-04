@@ -636,6 +636,14 @@
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
@@ -648,6 +656,7 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::{Left, Right};
+<span class="kw">use </span>hotshot_types::data::QuorumProposal;
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
@@ -658,7 +667,7 @@
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, QuorumProposal, SequencingLeaf},
+    data::{LeafType, SequencingLeaf},
     message::{
         ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
@@ -846,6 +855,10 @@
                                         };
                                         <span class="kw">let </span>justify_qc_commitment = justify_qc.commit();
                                         <span class="kw">let </span>leaf_commitment = leaf.commit();
+                                        <span class="kw">let </span><span class="prelude-val">Some</span>(dac) = p.data.dac <span class="kw">else </span>{
+                                            <span class="macro">warn!</span>(<span class="string">&quot;No DAC in proposal! Skipping proposal.&quot;</span>);
+                                            <span class="kw">continue</span>;
+                                        };
 
                                         <span class="comment">// Validate the `justify_qc`.
                                         </span><span class="kw">if </span>!<span class="self">self
@@ -879,7 +892,7 @@
                                         <span class="comment">// Validate the DAC.
                                         </span><span class="kw">else if </span>!<span class="self">self
                                             </span>.committee_exchange
-                                            .is_valid_cert(<span class="kw-2">&amp;</span>p.data.dac, block_commitment)
+                                            .is_valid_cert(<span class="kw-2">&amp;</span>dac, block_commitment)
                                         {
                                             <span class="macro">warn!</span>(<span class="string">&quot;Invalid DAC in proposal! Skipping proposal.&quot;</span>);
                                             message = <span class="self">self</span>.quorum_exchange.create_no_message(
@@ -1048,7 +1061,8 @@
                                 </span><span class="macro">warn!</span>(<span class="string">&quot;Replica receieved a vote message. This is not what the replica expects. Skipping.&quot;</span>);
                                 <span class="kw">continue</span>;
                             }
-                            ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                            ProcessedGeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                            ProcessedGeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
                         }
                     }
                     Right(committee_message) =&gt; {
@@ -1060,6 +1074,9 @@
                             ProcessedCommitteeConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="comment">// should only be for leader, never replica
                                 </span><span class="macro">warn!</span>(<span class="string">&quot;Replica receieved a vote message. This is not what the replica expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
+                            }
+                            ProcessedCommitteeConsensusMessage::DACertificate(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="kw">continue</span>;
                             }
                         }
@@ -1157,7 +1174,6 @@
                 <span class="self">self</span>.api.send_view_error(<span class="self">self</span>.cur_view, Arc::new(e)).<span class="kw">await</span>;
             }
         }
-        <span class="kw">let </span>high_qc = leaf.justify_qc.clone();
 
         <span class="kw">let </span>included_txns_set: HashSet&lt;<span class="kw">_</span>&gt; = <span class="kw">if </span>new_decide_reached {
             included_txns
@@ -1271,7 +1287,7 @@
 
             decide_sent.<span class="kw">await</span>;
         }
-        high_qc
+        <span class="self">self</span>.high_qc
     }
 }
 </code></pre></div></section></main></body></html>

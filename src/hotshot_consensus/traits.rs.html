@@ -197,11 +197,24 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 </span><span class="kw">use </span>async_trait::async_trait;
-
 <span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
+<span class="kw">use </span>hotshot_types::message::DataMessage;
 <span class="kw">use </span>hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
     NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
@@ -310,6 +323,7 @@
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
                 qc: Arc::new(decide_qc),
+                block_size: <span class="prelude-val">None</span>,
             },
         })
         .<span class="kw">await</span>;
@@ -353,6 +367,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: ValidatingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// Send a message with a transaction.
+    </span><span class="kw">async fn </span>send_transaction(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: DataMessage&lt;TYPES&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 }
 
 <span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
@@ -394,6 +414,12 @@
     </span><span class="kw">async fn </span>send_da_broadcast(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: SequencingMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// Send a message with a transaction.
+    </span><span class="kw">async fn </span>send_transaction(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: DataMessage&lt;TYPES&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 }
 </code></pre></div></section></main></body></html>

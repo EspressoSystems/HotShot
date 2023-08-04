@@ -114,7 +114,7 @@
     <span class="doccomment">/// List of known node&#39;s public keys, including own, sorted by nonce ()
     </span><span class="kw">pub </span>known_nodes: Vec&lt;K&gt;,
     <span class="doccomment">/// List of DA committee nodes for static DA committe
-    </span><span class="kw">pub </span>da_committee_nodes: Vec&lt;K&gt;,
+    </span><span class="kw">pub </span>da_committee_size: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
     </span><span class="kw">pub </span>next_view_timeout: u64,
     <span class="doccomment">/// The exponential backoff ration for the next-view timeout

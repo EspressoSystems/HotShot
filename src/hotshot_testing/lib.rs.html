@@ -31,37 +31,51 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Testing harness for the hotshot repository
-//!
-//! To build a test environment you can create a [`TestLauncher`] instance. This launcher can be configured to have a custom networking layer, initial state, etc.
-//!
-//! Calling `TestLauncher::launch()` will turn this launcher into a [`TestRunner`], which can be used to start and stop nodes, send transacstions, etc.
-//!
-//! Node that `TestLauncher::launch()` is only available if the given `NETWORK`, `STATE` and `STORAGE` are correct.
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 
-</span><span class="attr">#![warn(missing_docs)]
-#![ doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
-
-</span><span class="doccomment">/// implementations of various networking models
-</span><span class="kw">pub mod </span>network_reliability;
-<span class="doccomment">/// test launcher infrastructure
-</span><span class="kw">pub mod </span>test_launcher;
-
-<span class="doccomment">/// structs and infra to describe the tests to be written
+<span class="doccomment">///  builder
 </span><span class="kw">pub mod </span>test_builder;
 
-<span class="doccomment">/// set of commonly used test types for our tests
-</span><span class="kw">pub mod </span>test_types;
+<span class="doccomment">/// launcher
+</span><span class="kw">pub mod </span>test_launcher;
 
-<span class="doccomment">/// test runner
+<span class="doccomment">/// runner
 </span><span class="kw">pub mod </span>test_runner;
 
-<span class="doccomment">/// errors for tests
-</span><span class="kw">pub mod </span>test_errors;
+<span class="doccomment">/// task that&#39;s consuming events and asserting safety
+</span><span class="kw">pub mod </span>overall_safety_task;
 
-<span class="doccomment">/// describe a round of consensus
-</span><span class="kw">pub mod </span>round;
+<span class="doccomment">/// task that&#39;s submitting transactions to the stream
+</span><span class="kw">pub mod </span>txn_task;
 
-<span class="doccomment">/// helper functions to build a round
-</span><span class="kw">pub mod </span>round_builder;
+<span class="doccomment">/// task that decides when things are complete
+</span><span class="kw">pub mod </span>completion_task;
+
+<span class="doccomment">/// node types
+</span><span class="kw">pub mod </span>node_types;
+
+<span class="doccomment">/// task to spin nodes up and down
+</span><span class="kw">pub mod </span>spinning_task;
+
+<span class="comment">// TODO node changer (spin up and down)
+
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub enum </span>GlobalTestEvent {
+    ShutDown,
+}
+
+<span class="kw">pub enum </span>ShutDownReason {
+    SafetyViolation,
+    SuccessfullyCompleted,
+}
+
+<span class="kw">pub type </span>TestTask&lt;ERR, STATE&gt; =
+    HSTWithEvent&lt;ERR, GlobalTestEvent, ChannelStream&lt;GlobalTestEvent&gt;, STATE&gt;;
 </code></pre></div></section></main></body></html>

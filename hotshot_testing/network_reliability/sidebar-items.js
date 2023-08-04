@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AsynchronousNetwork","PartiallySynchronousNetwork","SynchronousNetwork"]};

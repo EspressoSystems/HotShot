@@ -314,7 +314,7 @@
                     // fill the bootstrap nodes list in `libp2p_config`, then send this to the other nodes
                     </span>libp2p_config.bootstrap_nodes = Vec::new();
                     <span class="kw">for </span>(idx, (addr, _sender)) <span class="kw">in </span><span class="self">self</span>.libp2p_config_sender.iter().enumerate() {
-                        <span class="kw">let </span>pair = libp2p_core::identity::Keypair::generate_ed25519();
+                        <span class="kw">let </span>pair = libp2p_identity::Keypair::generate_ed25519();
                         <span class="kw">let </span>port = libp2p_config.base_port + idx <span class="kw">as </span>u16;
                         <span class="kw">let </span>peer_id = PeerId::from_public_key(<span class="kw-2">&amp;</span>pair.public());
                         <span class="macro">error!</span>(<span class="string">&quot; - {peer_id} at {addr}:{port}&quot;</span>);

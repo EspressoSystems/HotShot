@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CommChannel","DemoType","SignatureKey","Slow","Storage","TestBuilder","TestName","Time","Vote"]};

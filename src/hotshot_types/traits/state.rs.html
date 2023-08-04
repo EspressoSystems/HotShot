@@ -191,6 +191,13 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the global state that blocks modify
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
@@ -200,7 +207,13 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
-<span class="kw">use </span>std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
+<span class="kw">use </span>std::{
+    error::Error,
+    fmt::Debug,
+    hash::Hash,
+    ops,
+    ops::{Deref, Sub},
+};
 
 <span class="doccomment">/// Abstraction over the state that blocks modify
 ///
@@ -271,6 +284,7 @@
     + <span class="kw">for</span>&lt;<span class="lifetime">&#39;de</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;
     + ops::AddAssign&lt;u64&gt;
     + ops::Add&lt;u64, Output = <span class="self">Self</span>&gt;
+    + Sub&lt;u64, Output = <span class="self">Self</span>&gt;
     + <span class="lifetime">&#39;static
 </span>{
     <span class="doccomment">/// Create a new instance of this time unit at time number 0

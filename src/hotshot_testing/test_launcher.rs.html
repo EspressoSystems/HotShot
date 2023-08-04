@@ -194,98 +194,63 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::round::{Round, RoundHook, RoundSafetyCheck, RoundSetup};
-<span class="kw">use </span><span class="kw">crate</span>::test_builder::{TestMetadata, TimingData};
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::{
-    CommitteeNetworkGenerator, Generator, QuorumNetworkGenerator, TestRunner,
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
+<span class="kw">use </span>hotshot_task::{
+    event_stream::ChannelStream,
+    global_registry::{GlobalRegistry, HotShotTaskId},
+    task::HotShotTaskCompleted,
+    task_launcher::TaskRunner,
 };
-<span class="kw">use </span>hotshot::types::{Message, SignatureKey};
-<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};
-<span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 <span class="kw">use </span>hotshot_types::{
+    message::Message,
     traits::{
+        election::ConsensusExchange,
         network::CommunicationChannel,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork},
     },
-    ExecutionType, HotShotConfig,
+    HotShotConfig,
 };
-<span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
+
+<span class="kw">use </span><span class="kw">crate</span>::spinning_task::SpinningTask;
+
+<span class="kw">use super</span>::{
+    completion_task::CompletionTask, overall_safety_task::OverallSafetyTask,
+    test_builder::TestMetadata, test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
+};
+
+<span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
+</span><span class="kw">pub type </span>Generator&lt;T&gt; = Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
+<span class="doccomment">/// Wrapper Type for quorum function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+</span><span class="kw">pub type </span>QuorumNetworkGenerator&lt;TYPES, I, T&gt; =
+    Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
+<span class="doccomment">/// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+</span><span class="kw">pub type </span>CommitteeNetworkGenerator&lt;N, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;N&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
+<span class="kw">pub type </span>ViewSyncNetworkGenerator&lt;N, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;N&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
+
+<span class="doccomment">/// Wrapper type for a task generator.
+</span><span class="kw">pub type </span>TaskGenerator&lt;TASK&gt; = Box&lt;
+    <span class="kw">dyn </span>FnOnce(
+        TASK,
+        GlobalRegistry,
+        ChannelStream&lt;GlobalTestEvent&gt;,
+    )
+        -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (HotShotTaskId, BoxFuture&lt;<span class="lifetime">&#39;static</span>, HotShotTaskCompleted&gt;)&gt;,
+&gt;;
+
+<span class="doccomment">/// Wrapper type for a hook.
+</span><span class="kw">pub type </span>Hook = Box&lt;
+    <span class="kw">dyn </span>FnOnce(
+        GlobalRegistry,
+        ChannelStream&lt;GlobalTestEvent&gt;,
+    )
+        -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (HotShotTaskId, BoxFuture&lt;<span class="lifetime">&#39;static</span>, HotShotTaskCompleted&gt;)&gt;,
+&gt;;
 
 <span class="doccomment">/// generators for resources used by each node
 </span><span class="kw">pub struct </span>ResourceGenerators&lt;
@@ -301,243 +266,128 @@
     &gt;,
 {
     <span class="doccomment">/// generate the underlying quorum network used for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
+
+    <span class="comment">// TODO ED Make this a committee network; is a quorum network for now to get things working
+    </span><span class="kw">pub </span>secondary_network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// generate a new quorum network for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) quorum_network: QuorumNetworkGenerator&lt;TYPES, I, QuorumCommChannel&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>quorum_network: QuorumNetworkGenerator&lt;TYPES, I, QuorumCommChannel&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// generate a new committee network for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) committee_network:
+    </span><span class="kw">pub </span>committee_network:
         CommitteeNetworkGenerator&lt;QuorumNetwork&lt;TYPES, I&gt;, I::CommitteeCommChannel&gt;,
+
+    <span class="doccomment">/// generate view sync network
+    </span><span class="kw">pub </span>view_sync_network:
+        ViewSyncNetworkGenerator&lt;QuorumNetwork&lt;TYPES, I&gt;, I::ViewSyncCommChannel&gt;,
+
     <span class="doccomment">/// generate a new storage for each node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
+    </span><span class="kw">pub </span>storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 }
 
-<span class="doccomment">/// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
+<span class="doccomment">/// test launcher
 </span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-<span class="kw">where
-    </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-    &gt;,
 {
-    <span class="kw">pub</span>(<span class="kw">super</span>) generator: ResourceGenerators&lt;TYPES, I&gt;,
-    <span class="comment">// contains builder metadata that is used sporadically
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) metadata: TestMetadata,
-    <span class="doccomment">/// round information
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) round: Round&lt;TYPES, I&gt;,
+    <span class="doccomment">/// generator for resources
+    </span><span class="kw">pub </span>resource_generator: ResourceGenerators&lt;TYPES, I&gt;,
+    <span class="doccomment">/// metadasta used for tasks
+    </span><span class="kw">pub </span>metadata: TestMetadata,
+    <span class="doccomment">/// overrideable txn task generator function
+    </span><span class="kw">pub </span>txn_task_generator: TaskGenerator&lt;TxnTask&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// overrideable timeout task generator function
+    </span><span class="kw">pub </span>completion_task_generator: TaskGenerator&lt;CompletionTask&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// overall safety task generator
+    </span><span class="kw">pub </span>overall_safety_task_generator: TaskGenerator&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt;,
+
+    <span class="kw">pub </span>spinning_task_generator: TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;,
+
+    <span class="kw">pub </span>hooks: Vec&lt;Hook&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
     TestLauncher&lt;TYPES, I&gt;
-<span class="kw">where
-    </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-    &gt;,
 {
-    <span class="doccomment">/// Create a new launcher.
-    /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    </span><span class="kw">pub fn </span>new(metadata: TestMetadata, round: Round&lt;TYPES, I&gt;) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-        &gt;,
-    {
-        <span class="kw">let </span>TestMetadata {
-            total_nodes,
-            num_bootstrap_nodes,
-            min_transactions,
-            timing_data,
-            da_committee_size,
-            ..
-        } = metadata;
-        <span class="kw">let </span>known_nodes: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; = (<span class="number">0</span>..total_nodes)
-            .map(|id| {
-                <span class="kw">let </span>priv_key = I::generate_test_key(id <span class="kw">as </span>u64);
-                TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key)
-            })
-            .collect();
-        <span class="kw">let </span>da_committee_nodes = known_nodes[<span class="number">0</span>..da_committee_size].to_vec();
-        <span class="kw">let </span>config = HotShotConfig {
-            execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
-            num_bootstrap: num_bootstrap_nodes,
-            min_transactions,
-            max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
-            known_nodes,
-            da_committee_nodes,
-            next_view_timeout: <span class="number">500</span>,
-            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-            round_start_delay: <span class="number">1</span>,
-            start_delay: <span class="number">1</span>,
-            propose_min_round_time: Duration::from_millis(<span class="number">0</span>),
-            propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
-            <span class="comment">// TODO what&#39;s the difference between this and the second config?
-            </span>election_config: <span class="prelude-val">Some</span>(&lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;
-                TYPES,
-                Message&lt;TYPES, I&gt;,
-            &gt;&gt;::Membership::default_election_config(
-                total_nodes <span class="kw">as </span>u64
-            )),
-        };
-        <span class="kw">let </span>TimingData {
-            next_view_timeout,
-            timeout_ratio,
-            round_start_delay,
-            start_delay,
-            propose_min_round_time,
-            propose_max_round_time,
-        } = timing_data;
-
-        <span class="kw">let </span>mod_config =
-            <span class="comment">// TODO this should really be using the timing config struct
-            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;| {
-                a.next_view_timeout = next_view_timeout;
-                a.timeout_ratio = timeout_ratio;
-                a.round_start_delay = round_start_delay;
-                a.start_delay = start_delay;
-                a.propose_min_round_time = propose_min_round_time;
-                a.propose_max_round_time = propose_max_round_time;
-            };
-
-        <span class="kw">let </span>network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size);
-        <span class="self">Self </span>{
-            generator: ResourceGenerators {
-                network_generator,
-                quorum_network: I::quorum_comm_channel_generator(),
-                committee_network: I::committee_comm_channel_generator(),
-                storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
-                config,
-            },
-            metadata,
-            round,
+    <span class="doccomment">/// launch the test
+    </span><span class="kw">pub fn </span>launch(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I&gt; {
+        TestRunner {
+            launcher: <span class="self">self</span>,
+            nodes: Vec::new(),
+            next_node_id: <span class="number">0</span>,
+            task_runner: TaskRunner::default(),
         }
-        .modify_default_config(mod_config)
-    }
-}
-
-<span class="comment">// TODO make these functions generic over the target networking/storage/other generics
-// so we can hotswap out
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-    TestLauncher&lt;TYPES, I&gt;
-<span class="kw">where
-    </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-    &gt;,
-{
-    <span class="doccomment">/// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    </span><span class="kw">pub fn </span>with_storage(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        storage: <span class="kw">impl </span>Fn(u64) -&gt; I::Storage + <span class="lifetime">&#39;static</span>,
-    ) -&gt; TestLauncher&lt;TYPES, I&gt; {
-        <span class="self">self</span>.generator.storage = Box::new(storage);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// directly override the round information
-    </span><span class="kw">pub fn </span>with_round(<span class="self">self</span>, round: Round&lt;TYPES, I&gt;) -&gt; TestLauncher&lt;TYPES, I&gt; {
-        TestLauncher { round, ..<span class="self">self </span>}
     }
 
-    <span class="doccomment">/// directly override hooks
-    </span><span class="kw">pub fn </span>with_hooks(<span class="self">self</span>, hooks: Vec&lt;RoundHook&lt;TYPES, I&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>round = <span class="self">self</span>.round.clone();
-        TestLauncher {
-            round: Round { hooks, ..round },
-            ..<span class="self">self
-        </span>}
-    }
-
-    <span class="doccomment">/// push a hook
-    </span><span class="kw">pub fn </span>push_hook(<span class="self">self</span>, hook: RoundHook&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>round = <span class="self">self</span>.round.clone();
-        <span class="kw">let </span><span class="kw-2">mut </span>hooks = round.hooks.clone();
-        hooks.push(hook);
-
-        TestLauncher {
-            round: Round { hooks, ..round },
-            ..<span class="self">self
-        </span>}
-    }
-
-    <span class="doccomment">/// directly override safety check
-    </span><span class="kw">pub fn </span>with_safety_check(<span class="self">self</span>, safety_check: RoundSafetyCheck&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>round = <span class="self">self</span>.round.clone();
-        TestLauncher {
-            round: Round {
-                safety_check,
-                ..round
-            },
-            ..<span class="self">self
-        </span>}
-    }
-
-    <span class="doccomment">/// directly override hooks
-    </span><span class="kw">pub fn </span>with_setup(<span class="self">self</span>, setup_round: RoundSetup&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>round = <span class="self">self</span>.round.clone();
-        TestLauncher {
-            round: Round {
-                setup_round,
-                ..round
-            },
-            ..<span class="self">self
-        </span>}
-    }
-
-    <span class="doccomment">/// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    </span><span class="kw">pub fn </span>with_default_config(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    <span class="doccomment">/// override the safety task generator
+    </span><span class="kw">pub fn </span>with_overall_safety_task_generator(
+        <span class="self">self</span>,
+        overall_safety_task_generator: TaskGenerator&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.generator.config = config;
+        <span class="self">Self </span>{
+            overall_safety_task_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// override the safety task generator
+    </span><span class="kw">pub fn </span>with_spinning_task_generator(
+        <span class="self">self</span>,
+        spinning_task_generator: TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            spinning_task_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// overridde the completion task generator
+    </span><span class="kw">pub fn </span>with_completion_task_generator(
+        <span class="self">self</span>,
+        completion_task_generator: TaskGenerator&lt;CompletionTask&lt;TYPES, I&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            completion_task_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// override the txn task generator
+    </span><span class="kw">pub fn </span>with_txn_task_generator(
+        <span class="self">self</span>,
+        txn_task_generator: TaskGenerator&lt;TxnTask&lt;TYPES, I&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            txn_task_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// override resource generators
+    </span><span class="kw">pub fn </span>with_resource_generator(<span class="self">self</span>, resource_generator: ResourceGenerators&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            resource_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// add a hook
+    </span><span class="kw">pub fn </span>add_hook(<span class="kw-2">mut </span><span class="self">self</span>, hook: Hook) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.hooks.push(hook);
         <span class="self">self
     </span>}
+
+    <span class="doccomment">/// overwrite hooks with more hooks
+    </span><span class="kw">pub fn </span>with_hooks(<span class="self">self</span>, hooks: Vec&lt;Hook&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ hooks, ..<span class="self">self </span>}
+    }
 
     <span class="doccomment">/// Modifies the config used when generating nodes with `f`
     </span><span class="kw">pub fn </span>modify_default_config(
         <span class="kw-2">mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>f: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;),
     ) -&gt; <span class="self">Self </span>{
-        f(<span class="kw-2">&amp;mut </span><span class="self">self</span>.generator.config);
+        f(<span class="kw-2">&amp;mut </span><span class="self">self</span>.resource_generator.config);
         <span class="self">self
     </span>}
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-    TestLauncher&lt;TYPES, I&gt;
-<span class="kw">where
-    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
-    QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-    &gt;,
-{
-    <span class="doccomment">/// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
-    ///
-    /// - `NETWORK` implements and [`hotshot_types::traits::network::TestableNetworkingImplementation`]
-    /// - `STORAGE` implements [`hotshot::traits::Storage`]
-    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`hotshot_types::traits::state::TestableBlock`]
-    </span><span class="kw">pub fn </span>launch(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I&gt; {
-        TestRunner::new(<span class="self">self</span>)
-    }
 }
 </code></pre></div></section></main></body></html>

@@ -514,15 +514,41 @@
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::certificate::ViewSyncCertificate;
+</span><span class="kw">use </span><span class="kw">crate</span>::certificate::DACertificate;
 <span class="kw">use </span><span class="kw">crate</span>::data::DAProposal;
 <span class="kw">use </span><span class="kw">crate</span>::traits::consensus_type::validating_consensus::ValidatingConsensus;
 <span class="kw">use </span><span class="kw">crate</span>::traits::network::ViewMessage;
+<span class="kw">use </span><span class="kw">crate</span>::traits::node_implementation::ViewSyncProposalType;
 <span class="kw">use </span><span class="kw">crate</span>::vote::{DAVote, QuorumVote};
 <span class="kw">use crate</span>::{
     data::ProposalType,
@@ -568,12 +594,23 @@
     }
 }
 
+<span class="doccomment">/// A wrapper type for implementing `PassType` on a vector of `Message`.
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Messages&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw">pub </span>Vec&lt;Message&lt;TYPES, I&gt;&gt;);
+
 <span class="doccomment">/// A message type agnostic description of a messages purpose
+</span><span class="attr">#[derive(PartialEq, Copy, Clone)]
 </span><span class="kw">pub enum </span>MessagePurpose {
-    <span class="doccomment">/// Message contains a proposal
+    <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal,
-    <span class="doccomment">/// Message contains a vote
+    <span class="doccomment">/// Message with a quorum vote.
     </span>Vote,
+    <span class="doccomment">/// Message with a view sync vote.
+    </span>ViewSyncVote,
+    <span class="doccomment">/// Message with a view sync proposal.
+    </span>ViewSyncProposal,
+    <span class="doccomment">/// Message with a DAC.
+    </span>DAC,
     <span class="doccomment">/// Message for internal use
     </span>Internal,
     <span class="doccomment">/// Data message
@@ -664,15 +701,17 @@
 <span class="kw">where
     </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
-    <span class="doccomment">/// Leader&#39;s proposal for full Quorom voting
+    <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Replica&#39;s vote on a proposal.
+    <span class="doccomment">/// Message with a quorum vote.
     </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Message with a view sync vote.
+    </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),
+    <span class="doccomment">/// Message with a view sync certificate.
+    </span>ViewSyncCertificate(Proposal&lt;ViewSyncProposalType&lt;TYPES, I&gt;&gt;),
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
-    <span class="doccomment">/// A view sync related message - either a vote or certificate
-    </span>ViewSync(ViewSyncMessageType&lt;TYPES&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; From&lt;ProcessedGeneralConsensusMessage&lt;TYPES, I&gt;&gt;
@@ -689,7 +728,12 @@
             ProcessedGeneralConsensusMessage::InternalTrigger(a) =&gt; {
                 GeneralConsensusMessage::InternalTrigger(a)
             }
-            ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            ProcessedGeneralConsensusMessage::ViewSyncCertificate(certificate) =&gt; {
+                GeneralConsensusMessage::ViewSyncCertificate(certificate)
+            }
+            ProcessedGeneralConsensusMessage::ViewSyncVote(vote) =&gt; {
+                GeneralConsensusMessage::ViewSyncVote(vote)
+            }
         }
     }
 }
@@ -710,7 +754,12 @@
             ProcessedGeneralConsensusMessage::InternalTrigger(a) =&gt; {
                 ValidatingMessage(GeneralConsensusMessage::InternalTrigger(a))
             }
-            ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            ProcessedGeneralConsensusMessage::ViewSyncVote(vote) =&gt; {
+                ValidatingMessage(GeneralConsensusMessage::ViewSyncVote(vote))
+            }
+            ProcessedGeneralConsensusMessage::ViewSyncCertificate(certificate) =&gt; {
+                ValidatingMessage(GeneralConsensusMessage::ViewSyncCertificate(certificate))
+            }
         }
     }
 }
@@ -731,7 +780,8 @@
             GeneralConsensusMessage::InternalTrigger(a) =&gt; {
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
-            GeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            GeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>)
+            | GeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         }
     }
 }
@@ -739,22 +789,19 @@
 <span class="doccomment">/// A processed consensus message for the DA committee in sequencing consensus.
 </span><span class="attr">#[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>ProcessedCommitteeConsensusMessage&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
-&gt; {
-    <span class="doccomment">/// Proposal for data availability committee
+</span><span class="kw">pub enum </span>ProcessedCommitteeConsensusMessage&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;&gt; {
+    <span class="doccomment">/// Proposal for the DA committee.
     </span>DAProposal(Proposal&lt;DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// vote from the DA committee
-    </span>DAVote(DAVote&lt;TYPES, I::Leaf&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Vote from the DA committee.
+    </span>DAVote(DAVote&lt;TYPES&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Certificate for the DA.
+    </span>DACertificate(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
-    &gt; From&lt;ProcessedCommitteeConsensusMessage&lt;TYPES, I&gt;&gt; <span class="kw">for </span>CommitteeConsensusMessage&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;&gt;
+    From&lt;ProcessedCommitteeConsensusMessage&lt;TYPES&gt;&gt; <span class="kw">for </span>CommitteeConsensusMessage&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>from(value: ProcessedCommitteeConsensusMessage&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(value: ProcessedCommitteeConsensusMessage&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
             ProcessedCommitteeConsensusMessage::DAProposal(p, <span class="kw">_</span>) =&gt; {
                 CommitteeConsensusMessage::DAProposal(p)
@@ -762,17 +809,18 @@
             ProcessedCommitteeConsensusMessage::DAVote(v, <span class="kw">_</span>) =&gt; {
                 CommitteeConsensusMessage::DAVote(v)
             }
+            ProcessedCommitteeConsensusMessage::DACertificate(cert, <span class="kw">_</span>) =&gt; {
+                CommitteeConsensusMessage::DACertificate(cert)
+            }
         }
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
-    &gt; ProcessedCommitteeConsensusMessage&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;&gt;
+    ProcessedCommitteeConsensusMessage&lt;TYPES&gt;
 {
     <span class="doccomment">/// Create a [`ProcessedCommitteeConsensusMessage`] from a [`CommitteeConsensusMessage`].
-    </span><span class="kw">pub fn </span>new(value: CommitteeConsensusMessage&lt;TYPES, I&gt;, sender: TYPES::SignatureKey) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(value: CommitteeConsensusMessage&lt;TYPES&gt;, sender: TYPES::SignatureKey) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
             CommitteeConsensusMessage::DAProposal(p) =&gt; {
                 ProcessedCommitteeConsensusMessage::DAProposal(p, sender)
@@ -780,15 +828,16 @@
             CommitteeConsensusMessage::DAVote(v) =&gt; {
                 ProcessedCommitteeConsensusMessage::DAVote(v, sender)
             }
+            CommitteeConsensusMessage::DACertificate(cert) =&gt; {
+                ProcessedCommitteeConsensusMessage::DACertificate(cert, sender)
+            }
         }
     }
 }
 
 <span class="doccomment">/// A processed consensus message for sequencing consensus.
-</span><span class="kw">pub type </span>ProcessedSequencingMessage&lt;TYPES, I&gt; = Either&lt;
-    ProcessedGeneralConsensusMessage&lt;TYPES, I&gt;,
-    ProcessedCommitteeConsensusMessage&lt;TYPES, I&gt;,
-&gt;;
+</span><span class="kw">pub type </span>ProcessedSequencingMessage&lt;TYPES, I&gt; =
+    Either&lt;ProcessedGeneralConsensusMessage&lt;TYPES, I&gt;, ProcessedCommitteeConsensusMessage&lt;TYPES&gt;&gt;;
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
@@ -820,42 +869,35 @@
 <span class="kw">where
     </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
-    <span class="doccomment">/// Leader&#39;s proposal for full quorum voting
+    <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;),
 
-    <span class="doccomment">/// Replica&#39;s vote on a proposal.
+    <span class="doccomment">/// Message with a quorum vote.
     </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;),
+
+    <span class="doccomment">/// Message with a view sync vote.
+    </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync certificate.
+    </span>ViewSyncCertificate(Proposal&lt;ViewSyncProposalType&lt;TYPES, I&gt;&gt;),
 
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
-
-    <span class="doccomment">/// View Sync related message - either a vote or certificate
-    </span>ViewSync(ViewSyncMessageType&lt;TYPES&gt;),
-}
-
-<span class="doccomment">/// A view sync message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>ViewSyncMessageType&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// A view sync vote
-    </span>Vote(ViewSyncVote&lt;TYPES&gt;),
-    <span class="doccomment">/// A view sync certificate
-    </span>Certificate(ViewSyncCertificate&lt;TYPES&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Messages related to the sequencing consensus protocol for the DA committee.
-</span><span class="kw">pub enum </span>CommitteeConsensusMessage&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
-&gt; {
+</span><span class="kw">pub enum </span>CommitteeConsensusMessage&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;&gt; {
     <span class="doccomment">/// Proposal for data availability committee
     </span>DAProposal(Proposal&lt;DAProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// vote for data availability committee
-    </span>DAVote(DAVote&lt;TYPES, I::Leaf&gt;),
+    </span>DAVote(DAVote&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Certificate data is available
+    </span>DACertificate(DACertificate&lt;TYPES&gt;),
 }
 
 <span class="doccomment">/// Messages related to the consensus protocol.
@@ -920,7 +962,8 @@
             GeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                 InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
             },
-            GeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            GeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>)
+            | GeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         }
     }
 
@@ -931,7 +974,8 @@
             GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
             GeneralConsensusMessage::Vote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
             GeneralConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; MessagePurpose::Internal,
-            GeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            GeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>) =&gt; MessagePurpose::ViewSyncVote,
+            GeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; MessagePurpose::ViewSyncProposal,
         }
     }
 }
@@ -942,7 +986,7 @@
 </span><span class="kw">pub struct </span>SequencingMessage&lt;
     TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
     I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
-&gt;(<span class="kw">pub </span>Either&lt;GeneralConsensusMessage&lt;TYPES, I&gt;, CommitteeConsensusMessage&lt;TYPES, I&gt;&gt;);
+&gt;(<span class="kw">pub </span>Either&lt;GeneralConsensusMessage&lt;TYPES, I&gt;, CommitteeConsensusMessage&lt;TYPES&gt;&gt;);
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
@@ -967,7 +1011,10 @@
                     GeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                         InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
                     },
-                    GeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                    GeneralConsensusMessage::ViewSyncVote(message) =&gt; message.round(),
+                    GeneralConsensusMessage::ViewSyncCertificate(message) =&gt; {
+                        message.data.get_view_number()
+                    }
                 }
             }
             Right(committee_message) =&gt; {
@@ -978,6 +1025,7 @@
                         </span>p.data.get_view_number()
                     }
                     CommitteeConsensusMessage::DAVote(vote_message) =&gt; vote_message.current_view(),
+                    CommitteeConsensusMessage::DACertificate(cert) =&gt; cert.view_number,
                 }
             }
         }
@@ -991,11 +1039,13 @@
                 GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
                 GeneralConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; MessagePurpose::Internal,
-                GeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+                GeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>) =&gt; MessagePurpose::ViewSyncVote,
+                GeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; MessagePurpose::ViewSyncProposal,
             },
             Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
                 CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
+                CommitteeConsensusMessage::DACertificate(<span class="kw">_</span>) =&gt; MessagePurpose::DAC,
             },
         }
     }
@@ -1006,10 +1056,10 @@
         I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
     &gt; SequencingMessageType&lt;TYPES, I&gt; <span class="kw">for </span>SequencingMessage&lt;TYPES, I&gt;
 {
-    <span class="kw">type </span>CommitteeConsensusMessage = CommitteeConsensusMessage&lt;TYPES, I&gt;;
+    <span class="kw">type </span>CommitteeConsensusMessage = CommitteeConsensusMessage&lt;TYPES&gt;;
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]
+<span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Messages related to sending data between nodes
 </span><span class="kw">pub enum </span>DataMessage&lt;TYPES: NodeType&gt; {
@@ -1019,7 +1069,7 @@
     </span>SubmitTransaction(TYPES::Transaction, TYPES::Time),
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Prepare qc from the leader
 </span><span class="kw">pub struct </span>Proposal&lt;PROPOSAL: ProposalType&gt; {

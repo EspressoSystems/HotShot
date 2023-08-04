@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["empty_safety_check","empty_setup_round"],"struct":["Round","RoundCtx","RoundHook","RoundResult","RoundSafetyCheck","RoundSetup"],"type":["StateAndBlock"]};

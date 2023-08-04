@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block_contents","consensus_type","election","metrics","network","node_implementation","signature_key","state","storage"]};
+window.SIDEBAR_ITEMS = {"mod":["block_contents","consensus_type","election","metrics","network","node_implementation","qc","signature_key","stake_table","state","storage"]};

@@ -223,6 +223,11 @@
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
 <span class="kw">use </span>std::net::{Ipv4Addr, SocketAddr};
 <span class="kw">use </span>std::{net::IpAddr, num::NonZeroUsize, time::Duration};
@@ -290,6 +295,7 @@
     <span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
     <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
     <span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    <span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
 <span class="kw">impl</span>&lt;K, E&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
@@ -306,6 +312,7 @@
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             web_server_config: <span class="prelude-val">None</span>,
+            da_web_server_config: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -330,6 +337,8 @@
     </span><span class="kw">pub </span>config: HotShotConfigFile,
     <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
     </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
+    </span><span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
 <span class="kw">fn </span>default_web_server_config() -&gt; <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt; {
@@ -370,6 +379,7 @@
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
+            da_web_server_config: val.da_web_server_config,
         }
     }
 }
@@ -407,7 +417,7 @@
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
-            da_committee_nodes: Vec::new(),
+            da_committee_size: val.total_nodes.into(),
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,

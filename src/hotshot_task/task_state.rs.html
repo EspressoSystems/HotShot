@@ -162,15 +162,30 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    fmt::Debug,
-    sync::{atomic::Ordering, Arc, Mutex},
-    task::Waker,
-};
-
-<span class="kw">use </span>atomic_enum::atomic_enum;
-<span class="kw">use </span>futures::Stream;
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>atomic_enum::atomic_enum;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{
+    fmt::Debug,
+    sync::{atomic::Ordering, Arc},
+};
 
 <span class="doccomment">/// Nit: wish this was for u8 but sadly no
 /// Represents the status of a hotshot task
@@ -198,9 +213,9 @@
     </span>prev: Arc&lt;AtomicTaskStatus&gt;,
     <span class="doccomment">/// next status
     </span>next: Arc&lt;AtomicTaskStatus&gt;,
-    <span class="doccomment">/// using `std::sync::mutex` here because it&#39;s faster than async&#39;s version
-    </span>wakers: Arc&lt;Mutex&lt;Vec&lt;Waker&gt;&gt;&gt;,
-}
+    <span class="comment">// using `std::sync::mutex` here because it&#39;s faster than async&#39;s version
+    // wakers: Arc&lt;Mutex&lt;Vec&lt;Waker&gt;&gt;&gt;,
+</span>}
 
 <span class="kw">impl </span>Debug <span class="kw">for </span>TaskState {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
@@ -222,8 +237,8 @@
         <span class="self">Self </span>{
             prev: Arc::new(TaskStatus::NotStarted.into()),
             next: Arc::new(TaskStatus::NotStarted.into()),
-            wakers: Arc::default(),
-        }
+            <span class="comment">// wakers: Arc::default(),
+        </span>}
     }
 
     <span class="doccomment">/// create a task state from a task status
@@ -233,8 +248,8 @@
         <span class="self">Self </span>{
             prev: Arc::new(prev_state),
             next: state,
-            wakers: Arc::default(),
-        }
+            <span class="comment">// wakers: Arc::default(),
+        </span>}
     }
 
     <span class="doccomment">/// sets the state
@@ -244,13 +259,13 @@
     </span><span class="kw">pub fn </span>set_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: TaskStatus) {
         <span class="self">self</span>.next.swap(state, Ordering::SeqCst);
         <span class="comment">// no panics, so can never be poisoned.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>wakers = <span class="self">self</span>.wakers.lock().unwrap();
+        // let mut wakers = self.wakers.lock().unwrap();
 
-        <span class="comment">// drain the wakers
-        </span><span class="kw">for </span>waker <span class="kw">in </span>wakers.drain(..) {
-            waker.wake();
-        }
-    }
+        // drain the wakers
+        // for waker in wakers.drain(..) {
+        //     waker.wake();
+        // }
+    </span>}
     <span class="doccomment">/// gets a possibly stale version of the state
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskStatus {
@@ -258,72 +273,93 @@
     }
 }
 
-<span class="kw">impl </span>Stream <span class="kw">for </span>TaskState {
-    <span class="kw">type </span>Item = TaskStatus;
+<span class="comment">// GNARLY bug @jbearer found
+// cx gets *really* large in some cases
+// impl Stream for TaskState {
+//     type Item = TaskStatus;
+//
+//     #[unstable]
+//     fn poll_next(
+//         self: std::pin::Pin&lt;&amp;mut Self&gt;,
+//         cx: &amp;mut std::task::Context&lt;&#39;_&gt;,
+//     ) -&gt; std::task::Poll&lt;Option&lt;Self::Item&gt;&gt; {
+//         let next = self.next.load(Ordering::SeqCst);
+//         let prev = self.prev.swap(next, Ordering::SeqCst);
+//         // a new value has been set
+//         if prev == next {
+//             // no panics, so impossible to be poisoned
+//             self.wakers.lock().unwrap().push(cx.waker().clone());
+//
+//             // no value has been set, poll again later
+//             std::task::Poll::Pending
+//         } else {
+//             std::task::Poll::Ready(Some(next))
+//         }
+//     }
+// }
 
-    <span class="kw">fn </span>poll_next(
-        <span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
+</span><span class="kw">impl </span>TaskState {
+    <span class="doccomment">/// Try to get the next task status.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>try_next(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;TaskStatus&gt; {
         <span class="kw">let </span>next = <span class="self">self</span>.next.load(Ordering::SeqCst);
         <span class="kw">let </span>prev = <span class="self">self</span>.prev.swap(next, Ordering::SeqCst);
         <span class="comment">// a new value has been set
         </span><span class="kw">if </span>prev == next {
-            <span class="comment">// no panics, so impossible to be poisoned
-            </span><span class="self">self</span>.wakers.lock().unwrap().push(cx.waker().clone());
-
-            <span class="comment">// no value has been set, poll again later
-            </span>std::task::Poll::Pending
-        } <span class="kw">else </span>{
-            std::task::Poll::Ready(<span class="prelude-val">Some</span>(next))
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="comment">// drain the wakers to wake up the stream.
+            // we did change value
+            // let mut wakers = self.wakers.lock().unwrap();
+            // for waker in wakers.drain(..) {
+            //     waker.wake();
+            // }
+            </span><span class="prelude-val">Some</span>(next)
         }
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>test {
-    <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-    <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
-    <span class="kw">use </span>futures::StreamExt;
 
-    <span class="attr">#[cfg(test)]
-    #[cfg_attr(
-        feature = <span class="string">&quot;tokio-executor&quot;</span>,
-        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)
-    )]
-    #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::test)]
-    </span><span class="kw">async fn </span>test_state_stream() {
-        setup_logging();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="kw">crate</span>::task_state::TaskState::new();
-
-        <span class="kw">let </span>task_dup = task.clone();
-
-        async_spawn(<span class="kw">async move </span>{
-            async_sleep(std::time::Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
-            task_dup.set_state(<span class="kw">crate</span>::task_state::TaskStatus::Running);
-            async_sleep(std::time::Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
-            task_dup.set_state(<span class="kw">crate</span>::task_state::TaskStatus::Paused);
-            async_sleep(std::time::Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
-            task_dup.set_state(<span class="kw">crate</span>::task_state::TaskStatus::Completed);
-        });
-
-        <span class="comment">// spawn new task that sleeps then increments
-
-        </span><span class="macro">assert_eq!</span>(
-            task.next().<span class="kw">await</span>.unwrap(),
-            <span class="kw">crate</span>::task_state::TaskStatus::Running
-        );
-        <span class="macro">assert_eq!</span>(
-            task.next().<span class="kw">await</span>.unwrap(),
-            <span class="kw">crate</span>::task_state::TaskStatus::Paused
-        );
-        <span class="macro">assert_eq!</span>(
-            task.next().<span class="kw">await</span>.unwrap(),
-            <span class="kw">crate</span>::task_state::TaskStatus::Completed
-        );
-    }
-    <span class="comment">// TODO test global registry using either global + lazy_static
+    <span class="comment">// #[cfg(test)]
+    // #[cfg_attr(
+    //     feature = &quot;tokio-executor&quot;,
+    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
+    // )]
+    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
+    // async fn test_state_stream() {
+    //     setup_logging();
+    //
+    //     let mut task = crate::task_state::TaskState::new();
+    //
+    //     let task_dup = task.clone();
+    //
+    //     async_spawn(async move {
+    //         async_sleep(std::time::Duration::from_secs(1)).await;
+    //         task_dup.set_state(crate::task_state::TaskStatus::Running);
+    //         async_sleep(std::time::Duration::from_secs(1)).await;
+    //         task_dup.set_state(crate::task_state::TaskStatus::Paused);
+    //         async_sleep(std::time::Duration::from_secs(1)).await;
+    //         task_dup.set_state(crate::task_state::TaskStatus::Completed);
+    //     });
+    //
+    //     // spawn new task that sleeps then increments
+    //
+    //     assert_eq!(
+    //         task.try_next().unwrap(),
+    //         crate::task_state::TaskStatus::Running
+    //     );
+    //     assert_eq!(
+    //         task.next().unwrap(),
+    //         crate::task_state::TaskStatus::Paused
+    //     );
+    //     assert_eq!(
+    //         task.next().unwrap(),
+    //         crate::task_state::TaskStatus::Completed
+    //     );
+    // }
+    // TODO test global registry using either global + lazy_static
     // or passing around global registry
 </span>}
 </code></pre></div></section></main></body></html>

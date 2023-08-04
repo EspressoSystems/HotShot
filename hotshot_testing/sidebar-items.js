@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["network_reliability","round","round_builder","test_builder","test_errors","test_launcher","test_runner","test_types"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalTestEvent","ShutDownReason"],"mod":["completion_task","node_types","overall_safety_task","spinning_task","test_builder","test_launcher","test_runner","txn_task"],"type":["TestTask"]};

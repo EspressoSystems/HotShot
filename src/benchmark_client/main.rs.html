@@ -153,6 +153,9 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::{
     art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
     logging::setup_logging,
@@ -181,11 +184,14 @@
         .unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;Could not resolve addr {}: {e:?}&quot;</span>, opts.addr))
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
     <span class="kw">if </span>addr.len() != <span class="number">1 </span>{
-        <span class="macro">panic!</span>(
+        <span class="comment">// Create the message before calling `panic!` to avoid the `illegal instruction` error
+        // caused by a panic inside a panic.
+        </span><span class="kw">let </span>msg = <span class="macro">format!</span>(
             <span class="string">&quot;{} resolves to {} addresses, cannot continue&quot;</span>,
             opts.addr,
             addr.len()
         );
+        <span class="macro">panic!</span>(<span class="string">&quot;{}&quot;</span>, msg);
     }
     <span class="kw">let </span>(read, write) = split_stream(
         TcpStream::connect(addr[<span class="number">0</span>])

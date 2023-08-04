@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["network_lookup_task","network_task","view_runner"],"struct":["TaskHandle","TaskHandleInner"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalEvent"],"fn":["add_consensus_task","add_da_task","add_network_event_task","add_network_message_task","add_view_sync_task","network_lookup_task","view_runner_old"]};

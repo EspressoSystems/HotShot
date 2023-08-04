@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EventType","HotShotError"],"mod":["ed25519","event","handle"],"struct":["Event","Message","SystemContextHandle"],"trait":["SignatureKey","VoteType"]};
+window.SIDEBAR_ITEMS = {"enum":["EventType"],"mod":["ed25519","event","handle"],"struct":["Event","Message","SystemContextHandle"],"trait":["SignatureKey","VoteType"]};

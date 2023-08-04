@@ -215,6 +215,12 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
@@ -317,7 +323,8 @@
                         <span class="kw">match </span>general_message {
                             ProcessedGeneralConsensusMessage::InternalTrigger(_trigger) =&gt; {
                                 <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.&quot;</span>);
-                                <span class="kw">continue</span>;
+                                <span class="comment">// After run_view refactor we will handle timeout triggers properly
+                                </span><span class="kw">return </span><span class="prelude-val">None</span>;
                             }
                             ProcessedGeneralConsensusMessage::Vote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="comment">// Should only be for DA leader, never member.
@@ -328,7 +335,10 @@
                                 <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.&quot;</span>);
                                 <span class="kw">continue</span>;
                             }
-                            ProcessedGeneralConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; {
+                            ProcessedGeneralConsensusMessage::ViewSyncCertificate(<span class="kw">_</span>) =&gt; {
+                                <span class="macro">todo!</span>()
+                            }
+                            ProcessedGeneralConsensusMessage::ViewSyncVote(<span class="kw">_</span>) =&gt; {
                                 <span class="macro">todo!</span>()
                             }
                         }
@@ -370,7 +380,6 @@
 
                                         <span class="comment">// Generate and send vote
                                         </span><span class="kw">let </span>message = <span class="self">self</span>.exchange.create_da_message(
-                                            <span class="self">self</span>.high_qc.commit(),
                                             block_commitment,
                                             <span class="self">self</span>.cur_view,
                                             vote_token,
@@ -392,6 +401,9 @@
                             ProcessedCommitteeConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="comment">// Should only be for DA leader, never member.
                                 </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
+                                <span class="kw">continue</span>;
+                            }
+                            ProcessedCommitteeConsensusMessage::DACertificate(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="kw">continue</span>;
                             }
                         }

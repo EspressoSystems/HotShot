@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hotshot_stake_table":[["impl&lt;K: <a class=\"trait\" href=\"hotshot_stake_table/mt_based/internal/trait.Key.html\" title=\"trait hotshot_stake_table::mt_based::internal::Key\">Key</a>&gt; StakeTableScheme for <a class=\"struct\" href=\"hotshot_stake_table/mt_based/struct.StakeTable.html\" title=\"struct hotshot_stake_table::mt_based::StakeTable\">StakeTable</a>&lt;K&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

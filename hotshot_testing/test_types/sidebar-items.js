@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["StandardNodeImplType","StaticCommitteeTestTypes","StaticNodeImplType"],"type":["AppliedTestRunner","StaticCommunication","StaticMembership"]};

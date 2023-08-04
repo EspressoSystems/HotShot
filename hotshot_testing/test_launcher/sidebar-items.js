@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ResourceGenerators","TestLauncher"]};
+window.SIDEBAR_ITEMS = {"struct":["ResourceGenerators","TestLauncher"],"type":["CommitteeNetworkGenerator","Generator","Hook","QuorumNetworkGenerator","TaskGenerator","ViewSyncNetworkGenerator"]};

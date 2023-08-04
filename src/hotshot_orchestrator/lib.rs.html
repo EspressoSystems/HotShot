@@ -247,7 +247,12 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>config;
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+</pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
+<span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_types::traits::election::ElectionConfig;
@@ -281,9 +286,7 @@
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
     <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
     <span class="kw">let </span>sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
-    <span class="kw">let </span>ed_kp = &lt;EdKeypair <span class="kw">as </span>From&lt;SecretKey&gt;&gt;::from(sk_bytes);
-    <span class="attr">#[allow(deprecated)]
-    </span>Keypair::Ed25519(ed_kp)
+    &lt;EdKeypair <span class="kw">as </span>From&lt;SecretKey&gt;&gt;::from(sk_bytes).into()
 }
 
 <span class="attr">#[derive(Default, Clone)]
@@ -408,8 +411,8 @@
     }
 
     <span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.start);
-        <span class="kw">if </span>!<span class="self">self</span>.start {
+        <span class="comment">// println!(&quot;{}&quot;, self.start);
+        </span><span class="kw">if </span>!<span class="self">self</span>.start {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: <span class="string">&quot;Network is not ready to start&quot;</span>.to_string(),
@@ -442,8 +445,12 @@
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    <span class="kw">let </span><span class="kw-2">mut </span>api = Api::&lt;State, ServerError&gt;::from_file(<span class="string">&quot;orchestrator/api.toml&quot;</span>)
-        .expect(<span class="string">&quot;api.toml file is not found&quot;</span>);
+    <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
+        <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
+        <span class="string">&quot;/api.toml&quot;
+    </span>)))
+    .expect(<span class="string">&quot;API file is not valid toml&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>api = Api::&lt;State, ServerError&gt;::new(api_toml)<span class="question-mark">?</span>;
     api.post(<span class="string">&quot;postidentity&quot;</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>identity = req.string_param(<span class="string">&quot;identity&quot;</span>)<span class="question-mark">?</span>.parse::&lt;IpAddr&gt;();
@@ -494,6 +501,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
+    <span class="macro">tracing::error!</span>(<span class="string">&quot;lisening on {:?}:{:?}&quot;</span>, host, port);
     app.serve(<span class="macro">format!</span>(<span class="string">&quot;http://{host}:{port}&quot;</span>)).<span class="kw">await
 </span>}
 </code></pre></div></section></main></body></html>

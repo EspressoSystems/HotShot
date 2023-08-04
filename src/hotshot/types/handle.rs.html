@@ -375,21 +375,52 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Message;
 <span class="kw">use </span><span class="kw">crate</span>::QuorumCertificate;
-<span class="kw">use crate</span>::{
-    traits::{NetworkError::ShutDown, NodeImplementation},
-    types::{Event, HotShotError::NetworkFault},
-    SystemContext,
-};
-<span class="kw">use </span>async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+<span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
+<span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>futures::Stream;
+<span class="kw">use </span>hotshot_consensus::Consensus;
+<span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
+<span class="kw">use </span>hotshot_task::event_stream::EventStream;
+<span class="kw">use </span>hotshot_task::event_stream::StreamId;
+<span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
+<span class="kw">use </span>hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
+<span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
-    error::{HotShotError, RoundTimedoutState},
+    error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
@@ -400,11 +431,8 @@
         storage::Storage,
     },
 };
-<span class="kw">use </span>std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-<span class="kw">use </span>tracing::{debug, error};
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>tracing::error;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
 </span><span class="kw">use </span>commit::Commitment;
@@ -420,14 +448,16 @@
     <span class="doccomment">/// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
-    /// method is needed to generate new receivers for cloning the handle.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender_handle: Arc&lt;BroadcastSender&lt;Event&lt;TYPES, I::Leaf&gt;&gt;&gt;,
+    /// method is needed to generate new receivers to expose to the user
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: ChannelStream&lt;Event&lt;TYPES, I::Leaf&gt;&gt;,
+    <span class="doccomment">/// access to the internal ev ent stream, in case we need to, say, shut something down
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// registry for controlling tasks
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: GlobalRegistry,
+
     <span class="doccomment">/// Internal reference to the underlying [`HotShot`]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
-    <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stream_output: BroadcastReceiver&lt;Event&lt;TYPES, I::Leaf&gt;&gt;,
-    <span class="doccomment">/// Global to signify the `SystemContext` should be closed after completing the next round
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) shut_down: Arc&lt;AtomicBool&gt;,
+    </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
+
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
 }
@@ -437,57 +467,82 @@
 {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            sender_handle: <span class="self">self</span>.sender_handle.clone(),
-            stream_output: <span class="self">self</span>.sender_handle.handle_sync(),
+            registry: <span class="self">self</span>.registry.clone(),
+            output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
+            internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
             hotshot: <span class="self">self</span>.hotshot.clone(),
-            shut_down: <span class="self">self</span>.shut_down.clone(),
             storage: <span class="self">self</span>.storage.clone(),
         }
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Will return the next event in the queue
-    ///
-    /// # Errors
-    ///
-    /// Will return [`HotShotError::NetworkFault`] if the underlying [`SystemContext`] has been closed.
-    </span><span class="kw">pub async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Event&lt;TYPES, I::Leaf&gt;, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>result = <span class="self">self</span>.stream_output.recv_async().<span class="kw">await</span>;
-        <span class="kw">match </span>result {
-            <span class="prelude-val">Ok</span>(result) =&gt; <span class="prelude-val">Ok</span>(result),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(NetworkFault { source: ShutDown }),
-        }
-    }
-    <span class="doccomment">/// Will attempt to immediately pull an event out of the queue
-    ///
-    /// # Errors
-    ///
-    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    </span><span class="kw">pub fn </span>try_next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Event&lt;TYPES, I::Leaf&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>result = <span class="self">self</span>.stream_output.try_recv();
-        <span class="prelude-val">Ok</span>(result)
-    }
+    <span class="comment">// /// Will return the next event in the queue
+    // ///
+    // /// # Errors
+    // ///
+    // /// Will return [`HotShotError::NetworkFault`] if the underlying [`SystemContext`] has been closed.
+    // pub async fn next_event(&amp;mut self) -&gt; Result&lt;Event&lt;TYPES, I::Leaf&gt;, HotShotError&lt;TYPES&gt;&gt; {
+    //     let result = self.stream_output.recv_async().await;
+    //     match result {
+    //         Ok(result) =&gt; Ok(result),
+    //         Err(_) =&gt; Err(NetworkFault { source: ShutDown }),
+    //     }
+    // }
+    // /// Will attempt to immediately pull an event out of the queue
+    // ///
+    // /// # Errors
+    // ///
+    // /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
+    // pub fn try_next_event(&amp;mut self) -&gt; Result&lt;Option&lt;Event&lt;TYPES, I::Leaf&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
+    //     self.stream.await
+    //     // let result = self.stream_output.try_recv();
+    //     // Ok(result)
+    // }
 
-    <span class="doccomment">/// Will pull all the currently available events out of the event queue.
+    </span><span class="doccomment">/// Will pull all the currently available events out of the event queue.
     ///
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    </span><span class="kw">pub fn </span>available_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&lt;TYPES, I::Leaf&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>output = <span class="macro">vec!</span>[];
-        <span class="comment">// Loop to pull out all the outputs
-        </span><span class="kw">loop </span>{
-            <span class="kw">match </span><span class="self">self</span>.try_next_event() {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(x)) =&gt; output.push(x),
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">break</span>,
-                <span class="comment">// // try_next event can only return HotShotError { source: NetworkError::ShutDown }
-                </span><span class="prelude-val">Err</span>(x) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(x),
-            }
-        }
-        <span class="prelude-val">Ok</span>(output)
-    }
+    </span><span class="comment">// pub async fn available_events(&amp;mut self) -&gt; Result&lt;Vec&lt;Event&lt;TYPES, I::Leaf&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
+    // let mut stream = self.output_stream;
+    // let _ = &lt;dyn SendableStream&lt;Item = Event&lt;TYPES, I::Leaf&gt;&gt; as StreamExt/* ::&lt;Output = Self::Event&gt; */&gt;::next(&amp;mut *stream);
+    // let mut output = vec![];
+    // Loop to pull out all the outputs
+    // loop {
+    //     let _ = &lt;dyn SendableStream&lt;Item = Event&lt;TYPES, I::Leaf&gt;&gt; as StreamExt/* ::&lt;Output = Self::Event&gt; */&gt;::next(stream);
+    // let _ = FutureExt::&lt;Output = Self::Event&gt;::next(*self.output_stream).await;
+    // match FutureExt&lt;Output = {
+    // Ok(Some(x)) =&gt; output.push(x),
+    // Ok(None) =&gt; break,
+    // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
+    // Err(x) =&gt; return Err(x),
+    // }
+    // }
+    // Ok(output)
+    //     nll_todo()
+    // }
+
+    </span><span class="doccomment">/// obtains a stream to expose to the user
+    </span><span class="kw">pub async fn </span>get_event_stream(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        filter: FilterEvent&lt;Event&lt;TYPES, I::Leaf&gt;&gt;,
+    ) -&gt; (<span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES, I::Leaf&gt;&gt;, StreamId) {
+        <span class="self">self</span>.output_event_stream.subscribe(filter).<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// HACK so we can know the types when running tests...
+    /// there are two cleaner solutions:
+    /// - make the stream generic and in nodetypes or nodeimpelmentation
+    /// - type wrapper
+    </span><span class="kw">pub async fn </span>get_event_stream_known_impl(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        filter: FilterEvent&lt;Event&lt;TYPES, I::Leaf&gt;&gt;,
+    ) -&gt; (UnboundedStream&lt;Event&lt;TYPES, I::Leaf&gt;&gt;, StreamId) {
+        <span class="self">self</span>.output_event_stream.subscribe(filter).<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Gets the current committed state of the [`HotShot`] instance
     ///
@@ -521,13 +576,9 @@
         <span class="self">self</span>.hotshot.publish_transaction_async(tx).<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Signals to the underlying [`SystemContext`] to unpause
-    ///
-    /// This will cause the background task to start running consensus again.
-    </span><span class="kw">pub async fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.hotshot.inner.background_task_handle.start().<span class="kw">await</span>;
-        <span class="comment">// if is genesis
-        </span><span class="kw">let </span>_anchor = <span class="self">self</span>.storage();
+    <span class="doccomment">/// performs the genesis initializaiton
+    </span><span class="kw">pub async fn </span>maybe_do_genesis_init(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span>_anchor = <span class="self">self</span>.storage();
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(anchor_leaf) = <span class="self">self</span>.storage().get_anchored_view().<span class="kw">await </span>{
             <span class="kw">if </span>anchor_leaf.view_number == TYPES::Time::genesis() {
                 <span class="kw">let </span>leaf: I::Leaf = I::Leaf::from_stored_view(anchor_leaf);
@@ -538,26 +589,22 @@
                     event: EventType::Decide {
                         leaf_chain: Arc::new(<span class="macro">vec!</span>[leaf]),
                         qc: Arc::new(qc),
+                        block_size: <span class="prelude-val">None</span>,
                     },
                 };
-                <span class="kw">if </span><span class="self">self</span>.sender_handle.send_async(event).<span class="kw">await</span>.is_err() {
-                    <span class="macro">error!</span>(<span class="string">&quot;Error sending genesis storage event upstream!&quot;</span>);
-                }
+                <span class="self">self</span>.output_event_stream.publish(event).<span class="kw">await</span>;
             }
         } <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">&quot;Hotshot storage has no anchor leaf!&quot;</span>);
+            <span class="comment">// TODO (justin) this seems bad. I think we should hard error in this case??
+            </span><span class="macro">error!</span>(<span class="string">&quot;Hotshot storage has no anchor leaf!&quot;</span>);
         }
     }
 
-    <span class="doccomment">/// Signals the underlying [`SystemContext`] to run one round, if paused.
-    ///
-    /// Do not call this function if [`SystemContext`] has been unpaused by [`SystemContextHandle::start`].
-    </span><span class="kw">pub async fn </span>start_one_round(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.hotshot
-            .inner
-            .background_task_handle
-            .start_one_round()
-            .<span class="kw">await</span>;
+    <span class="doccomment">/// begin consensus by sending a genesis event
+    /// Use `start_consensus` on `SystemContext` instead
+    </span><span class="attr">#[deprecated]
+    </span><span class="kw">pub async fn </span>start_consensus_deprecated(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.maybe_do_genesis_init().<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// iterate through all events on a [`NodeImplementation`] and determine if the node finished
@@ -566,47 +613,52 @@
     /// Errors if unable to obtain storage
     /// # Panics
     /// Panics if the event stream is shut down while this is running
-    </span><span class="kw">pub async fn </span>collect_round_events(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            Vec&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
-            QuorumCertificate&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
-        ),
-        HotShotError&lt;TYPES&gt;,
-    &gt; {
-        <span class="comment">// TODO we should probably do a view check
-        // but we can do that later. It&#39;s non-obvious how to get the view number out
-        // to check against
+    </span><span class="comment">// pub async fn collect_round_events(
+    //     &amp;mut self,
+    // ) -&gt; Result&lt;
+    //     (
+    //         Vec&lt;&lt;I as NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
+    //         QuorumCertificate&lt;TYPES, &lt;I as NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
+    //     ),
+    //     HotShotError&lt;TYPES&gt;,
+    // &gt; {
+    //     // TODO we should probably do a view check
+    //     // but we can do that later. It&#39;s non-obvious how to get the view number out
+    //     // to check against
+    //
+    //     // drain all events from this node
+    //     let mut results = Ok((vec![], QuorumCertificate::genesis()));
+    //     loop {
+    //         // unwrap is fine here since the thing hasn&#39;t been shut down
+    //         let event = self.next_event().await.unwrap();
+    //         match event.event {
+    //             EventType::ReplicaViewTimeout { view_number: time } =&gt; {
+    //                 error!(?event, &quot;Replica timed out!&quot;);
+    //                 results = Err(HotShotError::ViewTimeoutError {
+    //                     view_number: time,
+    //                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+    //                 });
+    //             }
+    //             EventType::Decide { leaf_chain, qc } =&gt; {
+    //                 results = Ok((leaf_chain.to_vec(), (*qc).clone()));
+    //             }
+    //             EventType::ViewFinished { view_number: _ } =&gt; return results,
+    //             event =&gt; {
+    //                 debug!(&quot;recv-ed event {:?}&quot;, event);
+    //             }
+    //         }
+    //     }
+    // }
 
-        // drain all events from this node
-        </span><span class="kw">let </span><span class="kw-2">mut </span>results = <span class="prelude-val">Ok</span>((<span class="macro">vec!</span>[], QuorumCertificate::genesis()));
-        <span class="kw">loop </span>{
-            <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down
-            </span><span class="kw">let </span>event = <span class="self">self</span>.next_event().<span class="kw">await</span>.unwrap();
-            <span class="kw">match </span>event.event {
-                EventType::ReplicaViewTimeout { view_number: time } =&gt; {
-                    <span class="macro">error!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;Replica timed out!&quot;</span>);
-                    results = <span class="prelude-val">Err</span>(HotShotError::ViewTimeoutError {
-                        view_number: time,
-                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                    });
-                }
-                EventType::Decide { leaf_chain, qc } =&gt; {
-                    results = <span class="prelude-val">Ok</span>((leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone()));
-                }
-                EventType::ViewFinished { view_number: <span class="kw">_ </span>} =&gt; <span class="kw">return </span>results,
-                event =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;recv-ed event {:?}&quot;</span>, event);
-                }
-            }
-        }
-    }
-
-    <span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
+    </span><span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
     </span><span class="kw">pub fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Storage {
         <span class="kw-2">&amp;</span><span class="self">self</span>.storage
+    }
+
+    <span class="doccomment">/// Get the underyling consensus state for this [`SystemContext`]
+    </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
+        <span class="self">self</span>.hotshot.get_consensus()
     }
 
     <span class="doccomment">/// Block the underlying quorum (and committee) networking interfaces until node is
@@ -616,14 +668,14 @@
     }
 
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
-    </span><span class="kw">pub async fn </span>shut_down(<span class="self">self</span>) {
-        <span class="self">self</span>.shut_down.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-        <span class="self">self</span>.hotshot.inner.exchanges.shut_down_networks().<span class="kw">await</span>;
-        <span class="self">self</span>.hotshot
-            .inner
-            .background_task_handle
-            .wait_shutdown(<span class="self">self</span>.hotshot.inner.send_network_lookup.clone())
-            .<span class="kw">await</span>;
+    </span><span class="comment">//     pub async fn shut_down(mut self) {
+    //         self.registry.shutdown_all().await
+    </span><span class="kw">pub fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        boxed_sync(<span class="kw">async move </span>{ <span class="self">self</span>.registry.shutdown_all().<span class="kw">await </span>})
     }
 
     <span class="doccomment">/// return the timeout for a view of the underlying `SystemContext`

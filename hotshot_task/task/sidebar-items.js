@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HotShotTaskCompleted","HotShotTaskHandler"],"struct":["FilterEvent","HST","HandleEvent","HandleMessage"],"trait":["HotShotTaskTypes","PassType","TS"]};
+window.SIDEBAR_ITEMS = {"enum":["HotShotTaskCompleted","HotShotTaskHandler"],"struct":["FilterEvent","HST","HandleEvent","HandleMessage","ProjectedHST"],"trait":["HotShotTaskTypes","PassType","TS","TaskErr"],"type":["MaybePinnedEventStream"]};

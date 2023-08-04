@@ -633,22 +633,19 @@
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
 <a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::{Debug, Formatter};
 <span class="kw">use </span>std::ops::Deref;
-<span class="kw">use </span>std::task::Poll;
+<span class="kw">use </span>std::pin::Pin;
+<span class="kw">use </span>std::task::{Context, Poll};
 
+<span class="kw">use </span>async_compatibility_layer::art::async_yield_now;
+<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::{future::BoxFuture, stream::Fuse, Stream};
 <span class="kw">use </span>futures::{Future, FutureExt, StreamExt};
 <span class="kw">use </span>pin_project::pin_project;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span><span class="kw">crate</span>::event_stream::{SendableStream, StreamId};
 <span class="kw">use </span><span class="kw">crate</span>::global_registry::{GlobalRegistry, HotShotTaskId};
 <span class="kw">use </span><span class="kw">crate</span>::task_impls::TaskBuilder;
 <span class="kw">use </span><span class="kw">crate</span>::task_state::TaskStatus;
@@ -657,13 +654,18 @@
 <span class="doccomment">/// restrictions on types we wish to pass around.
 /// Includes messages and events
 </span><span class="kw">pub trait </span>PassType: Clone + Debug + Sync + Send + <span class="lifetime">&#39;static </span>{}
-<span class="kw">impl </span>PassType <span class="kw">for </span>() {}
 
 <span class="doccomment">/// the task state
-</span><span class="kw">pub trait </span>TS: Debug + Sync + Send + <span class="lifetime">&#39;static </span>{}
+</span><span class="kw">pub trait </span>TS: Sync + Send + <span class="lifetime">&#39;static </span>{}
+
+<span class="doccomment">/// a task error that has nice qualities
+</span><span class="attr">#[allow(clippy::module_name_repetitions)]
+</span><span class="kw">pub trait </span>TaskErr: std::error::Error + Sync + Send + <span class="lifetime">&#39;static </span>{}
+
+<span class="kw">impl</span>&lt;T: std::error::Error + Sync + Send + <span class="lifetime">&#39;static</span>&gt; TaskErr <span class="kw">for </span>T {}
 
 <span class="doccomment">/// group of types needed for a hotshot task
-</span><span class="kw">pub trait </span>HotShotTaskTypes {
+</span><span class="kw">pub trait </span>HotShotTaskTypes: <span class="lifetime">&#39;static </span>{
     <span class="doccomment">/// the event type from the event stream
     </span><span class="kw">type </span>Event: PassType;
     <span class="doccomment">/// the state of the task
@@ -673,9 +675,9 @@
     <span class="doccomment">/// the message stream to receive
     </span><span class="kw">type </span>Message: PassType;
     <span class="doccomment">/// the steam of messages from other tasks
-    </span><span class="kw">type </span>MessageStream: Stream&lt;Item = <span class="self">Self</span>::Message&gt;;
+    </span><span class="kw">type </span>MessageStream: SendableStream&lt;Item = <span class="self">Self</span>::Message&gt;;
     <span class="doccomment">/// the error to return
-    </span><span class="kw">type </span>Error: std::error::Error;
+    </span><span class="kw">type </span>Error: TaskErr + <span class="lifetime">&#39;static </span>+ <span class="question-mark">?</span>Sized;
 
     <span class="doccomment">/// build a task
     /// NOTE: done here and not on `TaskBuilder` because
@@ -688,20 +690,22 @@
 }
 
 <span class="doccomment">/// hot shot task
-</span><span class="attr">#[pin_project]
-</span><span class="doccomment">/// this is for `in_progress_fut`. The type is internal only so it&#39;s probably fine
-/// to not type alias
-</span><span class="attr">#[allow(clippy::type_complexity)]
+</span><span class="attr">#[pin_project(project = ProjectedHST)]
+#[allow(clippy::type_complexity)]
 </span><span class="kw">pub struct </span>HST&lt;HSTT: HotShotTaskTypes&gt; {
+    <span class="doccomment">/// Optional ID of the stream.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stream_id: <span class="prelude-ty">Option</span>&lt;StreamId&gt;,
     <span class="doccomment">/// the eventual return value, post-cleanup
-    </span>r_val: <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;,
+    </span>r_val: <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;,
     <span class="doccomment">/// if we have a future for tracking shutdown progress
     </span>in_progress_shutdown_fut: <span class="prelude-ty">Option</span>&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;,
     <span class="doccomment">/// the in progress future
-    </span>in_progress_fut: <span class="prelude-ty">Option</span>&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;, HSTT::State)&gt;&gt;,
+    </span>in_progress_fut: <span class="prelude-ty">Option</span>&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;, HSTT::State)&gt;&gt;,
     <span class="doccomment">/// name of task
     </span>name: String,
     <span class="doccomment">/// state of the task
+    /// TODO make this boxed. We don&#39;t want to assume this is a small future.
+    /// since it concievably may be stored on the stack
     </span><span class="attr">#[pin]
     </span>status: TaskState,
     <span class="doccomment">/// functions performing cleanup
@@ -710,11 +714,9 @@
     /// the other should unsubscribe from the stream
     </span>shutdown_fns: Vec&lt;ShutdownFn&gt;,
     <span class="doccomment">/// shared stream
-    </span><span class="attr">#[pin]
-    </span>event_stream: <span class="prelude-ty">Option</span>&lt;Fuse&lt;&lt;HSTT::EventStream <span class="kw">as </span>EventStream&gt;::StreamType&gt;&gt;,
+    </span>event_stream: MaybePinnedEventStream&lt;HSTT&gt;,
     <span class="doccomment">/// stream of messages
-    </span><span class="attr">#[pin]
-    </span>message_stream: <span class="prelude-ty">Option</span>&lt;Fuse&lt;HSTT::MessageStream&gt;&gt;,
+    </span>message_stream: <span class="prelude-ty">Option</span>&lt;Pin&lt;Box&lt;Fuse&lt;HSTT::MessageStream&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// state
     </span>state: <span class="prelude-ty">Option</span>&lt;HSTT::State&gt;,
     <span class="doccomment">/// handler for events
@@ -724,6 +726,10 @@
     <span class="doccomment">/// task id
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) tid: <span class="prelude-ty">Option</span>&lt;HotShotTaskId&gt;,
 }
+
+<span class="doccomment">/// an option of a pinned boxed fused event stream
+</span><span class="kw">pub type </span>MaybePinnedEventStream&lt;HSTT&gt; =
+    <span class="prelude-ty">Option</span>&lt;Pin&lt;Box&lt;Fuse&lt;&lt;&lt;HSTT <span class="kw">as </span>HotShotTaskTypes&gt;::EventStream <span class="kw">as </span>EventStream&gt;::StreamType&gt;&gt;&gt;&gt;;
 
 <span class="doccomment">/// ADT for wrapping all possible handler types
 </span><span class="attr">#[allow(dead_code)]
@@ -743,15 +749,19 @@
 </span><span class="kw">pub struct </span>HandleEvent&lt;HSTT: HotShotTaskTypes&gt;(
     <span class="kw">pub  </span>Arc&lt;
         <span class="kw">dyn </span>Fn(
-            HSTT::Event,
-            HSTT::State,
-        ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;, HSTT::State)&gt;,
+                HSTT::Event,
+                HSTT::State,
+            ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;, HSTT::State)&gt;
+            + Sync
+            + Send,
     &gt;,
 );
 
 <span class="kw">impl</span>&lt;HSTT: HotShotTaskTypes&gt; Default <span class="kw">for </span>HandleEvent&lt;HSTT&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(Arc::new(|_event, state| <span class="kw">async </span>{ (<span class="prelude-val">None</span>, state) }.boxed()))
+        <span class="self">Self</span>(Arc::new(|_event, state| {
+            <span class="kw">async move </span>{ (<span class="prelude-val">None</span>, state) }.boxed()
+        }))
     }
 }
 
@@ -759,8 +769,7 @@
     <span class="kw">type </span>Target = <span class="kw">dyn </span>Fn(
         HSTT::Event,
         HSTT::State,
-    )
-        -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;, HSTT::State)&gt;;
+    ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;, HSTT::State)&gt;;
 
     <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
         <span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">0
@@ -772,17 +781,18 @@
 </span><span class="kw">pub struct </span>HandleMessage&lt;HSTT: HotShotTaskTypes&gt;(
     <span class="kw">pub  </span>Arc&lt;
         <span class="kw">dyn </span>Fn(
-            HSTT::Message,
-            HSTT::State,
-        ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;, HSTT::State)&gt;,
+                HSTT::Message,
+                HSTT::State,
+            ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;, HSTT::State)&gt;
+            + Sync
+            + Send,
     &gt;,
 );
 <span class="kw">impl</span>&lt;HSTT: HotShotTaskTypes&gt; Deref <span class="kw">for </span>HandleMessage&lt;HSTT&gt; {
     <span class="kw">type </span>Target = <span class="kw">dyn </span>Fn(
         HSTT::Message,
         HSTT::State,
-    )
-        -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&lt;HSTT&gt;&gt;, HSTT::State)&gt;;
+    ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;, HSTT::State)&gt;;
 
     <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
         <span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">0
@@ -882,8 +892,9 @@
         <span class="comment">// TODO perhaps GC the event stream
         // (unsunscribe)
         </span><span class="self">Self </span>{
-            event_stream: <span class="prelude-val">Some</span>(stream.fuse()),
+            event_stream: <span class="prelude-val">Some</span>(Box::pin(stream.fuse())),
             shutdown_fns,
+            stream_id: <span class="prelude-val">Some</span>(uid),
             ..<span class="self">self
         </span>}
     }
@@ -892,7 +903,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_message_stream(<span class="self">self</span>, stream: HSTT::MessageStream) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            message_stream: <span class="prelude-val">Some</span>(stream.fuse()),
+            message_stream: <span class="prelude-val">Some</span>(Box::pin(stream.fuse())),
             ..<span class="self">self
         </span>}
     }
@@ -921,6 +932,7 @@
     <span class="doccomment">/// create a new task
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            stream_id: <span class="prelude-val">None</span>,
             r_val: <span class="prelude-val">None</span>,
             name,
             status: TaskState::new(),
@@ -939,19 +951,18 @@
     <span class="doccomment">/// launch the task
     /// NOTE: the only way to get a `HST` is by usage
     /// of one of the impls. Those all have checks enabled.
-    /// So, it should be safe to lanuch.
-    </span><span class="kw">pub async fn </span>launch(<span class="self">self</span>) -&gt; HotShotTaskCompleted&lt;HSTT&gt; {
-        <span class="self">self</span>.<span class="kw">await
-    </span>}
+    /// So, it should be safe to launch.
+    </span><span class="kw">pub fn </span>launch(<span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, HotShotTaskCompleted&gt; {
+        Box::pin(<span class="self">self</span>)
+    }
 }
 
 <span class="doccomment">/// enum describing how the tasks completed
-</span><span class="attr">#[derive(Eq)]
-</span><span class="kw">pub enum </span>HotShotTaskCompleted&lt;HSTT: HotShotTaskTypes&gt; {
+</span><span class="kw">pub enum </span>HotShotTaskCompleted {
     <span class="doccomment">/// the task shut down successfully
     </span>ShutDown,
     <span class="doccomment">/// the task encountered an error
-    </span>Error(HSTT::Error),
+    </span>Error(Box&lt;<span class="kw">dyn </span>TaskErr&gt;),
     <span class="doccomment">/// the streams the task was listening for died
     </span>StreamsDied,
     <span class="doccomment">/// we somehow lost the state
@@ -959,21 +970,28 @@
     </span>LostState,
     <span class="doccomment">/// lost the return value somehow
     </span>LostReturnValue,
+    <span class="doccomment">/// Stream exists but missing handler
+    </span>MissingHandler,
 }
 
-<span class="kw">impl</span>&lt;HSTT: HotShotTaskTypes&gt; Debug <span class="kw">for </span>HotShotTaskCompleted&lt;HSTT&gt; {
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>HotShotTaskCompleted {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             HotShotTaskCompleted::ShutDown =&gt; f.write_str(<span class="string">&quot;HotShotTaskCompleted::ShutDown&quot;</span>),
-            HotShotTaskCompleted::Error(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(<span class="string">&quot;HotShotTaskCompleted::Error&quot;</span>),
-            HotShotTaskCompleted::StreamsDied =&gt; <span class="macro">todo!</span>(<span class="string">&quot;HotShotTaskCompleted::StreamsDied&quot;</span>),
-            HotShotTaskCompleted::LostState =&gt; <span class="macro">todo!</span>(<span class="string">&quot;HotShotTaskCompleted::LostState&quot;</span>),
-            HotShotTaskCompleted::LostReturnValue =&gt; <span class="macro">todo!</span>(<span class="string">&quot;HotShotTaskCompleted::LostReturnValue&quot;</span>),
+            HotShotTaskCompleted::Error(<span class="kw">_</span>) =&gt; f.write_str(<span class="string">&quot;HotShotTaskCompleted::Error&quot;</span>),
+            HotShotTaskCompleted::StreamsDied =&gt; f.write_str(<span class="string">&quot;HotShotTaskCompleted::StreamsDied&quot;</span>),
+            HotShotTaskCompleted::LostState =&gt; f.write_str(<span class="string">&quot;HotShotTaskCompleted::LostState&quot;</span>),
+            HotShotTaskCompleted::LostReturnValue =&gt; {
+                f.write_str(<span class="string">&quot;HotShotTaskCompleted::LostReturnValue&quot;</span>)
+            }
+            HotShotTaskCompleted::MissingHandler =&gt; {
+                f.write_str(<span class="string">&quot;HotShotTaskCompleted::MissingHandler&quot;</span>)
+            }
         }
     }
 }
 
-<span class="kw">impl</span>&lt;HSTT: HotShotTaskTypes&gt; PartialEq <span class="kw">for </span>HotShotTaskCompleted&lt;HSTT&gt; {
+<span class="kw">impl </span>PartialEq <span class="kw">for </span>HotShotTaskCompleted {
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="kw">match </span>(<span class="self">self</span>, other) {
             (<span class="self">Self</span>::Error(_l0), <span class="self">Self</span>::Error(_r0)) =&gt; <span class="bool-val">false</span>,
@@ -982,85 +1000,238 @@
     }
 }
 
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;pin</span>, HSTT: HotShotTaskTypes&gt; ProjectedHST&lt;<span class="lifetime">&#39;pin</span>, HSTT&gt; {
+    <span class="doccomment">/// launches the shutdown future
+    </span><span class="kw">fn </span>launch_shutdown_fut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">let </span>fut = <span class="self">self</span>.create_shutdown_fut();
+        <span class="self">self</span>.check_ip_shutdown_fut(fut, cx)
+    }
+
+    <span class="doccomment">/// checks the in progress shutdown future, `fut`
+    </span><span class="kw">fn </span>check_ip_shutdown_fut(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">mut </span>fut: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">match </span>fut.as_mut().poll(cx) {
+            Poll::Ready(<span class="kw">_</span>) =&gt; Poll::Ready(
+                <span class="self">self</span>.r_val
+                    .take()
+                    .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
+            ),
+            Poll::Pending =&gt; {
+                <span class="kw-2">*</span><span class="self">self</span>.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
+                Poll::Pending
+            }
+        }
+    }
+
+    <span class="doccomment">/// creates the shutdown future and returns it
+    </span><span class="kw">fn </span>create_shutdown_fut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt; {
+        <span class="kw">let </span>shutdown_fns = <span class="self">self</span>.shutdown_fns.clone();
+        <span class="kw">let </span>fut = <span class="kw">async move </span>{
+            <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
+                shutdown_fn().<span class="kw">await</span>;
+            }
+        }
+        .boxed();
+        fut
+    }
+
+    <span class="doccomment">/// check the event stream
+    /// returns either a poll if there&#39;s a future IP
+    /// or a bool stating whether or not the stream is finished
+    </span><span class="kw">fn </span>check_event_stream(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Either&lt;Poll&lt;HotShotTaskCompleted&gt;, bool&gt; {
+        <span class="kw">let </span>event_stream = <span class="self">self</span>.event_stream.take();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>inner_event_stream) = event_stream {
+            <span class="kw">while let </span>Poll::Ready(maybe_event) = inner_event_stream.as_mut().poll_next(cx) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = maybe_event {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle_event) = <span class="self">self</span>.handle_event {
+                        <span class="kw">let </span>maybe_state = <span class="self">self</span>.state.take();
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = maybe_state {
+                            <span class="kw">let </span><span class="kw-2">mut </span>fut = handle_event(event, state);
+                            <span class="kw">match </span>fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) =&gt; {
+                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(completed) = result {
+                                        <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">None</span>;
+                                        <span class="kw-2">*</span><span class="self">self</span>.state = <span class="prelude-val">Some</span>(state);
+                                        <span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(completed);
+                                        <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                                        <span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                                        <span class="kw">return </span>Left(result);
+                                    }
+                                    <span class="comment">// run a yield to tell the executor to go do work on other
+                                    // tasks if they are available
+                                    // this is necessary otherwise we could end up with one
+                                    // task that returns really quickly blocking the executor
+                                    // from dealing with other tasks.
+                                    </span><span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
+                                        async_yield_now().<span class="kw">await</span>;
+                                        (<span class="prelude-val">None</span>, state)
+                                    }
+                                    .boxed();
+                                    <span class="comment">// if the executor has no extra work to do,
+                                    // continue to poll the event stream
+                                    </span><span class="kw">if let </span>Poll::Ready((<span class="kw">_</span>, state)) = fut.as_mut().poll(cx) {
+                                        <span class="kw-2">*</span><span class="self">self</span>.state = <span class="prelude-val">Some</span>(state);
+                                        <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">None</span>;
+                                        <span class="comment">// NOTE: don&#39;t need to set event stream because
+                                        // that will be done on the next iteration
+                                        </span><span class="kw">continue</span>;
+                                    }
+                                    <span class="comment">// otherwise, return pending and finish executing the
+                                    // yield later
+                                    </span><span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                                    <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">Some</span>(fut);
+                                    <span class="kw">return </span>Left(Poll::Pending);
+                                }
+                                Poll::Pending =&gt; {
+                                    <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">Some</span>(fut);
+                                    <span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                                    <span class="kw">return </span>Left(Poll::Pending);
+                                }
+                            }
+                        }
+                        <span class="comment">// lost state case
+                        </span><span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::LostState);
+                        <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                        <span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                        <span class="kw">return </span>Left(result);
+                    }
+                    <span class="comment">// no handler case
+                    </span><span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::MissingHandler);
+                    <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                    <span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                    <span class="kw">return </span>Left(result);
+                }
+                <span class="comment">// this is a fused future so `None` will come every time after the stream
+                // finishes
+                </span><span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+                <span class="kw">return </span>Right(<span class="bool-val">true</span>);
+            }
+            <span class="kw-2">*</span><span class="self">self</span>.event_stream = <span class="prelude-val">Some</span>(inner_event_stream);
+            <span class="kw">return </span>Right(<span class="bool-val">false</span>);
+        }
+        <span class="comment">// stream doesn&#39;t exist so trivially true
+        </span><span class="kw-2">*</span><span class="self">self</span>.event_stream = event_stream;
+        Right(<span class="bool-val">true</span>)
+    }
+
+    <span class="doccomment">/// check the message stream
+    /// returns either a poll if there&#39;s a future IP
+    /// or a bool stating whether or not the stream is finished
+    </span><span class="kw">fn </span>check_message_stream(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Either&lt;Poll&lt;HotShotTaskCompleted&gt;, bool&gt; {
+        <span class="kw">let </span>message_stream = <span class="self">self</span>.message_stream.take();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>inner_message_stream) = message_stream {
+            <span class="kw">while let </span>Poll::Ready(maybe_msg) = inner_message_stream.as_mut().poll_next(cx) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = maybe_msg {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle_msg) = <span class="self">self</span>.handle_message {
+                        <span class="kw">let </span>maybe_state = <span class="self">self</span>.state.take();
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = maybe_state {
+                            <span class="kw">let </span><span class="kw-2">mut </span>fut = handle_msg(msg, state);
+                            <span class="kw">match </span>fut.as_mut().poll(cx) {
+                                Poll::Ready((result, state)) =&gt; {
+                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(completed) = result {
+                                        <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">None</span>;
+                                        <span class="kw-2">*</span><span class="self">self</span>.state = <span class="prelude-val">Some</span>(state);
+                                        <span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(completed);
+                                        <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                                        <span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                                        <span class="kw">return </span>Left(result);
+                                    }
+                                    <span class="comment">// run a yield to tell the executor to go do work on other
+                                    // tasks if they are available
+                                    // this is necessary otherwise we could end up with one
+                                    // task that returns really quickly blocking the executor
+                                    // from dealing with other tasks.
+                                    </span><span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
+                                        async_yield_now().<span class="kw">await</span>;
+                                        (<span class="prelude-val">None</span>, state)
+                                    }
+                                    .boxed();
+                                    <span class="comment">// if the executor has no extra work to do,
+                                    // continue to poll the event stream
+                                    </span><span class="kw">if let </span>Poll::Ready((<span class="kw">_</span>, state)) = fut.as_mut().poll(cx) {
+                                        <span class="kw-2">*</span><span class="self">self</span>.state = <span class="prelude-val">Some</span>(state);
+                                        <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">None</span>;
+                                        <span class="comment">// NOTE: don&#39;t need to set event stream because
+                                        // that will be done on the next iteration
+                                        </span><span class="kw">continue</span>;
+                                    }
+                                    <span class="comment">// otherwise, return pending and finish executing the
+                                    // yield later
+                                    </span><span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                                    <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">Some</span>(fut);
+                                    <span class="kw">return </span>Left(Poll::Pending);
+                                }
+                                Poll::Pending =&gt; {
+                                    <span class="kw-2">*</span><span class="self">self</span>.in_progress_fut = <span class="prelude-val">Some</span>(fut);
+                                    <span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                                    <span class="kw">return </span>Left(Poll::Pending);
+                                }
+                            }
+                        }
+                        <span class="comment">// lost state case
+                        </span><span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::LostState);
+                        <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                        <span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                        <span class="kw">return </span>Left(result);
+                    }
+                    <span class="comment">// no handler case
+                    </span><span class="kw-2">*</span><span class="self">self</span>.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::MissingHandler);
+                    <span class="kw">let </span>result = <span class="self">self</span>.launch_shutdown_fut(cx);
+                    <span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                    <span class="kw">return </span>Left(result);
+                }
+                <span class="comment">// this is a fused future so `None` will come every time after the stream
+                // finishes
+                </span><span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+                <span class="kw">return </span>Right(<span class="bool-val">true</span>);
+            }
+            <span class="kw-2">*</span><span class="self">self</span>.message_stream = <span class="prelude-val">Some</span>(inner_message_stream);
+            <span class="kw">return </span>Right(<span class="bool-val">false</span>);
+        }
+        <span class="comment">// stream doesn&#39;t exist so trivially true
+        </span><span class="kw-2">*</span><span class="self">self</span>.message_stream = message_stream;
+        Right(<span class="bool-val">true</span>)
+    }
+}
+
 <span class="comment">// NOTE: this is a Future, but it could easily be a stream.
 // but these are semantically equivalent because instead of
 // returning when paused, we just return `Poll::Pending`
 </span><span class="kw">impl</span>&lt;HSTT: HotShotTaskTypes&gt; Future <span class="kw">for </span>HST&lt;HSTT&gt; {
-    <span class="kw">type </span>Output = HotShotTaskCompleted&lt;HSTT&gt;;
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
 
-    <span class="comment">// NOTE: this is too many lines
-    // with a lot of repeated code
-    // but I&#39;m not sure how to separate this out
-    // into separate functions. `projected` and `self` are hard to
-    // pass around
-    </span><span class="attr">#[allow(clippy::too_many_lines)]
-    </span><span class="kw">fn </span>poll(
-        <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;HotShot Task {:?} awakened&quot;</span>, <span class="self">self</span>.name);
-        <span class="comment">// FIXME broken future
-        // useful if we ever need to use self later.
-        // this doesn&#39;t consume the reference
-        </span><span class="kw">let </span>projected = <span class="self">self</span>.as_mut().project();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = projected.in_progress_shutdown_fut {
-            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                Poll::Ready(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">return </span>Poll::Ready(
-                        projected
-                            .r_val
-                            .take()
-                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                    );
-                }
-                Poll::Pending =&gt; {
-                    <span class="kw">return </span>Poll::Pending;
-                }
-            }
+    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>projected = <span class="self">self</span>.as_mut().project();
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = projected.in_progress_shutdown_fut.take() {
+            <span class="kw">return </span>projected.check_ip_shutdown_fut(fut, cx);
         }
 
         <span class="comment">// check if task is complete
-        </span><span class="kw">match </span>projected.status.poll_next(cx) {
-            Poll::Ready(<span class="prelude-val">Some</span>(state_change)) =&gt; <span class="kw">match </span>state_change {
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state_change) = projected.status.as_mut().try_next() {
+            <span class="kw">match </span>state_change {
                 TaskStatus::NotStarted | TaskStatus::Paused =&gt; {
                     <span class="kw">return </span>Poll::Pending;
                 }
                 TaskStatus::Running =&gt; {}
                 TaskStatus::Completed =&gt; {
-                    <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                    <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                        <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                            shutdown_fn().<span class="kw">await</span>;
-                        }
-                    }
-                    .boxed();
                     <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
-
-                    <span class="kw">match </span>fut.as_mut().poll(cx) {
-                        Poll::Ready(<span class="kw">_</span>) =&gt; {
-                            <span class="kw">return </span>Poll::Ready(
-                                projected
-                                    .r_val
-                                    .take()
-                                    .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                            );
-                        }
-                        Poll::Pending =&gt; {
-                            <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                            <span class="kw">return </span>Poll::Pending;
-                        }
-                    }
+                    <span class="kw">return </span>projected.launch_shutdown_fut(cx);
                 }
-            },
-            <span class="comment">// this primitive&#39;s stream will never end
-            </span>Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
-                <span class="macro">unreachable!</span>()
             }
-            <span class="comment">// if there&#39;s nothing, that&#39;s fine
-            </span>Poll::Pending =&gt; {}
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(in_progress_fut) = projected.in_progress_fut {
+        <span class="comment">// check if there&#39;s an in progress future
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(in_progress_fut) = projected.in_progress_fut {
             <span class="kw">match </span>in_progress_fut.as_mut().poll(cx) {
                 Poll::Ready((result, state)) =&gt; {
                     <span class="kw-2">*</span>projected.in_progress_fut = <span class="prelude-val">None</span>;
@@ -1068,27 +1239,7 @@
                     <span class="comment">// if the future errored out, return it, we&#39;re done
                     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(completed) = result {
                         <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(completed);
-                        <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                        <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                            <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                                shutdown_fn().<span class="kw">await</span>;
-                            }
-                        }
-                        .boxed();
-                        <span class="kw">match </span>fut.as_mut().poll(cx) {
-                            Poll::Ready(<span class="kw">_</span>) =&gt; {
-                                <span class="kw">return </span>Poll::Ready(
-                                    projected
-                                        .r_val
-                                        .take()
-                                        .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                                );
-                            }
-                            Poll::Pending =&gt; {
-                                <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                                <span class="kw">return </span>Poll::Pending;
-                            }
-                        }
+                        <span class="kw">return </span>projected.launch_shutdown_fut(cx);
                     }
                 }
                 Poll::Pending =&gt; {
@@ -1097,186 +1248,21 @@
             }
         }
 
-        <span class="kw">let </span>event_stream = projected.event_stream.as_pin_mut();
+        <span class="kw">let </span>event_stream_finished = <span class="kw">match </span>projected.check_event_stream(cx) {
+            Left(result) =&gt; <span class="kw">return </span>result,
+            Right(finished) =&gt; finished,
+        };
 
-        <span class="kw">let </span>message_stream = projected.message_stream.as_pin_mut();
+        <span class="kw">let </span>message_stream_finished = <span class="kw">match </span>projected.check_message_stream(cx) {
+            Left(result) =&gt; <span class="kw">return </span>result,
+            Right(finished) =&gt; finished,
+        };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>event_stream_finished = <span class="bool-val">false</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>message_stream_finished = <span class="bool-val">false</span>;
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>shared_stream) = event_stream {
-            <span class="kw">while let </span>Poll::Ready(maybe_event) = shared_stream.as_mut().poll_next(cx) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = maybe_event {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle_event) = projected.handle_event {
-                        <span class="kw">let </span>maybe_state = projected.state.take();
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = maybe_state {
-                            <span class="kw">let </span><span class="kw-2">mut </span>fut = handle_event(event, state);
-                            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                Poll::Ready((result, state)) =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_fut = <span class="prelude-val">None</span>;
-                                    <span class="kw-2">*</span>projected.state = <span class="prelude-val">Some</span>(state);
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(completed) = result {
-                                        <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(completed);
-                                        <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                                        <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                                            <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                                                shutdown_fn().<span class="kw">await</span>;
-                                            }
-                                        }
-                                        .boxed();
-                                        <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                            Poll::Ready(<span class="kw">_</span>) =&gt; {
-                                                <span class="kw">return </span>Poll::Ready(
-                                                    projected.r_val.take().unwrap_or_else(|| {
-                                                        HotShotTaskCompleted::LostReturnValue
-                                                    }),
-                                                );
-                                            }
-                                            Poll::Pending =&gt; {
-                                                <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                                                <span class="kw">return </span>Poll::Pending;
-                                            }
-                                        }
-                                    }
-                                }
-                                Poll::Pending =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_fut = <span class="prelude-val">Some</span>(fut);
-                                    <span class="kw">return </span>Poll::Pending;
-                                }
-                            }
-                        } <span class="kw">else </span>{
-                            <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::LostState);
-                            <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                            <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                                <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                                    shutdown_fn().<span class="kw">await</span>;
-                                }
-                            }
-                            .boxed();
-                            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                Poll::Ready(<span class="kw">_</span>) =&gt; {
-                                    <span class="kw">return </span>Poll::Ready(
-                                        projected.r_val.take().unwrap_or_else(|| {
-                                            HotShotTaskCompleted::LostReturnValue
-                                        }),
-                                    );
-                                }
-                                Poll::Pending =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                                    <span class="kw">return </span>Poll::Pending;
-                                }
-                            }
-                        }
-                    } <span class="kw">else </span>{
-                        <span class="comment">// this is a fused future so `None` will come every time after the stream
-                        // finishes
-                        </span>event_stream_finished = <span class="bool-val">true</span>;
-                        <span class="kw">break</span>;
-                    }
-                }
-            }
-        } <span class="kw">else </span>{
-            event_stream_finished = <span class="bool-val">true</span>;
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>message_stream) = message_stream {
-            <span class="kw">while let </span>Poll::Ready(maybe_msg) = message_stream.as_mut().poll_next(cx) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = maybe_msg {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle_msg) = projected.handle_message {
-                        <span class="kw">let </span>maybe_state = projected.state.take();
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = maybe_state {
-                            <span class="kw">let </span><span class="kw-2">mut </span>fut = handle_msg(msg, state);
-                            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                Poll::Ready((result, state)) =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_fut = <span class="prelude-val">None</span>;
-                                    <span class="kw-2">*</span>projected.state = <span class="prelude-val">Some</span>(state);
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(completed) = result {
-                                        <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(completed);
-                                        <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                                        <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                                            <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                                                shutdown_fn().<span class="kw">await</span>;
-                                            }
-                                        }
-                                        .boxed();
-                                        <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                            Poll::Ready(<span class="kw">_</span>) =&gt; {
-                                                <span class="kw">return </span>Poll::Ready(
-                                                    projected.r_val.take().unwrap_or_else(|| {
-                                                        HotShotTaskCompleted::LostReturnValue
-                                                    }),
-                                                );
-                                            }
-                                            Poll::Pending =&gt; {
-                                                <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                                                <span class="kw">return </span>Poll::Pending;
-                                            }
-                                        }
-                                    }
-                                }
-                                Poll::Pending =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_fut = <span class="prelude-val">Some</span>(fut);
-                                    <span class="kw">return </span>Poll::Pending;
-                                }
-                            };
-                        } <span class="kw">else </span>{
-                            <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::LostState);
-                            <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-                            <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                                <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                                    shutdown_fn().<span class="kw">await</span>;
-                                }
-                            }
-                            .boxed();
-                            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                                Poll::Ready(<span class="kw">_</span>) =&gt; {
-                                    <span class="kw">return </span>Poll::Ready(
-                                        projected.r_val.take().unwrap_or_else(|| {
-                                            HotShotTaskCompleted::LostReturnValue
-                                        }),
-                                    );
-                                }
-                                Poll::Pending =&gt; {
-                                    <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                                    <span class="kw">return </span>Poll::Pending;
-                                }
-                            }
-                        }
-                    }
-                    <span class="comment">// this is a fused future so `None` will come every time after the stream
-                    // finishes
-                    </span><span class="kw">else </span>{
-                        message_stream_finished = <span class="bool-val">true</span>;
-                        <span class="kw">break</span>;
-                    }
-                }
-            }
-        } <span class="kw">else </span>{
-            message_stream_finished = <span class="bool-val">true</span>;
-        }
         <span class="kw">if </span>message_stream_finished &amp;&amp; event_stream_finished {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;Message and event stream both finished!&quot;</span>);
             <span class="kw-2">*</span>projected.r_val = <span class="prelude-val">Some</span>(HotShotTaskCompleted::StreamsDied);
-            <span class="kw">let </span>shutdown_fns = projected.shutdown_fns.clone();
-            <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">async move </span>{
-                <span class="kw">for </span>shutdown_fn <span class="kw">in </span>shutdown_fns {
-                    shutdown_fn().<span class="kw">await</span>;
-                }
-            }
-            .boxed();
-            <span class="kw">match </span>fut.as_mut().poll(cx) {
-                Poll::Ready(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">return </span>Poll::Ready(
-                        projected
-                            .r_val
-                            .take()
-                            .unwrap_or_else(|| HotShotTaskCompleted::LostReturnValue),
-                    );
-                }
-                Poll::Pending =&gt; {
-                    <span class="kw-2">*</span>projected.in_progress_shutdown_fut = <span class="prelude-val">Some</span>(fut);
-                    <span class="kw">return </span>Poll::Pending;
-                }
-            }
+            <span class="kw">let </span>result = projected.launch_shutdown_fut(cx);
+            <span class="kw">return </span>result;
         }
 
         Poll::Pending

@@ -1070,12 +1070,47 @@
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
 //!
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
 </span><span class="kw">use </span>async_std::net::TcpStream;
+<span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
 </span><span class="kw">use </span>tokio::net::TcpStream;
 <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
@@ -1093,6 +1128,7 @@
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::{
@@ -1839,9 +1875,16 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::shut_down&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
         <span class="macro">error!</span>(<span class="string">&quot;SHUTTING DOWN CENTRALIZED SERVER&quot;</span>);
-        <span class="self">self</span>.inner.running.store(<span class="bool-val">false</span>, Ordering::Relaxed);
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="self">self</span>.inner.running.store(<span class="bool-val">false</span>, Ordering::Relaxed);
+        };
+        boxed_sync(closure)
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::broadcast_message&quot;</span>, skip_all)]
@@ -1874,23 +1917,33 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::recv_msgs&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>, transmit_type: TransmitType) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
-        <span class="kw">match </span>transmit_type {
-            TransmitType::Direct =&gt; <span class="self">self
-                </span>.inner
-                .get_direct_messages()
-                .<span class="kw">await
-                </span>.into_iter()
-                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
-                .context(FailedToDeserializeSnafu),
-            TransmitType::Broadcast =&gt; <span class="self">self
-                </span>.inner
-                .get_broadcasts()
-                .<span class="kw">await
-                </span>.into_iter()
-                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
-                .context(FailedToDeserializeSnafu),
-        }
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+        transmit_type: TransmitType,
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="kw">match </span>transmit_type {
+                TransmitType::Direct =&gt; <span class="self">self
+                    </span>.inner
+                    .get_direct_messages()
+                    .<span class="kw">await
+                    </span>.into_iter()
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
+                    .context(FailedToDeserializeSnafu),
+                TransmitType::Broadcast =&gt; <span class="self">self
+                    </span>.inner
+                    .get_broadcasts()
+                    .<span class="kw">await
+                    </span>.into_iter()
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
+                    .context(FailedToDeserializeSnafu),
+            }
+        };
+        boxed_sync(closure)
     }
 
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, _pk: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
@@ -1898,10 +1951,9 @@
         </span><span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
         <span class="comment">// Not required
-        </span><span class="prelude-val">Ok</span>(())
-    }
+    </span>}
 }
 
 <span class="doccomment">/// libp2p identity communication channel
@@ -1930,7 +1982,7 @@
     </span><span class="kw">pub fn </span>new(
         network: Arc&lt;CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(network, PhantomData::default())
+        <span class="self">Self</span>(network, PhantomData)
     }
 
     <span class="doccomment">/// passthru for example?
@@ -1974,12 +2026,19 @@
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
-        &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            Message&lt;TYPES, I&gt;,
-            TYPES::SignatureKey,
-        &gt;&gt;::shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
-        .<span class="kw">await</span>;
+    <span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+                Message&lt;TYPES, I&gt;,
+                TYPES::SignatureKey,
+            &gt;&gt;::shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
+            .<span class="kw">await</span>;
+        };
+        boxed_sync(closure)
     }
 
     <span class="kw">async fn </span>broadcast_message(
@@ -2000,12 +2059,17 @@
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>recv_msgs(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await
-    </span>}
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt;&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await </span>};
+        boxed_sync(closure)
+    }
 
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
@@ -2015,10 +2079,9 @@
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
         <span class="comment">// Not required
-        </span><span class="prelude-val">Ok</span>(())
-    }
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;
@@ -2060,6 +2123,7 @@
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
+        _is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
@@ -2081,7 +2145,7 @@
         Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>sender = Arc::clone(<span class="kw-2">&amp;</span>sender);
             <span class="kw">let </span><span class="kw-2">mut </span>network = CentralizedServerNetwork::connect(
-                <span class="kw-2">&amp;</span>NoMetrics::default(),
+                <span class="kw-2">&amp;</span>NoMetrics,
                 known_nodes.clone(),
                 addr,
                 known_nodes[id <span class="kw">as </span>usize].clone(),
@@ -2113,6 +2177,7 @@
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;CentralizedServerNetwork&lt;
             TYPES::SignatureKey,
@@ -2122,6 +2187,7 @@
             num_bootstrap,
             network_id,
             da_committee_size,
+            is_da
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }

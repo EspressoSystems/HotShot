@@ -603,6 +603,15 @@
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -624,7 +633,7 @@
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent},
-        direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
+        direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
         exponential_backoff::ExponentialBackoff,
         gossip::GossipEvent,
     },
@@ -651,7 +660,7 @@
     request_response::{
         Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
     },
-    swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
+    swarm::{SwarmBuilder, SwarmEvent},
     Multiaddr, Swarm,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -853,7 +862,6 @@
             <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
             <span class="kw">let </span>request_response = RequestResponse::new(
-                DirectMessageCodec(),
                 [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
                 rrconfig,
             );
@@ -1019,7 +1027,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: SwarmEvent&lt;
             NetworkEventInternal,
-            Either&lt;Either&lt;Either&lt;void::Void, Error&gt;, Error&gt;, ConnectionHandlerUpgrErr&lt;Error&gt;&gt;,
+            Either&lt;Either&lt;Either&lt;void::Void, Error&gt;, Error&gt;, void::Void&gt;,
         &gt;,
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
@@ -1029,6 +1037,7 @@
         <span class="attr">#[allow(deprecated)]
         </span><span class="kw">match </span>event {
             SwarmEvent::ConnectionEstablished {
+                connection_id: <span class="kw">_</span>,
                 peer_id,
                 endpoint,
                 num_established,
@@ -1045,6 +1054,7 @@
                 }
             }
             SwarmEvent::ConnectionClosed {
+                connection_id: <span class="kw">_</span>,
                 peer_id,
                 endpoint,
                 num_established,
@@ -1059,8 +1069,11 @@
                     <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, num_established, cause);
                 }
             }
-            SwarmEvent::Dialing(p) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.peer_id, p);
+            SwarmEvent::Dialing {
+                peer_id,
+                connection_id: <span class="kw">_</span>,
+            } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: <span class="kw">_</span>,
@@ -1076,10 +1089,10 @@
                 address: <span class="kw">_</span>,
             }
             | SwarmEvent::IncomingConnection {
+                connection_id: <span class="kw">_</span>,
                 local_addr: <span class="kw">_</span>,
                 send_back_addr: <span class="kw">_</span>,
-            }
-            | SwarmEvent::BannedPeer { .. } =&gt; {}
+            } =&gt; {}
             SwarmEvent::Behaviour(b) =&gt; {
                 <span class="kw">let </span>maybe_event = <span class="kw">match </span>b {
                     NetworkEventInternal::DHTEvent(e) =&gt; <span class="kw">match </span>e {
@@ -1139,10 +1152,15 @@
                         </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
                 }
             }
-            SwarmEvent::OutgoingConnectionError { peer_id: <span class="kw">_</span>, error } =&gt; {
+            SwarmEvent::OutgoingConnectionError {
+                connection_id: <span class="kw">_</span>,
+                peer_id: <span class="kw">_</span>,
+                error,
+            } =&gt; {
                 <span class="macro">info!</span>(<span class="question-mark">?</span>error, <span class="string">&quot;OUTGOING CONNECTION ERROR, {:?}&quot;</span>, error);
             }
             SwarmEvent::IncomingConnectionError {
+                connection_id: <span class="kw">_</span>,
                 local_addr,
                 send_back_addr,
                 error,

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ConsensusRoundError","ConsensusTestError"],"struct":["CompletedTestSuccessfullySnafu","ConsensusSafetyFailedSnafu","CustomSnafu","InconsistentBlocksSnafu","InconsistentLeavesSnafu","InconsistentStatesSnafu","NoMajorityProgressSnafu","NoSuchNodeSnafu","TooManyConsecutiveFailuresSnafu","TooManyFailuresSnafu","TooManyTimedOutNodesSnafu"]};

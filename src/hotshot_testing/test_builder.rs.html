@@ -260,203 +260,28 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::num::NonZeroUsize;
-<span class="kw">use </span>std::{sync::Arc, time::Duration};
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
+<span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
+<span class="kw">use </span>std::num::NonZeroUsize;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
 
-<span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
-<span class="kw">use </span>hotshot::{traits::NetworkReliability, HotShotError, HotShotType, SystemContext};
-<span class="kw">use </span>hotshot_types::{
-    message::Message,
-    traits::{
-        election::ConsensusExchange,
-        network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
-    },
+<span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
+<span class="kw">use </span>hotshot_types::message::{Message, SequencingMessage};
+<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType,
 };
+<span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
 
-<span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span><span class="kw">super</span>::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
+<span class="kw">use </span><span class="kw">crate</span>::spinning_task::SpinningTaskDescription;
+<span class="kw">use </span><span class="kw">crate</span>::test_launcher::{ResourceGenerators, TestLauncher};
 
-<span class="kw">use </span><span class="kw">crate</span>::round::Round;
-<span class="kw">use </span><span class="kw">crate</span>::round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder};
-
-<span class="kw">use </span><span class="kw">crate</span>::test_launcher::TestLauncher;
-
-<span class="doccomment">/// metadata describing a test
-</span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>TestMetadata {
-    <span class="doccomment">/// Total number of nodes in the test
-    </span><span class="kw">pub </span>total_nodes: usize,
-    <span class="doccomment">/// nodes available at start
-    </span><span class="kw">pub </span>start_nodes: usize,
-    <span class="doccomment">/// number of bootstrap nodes
-    </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
-    <span class="doccomment">/// number of successful/passing rounds required for test to pass
-    /// equivalent to num_sucessful_views
-    </span><span class="kw">pub </span>num_succeeds: usize,
-    <span class="doccomment">/// max number of failing rounds before test is failed
-    </span><span class="kw">pub </span>failure_threshold: usize,
-    <span class="doccomment">/// number of txn per round
-    /// TODO in the future we should make this sample from a distribution
-    /// much like how network reliability is implemented
-    </span><span class="kw">pub </span>num_txns_per_round: usize,
-    <span class="doccomment">/// Description of the network reliability
-    /// `None` == perfect network
-    </span><span class="kw">pub </span>network_reliability: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    <span class="doccomment">/// Maximum transactions allowed in a block
-    </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
-    <span class="doccomment">/// Minimum transactions required for a block
-    </span><span class="kw">pub </span>min_transactions: usize,
-    <span class="doccomment">/// timing data
-    </span><span class="kw">pub </span>timing_data: TimingData,
-    <span class="doccomment">/// Size of the DA committee for the test.  0 == no DA.
-    </span><span class="kw">pub </span>da_committee_size: usize,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>TestMetadata {
-    <span class="doccomment">/// by default, just a single round
-    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            total_nodes: <span class="number">5</span>,
-            start_nodes: <span class="number">5</span>,
-            num_succeeds: <span class="number">10</span>,
-            failure_threshold: <span class="number">10</span>,
-            network_reliability: <span class="prelude-val">None</span>,
-            num_bootstrap_nodes: <span class="number">5</span>,
-            max_transactions: NonZeroUsize::new(<span class="number">999999</span>).unwrap(),
-            min_transactions: <span class="number">0</span>,
-            timing_data: TimingData::default(),
-            num_txns_per_round: <span class="number">20</span>,
-            da_committee_size: <span class="number">0</span>,
-        }
-    }
-}
-
-<span class="kw">impl </span>TestMetadata {
-    <span class="doccomment">/// generate a reasonable round description
-    </span><span class="kw">pub fn </span>gen_sane_round&lt;
-        TYPES: NodeType,
-        I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-    &gt;(
-        metadata: <span class="kw-2">&amp;</span>TestMetadata,
-    ) -&gt; Round&lt;TYPES, I&gt;
-    <span class="kw">where
-        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
-        I::Exchanges: ExchangesType&lt;
-            TYPES::ConsensusType,
-            TYPES,
-            I::Leaf,
-            Message&lt;TYPES, I&gt;,
-            Networks = (QuorumCommChannel&lt;TYPES, I&gt;, I::CommitteeCommChannel),
-        &gt;,
-        QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, I&gt;,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-            &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-        &gt;,
-    {
-        Round {
-            setup_round: RoundSetupBuilder {
-                num_txns_per_round: metadata.num_txns_per_round,
-                ..RoundSetupBuilder::default()
-            }
-            .build(),
-            safety_check: RoundSafetyCheckBuilder {
-                num_failed_rounds_total: metadata.failure_threshold,
-                ..RoundSafetyCheckBuilder::default()
-            }
-            .build(),
-            hooks: <span class="macro">vec!</span>[],
-        }
-    }
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            next_view_timeout: <span class="number">10000</span>,
-            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-            round_start_delay: <span class="number">1</span>,
-            start_delay: <span class="number">1</span>,
-            propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
-            propose_max_round_time: Duration::new(<span class="number">5</span>, <span class="number">0</span>),
-        }
-    }
-}
-
-<span class="kw">impl </span>TestBuilder {
-    <span class="doccomment">/// Default constructor for multiple rounds.
-    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: <span class="number">10</span>,
-                start_nodes: <span class="number">10</span>,
-                num_succeeds: <span class="number">20</span>,
-                timing_data: TimingData {
-                    start_delay: <span class="number">120000</span>,
-                    round_start_delay: <span class="number">25</span>,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-
-    <span class="doccomment">/// Default Constructor for multiple rounds and a DA committee
-    </span><span class="kw">pub fn </span>default_multiple_rounds_da() -&gt; <span class="self">Self </span>{
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: <span class="number">10</span>,
-                start_nodes: <span class="number">10</span>,
-                num_succeeds: <span class="number">20</span>,
-                timing_data: TimingData {
-                    start_delay: <span class="number">120000</span>,
-                    round_start_delay: <span class="number">25</span>,
-                    ..TimingData::default()
-                },
-                da_committee_size: <span class="number">5</span>,
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-
-    <span class="doccomment">/// Default constructor for stress testing.
-    </span><span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
-        TestBuilder {
-            metadata: TestMetadata {
-                num_bootstrap_nodes: <span class="number">15</span>,
-                total_nodes: <span class="number">100</span>,
-                start_nodes: <span class="number">100</span>,
-                num_succeeds: <span class="number">5</span>,
-                timing_data: TimingData {
-                    next_view_timeout: <span class="number">2000</span>,
-                    timeout_ratio: (<span class="number">1</span>, <span class="number">1</span>),
-                    start_delay: <span class="number">20000</span>,
-                    round_start_delay: <span class="number">25</span>,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
-            },
-            ..TestBuilder::default()
-        }
-    }
-}
-
-<span class="attr">#[derive(Debug, Snafu)]
-</span><span class="kw">enum </span>RoundError&lt;TYPES: NodeType&gt; {
-    SystemContext { source: HotShotError&lt;TYPES&gt; },
-}
+<span class="kw">use super</span>::{
+    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
+};
 
 <span class="doccomment">/// data describing how a round should be timed.
 </span><span class="attr">#[derive(Clone, Debug, Copy)]
@@ -475,67 +300,226 @@
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
 }
 
-<span class="doccomment">/// Builder for a test
-</span><span class="attr">#[derive(Default)]
-</span><span class="kw">pub struct </span>TestBuilder {
-    <span class="doccomment">/// metadata with which to generate round
-    </span><span class="kw">pub </span>metadata: TestMetadata,
-    <span class="doccomment">/// optional override to build safety check
-    </span><span class="kw">pub </span>check: <span class="prelude-ty">Option</span>&lt;RoundSafetyCheckBuilder&gt;,
-    <span class="doccomment">/// optional override to build setup
-    </span><span class="kw">pub </span>setup: <span class="prelude-ty">Option</span>&lt;RoundSetupBuilder&gt;,
+<span class="doccomment">/// metadata describing a test
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>TestMetadata {
+    <span class="doccomment">/// Total number of nodes in the test
+    </span><span class="kw">pub </span>total_nodes: usize,
+    <span class="doccomment">/// nodes available at start
+    </span><span class="kw">pub </span>start_nodes: usize,
+    <span class="doccomment">/// number of bootstrap nodes (libp2p usage only)
+    </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
+    <span class="doccomment">/// Size of the DA committee for the test.  0 == no DA.
+    </span><span class="kw">pub </span>da_committee_size: usize,
+    <span class="comment">// overall safety property description
+    </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription,
+    <span class="doccomment">/// spinning properties
+    </span><span class="kw">pub </span>spinning_properties: SpinningTaskDescription,
+    <span class="comment">// txns timing
+    </span><span class="kw">pub </span>txn_description: TxnTaskDescription,
+    <span class="comment">// completion task
+    </span><span class="kw">pub </span>completion_task_description: CompletionTaskDescription,
+    <span class="doccomment">/// Minimum transactions required for a block
+    </span><span class="kw">pub </span>min_transactions: usize,
+    <span class="doccomment">/// timing data
+    </span><span class="kw">pub </span>timing_data: TimingData,
 }
 
-<span class="kw">impl </span>TestBuilder {
-    <span class="doccomment">/// build a test description from a detailed testing spec
-    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;(
+<span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            next_view_timeout: <span class="number">10000</span>,
+            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+            round_start_delay: <span class="number">1</span>,
+            start_delay: <span class="number">1</span>,
+            propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
+            propose_max_round_time: Duration::new(<span class="number">5</span>, <span class="number">0</span>),
+        }
+    }
+}
+
+<span class="kw">impl </span>TestMetadata {
+    <span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
+        TestMetadata {
+            num_bootstrap_nodes: <span class="number">15</span>,
+            total_nodes: <span class="number">100</span>,
+            start_nodes: <span class="number">100</span>,
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: <span class="number">50</span>,
+                check_leaf: <span class="bool-val">true</span>,
+                check_state: <span class="bool-val">true</span>,
+                check_block: <span class="bool-val">true</span>,
+                num_failed_views: <span class="number">15</span>,
+                threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
+            },
+            timing_data: TimingData {
+                next_view_timeout: <span class="number">2000</span>,
+                timeout_ratio: (<span class="number">1</span>, <span class="number">1</span>),
+                start_delay: <span class="number">20000</span>,
+                round_start_delay: <span class="number">25</span>,
+                ..TimingData::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
+
+    <span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
+        TestMetadata {
+            total_nodes: <span class="number">10</span>,
+            start_nodes: <span class="number">10</span>,
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: <span class="number">20</span>,
+                check_leaf: <span class="bool-val">true</span>,
+                check_state: <span class="bool-val">true</span>,
+                check_block: <span class="bool-val">true</span>,
+                num_failed_views: <span class="number">8</span>,
+                threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
+            },
+            timing_data: TimingData {
+                start_delay: <span class="number">120000</span>,
+                round_start_delay: <span class="number">25</span>,
+                ..TimingData::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>TestMetadata {
+    <span class="doccomment">/// by default, just a single round
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            timing_data: TimingData::default(),
+            min_transactions: <span class="number">0</span>,
+            total_nodes: <span class="number">5</span>,
+            start_nodes: <span class="number">5</span>,
+            num_bootstrap_nodes: <span class="number">5</span>,
+            da_committee_size: <span class="number">5</span>,
+            spinning_properties: SpinningTaskDescription {
+                node_changes: <span class="macro">vec!</span>[],
+            },
+            overall_safety_properties: OverallSafetyPropertiesDescription::default(),
+            <span class="comment">// arbitrary, haven&#39;t done the math on this
+            </span>txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(<span class="number">10</span>)),
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                TimeBasedCompletionTaskDescription {
+                    <span class="comment">// TODO ED Put a configurable time here - 10 seconds for now
+                    </span>duration: Duration::from_millis(<span class="number">10000</span>),
+                },
+            ),
+        }
+    }
+}
+
+<span class="kw">impl </span>TestMetadata {
+    <span class="kw">pub fn </span>gen_launcher&lt;
+        TYPES: NodeType,
+        I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
+    &gt;(
         <span class="self">self</span>,
     ) -&gt; TestLauncher&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
-        I::Exchanges: ExchangesType&lt;
-            TYPES::ConsensusType,
-            TYPES,
-            I::Leaf,
-            Message&lt;TYPES, I&gt;,
-            Networks = (QuorumCommChannel&lt;TYPES, I&gt;, I::CommitteeCommChannel),
-        &gt;,
-        QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
+        </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
             TYPES,
             Message&lt;TYPES, I&gt;,
             &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
             &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
             &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
         &gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges:
+            SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+        I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
     {
-        <span class="kw">let </span>sane_round = TestMetadata::gen_sane_round(<span class="kw-2">&amp;</span><span class="self">self</span>.metadata);
+        <span class="kw">let </span>TestMetadata {
+            total_nodes,
+            num_bootstrap_nodes,
+            min_transactions,
+            timing_data,
+            da_committee_size,
+            txn_description,
+            completion_task_description,
+            overall_safety_properties,
+            spinning_properties,
+            ..
+        } = <span class="self">self</span>.clone();
 
-        <span class="kw">let </span>setup_round = <span class="self">self
-            </span>.setup
-            .map(|x| x.build())
-            .unwrap_or_else(|| sane_round.setup_round);
-        <span class="kw">let </span>safety_check = <span class="self">self
-            </span>.check
-            .map(|x| x.build())
-            .unwrap_or_else(|| sane_round.safety_check);
-
-        <span class="kw">let </span>round = Round {
-            hooks: <span class="macro">vec!</span>[],
-            setup_round,
-            safety_check,
+        <span class="kw">let </span>known_nodes: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; = (<span class="number">0</span>..total_nodes)
+            .map(|id| {
+                <span class="kw">let </span>priv_key = I::generate_test_key(id <span class="kw">as </span>u64);
+                TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key)
+            })
+            .collect();
+        <span class="comment">// let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
+        </span><span class="kw">let </span>config = HotShotConfig {
+            <span class="comment">// TODO this doesn&#39;t exist anymore
+            </span>execution_type: ExecutionType::Incremental,
+            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            num_bootstrap: num_bootstrap_nodes,
+            min_transactions,
+            max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
+            known_nodes,
+            da_committee_size,
+            next_view_timeout: <span class="number">500</span>,
+            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+            round_start_delay: <span class="number">1</span>,
+            start_delay: <span class="number">1</span>,
+            <span class="comment">// TODO do we use these fields??
+            </span>propose_min_round_time: Duration::from_millis(<span class="number">0</span>),
+            propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
+            <span class="comment">// TODO what&#39;s the difference between this and the second config?
+            </span>election_config: <span class="prelude-val">Some</span>(&lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;
+                TYPES,
+                Message&lt;TYPES, I&gt;,
+            &gt;&gt;::Membership::default_election_config(
+                total_nodes <span class="kw">as </span>u64
+            )),
         };
-        TestLauncher::new(<span class="self">self</span>.metadata, round)
+        <span class="kw">let </span>network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, <span class="bool-val">false</span>);
+        <span class="kw">let </span>secondary_network_generator =
+            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, <span class="bool-val">true</span>);
+        <span class="kw">let </span>TimingData {
+            next_view_timeout,
+            timeout_ratio,
+            round_start_delay,
+            start_delay,
+            propose_min_round_time,
+            propose_max_round_time,
+        } = timing_data;
+        <span class="kw">let </span>mod_config =
+            <span class="comment">// TODO this should really be using the timing config struct
+            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;| {
+                a.next_view_timeout = next_view_timeout;
+                a.timeout_ratio = timeout_ratio;
+                a.round_start_delay = round_start_delay;
+                a.start_delay = start_delay;
+                a.propose_min_round_time = propose_min_round_time;
+                a.propose_max_round_time = propose_max_round_time;
+            };
+
+        <span class="kw">let </span>txn_task_generator = txn_description.build();
+        <span class="kw">let </span>completion_task_generator = completion_task_description.build_and_launch();
+        <span class="kw">let </span>overall_safety_task_generator = overall_safety_properties.build();
+        <span class="kw">let </span>spinning_task_generator = spinning_properties.build();
+        TestLauncher {
+            resource_generator: ResourceGenerators {
+                network_generator,
+                secondary_network_generator,
+                quorum_network: I::quorum_comm_channel_generator(),
+                committee_network: I::committee_comm_channel_generator(),
+                view_sync_network: I::view_sync_comm_channel_generator(),
+                storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
+                config,
+            },
+            metadata: <span class="self">self</span>,
+            txn_task_generator,
+            overall_safety_task_generator,
+            completion_task_generator,
+            spinning_task_generator,
+            hooks: <span class="macro">vec!</span>[],
+        }
+        .modify_default_config(mod_config)
     }
-}
-
-<span class="doccomment">/// given `num_nodes`, calculate min number of honest nodes
-/// for consensus to function properly
-</span><span class="kw">pub fn </span>get_threshold(num_nodes: u64) -&gt; u64 {
-    ((num_nodes * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1
-</span>}
-
-<span class="doccomment">/// given `num_nodes`, calculate max number of byzantine nodes
-</span><span class="kw">pub fn </span>get_tolerance(num_nodes: u64) -&gt; u64 {
-    num_nodes - get_threshold(num_nodes)
 }
 </code></pre></div></section></main></body></html>

@@ -956,13 +956,75 @@
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`&#39;s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use crate</span>::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
+    certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensusType,
@@ -998,7 +1060,10 @@
     Ord,
     Hash,
     Serialize,
-    Deserialize,
+    <span class="comment">// std::ops::Add,
+    // std::ops::Div,
+    // std::ops::Rem,
+    </span>Deserialize,
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
@@ -1042,6 +1107,13 @@
     <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
     </span>}
+}
+
+<span class="kw">impl </span>std::ops::Sub&lt;u64&gt; <span class="kw">for </span>ViewNumber {
+    <span class="kw">type </span>Output = ViewNumber;
+    <span class="kw">fn </span>sub(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
+        <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>- rhs)
+    }
 }
 
 <span class="doccomment">/// The `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -1089,7 +1161,7 @@
 }
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Block leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
@@ -1097,8 +1169,8 @@
     </span><span class="kw">pub </span>view_number: TYPES::Time,
 }
 
-<span class="doccomment">/// A proposal to append a new block commitment to the log.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+<span class="doccomment">/// Proposal to append a block.
+</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>QuorumProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
     <span class="doccomment">/// The commitment to append.
@@ -1113,11 +1185,11 @@
     <span class="doccomment">/// Per spec, justification
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
 
-    <span class="doccomment">/// Data availibity certificate
-    </span><span class="kw">pub </span>dac: DACertificate&lt;TYPES&gt;,
-
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
+
+    <span class="doccomment">/// Data availibity certificate
+    </span><span class="kw">pub </span>dac: <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ProposalType
@@ -1145,9 +1217,20 @@
     }
 }
 
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposalType <span class="kw">for </span>ViewSyncCertificate&lt;TYPES&gt; {
+    <span class="kw">type </span>NodeType = TYPES;
+    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
+        <span class="kw">match </span><span class="self">self </span>{
+            ViewSyncCertificate::PreCommit(certificate_internal)
+            | ViewSyncCertificate::Commit(certificate_internal)
+            | ViewSyncCertificate::Finalize(certificate_internal) =&gt; certificate_internal.round,
+        }
+    }
+}
+
 <span class="doccomment">/// A proposal to a network of voting nodes.
 </span><span class="kw">pub trait </span>ProposalType:
-    Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq + Eq
+    Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq + Eq + Hash
 {
     <span class="doccomment">/// Type of nodes that can vote on this proposal.
     </span><span class="kw">type </span>NodeType: NodeType;
@@ -1435,7 +1518,6 @@
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
-#[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>SequencingLeaf&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// CurView from leader when proposing leaf
@@ -1458,12 +1540,48 @@
     </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
 
     <span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
-    </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>timestamp: i128,
 
     <span class="doccomment">/// the proposer id of the leaf
-    </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="kw">let </span>delta_left = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.deltas {
+            Either::Left(deltas) =&gt; deltas.commit(),
+            Either::Right(deltas) =&gt; <span class="kw-2">*</span>deltas,
+        };
+        <span class="kw">let </span>delta_right = <span class="kw">match </span><span class="kw-2">&amp;</span>other.deltas {
+            Either::Left(deltas) =&gt; deltas.commit(),
+            Either::Right(deltas) =&gt; <span class="kw-2">*</span>deltas,
+        };
+        <span class="self">self</span>.view_number == other.view_number
+            &amp;&amp; <span class="self">self</span>.height == other.height
+            &amp;&amp; <span class="self">self</span>.justify_qc == other.justify_qc
+            &amp;&amp; <span class="self">self</span>.parent_commitment == other.parent_commitment
+            &amp;&amp; delta_left == delta_right
+            &amp;&amp; <span class="self">self</span>.rejected == other.rejected
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Hash <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.view_number.hash(state);
+        <span class="self">self</span>.height.hash(state);
+        <span class="self">self</span>.justify_qc.hash(state);
+        <span class="self">self</span>.parent_commitment.hash(state);
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.deltas {
+            Either::Left(deltas) =&gt; {
+                deltas.commit().hash(state);
+            }
+            Either::Right(commitment) =&gt; {
+                commitment.hash(state);
+            }
+        }
+        <span class="comment">// self.deltas.hash(state.commit());
+        </span><span class="self">self</span>.rejected.hash(state);
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt; {
@@ -1720,6 +1838,9 @@
                 signatures_bytes.extend(<span class="string">&quot;No&quot;</span>.as_bytes());
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(<span class="kw">_</span>)
+            | YesNoSignature::ViewSyncCommit(<span class="kw">_</span>)
+            | YesNoSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
         };
         <span class="kw">for </span>(k, v) <span class="kw">in </span>signatures {
             signatures_bytes.extend(<span class="kw-2">&amp;</span>k.<span class="number">0</span>);
@@ -1769,6 +1890,9 @@
 
                 signatures
             }
+            YesNoSignature::ViewSyncPreCommit(<span class="kw">_</span>)
+            | YesNoSignature::ViewSyncCommit(<span class="kw">_</span>)
+            | YesNoSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
         };
         <span class="kw">for </span>(k, v) <span class="kw">in </span>signatures {
             signatures_bytes.extend(<span class="kw-2">&amp;</span>k.<span class="number">0</span>);

@@ -360,6 +360,10 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements both sequencing and validating
 //! consensus
 
@@ -379,8 +383,8 @@
 <span class="kw">mod </span>replica;
 <span class="kw">mod </span>sequencing_leader;
 <span class="kw">mod </span>sequencing_replica;
-<span class="kw">mod </span>traits;
-<span class="kw">mod </span>utils;
+<span class="kw">pub mod </span>traits;
+<span class="kw">pub mod </span>utils;
 
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 <span class="kw">pub use </span>da_member::DAMember;
@@ -390,6 +394,7 @@
 <span class="kw">pub use </span>replica::Replica;
 <span class="kw">pub use </span>sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 <span class="kw">pub use </span>sequencing_replica::SequencingReplica;
+<span class="kw">use </span>std::collections::HashSet;
 <span class="kw">pub use </span>traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
 <span class="kw">pub use </span>utils::{View, ViewInner};
 
@@ -432,6 +437,9 @@
 
     <span class="doccomment">/// A list of undecided transactions
     </span><span class="kw">pub </span>transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
+
+    <span class="doccomment">/// A list of transactions we&#39;ve seen decided, but didn&#39;t receive
+    </span><span class="kw">pub </span>seen_transactions: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
 
     <span class="doccomment">/// Map of leaf hash -&gt; leaf
     /// - contains undecided leaves
@@ -611,7 +619,7 @@
     }
 
     <span class="doccomment">/// garbage collects based on state change
-    /// right now, this removes from both the `saved_leaves`
+    /// right now, this removes from both the `saved_blocks`
     /// and `state_map` fields of `Consensus`
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
     </span><span class="kw">pub async fn </span>collect_garbage(

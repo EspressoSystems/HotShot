@@ -326,20 +326,6 @@
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -351,6 +337,8 @@
 
 <span class="kw">use </span>futures::join;
 
+<span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
+<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
 <span class="kw">use </span>hotshot_types::traits::network::TestableChannelImplementation;
 <span class="kw">use </span>hotshot_types::traits::network::TestableNetworkingImplementation;
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
@@ -373,25 +361,18 @@
 </span><span class="kw">pub struct </span>WebServerWithFallbackCommChannel&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// The two networks we&#39;ll use for send/recv
-    </span>networks: Arc&lt;CombinedNetworks&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;&gt;,
+    </span>networks: Arc&lt;CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; WebServerWithFallbackCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// Constructor
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(networks: Arc&lt;CombinedNetworks&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(networks: Arc&lt;CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ networks }
     }
 
@@ -399,14 +380,8 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>network(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span>WebServerNetwork&lt;
-        Message&lt;TYPES, I&gt;,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    &gt; {
+    ) -&gt; <span class="kw-2">&amp;</span>WebServerNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES&gt;
+    {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networks.<span class="number">0
     </span>}
 
@@ -424,30 +399,16 @@
 </span><span class="kw">pub struct </span>CombinedNetworks&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
-    WebServerNetwork&lt;
-        Message&lt;TYPES, I&gt;,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
-    &gt;,
+    WebServerNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES&gt;,
     Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
     PhantomData&lt;MEMBERSHIP&gt;,
 );
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
-    <span class="kw">for </span>CombinedNetworks&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -456,6 +417,7 @@
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generators = (
             &lt;WebServerNetwork&lt;
@@ -463,22 +425,23 @@
                 TYPES::SignatureKey,
                 TYPES::ElectionConfigType,
                 TYPES,
-                PROPOSAL,
-                VOTE,
             &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
-                da_committee_size
+                da_committee_size,
+                is_da
             ),
-            &lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(expected_node_count, num_bootstrap, network_id, da_committee_size)
+            &lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
+                expected_node_count,
+                num_bootstrap,
+                network_id,
+                da_committee_size,
+                is_da
+            )
         );
         Box::new(<span class="kw">move </span>|node_id| {
-            CombinedNetworks(
-                generators.<span class="number">0</span>(node_id),
-                generators.<span class="number">1</span>(node_id),
-                PhantomData::default(),
-            )
+            CombinedNetworks(generators.<span class="number">0</span>(node_id), generators.<span class="number">1</span>(node_id), PhantomData)
         })
     }
 
@@ -490,14 +453,9 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
-    <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -506,18 +464,18 @@
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
+        is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;CombinedNetworks&lt;
             TYPES,
             I,
-            PROPOSAL,
-            VOTE,
             MEMBERSHIP,
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
-            da_committee_size
+            da_committee_size,
+            is_da
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self </span>{
             networks: generator(node_id).into(),
@@ -540,9 +498,9 @@
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 {
-    <span class="kw">type </span>NETWORK = CombinedNetworks&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;;
+    <span class="kw">type </span>NETWORK = CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;;
 
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">join!</span>(
@@ -555,8 +513,15 @@
         <span class="self">self</span>.network().is_ready().<span class="kw">await </span>&amp;&amp; <span class="self">self</span>.fallback().is_ready().<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
-        <span class="macro">join!</span>(<span class="self">self</span>.network().shut_down(), <span class="self">self</span>.fallback().shut_down());
+    <span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="macro">join!</span>(<span class="self">self</span>.network().shut_down(), <span class="self">self</span>.fallback().shut_down());
+        };
+        boxed_sync(closure)
     }
 
     <span class="kw">async fn </span>broadcast_message(
@@ -611,20 +576,27 @@
         }
     }
 
-    <span class="kw">async fn </span>recv_msgs(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt; {
-        <span class="kw">match </span><span class="self">self</span>.network().recv_msgs(transmit_type).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(msgs) =&gt; <span class="prelude-val">Ok</span>(msgs),
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">error!</span>(
-                    <span class="string">&quot;Falling back on recv message, error on primary network: {}&quot;</span>,
-                    e
-                );
-                <span class="self">self</span>.fallback().recv_msgs(transmit_type).<span class="kw">await
-            </span>}
-        }
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt;&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
+        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+    {
+        <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="kw">match </span><span class="self">self</span>.network().recv_msgs(transmit_type).<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(msgs) =&gt; <span class="prelude-val">Ok</span>(msgs),
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Falling back on recv message, error on primary network: {}&quot;</span>,
+                        e
+                    );
+                    <span class="self">self</span>.fallback().recv_msgs(transmit_type).<span class="kw">await
+                </span>}
+            }
+        };
+        boxed_sync(closure)
     }
 
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
@@ -651,13 +623,13 @@
         }
     }
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        &lt;WebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent) {
+        &lt;WebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, I&gt;,
             TYPES::SignatureKey,
-        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.network(), tuple)
-        .<span class="kw">await
-    </span>}
+        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.network(), event)
+        .<span class="kw">await</span>;
+    }
 }
 
 <span class="kw">impl</span>&lt;
@@ -673,8 +645,8 @@
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        CombinedNetworks&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;,
-    &gt; <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+        CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;,
+    &gt; <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {

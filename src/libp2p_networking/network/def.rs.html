@@ -211,7 +211,7 @@
 /// - p2p broadcast
 /// - connection management
 </span><span class="attr">#[derive(NetworkBehaviour, custom_debug::Debug)]
-#[behaviour(out_event = <span class="string">&quot;NetworkEventInternal&quot;</span>)]
+#[behaviour(to_swarm = <span class="string">&quot;NetworkEventInternal&quot;</span>)]
 </span><span class="kw">pub struct </span>NetworkDef {
     <span class="doccomment">/// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
