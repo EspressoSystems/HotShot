@@ -451,7 +451,7 @@ impl OverallSafetyPropertiesDescription {
                             let threshold =
                                 (threshold_calculator)(state.handles.len(), state.handles.len());
 
-                            let mut view = state.ctx.round_results.get_mut(&view_number).unwrap();
+                            let view = state.ctx.round_results.get_mut(&view_number).unwrap();
                             view.success = true;
                             if view.failed_nodes.len() > state.handles.len() - threshold {
                                 // mark as failure

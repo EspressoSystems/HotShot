@@ -232,7 +232,7 @@ where
             SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
-                let consensus = self.consensus.read().await;
+                let mut consensus = self.consensus.write().await;
                 consensus
                     .get_transactions()
                     .modify(|txns| {
@@ -240,7 +240,9 @@ where
                             let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
 
                             // If we didn't already know about this transaction, update our mempool metrics.
-                            if txns.insert(transaction.commit(), transaction).is_none() {
+                            if !consensus.seen_transactions.remove(&transaction.commit())
+                                && txns.insert(transaction.commit(), transaction).is_none()
+                            {
                                 consensus.metrics.outstanding_transactions.update(1);
                                 consensus
                                     .metrics

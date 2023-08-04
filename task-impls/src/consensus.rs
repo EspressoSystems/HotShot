@@ -1,5 +1,6 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
@@ -818,6 +819,14 @@ where
                         if new_decide_reached {
                             let mut included_txn_size = 0;
                             let mut included_txn_count = 0;
+                            let txns = consensus.transactions.cloned().await;
+                            // store transactions in this block we never added to our transactions.
+                            let _ = included_txns_set.iter().map(|hash| {
+                                if !txns.contains_key(hash) {
+                                    consensus.seen_transactions.insert(*hash);
+                                }
+                            });
+                            drop(txns);
                             consensus
                                 .transactions
                                 .modify(|txns| {
@@ -837,6 +846,7 @@ where
                                         .collect();
                                 })
                                 .await;
+
                             consensus
                                 .metrics
                                 .outstanding_transactions

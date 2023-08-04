@@ -487,7 +487,7 @@ impl<
     /// create new communication channel
     #[must_use]
     pub fn new(network: Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 }
 

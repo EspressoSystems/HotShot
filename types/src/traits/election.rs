@@ -337,7 +337,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                         if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
                         {
                             yes_votes += u64::from(signature.1 .2.vote_count());
-                        } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+                        } else if matches!(signature.1 .1, VoteData::No(thing) if thing == leaf_commitment)
                         {
                             no_votes += u64::from(signature.1 .2.vote_count());
                         }

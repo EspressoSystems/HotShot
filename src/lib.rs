@@ -23,7 +23,7 @@ pub mod documentation;
 // pub mod da;
 /// Contains structures and functions for committee election
 pub mod certificate;
-#[cfg(any(feature = "demo"))]
+#[cfg(feature = "demo")]
 pub mod demos;
 /// Contains traits consumed by [`HotShot`]
 pub mod traits;
@@ -96,7 +96,7 @@ use hotshot_types::{
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
@@ -235,6 +235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
+            seen_transactions: HashSet::new(),
             saved_leaves,
             saved_blocks,
             // TODO this is incorrect
