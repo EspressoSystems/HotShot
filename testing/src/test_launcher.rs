@@ -112,7 +112,7 @@ where
             .map(|id| {
                 let priv_key = TYPES::SignatureKey::generated_from_seed_indexed(
                     [0u8; 32],
-                    (id as u64),
+                    id as u64,
                 ).1;
                 TYPES::SignatureKey::from_private(&priv_key)
             })

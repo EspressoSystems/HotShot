@@ -1,11 +1,7 @@
 use custom_debug::Debug;
-use espresso_systems_common::hotshot::tag::PRIVKEY_ID;
-use serde::{de::Error, Deserialize, Serialize};
-use std::{cmp::Ordering, fmt, str::FromStr};
-use tagged_base64::TaggedBase64;
-use tracing::{instrument, warn};
-use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey, SignKey as QCSignKey};
+use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, SignKey as QCSignKey};
 use rand_chacha::ChaCha20Rng;
 use rand::SeedableRng;
 

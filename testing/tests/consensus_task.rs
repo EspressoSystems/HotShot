@@ -80,7 +80,6 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use jf_primitives::signatures::BLSSignatureScheme;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 use hotshot_types::traits::signature_key::bn254::BN254Priv;
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;

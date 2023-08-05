@@ -9,9 +9,7 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -36,7 +34,7 @@ use super::{
     txn_task::TxnTask,
 };
 use hotshot_types::traits::signature_key::bn254::{BN254Priv, BN254Pub};
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;

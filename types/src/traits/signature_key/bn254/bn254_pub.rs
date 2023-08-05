@@ -1,12 +1,10 @@
 use super::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
-use espresso_systems_common::hotshot::tag::PEER_ID;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
-    fmt::{self, Debug},
+    fmt::Debug,
     str::FromStr,
 };
-use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 use hotshot_primitives::qc::bit_vector::BitVectorQC;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
@@ -16,8 +14,6 @@ use blake3::traits::digest::generic_array::GenericArray;
 use typenum::U32;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
-use rand_chacha::ChaCha20Rng;
-use rand::SeedableRng;
 
 /// Public key type for an bn254 [`SignatureKey`] pair
 ///

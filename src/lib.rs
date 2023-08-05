@@ -49,7 +49,6 @@ use async_compatibility_layer::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use bincode::Options;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
 use hotshot_task::event_stream::ChannelStream;
@@ -90,7 +89,7 @@ use hotshot_types::{
             SequencingExchangesType, SequencingQuorumEx, ValidatingExchangesType,
             ValidatingQuorumEx, ViewSyncEx,
         },
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
         State,
@@ -111,7 +110,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tasks::GlobalEvent;
-use tracing::{debug, error, info, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, instrument, trace, warn};
 // -- Rexports
 // External
 /// Reexport rand crate

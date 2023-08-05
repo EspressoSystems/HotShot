@@ -251,7 +251,6 @@ where
     // Sishan NOTE TODO: this one should be substitude by the one in bn254_priv.rs or ed25519_priv.rs or balabala, use SIGSCHEME;
     // Maybe the trait SignatureScheme should be deleted...At least for BLSoverBN254CurveSignatureScheme, the function inside is useless.
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
-        println!("Inside generated_from_seed_indexed");//Sishan NOTE TODO: delete this line
 
         let mut hasher = blake3::Hasher::new();
         hasher.update(&seed);

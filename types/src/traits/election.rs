@@ -36,7 +36,6 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::aead::KeyPair;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;

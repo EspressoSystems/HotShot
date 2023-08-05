@@ -129,7 +129,6 @@ mod test {
     use hotshot_types::traits::signature_key::bn254::BN254Pub;
     use hotshot_types::traits::state::ConsensusTime;
     use hotshot_types::traits::Block;
-    use std::collections::BTreeMap;
     use std::fmt::Debug;
     use std::hash::Hash;
     use tracing::instrument;

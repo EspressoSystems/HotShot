@@ -6,6 +6,4 @@ mod bn254_priv;
 mod bn254_pub;
 
 pub use self::{bn254_priv::BN254Priv, bn254_pub::BN254Pub};
-use jf_primitives::signatures::{bls_over_bn254::VerKey};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 

@@ -7,7 +7,7 @@
 //! production use.
 use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{HashSet},
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::Deref,

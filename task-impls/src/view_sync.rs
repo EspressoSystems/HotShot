@@ -19,9 +19,7 @@ use hotshot_task::{
     task::{FilterEvent, TaskErr, TS},
     task_impls::HSTWithEvent,
 };
-use hotshot_types::message::GeneralConsensusMessage::ViewSyncCertificate as ViewSyncCertificateProposal;
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::VoteData;
 use hotshot_types::traits::network::ConsensusIntentEvent;
 

@@ -29,7 +29,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
-use hotshot_types::traits::signature_key::bn254::{BN254Pub, BN254Priv};
+use hotshot_types::traits::signature_key::bn254::{BN254Priv};
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
