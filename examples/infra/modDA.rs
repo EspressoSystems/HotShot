@@ -250,7 +250,7 @@ pub trait RunDA<
         let view_sync_network = self.get_view_sync_network();
 
         // Get KeyPair for certificate Aggregation
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
             config.seed,
             config.node_index.try_into().unwrap(),
         );

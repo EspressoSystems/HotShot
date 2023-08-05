@@ -11,7 +11,7 @@ use digest::generic_array::GenericArray;
 // use derivative::Derivative;
 // use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::signature_key::{
-    EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
+    EncodedPublicKey, EncodedSignature, SignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
@@ -82,20 +82,6 @@ where
     pk: SIGSCHEME::VerificationKey,
     /// phantom data
     _pd: PhantomData<SIGSCHEME::SigningKey>,
-}
-
-impl<SIGSCHEME> TestableSignatureKey for JfPubKey<SIGSCHEME>
-where
-    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
-    SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-    SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-    SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-{
-    fn generate_test_key(id: u64) -> Self::PrivateKey {
-        let seed = [0_u8; 32];
-        let vrf_key = Self::generated_from_seed_indexed(seed, id);
-        vrf_key.1
-    }
 }
 
 impl<SIGSCHEME> JfPubKey<SIGSCHEME>
@@ -262,8 +248,10 @@ where
         })
     }
 
-    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    // Sishan NOTE TODO: this one should be substitude by the one in bn254_priv.rs or ed25519_priv.rs or balabala, use SIGSCHEME
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
         hasher.update(&index.to_le_bytes());
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);

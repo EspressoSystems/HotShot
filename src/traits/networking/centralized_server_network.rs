@@ -38,7 +38,7 @@ use hotshot_types::{
             TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::{bn254::BN254Pub, SignatureKey},
     },
     vote::VoteType,
 };
@@ -424,7 +424,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
                     continue;
                 }
             };
-            if let Err(e) = send_stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
+            if let Err(e) = send_stream.send(ToServer::<BN254Pub>::GetConfig).await {
                 error!("Could not request config from server: {e:?}");
                 error!("Trying again in 5 seconds");
                 async_sleep(Duration::from_secs(5)).await;
@@ -1002,8 +1002,6 @@ impl<
         MEMBERSHIP,
         CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     > for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network() -> Box<
         dyn Fn(
@@ -1018,8 +1016,6 @@ where
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -1041,7 +1037,7 @@ where
 
         let known_nodes = (0..expected_node_count as u64)
             .map(|id| {
-                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
+                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generated_from_seed_indexed( [0u8; 32], id).1)
             })
             .collect::<Vec<_>>();
 
@@ -1072,7 +1068,6 @@ impl<
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(

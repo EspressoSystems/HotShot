@@ -44,7 +44,7 @@ use hotshot_types::{
 use hotshot_types::{message::Message, traits::election::QuorumExchange};
 use libp2p::{
     identity::{
-        ed25519::{Keypair as EdKeypair, SecretKey},
+        bn254::{Keypair as EdKeypair, SecretKey},
         Keypair,
     },
     multiaddr::{self, Protocol},
@@ -68,7 +68,7 @@ use std::{
 };
 #[allow(deprecated)]
 use tracing::error;
-use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use hotshot_types::traits::signature_key::bn254::BN254Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::ChaCha20Rng;
@@ -117,7 +117,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     config.config.known_nodes_qc = (0..config.config.total_nodes.get())
     .map(|node_id| {
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
                 config.seed,
                 node_id.try_into().unwrap(),
             );
@@ -265,7 +265,7 @@ pub trait Run<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         // Get KeyPair for certificate Aggregation
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
             config.seed,
             config.node_index.try_into().unwrap(),
         );

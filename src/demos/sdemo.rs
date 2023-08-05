@@ -25,7 +25,7 @@ use hotshot_types::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
+        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
@@ -306,7 +306,7 @@ impl NodeType for SDemoTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = Ed25519Pub;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -359,7 +359,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
         // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: AssembledSignature::Genesis(),//Sishan NOTE TODO: confirm whether this could be Genesis() or not
+        signatures: AssembledSignature::Genesis(),
         is_genesis: rng.gen(),
     }
 }

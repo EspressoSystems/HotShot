@@ -35,7 +35,7 @@ use super::{
     test_launcher::TestLauncher,
     txn_task::TxnTask,
 };
-use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use hotshot_types::traits::signature_key::bn254::{BN254Priv, BN254Pub};
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::ChaCha20Rng;
@@ -249,7 +249,7 @@ where
         let known_nodes = config.known_nodes.clone();
         let known_nodes_qc = config.known_nodes_qc.clone();
         // Get KeyPair for certificate Aggregation
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
             [0_u8; 32],
             node_id.try_into().unwrap(),
         );
@@ -258,7 +258,10 @@ where
             stake_key: key_pair.ver_key(),
             stake_amount: U256::from(1u8),
         };
-        let private_key = I::generate_test_key(node_id);
+        let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
+            [0u8; 32],
+            node_id,
+        ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<

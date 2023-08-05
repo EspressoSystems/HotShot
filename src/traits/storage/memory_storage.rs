@@ -126,7 +126,7 @@ mod test {
     use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
     use hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus;
     use hotshot_types::traits::node_implementation::NodeType;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    use hotshot_types::traits::signature_key::bn254::BN254Pub;
     use hotshot_types::traits::state::ConsensusTime;
     use hotshot_types::traits::Block;
     use std::collections::BTreeMap;
@@ -154,8 +154,8 @@ mod test {
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
-        type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
+        type SignatureKey = BN254Pub;
+        type VoteTokenType = StaticVoteToken<BN254Pub>;
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;

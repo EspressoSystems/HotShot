@@ -11,7 +11,6 @@ use super::{
         ViewSyncExchange, ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
-    signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
@@ -556,8 +555,6 @@ pub trait TestableNodeImplementation<
     /// Return the full internal state. This is useful for debugging.
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf>;
 
-    /// The private key of the node `id` in a test.
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey;
 }
 
 #[async_trait]
@@ -587,7 +584,6 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     type CommitteeCommChannel = ();
@@ -663,10 +659,6 @@ where
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf> {
         <I::Storage as TestableStorage<TYPES, I::Leaf>>::get_full_state(storage).await
     }
-
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
-    }
 }
 
 #[async_trait]
@@ -705,7 +697,6 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     type CommitteeCommChannel = CommitteeCommChannel<TYPES, I>;
@@ -780,10 +771,6 @@ where
 
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf> {
         <I::Storage as TestableStorage<TYPES, I::Leaf>>::get_full_state(storage).await
-    }
-
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
     }
 }
 

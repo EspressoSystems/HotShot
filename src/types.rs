@@ -8,6 +8,6 @@ pub use handle::SystemContextHandle;
 pub(crate) use hotshot_types::error::HotShotError;
 pub use hotshot_types::{
     message::Message,
-    traits::signature_key::{ed25519, SignatureKey},
+    traits::signature_key::{bn254, SignatureKey},
     vote::VoteType,
 };

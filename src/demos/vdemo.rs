@@ -22,7 +22,7 @@ use hotshot_types::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
+        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -526,7 +526,7 @@ impl NodeType for VDemoTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = Ed25519Pub;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;

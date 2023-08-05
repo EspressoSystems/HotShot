@@ -7,7 +7,7 @@ use tagged_base64::tagged;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 
 #[cfg(feature = "demo")]
-pub mod ed25519;
+pub mod bn254;
 
 /// Type saftey wrapper for byte encoded keys
 #[tagged(tag::ENCODED_PUB_KEY)]
@@ -76,10 +76,3 @@ pub trait SignatureKey:
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
 }
 
-/// TODO we don't need this if we have `generated_from_seed_indexed`
-/// should use one or the other
-/// Trait for generation of keys during testing
-pub trait TestableSignatureKey: SignatureKey {
-    /// Generates a private key from the given integer seed
-    fn generate_test_key(id: u64) -> Self::PrivateKey;
-}
