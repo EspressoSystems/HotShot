@@ -30,7 +30,7 @@ use hotshot_types::{
 };
 use tracing::{debug, info, warn};
 use hotshot_types::traits::signature_key::bn254::{BN254Pub, BN254Priv};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
 use rand_chacha::ChaCha20Rng;
@@ -559,8 +559,7 @@ pub mod test {
         },
         vote::DAVote,
     };
-    use jf_primitives::signatures::BLSSignatureScheme;
-    use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+    use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(

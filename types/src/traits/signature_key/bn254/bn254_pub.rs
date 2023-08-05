@@ -1,5 +1,4 @@
 use super::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
-use ed25519_compact::{PublicKey};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{
@@ -114,11 +113,7 @@ impl SignatureKey for BN254Pub {
     }
 
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
-        let real_seed = Self::PrivateKey::get_seed_from_seed_indexed(
-            seed,
-            index.try_into().unwrap(),
-        );
-        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
-        (BN254Pub{ pub_key: key_pair.ver_key() }, BN254Priv{priv_key: (key_pair.sign_key_ref()).clone()})
+        let priv_key = Self::PrivateKey::generated_from_seed_indexed(seed, index);
+        (Self::from_private(&priv_key), priv_key)
     }
 }

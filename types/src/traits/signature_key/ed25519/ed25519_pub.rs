@@ -1,4 +1,4 @@
-use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
+use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
 use ed25519_compact::{PublicKey};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
@@ -127,11 +127,6 @@ impl SignatureKey for Ed25519Pub {
     }
 }
 
-impl TestableSignatureKey for Ed25519Pub {
-    fn generate_test_key(id: u64) -> Self::PrivateKey {
-        Ed25519Priv::generated_from_seed_indexed([0_u8; 32], id)
-    }
-}
 
 impl FromStr for Ed25519Pub {
     type Err = String;

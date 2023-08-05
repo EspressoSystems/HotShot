@@ -1,5 +1,4 @@
 use custom_debug::Debug;
-use ed25519_compact::{KeyPair, SecretKey, Seed};
 use espresso_systems_common::hotshot::tag::PRIVKEY_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
@@ -10,7 +9,7 @@ use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme
 use rand_chacha::ChaCha20Rng;
 use rand::SeedableRng;
 
-/// Private key type for a ed25519 keypair
+/// Private key type for a bn254 keypair
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Debug)]
 pub struct BN254Priv {
     /// The private key for  this keypair
@@ -39,7 +38,7 @@ impl BN254Priv {
     #[must_use]
     pub fn generate_from_seed(seed: [u8; 32]) -> Self {
         let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(seed));
-        let priv_key = &key_pair.sk;
+        let priv_key = key_pair.sign_key_ref();
         Self { priv_key: priv_key.clone() }
     }
 
@@ -49,10 +48,7 @@ impl BN254Priv {
     /// useful for testing
     #[must_use]
     pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> Self {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&seed);
-        hasher.update(&index.to_le_bytes());
-        let new_seed = *hasher.finalize().as_bytes();
+        let new_seed = Self::get_seed_from_seed_indexed(seed, index);
         Self::generate_from_seed(new_seed)
     }
 
