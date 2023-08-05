@@ -65,39 +65,32 @@ impl SignatureKey for Ed25519Pub {
     type PrivateKey = Ed25519Priv;
 
     #[instrument(skip(self))]
-    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
-        let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
-            bincode_opts().deserialize(&signature.0);
-            match x {
-                Ok(s) => {
-                    // This is the validation for QC partial signature before append().
-                    let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
-                    BLSOverBN254CurveSignatureScheme::verify(
-                        &(),
-                        &ver_key, 
-                        &generic_msg,
-                        &s,
-                    ).is_ok()
+    fn validate(&self, _ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let signature = &signature.0[..];
+        // Convert to the signature type
+        match Signature::from_slice(signature) {
+            Ok(signature) => {
+                // Validate the signature
+                match self.pub_key.verify(data, &signature) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!(?e, "Signature failed verification");
+                        false
+                    }
                 }
-                Err(_) => false,
             }
+            Err(e) => {
+                // Log and error
+                debug!(?e, "signature was structurally invalid");
+                false
+            }
+        }
     }
 
     fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
-        let generic_msg = GenericArray::from_slice(data);
-        let agg_signature_test = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
-            &(),
-            // &msg_test.into(),
-            &generic_msg,
-            key_pair.sign_key_ref(),
-            &mut rand::thread_rng(),
-        ).unwrap();
+        let signature = private_key.priv_key.sign(data, None);
         // Convert the signature to bytes and return
-        let bytes = bincode_opts()
-            .serialize(&agg_signature_test)
-            .expect("This serialization shouldn't be able to fail");
-        // let print_bytes = String::from_utf8_lossy(&bytes);
-        EncodedSignature(bytes)
+        EncodedSignature(signature.to_vec())
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {
