@@ -3,6 +3,7 @@ use hotshot_testing::{
     node_types::{SequencingTestTypes, SequencingWebImpl},
     test_builder::{TestMetadata, TimingData},
 };
+use hotshot_testing::overall_safety_task::OverallSafetyPropertiesDescription;
 use tracing::instrument;
 
 /// Web server network test
@@ -20,6 +21,11 @@ async fn web_server_network() {
             round_start_delay: 25,
             next_view_timeout: 3000,
             start_delay: 120000,
+
+            ..Default::default()
+        },
+        overall_safety_properties: OverallSafetyPropertiesDescription {
+            num_successful_views: 35,
             ..Default::default()
         },
         ..TestMetadata::default()
