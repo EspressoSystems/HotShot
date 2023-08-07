@@ -517,38 +517,6 @@ impl<
 
         inner.connected.store(true, Ordering::Relaxed);
 
-        // match is_da_server {
-        //     // We are polling for DA-related events
-        //     true => {
-        // let tx_handle = async_spawn({
-        //     let inner_clone = inner.clone();
-        //     async move {
-        //         if let Err(e) = inner_clone
-        //             .poll_web_server(tx_receiver, MessagePurpose::Data, 0)
-        //             .await
-        //         {
-        //             error!(
-        //                 "Background receive proposal polling encountered an error: {:?}",
-        //                 e
-        //             );
-        //         }
-        //     }
-        // });
-        //         let da_vote_handle = async_spawn({
-        //             let inner_clone = inner.clone();
-        //             async move {
-        //                 if let Err(e) = inner_clone
-        //                     .poll_web_server(vote_receiver, MessagePurpose::Vote)
-        //                     .await
-        //                 {
-        //                     error!(
-        //                         "Background receive proposal polling encountered an error: {:?}",
-        //                         e
-        //                     );
-        //                 }
-        //             }
-        //         });
-
         Self {
             inner,
             server_shutdown_signal: None,
