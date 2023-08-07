@@ -244,7 +244,7 @@ pub trait RunDA<
             >>::Membership::default_election_config(config.config.total_nodes.get() as u64)
         });
 
-        let _committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
+        let committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
@@ -253,7 +253,7 @@ pub trait RunDA<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, _committee_election_config),
+            (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
                 view_sync_network.clone(),
@@ -293,8 +293,6 @@ pub trait RunDA<
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
 
-        // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
-        // FIXME  is this a reasonable assumption when we start doing DA?
         // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
         let tx_to_gen = transactions_per_round * rounds * 3;
         {
@@ -384,14 +382,11 @@ pub trait RunDA<
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
                                 for _ in 0..transactions_per_round {
-                                    // if round % total_nodes_u64 == 0 {
-                                    // Only relevant for 1000 nodes
                                     if node_index >= total_nodes_u64 - 10 {
                                         let txn = txns.pop_front().unwrap();
 
                                         tracing::warn!("Submitting txn on round {}", round);
 
-                                        // if (round + 10) % (node_index + 1) <= 10 {
                                         let result = api
                                             .send_transaction(DataMessage::SubmitTransaction(
                                                 txn.clone(),
@@ -406,8 +401,6 @@ pub trait RunDA<
                                         )
                                         }
                                     }
-                                    // return (None, state);
-                                    // context.submit_transaction(txn).await.unwrap();
                                 }
                             }
                         }
@@ -418,53 +411,10 @@ pub trait RunDA<
 
             round += 1;
         }
-        // while round <= rounds {
-        //     error!("Round {}:", round);
 
-        //     let num_submitted = if node_index == ((round % total_nodes) as u64) {
-        //         for _ in 0..transactions_per_round {
-        //             let txn = txns.pop_front().unwrap();
-        //             tracing::info!("Submitting txn on round {}", round);
-        //             hotshot.submit_transaction(txn).await.unwrap();
-        //         }
-        //         transactions_per_round
-        //     } else {
-        //         0
-        //     };
-        //     error!("Submitting {} transactions", num_submitted);
-
-        //     // Start consensus
-        //     let view_results = hotshot.collect_round_events().await;
-
-        //     match view_results {
-        //         Ok((leaf_chain, _qc)) => {
-        //             let blocks: Vec<Either<TYPES::BlockType, Commitment<TYPES::BlockType>>> =
-        //                 leaf_chain
-        //                     .into_iter()
-        //                     .map(|leaf| leaf.get_deltas())
-        //                     .collect();
-        //             for b in blocks.into_iter() {
-        //                 b.either(
-        //                     |block| total_transactions += block.txn_count(),
-        //                     |_| total_commitments += 1,
-        //                 );
-        //             }
-        //         }
-        //         Err(e) => {
-        //             timed_out_views += 1;
-        //             error!("View: {:?}, failed with : {:?}", round, e);
-        //         }
-        //     }
-
-        //     round += 1;
-        // }
-
+        // Output run results
         let total_time_elapsed = start.elapsed();
-
-        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
-        // error!("Total commitments: s{num_successful_commits}s");
-        // error!("Total transactions committed: s{total_transactions}");
     }
 
     /// Returns the da network for this run

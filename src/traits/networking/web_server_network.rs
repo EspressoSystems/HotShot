@@ -311,7 +311,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             }
 
                             MessagePurpose::Internal => {
-                                error!("Received internal message in web server network")
+                                error!("Received internal message in web server network");
                             }
                         }
                     }
