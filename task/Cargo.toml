@@ -56,4 +56,4 @@ tokio = { version = "1", optional = true, features = [
 async-lock = "2.7.0"
 tracing = "0.1.37"
 atomic_enum = "0.2.0"
-pin-project = "1.1.2"
+pin-project = "1.1.3"
