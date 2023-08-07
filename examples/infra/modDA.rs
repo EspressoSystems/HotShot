@@ -402,7 +402,7 @@ pub trait RunDA<
                                             .await;
 
                                         if result.is_err() {
-                                           error! (
+                                            error! (
                                             "Could not send transaction to web server on round {}",
                                             round
                                         )

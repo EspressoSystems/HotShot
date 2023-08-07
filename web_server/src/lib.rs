@@ -229,7 +229,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut txns_to_return = vec![];
         let mut txn_vec_size = 0;
 
-        let mut new_index = index as usize; 
+        let mut new_index = index as usize;
         let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
             0
         } else {
@@ -238,8 +238,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if (index as usize) < lowest_in_memory_txs {
             new_index = lowest_in_memory_txs;
-        }
-        else {
+        } else {
             new_index = index as usize;
         }
 
@@ -248,7 +247,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 txns_to_return.push(txn.clone())
             }
             if txns_to_return.len() >= TX_BATCH_SIZE as usize {
-                break
+                break;
             }
         }
 
@@ -394,7 +393,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-
         // TODO ED Remove txs from txn_lookup
         if self.transactions.len() >= MAX_TXNS {
             self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));

@@ -514,7 +514,6 @@ impl<
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-    
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -1066,8 +1065,6 @@ impl<
                 }
 
                 // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
-
-              
             }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
@@ -1081,10 +1078,8 @@ impl<
                             (view_number),
                         ))
                         .await;
-                  
                 } else {
                     error!("Task map entry should have existed");
-               
                 }
             }
             ConsensusIntentEvent::PollForTransactions(view_number) => {
@@ -1112,8 +1107,6 @@ impl<
                 }
 
                 // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
-
-             
             }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
@@ -1127,10 +1120,8 @@ impl<
                             (view_number),
                         ))
                         .await;
-                
                 } else {
                     error!("Task map entry should have existed");
-                    
                 };
             }
 

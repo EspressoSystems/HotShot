@@ -879,8 +879,8 @@ where
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
                             // if *view % 10 == 0 && self.quorum_exchange.is_leader(view) {
-                                warn!("Sending Decide for view {:?}", consensus.last_decided_view);
-                                warn!("Decided txns len {:?}", included_txns_set.len());
+                            warn!("Sending Decide for view {:?}", consensus.last_decided_view);
+                            warn!("Decided txns len {:?}", included_txns_set.len());
                             // }
                             decide_sent.await;
                         }

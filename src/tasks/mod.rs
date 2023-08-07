@@ -375,7 +375,6 @@ where
                 either::Either::Left(messages) | either::Either::Right(messages) => messages,
             };
             async move {
-               
                 state.handle_messages(messages.0).await;
                 (None, state)
             }

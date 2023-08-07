@@ -160,7 +160,7 @@ pub struct HotShotConfigFile {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Number of committee nodes
-    pub committee_nodes: usize, 
+    pub committee_nodes: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
