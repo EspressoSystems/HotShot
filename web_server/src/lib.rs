@@ -669,4 +669,3 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 
     app_future.await
 }
-

@@ -25,7 +25,9 @@ async fn test_with_failures() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription, spinning_task::SpinningTaskDescription, overall_safety_task::OverallSafetyPropertiesDescription,
+        completion_task::TimeBasedCompletionTaskDescription,
+        overall_safety_task::OverallSafetyPropertiesDescription,
+        spinning_task::SpinningTaskDescription,
     };
 
     async_compatibility_layer::logging::setup_logging();
