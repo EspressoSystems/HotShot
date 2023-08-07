@@ -533,7 +533,7 @@ where
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
-                error!("Polling for quorum votes for view {}", *self.cur_view);
+                warn!("Polling for quorum votes for view {}", *self.cur_view);
                 self.quorum_exchange
                     .network()
                     .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
@@ -868,8 +868,8 @@ where
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
                             // if *view % 10 == 0 && self.quorum_exchange.is_leader(view) {
-                                error!("Sending Decide for view {:?}", consensus.last_decided_view);
-                                error!("Decided txns len {:?}", included_txns_set.len());
+                                warn!("Sending Decide for view {:?}", consensus.last_decided_view);
+                                warn!("Decided txns len {:?}", included_txns_set.len());
                             // }
                             decide_sent.await;
                         }
@@ -1055,7 +1055,7 @@ where
                 // warn!("Handle qc formed event!");
                 // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
-                error!(
+                warn!(
                     "Attempting to publish proposal after forming a QC for view {}",
                     *qc.view_number
                 );
@@ -1286,7 +1286,7 @@ where
 
         let block_commitment = self.block.commit();
         if block_commitment == TYPES::BlockType::new().commit() {
-            error!("Block is generic block! {:?}", self.cur_view);
+            warn!("Block is generic block! {:?}", self.cur_view);
         }
         // warn!(
         //     "leaf commitment of new qc: {:?}",

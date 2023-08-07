@@ -123,7 +123,7 @@ impl<
             };
         }
         if !transactions.is_empty() {
-            error!("Transactions in network task are {}", transactions.len());
+            warn!("Transactions in network task are {}", transactions.len());
             self.event_stream
                 .publish(SequencingHotShotEvent::TransactionsRecv(transactions))
                 .await;

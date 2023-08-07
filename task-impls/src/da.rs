@@ -434,7 +434,7 @@ where
                     .contains(self.committee_exchange.public_key());
 
                 if is_da {
-                    error!("Polling for DA proposals for view {}", *self.cur_view + 1);
+                    warn!("Polling for DA proposals for view {}", *self.cur_view + 1);
                     self.committee_exchange
                         .network()
                         .inject_consensus_info(
@@ -443,7 +443,7 @@ where
                         .await;
                 }
                 if self.committee_exchange.is_leader(self.cur_view + 3) {
-                    error!("Polling for transactions for view {}", *self.cur_view + 3);
+                    warn!("Polling for transactions for view {}", *self.cur_view + 3);
                     self.committee_exchange
                         .network()
                         .inject_consensus_info(
@@ -585,7 +585,7 @@ where
 
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
             let txns = consensus.transactions.cloned().await;
-            error!("Size of transactions: {}", txns.len());
+            warn!("Size of transactions: {}", txns.len());
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))

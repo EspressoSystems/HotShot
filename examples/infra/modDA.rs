@@ -367,7 +367,7 @@ pub trait RunDA<
                         } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
-                                error!("Decide event for leaf: {}", *leaf.view_number);
+                                warn!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;
                                 if new_anchor >= anchor_view {
@@ -408,7 +408,7 @@ pub trait RunDA<
                                     if node_index >= total_nodes_u64 - 10 {
                                         let txn = txns.pop_front().unwrap();
 
-                                        tracing::error!("Submitting txn on round {}", round);
+                                        tracing::warn!("Submitting txn on round {}", round);
 
                                         // if (round + 10) % (node_index + 1) <= 10 {
                                         let result = api
@@ -419,7 +419,7 @@ pub trait RunDA<
                                             .await;
 
                                         if result.is_err() {
-                                            error!(
+                                            (
                                             "Could not send transaction to web server on round {}",
                                             round
                                         )

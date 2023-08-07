@@ -197,7 +197,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
 
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
-            error!("Previous tx index was {}", tx_index);
+            warn!("Previous tx index was {}", tx_index);
 
         };
 
@@ -365,12 +365,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             let mut lock = self.tx_index.write().await;
                             *lock = tx_index;  
 
-                            error!("Lock is {:?}", lock);
+                            warn!("Lock is {:?}", lock);
                             if view_number != event_view {
                                 panic!("Wrong event view number was sent to this task!");
                             } else {
                                 // Shutdown this task
-                                error!("Shutting down polling task for view {}", event_view);
+                                warn!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
                         }
@@ -845,7 +845,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
-        error!(
+        warn!(
             "Injecting event: {:?} is da {}",
             event.clone(),
             self.inner.is_da
