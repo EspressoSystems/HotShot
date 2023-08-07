@@ -14,6 +14,7 @@ use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
+use tracing::error;
 
 /// Dummy implementation of [`Membership`]
 

@@ -149,7 +149,7 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     /// Whether we are connecting to a DA server
     is_da: bool,
 
-    tx_index: Arc<RwLock<u64>>, 
+    tx_index: Arc<RwLock<u64>>,
 
     // TODO ED This should be TYPES::Time
     // Theoretically there should never be contention for this lock...
@@ -164,7 +164,6 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     /// Task map for view sync votes.
     view_sync_vote_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     txn_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
-    tx_sender: UnboundedSender<ConsensusIntentEvent>,
 }
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
@@ -183,7 +182,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
             warn!("Previous tx index was {}", tx_index);
-
         };
 
         while self.running.load(Ordering::Relaxed) {
@@ -206,13 +204,13 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 match possible_message {
                     Ok(Some((index, deserialized_messages))) => {
                         // tx_index = index;
-                        // Going to assume node can keep up.  
+                        // Going to assume node can keep up.
                         let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
-                                for tx in &deserialized_messages {
-                                    tx_index += 1;
-                                    broadcast_poll_queue.push(tx.clone());
-                                }
-                                error!("tx index is {}", tx_index);
+                        for tx in &deserialized_messages {
+                            tx_index += 1;
+                            broadcast_poll_queue.push(tx.clone());
+                        }
+                        error!("tx index is {}", tx_index);
                     }
                     Ok(None) => {
                         async_sleep(self.wait_between_polls).await;
@@ -230,7 +228,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     Ok(Some(deserialized_messages)) => {
                         match message_purpose {
                             MessagePurpose::Data => {
-                               panic!();
+                                panic!();
                             }
                             MessagePurpose::Proposal => {
                                 // warn!(
@@ -340,12 +338,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 error!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
-                        }, 
+                        }
                         ConsensusIntentEvent::CancelPollForTransactions(event_view) => {
                             // Write the most recent tx index so we can pick up where we left off later
-                        
+
                             let mut lock = self.tx_index.write().await;
-                            *lock = tx_index;  
+                            *lock = tx_index;
 
                             warn!("Lock is {:?}", lock);
                             if view_number != event_view {
@@ -499,10 +497,6 @@ impl<
         // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
-        let on_committee = _committee_nodes.contains(&key);
-
-        let (_, tx_receiver) = unbounded::<ConsensusIntentEvent>();
-
         let inner = Arc::new(Inner {
             phantom: PhantomData,
             broadcast_poll_queue: Arc::default(),
@@ -513,14 +507,14 @@ impl<
             wait_between_polls,
             _own_key: key,
             is_da: is_da_server,
-            tx_index: Arc::default(), 
+            tx_index: Arc::default(),
             proposal_task_map: Arc::default(),
             vote_task_map: Arc::default(),
             dac_task_map: Arc::default(),
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            tx_sender,
+    
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -532,7 +526,7 @@ impl<
         //     let inner_clone = inner.clone();
         //     async move {
         //         if let Err(e) = inner_clone
-        //             .poll_web_server_new(tx_receiver, MessagePurpose::Data, 0)
+        //             .poll_web_server(tx_receiver, MessagePurpose::Data, 0)
         //             .await
         //         {
         //             error!(
@@ -546,7 +540,7 @@ impl<
         //             let inner_clone = inner.clone();
         //             async move {
         //                 if let Err(e) = inner_clone
-        //                     .poll_web_server_new(vote_receiver, MessagePurpose::Vote)
+        //                     .poll_web_server(vote_receiver, MessagePurpose::Vote)
         //                     .await
         //                 {
         //                     error!(
@@ -1042,7 +1036,7 @@ impl<
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(
-                        view_number,
+                            view_number,
                         ))
                         .await;
                 }
@@ -1057,7 +1051,7 @@ impl<
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server_new(receiver, MessagePurpose::Data, view_number)
+                                .poll_web_server(receiver, MessagePurpose::Data, view_number)
                                 .await
                             {
                                 error!(
@@ -1073,7 +1067,7 @@ impl<
 
                 // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
 
-                Ok(())
+              
             }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
@@ -1087,10 +1081,10 @@ impl<
                             (view_number),
                         ))
                         .await;
-                    Ok(())
+                  
                 } else {
                     error!("Task map entry should have existed");
-                    Ok(())
+               
                 }
             }
             ConsensusIntentEvent::PollForTransactions(view_number) => {
@@ -1103,7 +1097,7 @@ impl<
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server_new(receiver, MessagePurpose::Data, view_number)
+                                .poll_web_server(receiver, MessagePurpose::Data, view_number)
                                 .await
                             {
                                 error!(
@@ -1119,7 +1113,7 @@ impl<
 
                 // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
 
-                Ok(())
+             
             }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
@@ -1133,11 +1127,11 @@ impl<
                             (view_number),
                         ))
                         .await;
-                    Ok(())
+                
                 } else {
                     error!("Task map entry should have existed");
-                    Ok(()) 
-                }
+                    
+                };
             }
 
             _ => error!("Unexpected event!"),

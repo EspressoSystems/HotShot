@@ -231,7 +231,6 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::TransactionsRecv(transactions) => {
-            SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
                 let mut consensus = self.consensus.write().await;
@@ -502,7 +501,9 @@ where
 
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForTransactions(*self.cur_view + 1)))
+                    .inject_consensus_info(
+                        (ConsensusIntentEvent::CancelPollForTransactions(*self.cur_view + 1)),
+                    )
                     .await;
 
                 for txn in txns {
@@ -630,13 +631,12 @@ where
         matches!(
             event,
             SequencingHotShotEvent::DAProposalRecv(_, _)
-            | SequencingHotShotEvent::DAVoteRecv(_)
-            | SequencingHotShotEvent::Shutdown
-            | SequencingHotShotEvent::TransactionsRecv(_)
-            | SequencingHotShotEvent::Timeout(_)
-            | SequencingHotShotEvent::ViewChange(_) => true,
-            _ => false,
-        }
+                | SequencingHotShotEvent::DAVoteRecv(_)
+                | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::TransactionsRecv(_)
+                | SequencingHotShotEvent::Timeout(_)
+                | SequencingHotShotEvent::ViewChange(_)
+        )
     }
 }
 

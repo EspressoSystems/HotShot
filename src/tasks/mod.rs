@@ -376,7 +376,7 @@ where
             };
             async move {
                
-                state.handle_messages(messages.0, id).await;
+                state.handle_messages(messages.0).await;
                 (None, state)
             }
             .boxed()
