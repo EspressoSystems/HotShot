@@ -48,7 +48,6 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_VIEW_SYNC_PORT;
 // use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -63,7 +62,6 @@ use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
 use std::{
-    cmp,
     //collections::{BTreeSet, VecDeque},
     collections::VecDeque,
     //fs,
@@ -345,7 +343,7 @@ pub trait RunDA<
                         }
                         EventType::Decide {
                             leaf_chain,
-                            qc,
+                            qc: _,
                             block_size,
                         } => {
                             // this might be a obob
@@ -462,7 +460,6 @@ pub trait RunDA<
         // }
 
         let total_time_elapsed = start.elapsed();
-        let total_size = total_transactions * (padding as u64);
 
         // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
         error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
@@ -599,7 +596,6 @@ where
             port,
             wait_between_polls,
             pub_key.clone(),
-            known_nodes.clone(),
             false,
         );
 

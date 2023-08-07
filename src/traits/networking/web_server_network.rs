@@ -55,7 +55,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error, warn};
+use tracing::{error, warn, debug};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -202,15 +202,15 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             if message_purpose == MessagePurpose::Data {
                 let possible_message = self.get_txs_from_web_server(endpoint).await;
                 match possible_message {
-                    Ok(Some((index, deserialized_messages))) => {
-                        // tx_index = index;
-                        // Going to assume node can keep up.
+                    Ok(Some((_index, deserialized_messages))) => {
+                        // This code assumes nodes can keep up with the number of transactions coming through the network
+                        // We'll address this issue during https://github.com/EspressoSystems/HotShot/issues/1496
                         let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
                         for tx in &deserialized_messages {
                             tx_index += 1;
                             broadcast_poll_queue.push(tx.clone());
                         }
-                        error!("tx index is {}", tx_index);
+                        debug!("tx index is {}", tx_index);
                     }
                     Ok(None) => {
                         async_sleep(self.wait_between_polls).await;
@@ -554,23 +554,6 @@ impl<
             inner,
             server_shutdown_signal: None,
         }
-    }
-
-    /// Launches background tasks for polling the web server
-    async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES>>,
-        is_da: bool,
-    ) -> Result<(), ClientError> {
-        match is_da {
-            // TODO ED Deprecetate this funciton
-            // We are polling for DA-related events
-            true => {}
-
-            // We are polling for regular consensus events
-            false => {}
-        }
-
-        Ok(())
     }
 
     /// Parses a message to find the appropriate endpoint
@@ -1075,7 +1058,7 @@ impl<
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForTransactions(
-                            (view_number),
+                            view_number,
                         ))
                         .await;
                 } else {
@@ -1117,7 +1100,7 @@ impl<
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForTransactions(
-                            (view_number),
+                            view_number,
                         ))
                         .await;
                 } else {
