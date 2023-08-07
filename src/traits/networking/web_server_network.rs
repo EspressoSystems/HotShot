@@ -19,8 +19,6 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_task_impls::da;
-use hotshot_types::message;
 use hotshot_types::message::{Message, MessagePurpose};
 use hotshot_types::traits::network::ConsensusIntentEvent;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -55,7 +53,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error, warn, debug};
+use tracing::{debug, error, warn};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -149,6 +147,7 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     /// Whether we are connecting to a DA server
     is_da: bool,
 
+    /// The last tx_index we saw from the web server
     tx_index: Arc<RwLock<u64>>,
 
     // TODO ED This should be TYPES::Time
@@ -163,12 +162,14 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     view_sync_cert_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
     /// Task map for view sync votes.
     view_sync_vote_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
+    /// Task map for transactions
     txn_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
 }
 
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
     Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
+    #![allow(clippy::too_many_lines)]
     /// Pull a web server.
     async fn poll_web_server(
         &self,
@@ -228,7 +229,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     Ok(Some(deserialized_messages)) => {
                         match message_purpose {
                             MessagePurpose::Data => {
-                                panic!();
+                                error!("We should not receive transactions in this function");
                             }
                             MessagePurpose::Proposal => {
                                 // warn!(
@@ -309,7 +310,9 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 }
                             }
 
-                            _ => todo!(),
+                            MessagePurpose::Internal => {
+                                error!("Received internal message in web server network")
+                            }
                         }
                     }
                     Ok(None) => {
@@ -331,11 +334,8 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
-                            if view_number != event_view {
-                                panic!("Wrong event view number was sent to this task!");
-                            } else {
-                                // Shutdown this task
-                                error!("Shutting down polling task for view {}", event_view);
+                            if view_number == event_view {
+                                warn!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
                         }
@@ -345,11 +345,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             let mut lock = self.tx_index.write().await;
                             *lock = tx_index;
 
-                            warn!("Lock is {:?}", lock);
-                            if view_number != event_view {
-                                panic!("Wrong event view number was sent to this task!");
-                            } else {
-                                // Shutdown this task
+                            if view_number == event_view {
                                 warn!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
@@ -359,12 +355,15 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                     }
                 }
                 // Nothing on receiving channel
-                Err(_) => {}
+                Err(_) => {
+                    debug!("Nothing on receiving channel");
+                }
             }
         }
         Err(NetworkError::ShutDown)
     }
 
+    /// Fetches transactions from web server
     async fn get_txs_from_web_server(
         &self,
         endpoint: String,
@@ -1025,10 +1024,10 @@ impl<
             }
             ConsensusIntentEvent::PollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
-                if !task_map.contains_key(&view_number) {
+                if let std::collections::hash_map::Entry::Vacant(e) = task_map.entry(view_number) {
                     // create new task
                     let (sender, receiver) = unbounded();
-                    task_map.insert(view_number, sender);
+                    e.insert(sender);
                     async_spawn({
                         let inner_clone = self.inner.clone();
                         async move {
@@ -1037,14 +1036,14 @@ impl<
                                 .await
                             {
                                 error!(
-                                                "Background receive transaction polling encountered an error: {:?}",
-                                                e
-                                            );
+                                                               "Background receive transaction polling encountered an error: {:?}",
+                                                                 e
+                                                               );
                             }
                         }
                     });
                 } else {
-                    error!("Somehow task already existed!")
+                    error!("Somehow task already existed!");
                 }
 
                 // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
@@ -1052,56 +1051,12 @@ impl<
             ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
                 let mut task_map = self.inner.txn_task_map.write().await;
 
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
+                if let Some((_view, sender)) = task_map.remove_entry(&(view_number)) {
                     // Send task cancel message to old task
 
                     // If task already exited we expect an error
                     let _res = sender
-                        .send(ConsensusIntentEvent::CancelPollForTransactions(
-                            view_number,
-                        ))
-                        .await;
-                } else {
-                    error!("Task map entry should have existed");
-                }
-            }
-            ConsensusIntentEvent::PollForTransactions(view_number) => {
-                let mut task_map = self.inner.txn_task_map.write().await;
-                if !task_map.contains_key(&view_number) {
-                    // create new task
-                    let (sender, receiver) = unbounded();
-                    task_map.insert(view_number, sender);
-                    async_spawn({
-                        let inner_clone = self.inner.clone();
-                        async move {
-                            if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Data, view_number)
-                                .await
-                            {
-                                error!(
-                                                "Background receive transaction polling encountered an error: {:?}",
-                                                e
-                                            );
-                            }
-                        }
-                    });
-                } else {
-                    error!("Somehow task already existed!")
-                }
-
-                // TODO ED Do we need to GC before returning?  Or will view sync task handle that?
-            }
-            ConsensusIntentEvent::CancelPollForTransactions(view_number) => {
-                let mut task_map = self.inner.txn_task_map.write().await;
-
-                if let Some((view, sender)) = task_map.remove_entry(&(view_number)) {
-                    // Send task cancel message to old task
-
-                    // If task already exited we expect an error
-                    let _res = sender
-                        .send(ConsensusIntentEvent::CancelPollForTransactions(
-                            view_number,
-                        ))
+                        .send(ConsensusIntentEvent::CancelPollForTransactions(view_number))
                         .await;
                 } else {
                     error!("Task map entry should have existed");

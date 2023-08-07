@@ -435,18 +435,18 @@ where
                     warn!("Polling for DA proposals for view {}", *self.cur_view + 1);
                     self.committee_exchange
                         .network()
-                        .inject_consensus_info(
-                            (ConsensusIntentEvent::PollForProposal(*self.cur_view + 1)),
-                        )
+                        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
+                            *self.cur_view + 1,
+                        ))
                         .await;
                 }
                 if self.committee_exchange.is_leader(self.cur_view + 3) {
                     warn!("Polling for transactions for view {}", *self.cur_view + 3);
                     self.committee_exchange
                         .network()
-                        .inject_consensus_info(
-                            (ConsensusIntentEvent::PollForTransactions(*self.cur_view + 3)),
-                        )
+                        .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
+                            *self.cur_view + 3,
+                        ))
                         .await;
                 }
 
@@ -501,9 +501,9 @@ where
 
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info(
-                        (ConsensusIntentEvent::CancelPollForTransactions(*self.cur_view + 1)),
-                    )
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(
+                        *self.cur_view + 1,
+                    ))
                     .await;
 
                 for txn in txns {
@@ -572,7 +572,7 @@ where
         let task_start_time = Instant::now();
 
         // let parent_leaf = self.parent_leaf().await?;
-        let mut previous_used_txns = match parent_leaf.deltas {
+        let previous_used_txns = match parent_leaf.deltas {
             Either::Left(block) => block.contained_transactions(),
             Either::Right(_commitment) => HashSet::new(),
         };

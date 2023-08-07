@@ -127,6 +127,7 @@ pub trait WebServerDataSource<KEY> {
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
+    #[allow(clippy::type_complexity)]
     fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error>;
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
@@ -223,24 +224,23 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
     /// In the future we will return batches of transactions
     fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error> {
         let mut txns_to_return = vec![];
-        let mut txn_vec_size = 0;
 
-        let mut new_index = index as usize;
         let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
             0
         } else {
-            (self.num_txns as usize - MAX_TXNS)
+            self.num_txns as usize - MAX_TXNS
         };
 
-        if (index as usize) < lowest_in_memory_txs {
-            new_index = lowest_in_memory_txs;
+        let new_index = if (index as usize) < lowest_in_memory_txs {
+            lowest_in_memory_txs
         } else {
-            new_index = index as usize;
-        }
+            index as usize
+        };
 
         for idx in new_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
@@ -253,7 +253,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             error!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some((index.try_into().unwrap(), txns_to_return)))
+            Ok(Some((index, txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
