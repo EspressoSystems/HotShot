@@ -29,9 +29,8 @@ use hotshot_types::{
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
-
-use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use hotshot_types::traits::signature_key::bn254::{BN254Priv};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
 use rand_chacha::ChaCha20Rng;
@@ -267,10 +266,13 @@ where
 
         let known_nodes = config.known_nodes.clone();
         let known_nodes_qc = config.known_nodes_qc.clone();
-        let private_key = I::generate_test_key(node_id);
+        let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
+            [0u8; 32],
+            node_id,
+        ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         // Generate key pair for certificate aggregation
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
             [0_u8; 32],
             (node_id as u64).try_into().unwrap(),
         );
@@ -557,8 +559,7 @@ pub mod test {
         },
         vote::DAVote,
     };
-    use jf_primitives::signatures::BLSSignatureScheme;
-    use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+    use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(

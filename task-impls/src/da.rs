@@ -23,7 +23,6 @@ use hotshot_task::task::FilterEvent;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};

@@ -23,7 +23,7 @@ use super::{
     safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
     txn_task::TxnTaskDescription,
 };
-use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
+use hotshot_types::traits::signature_key::bn254::BN254Priv;
 use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::rand_core::SeedableRng;
@@ -121,13 +121,16 @@ impl TestMetadata {
 
         let known_nodes: Vec<<TYPES as NodeType>::SignatureKey> = (0..total_nodes)
             .map(|id| {
-                let priv_key = I::generate_test_key(id as u64);
+                let priv_key = TYPES::SignatureKey::generated_from_seed_indexed(
+                    [0u8; 32],
+                    id as u64,
+                ).1;
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
         let known_nodes_qc: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
         .map(|id| {
-            let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+            let real_seed = BN254Priv::get_seed_from_seed_indexed(
                 [0_u8; 32],
                 (id as u64).try_into().unwrap(),
             );

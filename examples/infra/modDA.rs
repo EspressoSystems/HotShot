@@ -55,7 +55,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 
-use hotshot_types::traits::signature_key::ed25519::Ed25519Priv;
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
@@ -250,7 +249,7 @@ pub trait RunDA<
         let view_sync_network = self.get_view_sync_network();
 
         // Get KeyPair for certificate Aggregation
-        let real_seed = Ed25519Priv::get_seed_from_seed_indexed(
+        let real_seed = BN254Priv::get_seed_from_seed_indexed(
             config.seed,
             config.node_index.try_into().unwrap(),
         );

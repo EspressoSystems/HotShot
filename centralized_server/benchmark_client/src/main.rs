@@ -7,14 +7,14 @@ use hotshot_centralized_server::{
     TcpStreamRecvUtil, TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::traits::signature_key::{
-    ed25519::{Ed25519Priv, Ed25519Pub},
+    bn254::{BN254Priv, BN254Pub},
     SignatureKey,
 };
 use std::{net::ToSocketAddrs, time::Instant};
 use tracing::{error, info};
 
-type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
-type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, ()>;
+type ToServer = hotshot_centralized_server::ToServer<BN254Pub>;
+type FromServer = hotshot_centralized_server::FromServer<BN254Pub, ()>;
 
 #[async_main]
 async fn main() {
@@ -47,8 +47,8 @@ async fn main() {
         }
     };
     info!("Received config {config:?}");
-    let privkey = Ed25519Priv::generated_from_seed_indexed([0u8; 32], config.node_index);
-    let pubkey = Ed25519Pub::from_private(&privkey);
+    let privkey = BN254Priv::generated_from_seed_indexed([0u8; 32], config.node_index);
+    let pubkey = BN254Pub::from_private(&privkey);
     write
         .send(ToServer::Identify { key: pubkey })
         .await

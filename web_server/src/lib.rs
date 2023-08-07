@@ -628,11 +628,11 @@ mod test {
 
     use super::*;
     use async_compatibility_layer::art::async_spawn;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    use hotshot_types::traits::signature_key::bn254::BN254Pub;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
 
-    type State = RwLock<WebServerState<Ed25519Pub>>;
+    type State = RwLock<WebServerState<BN254Pub>>;
     type Error = ServerError;
 
     #[cfg_attr(

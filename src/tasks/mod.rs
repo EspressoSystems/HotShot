@@ -56,7 +56,6 @@ use hotshot_types::{
         node_implementation::{
             CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
         },
-        signature_key::EncodedSignature,
         state::ConsensusTime,
         Block,
     },

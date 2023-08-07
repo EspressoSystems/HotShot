@@ -37,7 +37,7 @@ use hotshot_types::{
             WebServerNetworkError,
         },
         node_implementation::NodeType,
-        signature_key::{SignatureKey, TestableSignatureKey},
+        signature_key::SignatureKey,
     },
     vote::VoteType,
 };
@@ -1358,8 +1358,6 @@ impl<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -1381,7 +1379,7 @@ where
 
         let known_nodes = (0..expected_node_count as u64)
             .map(|id| {
-                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
+                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], id).1)
             })
             .collect::<Vec<_>>();
 
@@ -1419,8 +1417,6 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -1464,8 +1460,6 @@ impl<
         MEMBERSHIP,
         WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
     > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network() -> Box<
         dyn Fn(

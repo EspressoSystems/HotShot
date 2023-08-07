@@ -36,7 +36,6 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::aead::KeyPair;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -1259,7 +1258,6 @@ impl<
 
     
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        println!("Inside is_valid_view_sync_cert()");
         // Sishan NOTE TODO: would be better to test this, looks like this func is never called.
         let (certificate_internal, threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
@@ -1341,7 +1339,6 @@ impl<
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey) {
-        println!("Inside sign_certificate_proposal()");
         let signature = TYPES::SignatureKey::sign(self.key_pair.clone(), &certificate.commit().as_ref());
         ( signature, self.key_pair.ver_key().clone())
     }

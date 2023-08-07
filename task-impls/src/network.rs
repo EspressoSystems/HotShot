@@ -16,7 +16,6 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::EncodedSignature,
     },
     vote::VoteType,
 };

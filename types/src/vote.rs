@@ -412,7 +412,7 @@ where
             ).expect("this assembling shouldn't fail");
 
             if *yes_stake_casted >= u64::from(self.success_threshold) {
-                self.yes_vote_outcomes.remove(&commitment).unwrap().1;// Sishan NOTE TODO: Can we just use `clear` or something similar rather than deduct one vote?
+                self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(AssembledSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 self.total_vote_outcomes.remove(&commitment).unwrap().1;

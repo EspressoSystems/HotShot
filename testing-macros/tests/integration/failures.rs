@@ -2,7 +2,7 @@ use hotshot_testing_macros::cross_tests;
 
 cross_tests!(
      DemoType: [ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
-     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
+     SignatureKey: [ hotshot_types::traits::signature_key::bn254::BN254Pub ],
      CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
      Storage: [ hotshot::traits::implementations::MemoryStorage ],
      Time: [ hotshot_types::data::ViewNumber ],
@@ -37,7 +37,7 @@ cross_tests!(
 
 cross_tests!(
      DemoType: [ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
-     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
+     SignatureKey: [ hotshot_types::traits::signature_key::bn254::BN254Pub ],
      CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
      Storage: [ hotshot::traits::implementations::MemoryStorage ],
      Time: [ hotshot_types::data::ViewNumber ],
