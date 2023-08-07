@@ -10,7 +10,6 @@ use libp2p_networking::network::NetworkNodeHandleError;
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
@@ -142,6 +141,8 @@ pub enum ConsensusIntentEvent {
     PollForViewSyncVotes(u64),
     /// Poll for view sync proposals (certificates) for a particular view
     PollForViewSyncCertificate(u64),
+    /// Poll for new transactions
+    PollForTransactions(u64),
     /// Cancel polling for votes
     CancelPollForVotes(u64),
     /// Cancel polling for view sync votes.
@@ -152,6 +153,8 @@ pub enum ConsensusIntentEvent {
     CancelPollForDAC(u64),
     /// Cancel polling for view sync certificate.
     CancelPollForViewSyncCertificate(u64),
+    /// Cancel polling for transactions
+    CancelPollForTransactions(u64),
 }
 
 impl ConsensusIntentEvent {
@@ -168,7 +171,9 @@ impl ConsensusIntentEvent {
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
-            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => *view_number,
+            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
+            | ConsensusIntentEvent::PollForTransactions(view_number)
+            | ConsensusIntentEvent::CancelPollForTransactions(view_number) => *view_number,
         }
     }
 }

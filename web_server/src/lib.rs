@@ -27,9 +27,11 @@ type Error = ServerError;
 
 // TODO ED: Below values should be in a config file
 /// How many views to keep in memory
-const MAX_VIEWS: usize = 100;
+const MAX_VIEWS: usize = 25;
 /// How many transactions to keep in memory
-const MAX_TXNS: usize = 1000;
+const MAX_TXNS: usize = 500;
+/// How many transactions to return at once
+const TX_BATCH_SIZE: u64 = 1;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
@@ -64,8 +66,10 @@ struct WebServerState<KEY> {
     /// index -> transaction
     // TODO ED Make indexable by hash of tx
     transactions: HashMap<u64, Vec<u8>>,
+    txn_lookup: HashMap<Vec<u8>, u64>,
     /// highest transaction index
     num_txns: u64,
+
     /// shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
     /// stake table with leader keys
@@ -88,6 +92,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
             transactions: HashMap::new(),
+            txn_lookup: HashMap::new(),
             _prng: StdRng::from_entropy(),
             view_sync_proposals: HashMap::new(),
             view_sync_votes: HashMap::new(),
@@ -122,7 +127,8 @@ pub trait WebServerDataSource<KEY> {
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
-    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    #[allow(clippy::type_complexity)]
+    fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error>;
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
@@ -134,6 +140,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_da_certificate(&mut self, view_number: u64, cert: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
+    fn post_completed_transaction(&mut self, block: Vec<u8>) -> Result<(), Error>;
     fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
     fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)>;
 }
@@ -217,15 +224,36 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
     /// In the future we will return batches of transactions
-    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        let mut txns = vec![];
-        if let Some(txn) = self.transactions.get(&index) {
-            txns.push(txn.clone())
+    fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error> {
+        let mut txns_to_return = vec![];
+
+        let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
+            0
+        } else {
+            self.num_txns as usize - MAX_TXNS
+        };
+
+        let new_index = if (index as usize) < lowest_in_memory_txs {
+            lowest_in_memory_txs
+        } else {
+            index as usize
+        };
+
+        for idx in new_index..=self.num_txns.try_into().unwrap() {
+            if let Some(txn) = self.transactions.get(&(idx as u64)) {
+                txns_to_return.push(txn.clone())
+            }
+            if txns_to_return.len() >= TX_BATCH_SIZE as usize {
+                break;
+            }
         }
-        if !txns.is_empty() {
-            Ok(Some(txns))
+
+        if !txns_to_return.is_empty() {
+            error!("Returning this many txs {}", txns_to_return.len());
+            Ok(Some((index, txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
@@ -365,10 +393,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // Only keep MAX_TXNS in memory
+        // TODO ED Remove txs from txn_lookup
         if self.transactions.len() >= MAX_TXNS {
             self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
         }
+        self.txn_lookup.insert(txn.clone(), self.num_txns);
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
@@ -400,6 +429,18 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             Err(ServerError {
                 status: StatusCode::BadRequest,
                 message: "Only signature keys can be added to stake table".to_string(),
+            })
+        }
+    }
+
+    fn post_completed_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
+        if let Some(idx) = self.txn_lookup.remove(&txn) {
+            self.transactions.remove(&idx);
+            Ok(())
+        } else {
+            Err(ServerError {
+                status: StatusCode::BadRequest,
+                message: "Transaction Not Found".to_string(),
             })
         }
     }
@@ -562,6 +603,14 @@ where
             //works one key at a time for now
             let key = req.body_bytes();
             state.post_staketable(key)
+        }
+        .boxed()
+    })?
+    .post("postcompletedtransaction", |req, state| {
+        async move {
+            //works one key at a time for now
+            let key = req.body_bytes();
+            state.post_completed_transaction(key)
         }
         .boxed()
     })?

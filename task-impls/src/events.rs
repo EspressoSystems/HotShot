@@ -36,6 +36,7 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ViewSyncTrigger(ViewNumber),
     Timeout(ViewNumber),
     TransactionsRecv(Vec<TYPES::Transaction>),
+    TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
 
     // Event to send DA block data from DA leader to next quorum leader (which should always be the same node)
     SendDABlockData(TYPES::BlockType),
