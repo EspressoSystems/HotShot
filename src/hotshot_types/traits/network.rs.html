@@ -363,6 +363,11 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -375,7 +380,6 @@
 </span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
 <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-
 <span class="kw">use super</span>::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 <span class="kw">use </span>async_trait::async_trait;
@@ -507,6 +511,8 @@
     </span>PollForViewSyncVotes(u64),
     <span class="doccomment">/// Poll for view sync proposals (certificates) for a particular view
     </span>PollForViewSyncCertificate(u64),
+    <span class="doccomment">/// Poll for new transactions
+    </span>PollForTransactions(u64),
     <span class="doccomment">/// Cancel polling for votes
     </span>CancelPollForVotes(u64),
     <span class="doccomment">/// Cancel polling for view sync votes.
@@ -517,6 +523,8 @@
     </span>CancelPollForDAC(u64),
     <span class="doccomment">/// Cancel polling for view sync certificate.
     </span>CancelPollForViewSyncCertificate(u64),
+    <span class="doccomment">/// Cancel polling for transactions
+    </span>CancelPollForTransactions(u64),
 }
 
 <span class="kw">impl </span>ConsensusIntentEvent {
@@ -533,7 +541,9 @@
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
-            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number) =&gt; <span class="kw-2">*</span>view_number,
+            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
+            | ConsensusIntentEvent::PollForTransactions(view_number)
+            | ConsensusIntentEvent::CancelPollForTransactions(view_number) =&gt; <span class="kw-2">*</span>view_number,
         }
     }
 }

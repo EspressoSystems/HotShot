@@ -1949,7 +1949,7 @@
                 .<span class="kw">await</span>;
 
             <span class="kw">if </span><span class="self">self</span>.quorum_exchange.is_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) {
-                <span class="macro">error!</span>(<span class="string">&quot;Polling for quorum votes for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view);
+                <span class="macro">warn!</span>(<span class="string">&quot;Polling for quorum votes for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view);
                 <span class="self">self</span>.quorum_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(<span class="kw-2">*</span><span class="self">self</span>.cur_view))
@@ -2305,11 +2305,11 @@
                             }
 
                             <span class="comment">// warn!(&quot;Inserting leaf into storage {:?}&quot;, leaf.commit());
-                            </span><span class="kw">if </span><span class="kw-2">*</span>view % <span class="number">10 </span>== <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.quorum_exchange.is_leader(view) {
-                                <span class="macro">error!</span>(<span class="string">&quot;Sending Decide for view {:?}&quot;</span>, consensus.last_decided_view);
-                                <span class="macro">error!</span>(<span class="string">&quot;Decided txns {:?}&quot;</span>, included_txns_set)
-                            }
-                            decide_sent.<span class="kw">await</span>;
+                            // if *view % 10 == 0 &amp;&amp; self.quorum_exchange.is_leader(view) {
+                            </span><span class="macro">warn!</span>(<span class="string">&quot;Sending Decide for view {:?}&quot;</span>, consensus.last_decided_view);
+                            <span class="macro">warn!</span>(<span class="string">&quot;Decided txns len {:?}&quot;</span>, included_txns_set.len());
+                            <span class="comment">// }
+                            </span>decide_sent.<span class="kw">await</span>;
                         }
 
                         <span class="kw">let </span>new_view = <span class="self">self</span>.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
@@ -2485,7 +2485,7 @@
                 // warn!(&quot;Handle qc formed event!&quot;);
                 // TODO ED Why isn&#39;t cur view correct here?
                 // // So we don&#39;t create a QC on the first view unless we are the leader
-                </span><span class="macro">error!</span>(
+                </span><span class="macro">warn!</span>(
                     <span class="string">&quot;Attempting to publish proposal after forming a QC for view {}&quot;</span>,
                     <span class="kw-2">*</span>qc.view_number
                 );
@@ -2707,7 +2707,7 @@
 
         <span class="kw">let </span>block_commitment = <span class="self">self</span>.block.commit();
         <span class="kw">if </span>block_commitment == TYPES::BlockType::new().commit() {
-            <span class="macro">error!</span>(<span class="string">&quot;Block is generic block! {:?}&quot;</span>, <span class="self">self</span>.cur_view);
+            <span class="macro">warn!</span>(<span class="string">&quot;Block is generic block! {:?}&quot;</span>, <span class="self">self</span>.cur_view);
         }
         <span class="comment">// warn!(
         //     &quot;leaf commitment of new qc: {:?}&quot;,

@@ -725,64 +725,6 @@
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -833,7 +775,6 @@
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
-<span class="kw">use </span>hotshot_web_server::config::DEFAULT_WEB_SERVER_VIEW_SYNC_PORT;
 <span class="comment">// use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -848,7 +789,6 @@
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::net::Ipv4Addr;
 <span class="kw">use </span>std::{
-    cmp,
     <span class="comment">//collections::{BTreeSet, VecDeque},
     </span>collections::VecDeque,
     <span class="comment">//fs,
@@ -864,6 +804,7 @@
 //use surf_disco::Client;
 </span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>tracing::error;
+<span class="kw">use </span>tracing::warn;
 
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator_da&lt;
@@ -1030,16 +971,16 @@
             &gt;&gt;::Membership::default_election_config(config.config.total_nodes.get() <span class="kw">as </span>u64)
         });
 
-        <span class="kw">let </span>_committee_election_config = &lt;CommitteeEx&lt;TYPES, NODE&gt; <span class="kw">as </span>ConsensusExchange&lt;
+        <span class="kw">let </span>committee_election_config = &lt;CommitteeEx&lt;TYPES, NODE&gt; <span class="kw">as </span>ConsensusExchange&lt;
             TYPES,
             Message&lt;TYPES, NODE&gt;,
         &gt;&gt;::Membership::default_election_config(
-            config.config.total_nodes.get() <span class="kw">as </span>u64
+            config.config.da_committee_size.try_into().unwrap(),
         );
 
         <span class="kw">let </span>exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, _committee_election_config),
+            (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
                 view_sync_network.clone(),
@@ -1079,10 +1020,8 @@
         <span class="kw">let </span>adjusted_padding = <span class="kw">if </span>padding &lt; size { <span class="number">0 </span>} <span class="kw">else </span>{ padding - size };
         <span class="kw">let </span><span class="kw-2">mut </span>txns: VecDeque&lt;TYPES::Transaction&gt; = VecDeque::new();
 
-        <span class="comment">// This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
-        // FIXME  is this a reasonable assumption when we start doing DA?
-        // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        </span><span class="kw">let </span>tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, <span class="number">1</span>) + <span class="number">5</span>);
+        <span class="comment">// TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
+        </span><span class="kw">let </span>tx_to_gen = transactions_per_round * rounds * <span class="number">3</span>;
         {
             <span class="kw">let </span><span class="kw-2">mut </span>txn_rng = rand::thread_rng();
             <span class="kw">for _ in </span><span class="number">0</span>..tx_to_gen {
@@ -1110,8 +1049,6 @@
 
         <span class="kw">let </span>total_nodes_u64 = total_nodes.get() <span class="kw">as </span>u64;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>should_submit_txns = node_index == (round % total_nodes_u64);
-
         <span class="kw">let </span>api = HotShotSequencingConsensusApi {
             inner: context.hotshot.inner.clone(),
         };
@@ -1119,24 +1056,6 @@
         context.hotshot.start_consensus().<span class="kw">await</span>;
 
         <span class="kw">loop </span>{
-            <span class="kw">if </span>should_submit_txns {
-                <span class="kw">for _ in </span><span class="number">0</span>..transactions_per_round {
-                    <span class="kw">let </span>txn = txns.pop_front().unwrap();
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
-
-                    api.send_transaction(DataMessage::SubmitTransaction(
-                        txn.clone(),
-                        TYPES::Time::new(<span class="number">0</span>),
-                    ))
-                    .<span class="kw">await
-                    </span>.expect(<span class="string">&quot;Could not send transaction&quot;</span>);
-                    <span class="comment">// return (None, state);
-                    // context.submit_transaction(txn).await.unwrap();
-                    </span>total_transactions += <span class="number">1</span>;
-                }
-                should_submit_txns = <span class="bool-val">false</span>;
-            }
-
             <span class="kw">match </span>event_stream.next().<span class="kw">await </span>{
                 <span class="prelude-val">None </span>=&gt; {
                     <span class="macro">panic!</span>(<span class="string">&quot;Error! Event stream completed before consensus ended.&quot;</span>);
@@ -1154,7 +1073,7 @@
                         } =&gt; {
                             <span class="comment">// this might be a obob
                             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = leaf_chain.get(<span class="number">0</span>) {
-                                <span class="macro">error!</span>(<span class="string">&quot;Decide event for leaf: {}&quot;</span>, <span class="kw-2">*</span>leaf.view_number);
+                                <span class="macro">warn!</span>(<span class="string">&quot;Decide event for leaf: {}&quot;</span>, <span class="kw-2">*</span>leaf.view_number);
 
                                 <span class="kw">let </span>new_anchor = leaf.view_number;
                                 <span class="kw">if </span>new_anchor &gt;= anchor_view {
@@ -1189,8 +1108,26 @@
                             <span class="kw">if </span><span class="kw-2">*</span>view_number &gt; round {
                                 round = <span class="kw-2">*</span>view_number;
                                 <span class="macro">tracing::error!</span>(<span class="string">&quot;view finished: {:?}&quot;</span>, view_number);
-                                <span class="kw">if </span>(round % total_nodes_u64) == node_index {
-                                    should_submit_txns = <span class="bool-val">true</span>;
+                                <span class="kw">for _ in </span><span class="number">0</span>..transactions_per_round {
+                                    <span class="kw">if </span>node_index &gt;= total_nodes_u64 - <span class="number">10 </span>{
+                                        <span class="kw">let </span>txn = txns.pop_front().unwrap();
+
+                                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
+
+                                        <span class="kw">let </span>result = api
+                                            .send_transaction(DataMessage::SubmitTransaction(
+                                                txn.clone(),
+                                                TYPES::Time::new(<span class="number">0</span>),
+                                            ))
+                                            .<span class="kw">await</span>;
+
+                                        <span class="kw">if </span>result.is_err() {
+                                            <span class="macro">error! </span>(
+                                            <span class="string">&quot;Could not send transaction to web server on round {}&quot;</span>,
+                                            round
+                                        )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1201,54 +1138,10 @@
 
             round += <span class="number">1</span>;
         }
-        <span class="comment">// while round &lt;= rounds {
-        //     error!(&quot;Round {}:&quot;, round);
 
-        //     let num_submitted = if node_index == ((round % total_nodes) as u64) {
-        //         for _ in 0..transactions_per_round {
-        //             let txn = txns.pop_front().unwrap();
-        //             tracing::info!(&quot;Submitting txn on round {}&quot;, round);
-        //             hotshot.submit_transaction(txn).await.unwrap();
-        //         }
-        //         transactions_per_round
-        //     } else {
-        //         0
-        //     };
-        //     error!(&quot;Submitting {} transactions&quot;, num_submitted);
-
-        //     // Start consensus
-        //     let view_results = hotshot.collect_round_events().await;
-
-        //     match view_results {
-        //         Ok((leaf_chain, _qc)) =&gt; {
-        //             let blocks: Vec&lt;Either&lt;TYPES::BlockType, Commitment&lt;TYPES::BlockType&gt;&gt;&gt; =
-        //                 leaf_chain
-        //                     .into_iter()
-        //                     .map(|leaf| leaf.get_deltas())
-        //                     .collect();
-        //             for b in blocks.into_iter() {
-        //                 b.either(
-        //                     |block| total_transactions += block.txn_count(),
-        //                     |_| total_commitments += 1,
-        //                 );
-        //             }
-        //         }
-        //         Err(e) =&gt; {
-        //             timed_out_views += 1;
-        //             error!(&quot;View: {:?}, failed with : {:?}&quot;, round, e);
-        //         }
-        //     }
-
-        //     round += 1;
-        // }
-
+        <span class="comment">// Output run results
         </span><span class="kw">let </span>total_time_elapsed = start.elapsed();
-        <span class="kw">let </span>total_size = total_transactions * (padding <span class="kw">as </span>u64);
-
-        <span class="comment">// This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        </span><span class="macro">error!</span>(<span class="string">&quot;All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted&quot;</span>);
-        <span class="macro">error!</span>(<span class="string">&quot;Total commitments: {num_successful_commits}&quot;</span>);
-        <span class="macro">error!</span>(<span class="string">&quot;Total transactions committed: {total_transactions}&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}&quot;</span>);
     }
 
     <span class="doccomment">/// Returns the da network for this run
@@ -1375,6 +1268,14 @@
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
+        <span class="kw">let </span>underlying_quorum_network = WebServerNetwork::create(
+            <span class="kw-2">&amp;</span>host.to_string(),
+            port,
+            wait_between_polls,
+            pub_key.clone(),
+            <span class="bool-val">false</span>,
+        );
+
         <span class="comment">// Create the network
         </span><span class="kw">let </span>quorum_network: WebCommChannel&lt;
             TYPES,
@@ -1382,16 +1283,7 @@
             QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
             QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
             MEMBERSHIP,
-        &gt; = WebCommChannel::new(
-            WebServerNetwork::create(
-                <span class="kw-2">&amp;</span>host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key.clone(),
-                <span class="bool-val">false</span>,
-            )
-            .into(),
-        );
+        &gt; = WebCommChannel::new(underlying_quorum_network.clone().into());
 
         <span class="kw">let </span>view_sync_network: WebCommChannel&lt;
             TYPES,
@@ -1399,16 +1291,7 @@
             ViewSyncCertificate&lt;TYPES&gt;,
             ViewSyncVote&lt;TYPES&gt;,
             MEMBERSHIP,
-        &gt; = WebCommChannel::new(
-            WebServerNetwork::create(
-                <span class="kw-2">&amp;</span>host.to_string(),
-                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
-                wait_between_polls,
-                pub_key.clone(),
-                <span class="bool-val">false</span>,
-            )
-            .into(),
-        );
+        &gt; = WebCommChannel::new(underlying_quorum_network.into());
 
         <span class="kw">let </span>WebServerConfig {
             host,
@@ -1416,7 +1299,8 @@
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
-        <span class="kw">let </span>da_network: WebCommChannel&lt;TYPES, NODE, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt; =
+        <span class="comment">// Each node runs the DA network so that leaders have access to transactions and DA votes
+        </span><span class="kw">let </span>da_network: WebCommChannel&lt;TYPES, NODE, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt; =
             WebCommChannel::new(
                 WebServerNetwork::create(
                     <span class="kw-2">&amp;</span>host.to_string(),
