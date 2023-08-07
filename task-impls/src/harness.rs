@@ -5,20 +5,18 @@ use futures::FutureExt;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::{
     event_stream::{self, ChannelStream},
-    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS},
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
 
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
-use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
-    timeout: usize,
 }
 
 pub struct EventBundle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -38,7 +36,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for TestHarnessState<TYPE
 
 #[derive(Snafu, Debug)]
 pub struct TestHarnessTaskError {}
-impl TaskErr for TestHarnessTaskError {}
 
 pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessTaskError,
@@ -55,10 +52,7 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
     let event_stream = event_stream::ChannelStream::new();
-    let state = TestHarnessState {
-        expected_output,
-        timeout: 10000,
-    };
+    let state = TestHarnessState { expected_output };
     let handler = HandleEvent(Arc::new(move |event, state| {
         async move { handle_event(event, state) }.boxed()
     }));
@@ -78,10 +72,10 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
     let task_runner = build_fn(task_runner, event_stream.clone());
 
-    let runner = async_spawn(async move { task_runner.launch().await });
+    let _runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
-        let _ = event_stream.publish(event);
+        let _ = event_stream.publish(event).await;
     }
     // TODO fix type weirdness btwn tokio and async-std
     todo!();

@@ -43,21 +43,25 @@ channel-async-std = [
 
 [dependencies]
 arbitrary = { version = "1.3", features = ["derive"] }
-async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.2.0", default-features = false, features = [ "logging-utils" ] }
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.3.0", default-features = false, features = [ "logging-utils" ] }
 async-lock = "2.7"
 async-std = { version = "1.12.0", optional = true, features = ["unstable"] }
-async-trait = "0.1.68"
+async-trait = "0.1.71"
 ark-serialize = { version = "0.3", features = ["derive"] }
 ark-std = "0.4"
 bincode = "1.3.3"
-blake3 = "1.4.0"
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
+blake3 = "1.4.1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 derivative = "2.2.0"
+digest = { version = "0.10" }
+displaydoc = { version = "0.2.3", default-features = false }
 ed25519-compact = { version = "2.0.4", optional = true }
 either = { version = "1.8.1", features = [ "serde" ] }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 futures = "0.3.28"
+generic-array = "0.14.7"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", default-features = false }
@@ -66,10 +70,10 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch =
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
-serde = { version = "1.0.164", features = ["derive"] }
-snafu = "0.7.4"
+serde = { version = "1.0.171", features = ["derive"] }
+snafu = "0.7.5"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
-time = "0.3.22"
+time = "0.3.23"
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
@@ -88,4 +92,4 @@ tokio = { version = "1", optional = true, features = [
 tracing = "0.1.37"
 
 [dev-dependencies]
-serde_json = "1.0.96"
+serde_json = "1.0.103"

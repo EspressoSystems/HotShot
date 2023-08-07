@@ -89,7 +89,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generators = (
             <WebServerNetwork<
@@ -102,16 +102,18 @@ where
                 num_bootstrap,
                 network_id,
                 da_committee_size,
-                _is_da
+                is_da
             ),
-            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id, da_committee_size,     _is_da)
+            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(
+                expected_node_count,
+                num_bootstrap,
+                network_id,
+                da_committee_size,
+                is_da
+            )
         );
         Box::new(move |node_id| {
-            CombinedNetworks(
-                generators.0(node_id),
-                generators.1(node_id),
-                PhantomData::default(),
-            )
+            CombinedNetworks(generators.0(node_id), generators.1(node_id), PhantomData)
         })
     }
 
@@ -134,7 +136,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CombinedNetworks<
             TYPES,
@@ -145,7 +147,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            _is_da
+            is_da
         );
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),
@@ -293,12 +295,12 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) -> Result<(), NetworkError> {
-        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
+        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(self.network(), event)
-        .await
+        .await;
     }
 }
 

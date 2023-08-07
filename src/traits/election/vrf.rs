@@ -1,43 +1,13 @@
-// // Needed to avoid the non-biding `let` warning.
-// #![allow(clippy::let_underscore_untyped)]
-
-// use ark_ed_on_bls12_381::EdwardsConfig as Param381;
-// use ark_bls12_381::Parameters as Param381;
-// use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
-// use blake3::Hasher;
-// use commit::{Commitment, Committable, RawCommitmentBuilder};
-// use derivative::Derivative;
-// use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::signature_key::{
     EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey,
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    // hash_to_group::TEHashToGroup,
-    signatures::{
-        // bls_over_bls12381::{BLSSignature, BLSVerKey},
-        BLSSignatureScheme,
-        SignatureScheme,
-    },
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
-};
-/// use jf_primitives::signatures::{SignatureScheme, bls_over_bls12381::BLSSignatureScheme};
+use jf_primitives::signatures::{BLSSignatureScheme, SignatureScheme};
 #[allow(deprecated)]
-// use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
-// use rand_chacha::ChaChaRng;
 use serde::{de, Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    hash::Hash,
-    marker::PhantomData,
-    num::NonZeroU64,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
-// use tracing::{error, info, instrument};
+use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
@@ -243,8 +213,9 @@ where
         })
     }
 
-    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
         hasher.update(&index.to_le_bytes());
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);

@@ -1,17 +1,16 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
 use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
-use bincode::config::Options;
-use commit::Commitment;
+use bincode::Options;
 use commit::Committable;
 use core::time::Duration;
 use either::Either;
 use either::Left;
 use either::Right;
-use futures::future::BoxFuture;
 use futures::FutureExt;
 use hotshot_consensus::utils::Terminator;
 use hotshot_consensus::utils::ViewInner;
@@ -23,10 +22,9 @@ use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
 use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-use hotshot_task::task_launcher::TaskRunner;
 use hotshot_types::data::LeafType;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::ViewNumber;
@@ -55,11 +53,9 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
-use std::alloc::GlobalAlloc;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::pin::Pin;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
@@ -67,7 +63,6 @@ use tracing::{error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 // #[derive(Debug)]
 pub struct SequencingConsensusTaskState<
@@ -97,6 +92,8 @@ pub struct SequencingConsensusTaskState<
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
+    /// View timeout from config.
+    pub timeout: u64,
     /// View number this view is executing in.
     pub cur_view: ViewNumber,
 
@@ -158,6 +155,7 @@ pub struct VoteCollectionTaskState<
 {
     /// the quorum exchange
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
+    #[allow(clippy::type_complexity)]
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
     pub cur_view: TYPES::Time,
@@ -235,8 +233,6 @@ where
                     None,
                 ) {
                     Either::Left(acc) => {
-                        let total_votes = acc.total_vote_outcomes.len();
-                        // warn!("Not enough votes total votes: {}", total_votes);
                         state.accumulator = Either::Left(acc);
                         return (None, state);
                     }
@@ -252,9 +248,9 @@ where
                         state
                             .quorum_exchange
                             .network()
-                            .inject_consensus_info(
-                                (ConsensusIntentEvent::CancelPollForVotes(*qc.view_number)),
-                            )
+                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                                *qc.view_number,
+                            ))
                             .await;
 
                         return (Some(HotShotTaskCompleted::ShutDown), state);
@@ -262,7 +258,7 @@ where
                 }
             }
             QuorumVote::Timeout(_vote) => {
-                panic!("The next leader has received an unexpected vote!");
+                error!("The next leader has received an unexpected vote!");
                 return (None, state);
             }
             QuorumVote::No(_) => {
@@ -303,11 +299,6 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    async fn send_da(&self) {
-        // TODO bf we need to send a DA proposal as soon as we are chosen as the leader
-        // ED: Added this in the DA task ^
-    }
-
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
 
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
@@ -384,13 +375,13 @@ where
                             proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
                         };
 
-                        let message: GeneralConsensusMessage<TYPES, I>;
-                        message = self.quorum_exchange.create_yes_message(
-                            proposal.justify_qc.commit(),
-                            leaf.commit(),
-                            view,
-                            vote_token,
-                        );
+                        let message: GeneralConsensusMessage<TYPES, I> =
+                            self.quorum_exchange.create_yes_message(
+                                proposal.justify_qc.commit(),
+                                leaf.commit(),
+                                view,
+                                vote_token,
+                            );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
                             warn!(
@@ -408,7 +399,7 @@ where
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            if let Some(cert) = self.certs.get(&(*&proposal.get_view_number())) {
+            if let Some(cert) = self.certs.get(&(proposal.get_view_number())) {
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -449,12 +440,11 @@ where
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
                         };
-                        let message: GeneralConsensusMessage<TYPES, I>;
-
+                        let message: GeneralConsensusMessage<TYPES, I>=
                         // Validate the DAC.
                         if !self
                             .committee_exchange
-                            .is_valid_cert(&cert, proposal.block_commitment)
+                            .is_valid_cert(cert, proposal.block_commitment)
                         {
                             error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert.view_number, self.cur_view );
                             return false;
@@ -465,13 +455,12 @@ where
                             //     vote_token,
                             // );
                         } else {
-                            message = self.quorum_exchange.create_yes_message(
+                            self.quorum_exchange.create_yes_message(
                                 proposal.justify_qc.commit(),
                                 leaf.commit(),
                                 cert.view_number,
-                                vote_token,
-                            );
-                        }
+                                vote_token)
+                        };
 
                         // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
@@ -497,7 +486,7 @@ where
             "Could not vote because we don't have a proposal yet for view {}",
             *self.cur_view
         );
-        return false;
+        false
     }
 
     /// Must only update the view and GC if the view actually changes
@@ -524,19 +513,19 @@ where
 
             self.quorum_exchange
                 .network()
-                .inject_consensus_info((ConsensusIntentEvent::PollForProposal(*self.cur_view)))
+                .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view))
                 .await;
 
             self.quorum_exchange
                 .network()
-                .inject_consensus_info((ConsensusIntentEvent::PollForDAC(*self.cur_view)))
+                .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view))
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
                 warn!("Polling for quorum votes for view {}", *self.cur_view);
                 self.quorum_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
+                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view))
                     .await;
             }
 
@@ -545,16 +534,17 @@ where
                 .await;
 
             // Spawn a timeout task if we did actually update view
+            let timeout = self.timeout;
             self.timeout_task = async_spawn({
                 // let next_view_timeout = hotshot.inner.config.next_view_timeout;
                 // let next_view_timeout = next_view_timeout;
                 // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
                 // TODO(bf): get the real timeout from the config.
                 let stream = self.event_stream.clone();
-                let view_number = self.cur_view.clone();
+                let view_number = self.cur_view;
                 async move {
                     // ED: Changing to 1 second to test timeout logic
-                    async_sleep(Duration::from_millis(30000)).await;
+                    async_sleep(Duration::from_millis(timeout)).await;
                     stream
                         .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
                             *view_number,
@@ -586,7 +576,7 @@ where
 
                 let view_leader_key = self.quorum_exchange.get_leader(view);
                 if view_leader_key != sender {
-                    panic!("Leader key does not match key in proposal");
+                    error!("Leader key does not match key in proposal");
                     return;
                 }
 
@@ -783,14 +773,12 @@ where
                                     leaf_views.push(leaf.clone());
                                     match &leaf.deltas {
                                         Left(block) => {
-                                        let txns = block.contained_transactions();
-                                        for txn in txns {
-                                            included_txns.insert(txn);
+                                            let txns = block.contained_transactions();
+                                            for txn in txns {
+                                                included_txns.insert(txn);
+                                            }
                                         }
-                                    }
-                                    Right(commit) => {
-
-                                    }
+                                        Right(_) => {}
                                 }
                             }
                                 true
@@ -829,6 +817,16 @@ where
                         }
                         #[allow(clippy::cast_precision_loss)]
                         if new_decide_reached {
+                            let mut included_txn_size = 0;
+                            let mut included_txn_count = 0;
+                            let txns = consensus.transactions.cloned().await;
+                            // store transactions in this block we never added to our transactions.
+                            let _ = included_txns_set.iter().map(|hash| {
+                                if !txns.contains_key(hash) {
+                                    consensus.seen_transactions.insert(*hash);
+                                }
+                            });
+                            drop(txns);
                             consensus
                                 .transactions
                                 .modify(|txns| {
@@ -836,6 +834,10 @@ where
                                         .drain()
                                         .filter(|(txn_hash, txn)| {
                                             if included_txns_set.contains(txn_hash) {
+                                                included_txn_count += 1;
+                                                included_txn_size += bincode_opts()
+                                                    .serialized_size(txn)
+                                                    .unwrap_or_default();
                                                 false
                                             } else {
                                                 true
@@ -844,6 +846,15 @@ where
                                         .collect();
                                 })
                                 .await;
+
+                            consensus
+                                .metrics
+                                .outstanding_transactions
+                                .update(-included_txn_count);
+                            consensus
+                                .metrics
+                                .outstanding_transactions_memory_size
+                                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
                             warn!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
@@ -944,7 +955,7 @@ where
                                 // ED I think we'd want to let that task timeout to avoid a griefing vector
                                 self.registry.shutdown_task(*collection_task).await;
                             }
-                            collection_view.clone()
+                            *collection_view
                         } else {
                             ViewNumber::new(0)
                         };
@@ -996,25 +1007,17 @@ where
 
                             self.vote_collector = Some((vote.current_view, id, stream_id));
 
-                            let task = async_spawn(async move {
+                            let _task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
                             warn!("Starting vote handle for view {:?}", vote.current_view);
-                        } else {
-                            if let Some((view, _, stream_id)) = self.vote_collector {
-                                // warn!(
-                                //     "directly sending vote to vote collection task. view {:?}",
-                                //     view
-                                // );
-                                self.event_stream
-                                    .direct_message(
-                                        stream_id,
-                                        SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(
-                                            vote,
-                                        )),
-                                    )
-                                    .await;
-                            }
+                        } else if let Some((_, _, stream_id)) = self.vote_collector {
+                            self.event_stream
+                                .direct_message(
+                                    stream_id,
+                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(vote)),
+                                )
+                                .await;
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
@@ -1101,15 +1104,6 @@ where
                 }
 
                 error!("View Change event for view {}", *new_view);
-
-                // If we are the next leader start polling for votes for this view
-                // if self.quorum_exchange.is_leader(self.cur_view + 1) {
-                //     error!("Polling for quorum votes for view {}", *self.cur_view);
-                //     self.quorum_exchange
-                //         .network()
-                //         .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view)))
-                //         .await;
-                // }
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1207,7 +1201,7 @@ where
                 // TODO ED In the future send a timeout vote
                 self.quorum_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
                 error!(
                     "We received a timeout event in the consensus task for view {}!",
@@ -1237,7 +1231,7 @@ where
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-            // This should have been added by the replica? 
+            // This should have been added by the replica?
             error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return false;
         };
@@ -1333,7 +1327,7 @@ where
                 self.quorum_exchange.public_key().clone(),
             ))
             .await;
-        return true;
+        true
     }
 }
 
@@ -1420,14 +1414,14 @@ where
 pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     event: &SequencingHotShotEvent<TYPES, I>,
 ) -> bool {
-    match event {
+    matches!(
+        event,
         SequencingHotShotEvent::QuorumProposalRecv(_, _)
-        | SequencingHotShotEvent::QuorumVoteRecv(_)
-        | SequencingHotShotEvent::QCFormed(_)
-        | SequencingHotShotEvent::DACRecv(_)
-        | SequencingHotShotEvent::ViewChange(_)
-        | SequencingHotShotEvent::SendDABlockData(_)
-        | SequencingHotShotEvent::Timeout(_) => true,
-        _ => false,
-    }
+            | SequencingHotShotEvent::QuorumVoteRecv(_)
+            | SequencingHotShotEvent::QCFormed(_)
+            | SequencingHotShotEvent::DACRecv(_)
+            | SequencingHotShotEvent::ViewChange(_)
+            | SequencingHotShotEvent::SendDABlockData(_)
+            | SequencingHotShotEvent::Timeout(_)
+    )
 }

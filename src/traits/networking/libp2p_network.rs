@@ -701,12 +701,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 
@@ -734,7 +730,7 @@ impl<
     /// create a new libp2p communication channel
     #[must_use]
     pub fn new(network: Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
-        Self(network, PhantomData::default())
+        Self(network, PhantomData)
     }
 }
 
@@ -764,7 +760,7 @@ where
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
+        is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES, I>,
@@ -774,7 +770,7 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            _is_da
+            is_da
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -856,12 +852,8 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(
-        &self,
-        _event: ConsensusIntentEvent,
-    ) -> Result<(), NetworkError> {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
         // Not required
-        Ok(())
     }
 }
 

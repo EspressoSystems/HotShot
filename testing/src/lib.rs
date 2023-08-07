@@ -1,36 +1,40 @@
-//! Testing harness for the hotshot repository
-//!
-//! To build a test environment you can create a [`TestLauncher`] instance. This launcher can be configured to have a custom networking layer, initial state, etc.
-//!
-//! Calling `TestLauncher::launch()` will turn this launcher into a [`TestRunner`], which can be used to start and stop nodes, send transacstions, etc.
-//!
-//! Node that `TestLauncher::launch()` is only available if the given `NETWORK`, `STATE` and `STORAGE` are correct.
+use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 
-#![warn(missing_docs)]
-#![ doc = include_str!("../README.md")]
-
-/// implementations of various networking models
-pub mod network_reliability;
-/// test launcher infrastructure
-pub mod test_launcher;
-
-/// structs and infra to describe the tests to be written
+///  builder
 pub mod test_builder;
 
-/// set of commonly used test types for our tests
-pub mod test_types;
+/// launcher
+pub mod test_launcher;
 
-/// test runner
+/// runner
 pub mod test_runner;
 
-/// errors for tests
-pub mod test_errors;
+/// task that's consuming events and asserting safety
+pub mod overall_safety_task;
 
-/// describe a round of consensus
-pub mod round;
+/// task that's submitting transactions to the stream
+pub mod txn_task;
 
-/// helper functions to build a round
-pub mod round_builder;
+/// task that decides when things are complete
+pub mod completion_task;
 
-/// tasks for view
-pub mod app_tasks;
+/// node types
+pub mod node_types;
+
+/// task to spin nodes up and down
+pub mod spinning_task;
+
+// TODO node changer (spin up and down)
+
+#[derive(Clone, Debug)]
+pub enum GlobalTestEvent {
+    ShutDown,
+}
+
+pub enum ShutDownReason {
+    SafetyViolation,
+    SuccessfullyCompleted,
+}
+
+pub type TestTask<ERR, STATE> =
+    HSTWithEvent<ERR, GlobalTestEvent, ChannelStream<GlobalTestEvent>, STATE>;

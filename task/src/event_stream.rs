@@ -42,7 +42,7 @@ impl EventStream for DummyStream {
 
     async fn unsubscribe(&self, _id: StreamId) {}
 
-    async fn direct_message(&self, id: StreamId, event: Self::EventType) {}
+    async fn direct_message(&self, _id: StreamId, _event: Self::EventType) {}
 }
 
 impl SendableStream for DummyStream {}
@@ -76,6 +76,7 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
 
+    /// send direct message to node
     async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 
@@ -123,7 +124,7 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type StreamType = UnboundedStream<Self::EventType>;
 
     async fn direct_message(&self, id: StreamId, event: Self::EventType) {
-        let mut inner = self.inner.write().await;
+        let inner = self.inner.write().await;
         match inner.subscribers.get(&id) {
             Some((filter, sender)) => {
                 if filter(&event) {
@@ -150,7 +151,7 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
                     // error sending => stream is closed so remove it
                     Err(_) => {
                         // error!("Channel was closed with uid {}", *uid);
-                        self.unsubscribe(*uid).await
+                        self.unsubscribe(*uid).await;
                     }
                 }
             }
@@ -177,18 +178,18 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     }
 }
 
+#[cfg(test)]
 pub mod test {
-    use crate::*;
+    use crate::{event_stream::EventStream, StreamExt};
     use async_compatibility_layer::art::{async_sleep, async_spawn};
     use std::time::Duration;
+
     #[derive(Clone, Debug, PartialEq, Eq)]
-    pub enum TestMessage {
+    enum TestMessage {
         One,
         Two,
         Three,
     }
-
-    impl PassType for TestMessage {}
 
     #[cfg(test)]
     #[cfg_attr(
@@ -238,13 +239,11 @@ pub mod test {
         use super::ChannelStream;
 
         let channel_stream = ChannelStream::<TestMessage>::new();
-        let (mut stream, _) = channel_stream.subscribe(FilterEvent::default()).await;
-
         let mut streams = Vec::new();
 
         for _i in 0..1000 {
             let dup_channel_stream = channel_stream.clone();
-            let (mut stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
+            let (stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
             streams.push(stream);
         }
 

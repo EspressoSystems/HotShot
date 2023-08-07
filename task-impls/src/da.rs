@@ -2,11 +2,8 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
-use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_lock::RwLock;
-#[cfg(feature = "async-std-executor")]
-use async_std::task::JoinHandle;
-use commit::Commitment;
+use bincode::config::Options;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
@@ -19,10 +16,9 @@ use hotshot_task::event_stream::ChannelStream;
 use hotshot_task::event_stream::EventStream;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TaskErr, TS};
+use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS};
 use hotshot_task::task_impls::HSTWithEvent;
 use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::data::DAProposal;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::{CommitteeConsensusMessage, Message};
@@ -45,21 +41,16 @@ use hotshot_types::{
     },
     vote::VoteAccumulator,
 };
+use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-#[cfg(feature = "tokio-executor")]
-use tokio::task::JoinHandle;
-use tracing::{error, info, instrument, warn};
-
-/// A type alias for `HashMap<Commitment<T>, T>`
-type CommitmentMap<T> = HashMap<Commitment<T>, T>;
+use tracing::{error, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
-impl TaskErr for ConsensusTaskError {}
 
 pub struct DATaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -198,9 +189,9 @@ where
                     state
                         .committee_exchange
                         .network()
-                        .inject_consensus_info(
-                            (ConsensusIntentEvent::CancelPollForVotes(*dac.view_number)),
-                        )
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *dac.view_number,
+                        ))
                         .await;
 
                     // Return completed at this point
@@ -240,15 +231,29 @@ where
     ) -> Option<HotShotTaskCompleted> {
         match event {
             SequencingHotShotEvent::TransactionsRecv(transactions) => {
+            SequencingHotShotEvent::TransactionsRecv(transactions) => {
                 // TODO ED Add validation checks
 
-                self.consensus
-                    .read()
-                    .await
+                let mut consensus = self.consensus.write().await;
+                consensus
                     .get_transactions()
                     .modify(|txns| {
                         for transaction in transactions {
-                            txns.insert(transaction.commit(), transaction);
+                            let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
+                            // If we didn't already know about this transaction, update our mempool metrics.
+                            if !consensus.seen_transactions.remove(&transaction.commit())
+                                && txns.insert(transaction.commit(), transaction).is_none()
+                            {
+                                consensus.metrics.outstanding_transactions.update(1);
+                                consensus
+                                    .metrics
+                                    .outstanding_transactions_memory_size
+                                    .update(i64::try_from(size).unwrap_or_else(|e| {
+                                        warn!("Conversion failed: {e}. Using the max value.");
+                                        i64::MAX
+                                    }));
+                            }
                         }
                     })
                     .await;
@@ -279,12 +284,12 @@ where
                 // ED Is this the right leader?
                 let view_leader_key = self.committee_exchange.get_leader(view);
                 if view_leader_key != sender {
-                    panic!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
+                    error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
                 }
 
                 if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
-                    panic!("Could not verify proposal.");
+                    error!("Could not verify proposal.");
                     return None;
                 }
 
@@ -352,7 +357,7 @@ where
                             // warn!("shutting down for view {:?}", collection_view);
                             self.registry.shutdown_task(*collection_id).await;
                         }
-                        collection_view.clone()
+                        *collection_view
                     } else {
                         ViewNumber::new(0)
                     };
@@ -396,22 +401,16 @@ where
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
                     let stream_id = builder.get_stream_id().unwrap();
-                    let task =
+                    let _task =
                         async_spawn(
                             async move { DAVoteCollectionTypes::build(builder).launch().await },
                         );
                     self.vote_collector = Some((view, id, stream_id));
-                } else {
-                    if let Some((view, _, stream_id)) = self.vote_collector {
-                        // warn!(
-                        //     "directly sending vote to vote collection task. view {:?}",
-                        //     view
-                        // );
-                        self.event_stream
-                            .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
-                            .await;
-                    };
-                }
+                } else if let Some((_, _, stream_id)) = self.vote_collector {
+                    self.event_stream
+                        .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                        .await;
+                };
             }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
@@ -464,7 +463,7 @@ where
                 // Start polling for DA votes for the "next view"
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::PollForVotes(*self.cur_view + 1)))
+                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
                     .await;
 
                 // ED Copy of parent_leaf() function from sequencing leader
@@ -512,9 +511,7 @@ where
                         continue;
                     }
                 }
-                let block_commitment = block.commit();
 
-                let consensus = self.consensus.read().await;
                 let signature = self.committee_exchange.sign_da_proposal(&block.commit());
                 let data: DAProposal<TYPES> = DAProposal {
                     deltas: block.clone(),
@@ -552,7 +549,7 @@ where
             SequencingHotShotEvent::Timeout(view) => {
                 self.committee_exchange
                     .network()
-                    .inject_consensus_info((ConsensusIntentEvent::CancelPollForVotes(*view)))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
             }
 
@@ -583,10 +580,10 @@ where
 
         let receiver = consensus.transactions.subscribe().await;
 
-        while task_start_time.elapsed() < self.api.propose_max_round_time() {
-            let txns = consensus.transactions.cloned().await;
-            warn!("Size of transactions: {}", txns.len());
-            let unclaimed_txns: Vec<_> = txns
+        loop {
+            let all_txns = consensus.transactions.cloned().await;
+            error!("Size of transactions: {}", all_txns.len());
+            let unclaimed_txns: Vec<_> = all_txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
                 .collect();
@@ -612,18 +609,26 @@ where
                     Ok(Ok(_)) => continue,
                 }
             }
-            let mut txns = vec![];
-            for (_hash, txn) in unclaimed_txns {
-                txns.push(txn.clone());
-            }
-            return Some(txns);
+            break;
         }
-        None
+        let all_txns = consensus.transactions.cloned().await;
+        let txns: Vec<TYPES::Transaction> = all_txns
+            .iter()
+            .filter_map(|(txn_hash, txn)| {
+                if !previous_used_txns.contains(txn_hash) {
+                    Some(txn.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Some(txns)
     }
 
     /// Filter the DA event.
     pub fn filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
-        match event {
+        matches!(
+            event,
             SequencingHotShotEvent::DAProposalRecv(_, _)
             | SequencingHotShotEvent::DAVoteRecv(_)
             | SequencingHotShotEvent::Shutdown

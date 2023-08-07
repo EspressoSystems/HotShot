@@ -7,6 +7,15 @@ readme = "README.md"
 version = "0.3.3"
 rust-version = "1.65.0"
 
+[workspace.package]
+version = "0.3.3" # same as `hotshot`, but workspace subcrate can also release its own version
+authors = ["Espresso Systems <hello@espressosys.com>"]
+edition = "2021"
+rust-version = "1.65.0"
+homepage = "https://github.com/EspressoSystems/HotShot"
+documentation = "https://hotshot.docs.espressosys.com"
+repository = "https://github.com/EspressoSystems/HotShot"
+
 [features]
 default = ["demo", "docs", "doc-images"]
 
@@ -139,17 +148,17 @@ ark-bls12-381 = { version = "0.3.0" }
 ark-ed-on-bls12-381 = "0.4.0"
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
-async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.2.0", default-features = false, features = [ "logging-utils" ] }
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.3.0", default-features = false, features = [ "logging-utils" ] }
 async-lock = "2.7"
 async-std = { version = "1.12", optional = true }
-async-trait = "0.1.68"
+async-trait = "0.1.71"
 bimap = "0.6.3"
 bincode = "1.3.3"
-blake3 = { version = "1.4.0", optional = true, features = ["traits-preview"] }
+blake3 = { version = "1.4.1", optional = true, features = ["traits-preview"] }
 clap = { version = "4.3", features = ["derive", "env"], optional = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
-dashmap = "5.3.4"
+dashmap = "5.5.0"
 derivative = { version = "2.2.0", optional = true }
 digest = "0.10.7"
 either = { version = "1.8.1", features = [ "serde" ] }
@@ -167,10 +176,10 @@ hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-feature
 itertools = "0.10"
 hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
-libp2p-swarm-derive = { version = "=0.32.0" }
+libp2p-swarm-derive = { version = "=0.33.0" }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
-libp2p-identity = "0.1.2"
-libp2p = { version = "0.51.3", default-features = false, features = [
+libp2p-identity = "0.2.0"
+libp2p = { version = "0.52.0", default-features = false, features = [
         "macros",
         "autonat",
         "deflate",
@@ -178,7 +187,6 @@ libp2p = { version = "0.51.3", default-features = false, features = [
         "identify",
         "kad",
         "gossipsub",
-        "mplex",
         "noise",
         "ping",
         "plaintext",
@@ -194,14 +202,14 @@ libp2p = { version = "0.51.3", default-features = false, features = [
         "yamux",
 ] }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
-num = "0.4.0"
+num = "0.4.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.164", features = ["derive", "rc"] }
-snafu = "0.7.4"
+serde = { version = "1.0.171", features = ["derive", "rc"] }
+snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
-time = "0.3.22"
-toml = { version = "0.7.4", optional = true }
+time = "0.3.23"
+toml = { version = "0.7.6", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -223,9 +231,9 @@ tracing = "0.1.37"
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.3", features = ["derive", "env"] }
-serde_json = "1.0.96"
-sha2 = { version = "0.10.1" }
-toml = "0.7.4"
+serde_json = "1.0.103"
+sha2 = { version = "0.10.7" }
+toml = "0.7.6"
 
 ### Profiles
 ###
@@ -271,7 +279,6 @@ incremental = true
 # The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
-
 members = [
         "centralized_server",
         "centralized_server/benchmark_client",
@@ -282,5 +289,7 @@ members = [
         "utils",
         # "testing-macros",
         "task",
-        "task-impls"
+        "task-impls",
+        "crates/hotshot-qc",
+        "crates/hotshot-stake-table"
 ]

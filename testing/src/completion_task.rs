@@ -1,38 +1,27 @@
 use std::{sync::Arc, time::Duration};
 
-use async_compatibility_layer::{art::async_sleep, channel::UnboundedStream};
-use either::Either::{self, Left, Right};
-use futures::{future::BoxFuture, FutureExt, Stream};
+use async_compatibility_layer::art::async_sleep;
+use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     boxed_sync,
-    event_stream::{self, ChannelStream, EventStream, SendableStream},
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::{
-        FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-        HST, TS,
-    },
-    task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder},
-    GeneratedStream, Merge,
+    event_stream::{ChannelStream, EventStream},
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEventAndMessage, TaskBuilder},
+    GeneratedStream,
 };
-use hotshot_types::{
-    event::Event,
-    traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::NodeType,
-    },
-};
+use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
 use crate::test_runner::Node;
 
-use super::{GlobalTestEvent, TestTask};
+use super::{test_launcher::TaskGenerator, GlobalTestEvent};
 
 /// the idea here is to run as long as we want
 
 /// Data Availability task error
 #[derive(Snafu, Debug)]
 pub struct CompletionTaskErr {}
-impl TaskErr for CompletionTaskErr {}
 
 /// Data availability task state
 pub struct CompletionTask<
@@ -58,31 +47,28 @@ pub type CompletionTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     CompletionTask<TYPES, I>,
 >;
 
-// TODO this is broken. Need to communicate to handles to kill everything
+/// Description for a time-based completion task.
 #[derive(Clone, Debug)]
 pub struct TimeBasedCompletionTaskDescription {
+    /// Duration of the task.
     pub duration: Duration,
 }
 
+/// Description for a completion task.
 #[derive(Clone, Debug)]
 pub enum CompletionTaskDescription {
+    /// Time-based completion task.
     TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription),
 }
 
 impl CompletionTaskDescription {
+    /// Build and launch a completion task.
     pub fn build_and_launch<
         TYPES: NodeType,
         I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     >(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            CompletionTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    > {
+    ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         match self {
             CompletionTaskDescription::TimeBasedCompletionTaskBuilder(td) => td.build_and_launch(),
         }
@@ -96,37 +82,22 @@ impl TimeBasedCompletionTaskDescription {
         I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
     >(
         self,
-    ) -> Box<
-        dyn FnOnce(
-            CompletionTask<TYPES, I>,
-            GlobalRegistry,
-            ChannelStream<GlobalTestEvent>,
-        )
-            -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-    > {
+    ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {
             async move {
-                // TODO we'll possibly want multiple criterion including:
-                // - certain number of txns committed
-                // - anchor of certain depth
-                // - some other stuff? probably?
                 let event_handler =
                     HandleEvent::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
-                                    return (Some(HotShotTaskCompleted::ShutDown), state);
-                                }
-                                // TODO
-                                _ => {
-                                    unimplemented!()
+                                    (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
                             }
                         }
                         .boxed()
                     }));
                 let message_handler =
-                    HandleMessage::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |msg, state| {
+                    HandleMessage::<CompletionTaskTypes<TYPES, I>>(Arc::new(move |_, state| {
                         async move {
                             state
                                 .test_event_stream
@@ -146,7 +117,7 @@ impl TimeBasedCompletionTaskDescription {
                     let fut = async move {
                         async_sleep(self.duration).await;
                     };
-                    boxed_sync(fut)
+                    Some(boxed_sync(fut))
                 }));
                 let builder = TaskBuilder::<CompletionTaskTypes<TYPES, I>>::new(
                     "Test Completion Task".to_string(),
