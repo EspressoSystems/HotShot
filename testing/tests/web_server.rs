@@ -13,6 +13,8 @@ use tracing::instrument;
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn web_server_network() {
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
         timing_data: TimingData {
             round_start_delay: 25,
