@@ -366,7 +366,11 @@ pub trait Run<
                             error!("Error in consensus: {:?}", error);
                             // TODO what to do here
                         }
-                        EventType::Decide { leaf_chain, .. } => {
+                        EventType::Decide {
+                            leaf_chain,
+                            qc: _,
+                            block_size: _,
+                        } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
                                 let new_anchor = leaf.view_number;

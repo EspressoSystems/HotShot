@@ -14,6 +14,7 @@ use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
+use tracing::error;
 
 /// Dummy implementation of [`Membership`]
 
@@ -153,6 +154,7 @@ where
     fn create_election(keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
+        error!("DA Committee Size: {}", config.num_nodes);
         Self {
             nodes: keys,
             committee_nodes,

@@ -48,7 +48,6 @@ use hotshot_types::{
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
-use hotshot_web_server::config::DEFAULT_WEB_SERVER_VIEW_SYNC_PORT;
 // use libp2p::{
 //     identity::{
 //         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -63,7 +62,6 @@ use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
 use std::{
-    cmp,
     //collections::{BTreeSet, VecDeque},
     collections::VecDeque,
     //fs,
@@ -79,6 +77,7 @@ use std::{
 //use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
+use tracing::warn;
 
 /// Runs the orchestrator
 pub async fn run_orchestrator_da<
@@ -245,16 +244,16 @@ pub trait RunDA<
             >>::Membership::default_election_config(config.config.total_nodes.get() as u64)
         });
 
-        let _committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
+        let committee_election_config = <CommitteeEx<TYPES, NODE> as ConsensusExchange<
             TYPES,
             Message<TYPES, NODE>,
         >>::Membership::default_election_config(
-            config.config.total_nodes.get() as u64
+            config.config.da_committee_size.try_into().unwrap(),
         );
 
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
-            (quorum_election_config, _committee_election_config),
+            (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
                 view_sync_network.clone(),
@@ -294,10 +293,8 @@ pub trait RunDA<
         let adjusted_padding = if padding < size { 0 } else { padding - size };
         let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
 
-        // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
-        // FIXME  is this a reasonable assumption when we start doing DA?
         // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        let tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, 1) + 5);
+        let tx_to_gen = transactions_per_round * rounds * 3;
         {
             let mut txn_rng = rand::thread_rng();
             for _ in 0..tx_to_gen {
@@ -325,8 +322,6 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
 
-        let mut should_submit_txns = node_index == (round % total_nodes_u64);
-
         let api = HotShotSequencingConsensusApi {
             inner: context.hotshot.inner.clone(),
         };
@@ -334,24 +329,6 @@ pub trait RunDA<
         context.hotshot.start_consensus().await;
 
         loop {
-            if should_submit_txns {
-                for _ in 0..transactions_per_round {
-                    let txn = txns.pop_front().unwrap();
-                    tracing::error!("Submitting txn on round {}", round);
-
-                    api.send_transaction(DataMessage::SubmitTransaction(
-                        txn.clone(),
-                        TYPES::Time::new(0),
-                    ))
-                    .await
-                    .expect("Could not send transaction");
-                    // return (None, state);
-                    // context.submit_transaction(txn).await.unwrap();
-                    total_transactions += 1;
-                }
-                should_submit_txns = false;
-            }
-
             match event_stream.next().await {
                 None => {
                     panic!("Error! Event stream completed before consensus ended.");
@@ -369,7 +346,7 @@ pub trait RunDA<
                         } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
-                                error!("Decide event for leaf: {}", *leaf.view_number);
+                                warn!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;
                                 if new_anchor >= anchor_view {
@@ -404,8 +381,26 @@ pub trait RunDA<
                             if *view_number > round {
                                 round = *view_number;
                                 tracing::error!("view finished: {:?}", view_number);
-                                if (round % total_nodes_u64) == node_index {
-                                    should_submit_txns = true;
+                                for _ in 0..transactions_per_round {
+                                    if node_index >= total_nodes_u64 - 10 {
+                                        let txn = txns.pop_front().unwrap();
+
+                                        tracing::warn!("Submitting txn on round {}", round);
+
+                                        let result = api
+                                            .send_transaction(DataMessage::SubmitTransaction(
+                                                txn.clone(),
+                                                TYPES::Time::new(0),
+                                            ))
+                                            .await;
+
+                                        if result.is_err() {
+                                            error! (
+                                            "Could not send transaction to web server on round {}",
+                                            round
+                                        )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -416,54 +411,10 @@ pub trait RunDA<
 
             round += 1;
         }
-        // while round <= rounds {
-        //     error!("Round {}:", round);
 
-        //     let num_submitted = if node_index == ((round % total_nodes) as u64) {
-        //         for _ in 0..transactions_per_round {
-        //             let txn = txns.pop_front().unwrap();
-        //             tracing::info!("Submitting txn on round {}", round);
-        //             hotshot.submit_transaction(txn).await.unwrap();
-        //         }
-        //         transactions_per_round
-        //     } else {
-        //         0
-        //     };
-        //     error!("Submitting {} transactions", num_submitted);
-
-        //     // Start consensus
-        //     let view_results = hotshot.collect_round_events().await;
-
-        //     match view_results {
-        //         Ok((leaf_chain, _qc)) => {
-        //             let blocks: Vec<Either<TYPES::BlockType, Commitment<TYPES::BlockType>>> =
-        //                 leaf_chain
-        //                     .into_iter()
-        //                     .map(|leaf| leaf.get_deltas())
-        //                     .collect();
-        //             for b in blocks.into_iter() {
-        //                 b.either(
-        //                     |block| total_transactions += block.txn_count(),
-        //                     |_| total_commitments += 1,
-        //                 );
-        //             }
-        //         }
-        //         Err(e) => {
-        //             timed_out_views += 1;
-        //             error!("View: {:?}, failed with : {:?}", round, e);
-        //         }
-        //     }
-
-        //     round += 1;
-        // }
-
+        // Output run results
         let total_time_elapsed = start.elapsed();
-        let total_size = total_transactions * (padding as u64);
-
-        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {total_size} total bytes submitted");
-        error!("Total commitments: {num_successful_commits}");
-        error!("Total transactions committed: {total_transactions}");
+        error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run
@@ -590,6 +541,14 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().web_server_config.unwrap();
 
+        let underlying_quorum_network = WebServerNetwork::create(
+            &host.to_string(),
+            port,
+            wait_between_polls,
+            pub_key.clone(),
+            false,
+        );
+
         // Create the network
         let quorum_network: WebCommChannel<
             TYPES,
@@ -597,16 +556,7 @@ where
             QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
             MEMBERSHIP,
-        > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key.clone(),
-                false,
-            )
-            .into(),
-        );
+        > = WebCommChannel::new(underlying_quorum_network.clone().into());
 
         let view_sync_network: WebCommChannel<
             TYPES,
@@ -614,16 +564,7 @@ where
             ViewSyncCertificate<TYPES>,
             ViewSyncVote<TYPES>,
             MEMBERSHIP,
-        > = WebCommChannel::new(
-            WebServerNetwork::create(
-                &host.to_string(),
-                DEFAULT_WEB_SERVER_VIEW_SYNC_PORT,
-                wait_between_polls,
-                pub_key.clone(),
-                false,
-            )
-            .into(),
-        );
+        > = WebCommChannel::new(underlying_quorum_network.into());
 
         let WebServerConfig {
             host,
@@ -631,6 +572,7 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
+        // Each node runs the DA network so that leaders have access to transactions and DA votes
         let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
             WebCommChannel::new(
                 WebServerNetwork::create(
