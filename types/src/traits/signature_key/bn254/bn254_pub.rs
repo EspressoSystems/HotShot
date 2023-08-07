@@ -68,17 +68,30 @@ impl SignatureKey for BN254Pub {
 
     fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
         let generic_msg = GenericArray::from_slice(data);
-        let agg_signature_test = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+        let agg_signature_test_wrap = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             &generic_msg,
             key_pair.sign_key_ref(),
             &mut rand::thread_rng(),
-        ).unwrap();
-        // Convert the signature to bytes and return
-        let bytes = bincode_opts()
-            .serialize(&agg_signature_test)
-            .expect("This serialization shouldn't be able to fail");
-        EncodedSignature(bytes)
+        );
+        match agg_signature_test_wrap {
+            Ok(agg_signature_test) => {
+                // Convert the signature to bytes and return
+                let bytes = bincode_opts()
+                .serialize(&agg_signature_test);
+                match bytes {
+                    Ok(bytes) => {EncodedSignature(bytes)}
+                    Err(e) => {
+                        warn!(?e, "Failed to serialize signature in sign()");
+                        EncodedSignature(vec![])
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(?e, "Failed to sign");
+                EncodedSignature(vec![])
+            }
+        }
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {

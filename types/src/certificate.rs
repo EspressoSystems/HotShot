@@ -130,6 +130,7 @@ pub enum AssembledSignature {
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
     /// Voter's public key (Sishan NOTE: In certificate aggregation, this encoded_key is substitued by the following ver_key)
+    /// This TODO will be resolved after issue #1512 is resolved.
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
