@@ -275,7 +275,7 @@ where
         let real_seed = BN254Priv::get_seed_from_seed_indexed(
             [0_u8; 32],
             (node_id as u64).try_into().unwrap(),
-        );//Sishan NOTE TODO: change this BN254Pub to SignatureKey or something else
+        );
         let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
             stake_key: key_pair.ver_key(),
