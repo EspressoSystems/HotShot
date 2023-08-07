@@ -26,7 +26,6 @@ async fn test_with_failures() {
 
     use hotshot_testing::{
         completion_task::TimeBasedCompletionTaskDescription,
-        overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::SpinningTaskDescription,
     };
 

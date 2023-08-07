@@ -1,8 +1,8 @@
 use async_compatibility_layer::logging::shutdown_logging;
-use hotshot_testing::overall_safety_task::OverallSafetyPropertiesDescription;
 use hotshot_testing::{
     node_types::{SequencingTestTypes, SequencingWebImpl},
     test_builder::{TestMetadata, TimingData},
+    overall_safety_task::OverallSafetyPropertiesDescription
 };
 use tracing::instrument;
 
