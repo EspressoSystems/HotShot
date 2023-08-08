@@ -173,7 +173,7 @@ hotshot-types = { path = "./types", version = "0.1.0", default-features = false 
 hotshot-utils = { path = "./utils" }
 hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-features = false }
-itertools = "0.10"
+itertools = "0.11"
 hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives",  branch = 'hotshot-compat'} # rev = "4aee90c" for 'hotshot-compat'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat'} # rev = "470a833" for branch = 'hotshot-compat'
 libp2p-swarm-derive = { version = "=0.33.0" }
