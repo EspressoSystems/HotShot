@@ -37,6 +37,7 @@ async fn test_with_failures() {
         total_nodes: 20,
         start_nodes: 20,
         num_bootstrap_nodes: 20,
+        da_committee_size: 20,
         completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
         // overall_safety_properties: OverallSafetyPropertiesDescription {
         //     threshold_calculator: std::sync::Arc::new(|_, _| {10}),
