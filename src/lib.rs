@@ -353,7 +353,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
 
         let api = self.clone();
         async_spawn(async move {
-            let _result = api.send_broadcast_message(message).await.is_err();
+            let _result = self.inner.exchanges.committee_exchange().network.broadcast(message).await.is_err();
         });
         Ok(())
     }
