@@ -166,9 +166,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
     /// [`SystemContext`] instance.
-    /// 
+    ///
     /// For now this function is deprecated.  Use `send_transaction` instead
-    /// This function will be updated with https://github.com/EspressoSystems/HotShot/issues/1526
+    /// This function will be updated with <https://github.com/EspressoSystems/HotShot/issues/1526>
     #[deprecated]
     pub async fn submit_transaction(
         &self,
