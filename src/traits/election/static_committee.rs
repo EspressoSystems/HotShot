@@ -158,18 +158,12 @@ where
 
     fn validate_vote_token(
         &self,
-        _view_number: TYPES::Time,
         pub_key: PUBKEY,
-        ver_key: VerKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Valid(t) | Checked::Unchecked(t) => {
-                let entry = StakeTableEntry {
-                    stake_key: ver_key,
-                    stake_amount: U256::from(1u8),
-                };
-                if !self.committee_nodes_qc.contains(&entry) {
+                if !self.committee_nodes.contains(&pub_key) {
                     Ok(Checked::Inval(t))
                 } else {
                     Ok(Checked::Valid(t))

@@ -48,7 +48,8 @@ impl SignatureKey for BN254Pub {
     type PrivateKey = BN254Priv;
 
     #[instrument(skip(self))]
-    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let ver_key = self.pub_key;
         let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
             bincode_opts().deserialize(&signature.0);
             match x {

@@ -62,7 +62,7 @@ pub trait SignatureKey:
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature
-    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool;
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
     fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature;
     /// Produce a public key from a private key

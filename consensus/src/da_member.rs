@@ -128,7 +128,7 @@ where
                                 }
                                 let block_commitment = p.data.deltas.commit();
                                 if !view_leader_key
-                                    .validate(p.ver_key, &p.signature, block_commitment.as_ref())
+                                    .validate(&p.signature, block_commitment.as_ref())
                                 {
                                     warn!(?p.signature, "Could not verify proposal.");
                                     continue;

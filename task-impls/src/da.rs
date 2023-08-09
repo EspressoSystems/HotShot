@@ -296,7 +296,7 @@ where
                     return None;
                 }
 
-                if !view_leader_key.validate(proposal.ver_key, &proposal.signature, block_commitment.as_ref()) {
+                if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
                     panic!("Could not verify proposal.");
                     return None;
                 }

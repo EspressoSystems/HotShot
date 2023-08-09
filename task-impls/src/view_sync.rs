@@ -641,7 +641,7 @@ where
                     .exchange
                     .get_leader(certificate_internal.round + certificate_internal.relay);
 
-                if !relay_key.validate(message.ver_key, &message.signature, &message.data.commit().as_ref()) {
+                if !relay_key.validate(&message.signature, &message.data.commit().as_ref()) {
                     error!("Key does not validate for certificate sender");
                     return (None, self);
                 }

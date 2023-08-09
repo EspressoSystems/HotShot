@@ -266,9 +266,7 @@ pub trait Membership<TYPES: NodeType>:
     /// TODO tbd
     fn validate_vote_token(
         &self,
-        view_number: TYPES::Time,
         pub_key: TYPES::SignatureKey,
-        ver_key: VerKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
@@ -438,10 +436,10 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(ver_key, encoded_signature, &data.commit().as_ref());
+            is_valid_signature = key.validate(encoded_signature, &data.commit().as_ref());
             let valid_vote_token =
                 self.membership()
-                    .validate_vote_token(view_number, key, ver_key, vote_token);
+                    .validate_vote_token(key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");
