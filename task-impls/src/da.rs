@@ -47,7 +47,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{error, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -270,11 +270,11 @@ where
                 // Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
                 if view < self.cur_view - 1 {
-                    error!("Throwing away DA proposal that is more than one view older");
+                    warn!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
 
-                error!(
+                debug!(
                     "Got a DA block with {} transactions!",
                     proposal.data.deltas.contained_transactions().len()
                 );
@@ -298,7 +298,7 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        error!("We were not chosen for DA committee on {:?}", view);
+                        debug!("We were not chosen for DA committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
                         // Generate and send vote
@@ -457,7 +457,7 @@ where
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
-                error!("Polling for DA votes for view {}", *self.cur_view + 1);
+                debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 // Start polling for DA votes for the "next view"
                 self.committee_exchange
@@ -583,7 +583,7 @@ where
 
         loop {
             let all_txns = consensus.transactions.cloned().await;
-            error!("Size of transactions: {}", all_txns.len());
+            debug!("Size of transactions: {}", all_txns.len());
             let unclaimed_txns: Vec<_> = all_txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))

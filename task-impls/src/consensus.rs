@@ -59,7 +59,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -342,7 +342,7 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for consensus committee on {:?}", view);
+                        debug!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
                         let justify_qc = proposal.justify_qc.clone();
@@ -408,7 +408,7 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for consensus committee on {:?}", view);
+                        debug!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
                         let justify_qc = proposal.justify_qc.clone();
@@ -563,14 +563,14 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!(
+                debug!(
                     "Receved Quorum Propsoal for view {}",
                     *proposal.data.view_number
                 );
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
-                    error!("view to high");
+                    error!("view too high");
                     return;
                 }
 
@@ -594,10 +594,10 @@ where
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
                     }
                     Ok(None) => {
-                        info!("We were not chosen for consensus committee on {:?}", view);
+                        debug!("We were not chosen for consensus committee on {:?}", view);
                     }
                     Ok(Some(vote_token)) => {
-                        info!("We were chosen for consensus committee on {:?}", view);
+                        debug!("We were chosen for consensus committee on {:?}", view);
                         let consensus = self.consensus.upgradable_read().await;
                         let message;
 
@@ -879,8 +879,8 @@ where
 
                             // warn!("Inserting leaf into storage {:?}", leaf.commit());
                             // if *view % 10 == 0 && self.quorum_exchange.is_leader(view) {
-                            warn!("Sending Decide for view {:?}", consensus.last_decided_view);
-                            warn!("Decided txns len {:?}", included_txns_set.len());
+                            debug!("Sending Decide for view {:?}", consensus.last_decided_view);
+                            debug!("Decided txns len {:?}", included_txns_set.len());
                             // }
                             decide_sent.await;
                         }
@@ -895,7 +895,7 @@ where
 
                         drop(consensus);
                         if should_propose {
-                            error!(
+                            debug!(
                                 "Attempting to publish proposal after voting; now in view: {}",
                                 *new_view
                             );
@@ -1103,7 +1103,7 @@ where
                     return;
                 }
 
-                error!("View Change event for view {}", *new_view);
+                debug!("View Change event for view {}", *new_view);
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1203,7 +1203,7 @@ where
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
-                error!(
+                debug!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view
                 )
@@ -1317,7 +1317,7 @@ where
             data: proposal,
             signature,
         };
-        error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+        debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 
         // warn!("Sending proposal for view {:?}", message.data.clone());
 

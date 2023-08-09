@@ -197,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        error!("Creating a new hotshot");
+        info!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
             &*metrics.subgroup("consensus".to_string()),
@@ -921,7 +921,7 @@ where
         .await;
         async_spawn(async move {
             task_runner.launch().await;
-            error!("Task runner exited!");
+            info!("Task runner exited!");
         });
 
         handle

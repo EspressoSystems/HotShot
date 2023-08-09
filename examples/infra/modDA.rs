@@ -75,8 +75,10 @@ use std::{
 };
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
+use tracing::debug;
 #[allow(deprecated)]
 use tracing::error;
+use tracing::info;
 use tracing::warn;
 
 /// Runs the orchestrator
@@ -307,15 +309,15 @@ pub trait RunDA<
                 txns.push_back(txn);
             }
         }
-        error!("Generated {} transactions", tx_to_gen);
+        debug!("Generated {} transactions", tx_to_gen);
 
-        error!("Adjusted padding size is {:?} bytes", adjusted_padding);
+        debug!("Adjusted padding size is {:?} bytes", adjusted_padding);
         let mut round = 0;
         let mut total_transactions = 0;
 
         let start = Instant::now();
 
-        error!("Starting hotshot!");
+        info!("Starting hotshot!");
         let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
@@ -346,7 +348,7 @@ pub trait RunDA<
                         } => {
                             // this might be a obob
                             if let Some(leaf) = leaf_chain.get(0) {
-                                warn!("Decide event for leaf: {}", *leaf.view_number);
+                                info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;
                                 if new_anchor >= anchor_view {
@@ -364,28 +366,25 @@ pub trait RunDA<
                             }
 
                             if leaf_chain.len() > 1 {
-                                error!(
-                                    "Leaf chain is greater than 1 with len {}",
-                                    leaf_chain.len()
-                                );
+                                warn!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
                             }
                             // when we make progress, submit new events
                         }
                         EventType::ReplicaViewTimeout { view_number } => {
-                            error!("Timed out as a replicas in view {:?}", view_number);
+                            warn!("Timed out as a replicas in view {:?}", view_number);
                         }
                         EventType::NextLeaderViewTimeout { view_number } => {
-                            error!("Timed out as the next leader in view {:?}", view_number);
+                            warn!("Timed out as the next leader in view {:?}", view_number);
                         }
                         EventType::ViewFinished { view_number } => {
                             if *view_number > round {
                                 round = *view_number;
-                                tracing::error!("view finished: {:?}", view_number);
+                                info!("view finished: {:?}", view_number);
                                 for _ in 0..transactions_per_round {
                                     if node_index >= total_nodes_u64 - 10 {
                                         let txn = txns.pop_front().unwrap();
 
-                                        tracing::warn!("Submitting txn on round {}", round);
+                                        debug!("Submitting txn on round {}", round);
 
                                         let result = api
                                             .send_transaction(DataMessage::SubmitTransaction(
@@ -686,7 +685,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    error!("Starting validator");
+    info!("Starting validator");
 
     let orchestrator_client: OrchestratorClient =
         OrchestratorClient::connect_to_orchestrator(args.clone()).await;
@@ -696,15 +695,15 @@ pub async fn main_entry_point<
         Some(ip) => ip,
         None => IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
     };
-    error!(
+    info!(
         "Identifying with orchestrator using IP address {}",
         public_ip.to_string()
     );
     let node_index: u16 = orchestrator_client
         .identify_with_orchestrator(public_ip.to_string())
         .await;
-    error!("Finished identifying; our node index is {node_index}");
-    error!("Getting config from orchestrator");
+    info!("Finished identifying; our node index is {node_index}");
+    info!("Getting config from orchestrator");
 
     let mut run_config = orchestrator_client
         .get_config_from_orchestrator::<TYPES>(node_index)
@@ -713,15 +712,15 @@ pub async fn main_entry_point<
     run_config.node_index = node_index.into();
     //run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
-    error!("Initializing networking");
+    info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
-    error!("Waiting for start command from orchestrator");
+    info!("Waiting for start command from orchestrator");
     orchestrator_client
         .wait_for_all_nodes_ready(run_config.clone().node_index)
         .await;
 
-    error!("All nodes are ready!  Starting HotShot");
+    info!("All nodes are ready!  Starting HotShot");
     run.run_hotshot(hotshot).await;
 }
