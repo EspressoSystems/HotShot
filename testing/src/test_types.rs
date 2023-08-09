@@ -7,7 +7,7 @@ use hotshot::{
         // dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::JfPubKey, // VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            // VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
@@ -76,7 +76,7 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = BN254Pub; // JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;

@@ -1,4 +1,3 @@
-use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
@@ -12,7 +11,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::{bls_over_bn254::VerKey};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -37,7 +36,7 @@ pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: Signa
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, BN254Pub>; // JfPubKey<BLSOverBN254CurveSignatureScheme>
+pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, BN254Pub>; 
 
 impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
@@ -63,7 +62,7 @@ pub struct StaticVoteToken<K: SignatureKey> {
     /// signature
     signature: EncodedSignature,
     /// public key
-    pub_key: K,//BN254Pub or JfPubKey<BLSOverBN254CurveSignatureScheme>
+    pub_key: K,
 }
 
 impl<PUBKEY: SignatureKey> VoteToken for StaticVoteToken<PUBKEY> {

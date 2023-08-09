@@ -16,7 +16,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
-use hotshot_types::certificate::{QuorumCertificate, AssembledSignature};
 
 /// Internal state for a [`MemoryStorage`]
 struct MemoryStorageInternal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {

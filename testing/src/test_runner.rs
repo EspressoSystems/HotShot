@@ -536,7 +536,6 @@ pub mod test {
         traits::{
             election::{
                 static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-                vrf::JfPubKey,
             },
             implementations::{
                 CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
@@ -580,7 +579,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = BN254Pub; // JfPubKey<BLSOverBN254CurveSignatureScheme>;
+        type SignatureKey = BN254Pub; 
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
