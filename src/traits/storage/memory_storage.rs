@@ -154,7 +154,7 @@ mod test {
         type Time = ViewNumber;
         type BlockType = DummyBlock;
         type SignatureKey = BN254Pub;
-        type VoteTokenType = StaticVoteToken<BN254Pub>;
+        type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;

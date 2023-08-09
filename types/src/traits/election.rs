@@ -268,6 +268,7 @@ pub trait Membership<TYPES: NodeType>:
         &self,
         view_number: TYPES::Time,
         pub_key: TYPES::SignatureKey,
+        ver_key: VerKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
@@ -440,7 +441,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             is_valid_signature = key.validate(ver_key, encoded_signature, &data.commit().as_ref());
             let valid_vote_token =
                 self.membership()
-                    .validate_vote_token(view_number, key, vote_token);
+                    .validate_vote_token(view_number, key, ver_key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");

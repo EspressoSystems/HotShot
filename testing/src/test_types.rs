@@ -11,7 +11,7 @@ use hotshot::{
         },
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
-    },
+    }, types::bn254::BN254Pub,
 };
 use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::ViewSyncVote;
@@ -76,8 +76,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSOverBN254CurveSignatureScheme>>;
+    type SignatureKey = BN254Pub; // JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;

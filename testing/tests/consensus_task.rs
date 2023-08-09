@@ -81,7 +81,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
+use hotshot_types::traits::signature_key::bn254::{BN254Priv, BN254Pub};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand::prelude::*;
 use ethereum_types::U256;
@@ -114,7 +114,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -204,7 +204,7 @@ async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>,
+        SignatureKey = BN254Pub, 
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -253,7 +253,7 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSOverBN254CurveSignatureScheme>,
+        BN254Pub,
     >: Membership<TYPES>,
 {
     let builder = TestBuilder::default_multiple_rounds();

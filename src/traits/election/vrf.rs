@@ -68,9 +68,6 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
     }
 }
 
-/// concrete type for bls public key
-pub type BlsPubKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
-
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
 pub struct JfPubKey<SIGSCHEME>
@@ -82,20 +79,6 @@ where
     pk: SIGSCHEME::VerificationKey,
     /// phantom data
     _pd: PhantomData<SIGSCHEME::SigningKey>,
-}
-
-impl<SIGSCHEME> JfPubKey<SIGSCHEME>
-where
-    SIGSCHEME: SignatureScheme,
-    SIGSCHEME::VerificationKey: Clone,
-{
-    /// wrap the public key
-    pub fn from_native(pk: SIGSCHEME::VerificationKey) -> Self {
-        Self {
-            pk,
-            _pd: PhantomData,
-        }
-    }
 }
 
 impl<SIGSCHEME> Clone for JfPubKey<SIGSCHEME>
@@ -140,6 +123,7 @@ where
     SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
+    // Why this is not implemented?
 }
 impl<SIGSCHEME> Hash for JfPubKey<SIGSCHEME>
 where

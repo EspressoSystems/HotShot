@@ -8,7 +8,7 @@ use hotshot_types::{
     traits::{
         election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::{EncodedSignature, SignatureKey, bn254::BN254Pub},
     },
 };
 use jf_primitives::signatures::{bls_over_bn254::VerKey};
@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
+use ethereum_types::U256;
 
 /// Dummy implementation of [`Membership`]
 
@@ -36,7 +37,7 @@ pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: Signa
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, JfPubKey<BLSOverBN254CurveSignatureScheme>>;
+pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, BN254Pub>; // JfPubKey<BLSOverBN254CurveSignatureScheme>
 
 impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
@@ -62,7 +63,7 @@ pub struct StaticVoteToken<K: SignatureKey> {
     /// signature
     signature: EncodedSignature,
     /// public key
-    pub_key: K,
+    pub_key: K,//BN254Pub or JfPubKey<BLSOverBN254CurveSignatureScheme>
 }
 
 impl<PUBKEY: SignatureKey> VoteToken for StaticVoteToken<PUBKEY> {
@@ -141,7 +142,11 @@ where
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
-        if !self.committee_nodes.contains(&pub_key) {
+        let entry = StakeTableEntry {
+            stake_key: key_pair.ver_key(),
+            stake_amount: U256::from(1u8),
+        };
+        if !self.committee_nodes_qc.contains(&entry) {
             return Ok(None);
         }
         let mut message: Vec<u8> = vec![];
@@ -156,11 +161,16 @@ where
         &self,
         _view_number: TYPES::Time,
         pub_key: PUBKEY,
+        ver_key: VerKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Valid(t) | Checked::Unchecked(t) => {
-                if !self.committee_nodes.contains(&pub_key) {
+                let entry = StakeTableEntry {
+                    stake_key: ver_key,
+                    stake_amount: U256::from(1u8),
+                };
+                if !self.committee_nodes_qc.contains(&entry) {
                     Ok(Checked::Inval(t))
                 } else {
                     Ok(Checked::Valid(t))

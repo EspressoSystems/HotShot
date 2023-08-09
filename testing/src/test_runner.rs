@@ -543,7 +543,7 @@ pub mod test {
                 WebCommChannel,
             },
             NodeImplementation,
-        },
+        }, types::bn254::BN254Pub,
     };
     use hotshot_types::message::{Message, SequencingMessage};
     use hotshot_types::traits::election::ViewSyncExchange;
@@ -580,7 +580,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+        type SignatureKey = BN254Pub; // JfPubKey<BLSOverBN254CurveSignatureScheme>;
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
