@@ -5,7 +5,6 @@
 //! - [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory testing-only implementation
 //! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.
 
-pub mod centralized_server_network;
 pub mod libp2p_network;
 pub mod memory_network;
 pub mod web_server_network;
@@ -20,6 +19,7 @@ use hotshot_types::traits::metrics::{Counter, Gauge, Metrics};
 
 /// Contains the metrics that we're interested in from the networking interfaces
 pub(self) struct NetworkingMetrics {
+    #[allow(dead_code)]
     /// A [`Gauge`] which tracks how many peers are connected
     pub connected_peers: Box<dyn Gauge>,
     /// A [`Counter`] which tracks how many messages have been received
