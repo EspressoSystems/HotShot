@@ -76,7 +76,6 @@ use std::{
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
 use tracing::debug;
-#[allow(deprecated)]
 use tracing::error;
 use tracing::info;
 use tracing::warn;
