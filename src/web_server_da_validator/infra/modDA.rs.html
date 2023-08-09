@@ -723,8 +723,6 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -802,8 +800,9 @@
 };
 <span class="comment">//use surf_disco::error::ClientError;
 //use surf_disco::Client;
-</span><span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>tracing::error;
+</span><span class="kw">use </span>tracing::debug;
+<span class="kw">use </span>tracing::error;
+<span class="kw">use </span>tracing::info;
 <span class="kw">use </span>tracing::warn;
 
 <span class="doccomment">/// Runs the orchestrator
@@ -1034,15 +1033,15 @@
                 txns.push_back(txn);
             }
         }
-        <span class="macro">error!</span>(<span class="string">&quot;Generated {} transactions&quot;</span>, tx_to_gen);
+        <span class="macro">debug!</span>(<span class="string">&quot;Generated {} transactions&quot;</span>, tx_to_gen);
 
-        <span class="macro">error!</span>(<span class="string">&quot;Adjusted padding size is {:?} bytes&quot;</span>, adjusted_padding);
+        <span class="macro">debug!</span>(<span class="string">&quot;Adjusted padding size is {:?} bytes&quot;</span>, adjusted_padding);
         <span class="kw">let </span><span class="kw-2">mut </span>round = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions = <span class="number">0</span>;
 
         <span class="kw">let </span>start = Instant::now();
 
-        <span class="macro">error!</span>(<span class="string">&quot;Starting hotshot!&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Starting hotshot!&quot;</span>);
         <span class="kw">let </span>(<span class="kw-2">mut </span>event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::Time = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
         <span class="kw">let </span><span class="kw-2">mut </span>num_successful_commits = <span class="number">0</span>;
@@ -1073,7 +1072,7 @@
                         } =&gt; {
                             <span class="comment">// this might be a obob
                             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = leaf_chain.get(<span class="number">0</span>) {
-                                <span class="macro">warn!</span>(<span class="string">&quot;Decide event for leaf: {}&quot;</span>, <span class="kw-2">*</span>leaf.view_number);
+                                <span class="macro">info!</span>(<span class="string">&quot;Decide event for leaf: {}&quot;</span>, <span class="kw-2">*</span>leaf.view_number);
 
                                 <span class="kw">let </span>new_anchor = leaf.view_number;
                                 <span class="kw">if </span>new_anchor &gt;= anchor_view {
@@ -1091,28 +1090,25 @@
                             }
 
                             <span class="kw">if </span>leaf_chain.len() &gt; <span class="number">1 </span>{
-                                <span class="macro">error!</span>(
-                                    <span class="string">&quot;Leaf chain is greater than 1 with len {}&quot;</span>,
-                                    leaf_chain.len()
-                                );
+                                <span class="macro">warn!</span>(<span class="string">&quot;Leaf chain is greater than 1 with len {}&quot;</span>, leaf_chain.len());
                             }
                             <span class="comment">// when we make progress, submit new events
                         </span>}
                         EventType::ReplicaViewTimeout { view_number } =&gt; {
-                            <span class="macro">error!</span>(<span class="string">&quot;Timed out as a replicas in view {:?}&quot;</span>, view_number);
+                            <span class="macro">warn!</span>(<span class="string">&quot;Timed out as a replicas in view {:?}&quot;</span>, view_number);
                         }
                         EventType::NextLeaderViewTimeout { view_number } =&gt; {
-                            <span class="macro">error!</span>(<span class="string">&quot;Timed out as the next leader in view {:?}&quot;</span>, view_number);
+                            <span class="macro">warn!</span>(<span class="string">&quot;Timed out as the next leader in view {:?}&quot;</span>, view_number);
                         }
                         EventType::ViewFinished { view_number } =&gt; {
                             <span class="kw">if </span><span class="kw-2">*</span>view_number &gt; round {
                                 round = <span class="kw-2">*</span>view_number;
-                                <span class="macro">tracing::error!</span>(<span class="string">&quot;view finished: {:?}&quot;</span>, view_number);
+                                <span class="macro">info!</span>(<span class="string">&quot;view finished: {:?}&quot;</span>, view_number);
                                 <span class="kw">for _ in </span><span class="number">0</span>..transactions_per_round {
                                     <span class="kw">if </span>node_index &gt;= total_nodes_u64 - <span class="number">10 </span>{
                                         <span class="kw">let </span>txn = txns.pop_front().unwrap();
 
-                                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
+                                        <span class="macro">debug!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
 
                                         <span class="kw">let </span>result = api
                                             .send_transaction(DataMessage::SubmitTransaction(
@@ -1413,7 +1409,7 @@
     setup_logging();
     setup_backtrace();
 
-    <span class="macro">error!</span>(<span class="string">&quot;Starting validator&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Starting validator&quot;</span>);
 
     <span class="kw">let </span>orchestrator_client: OrchestratorClient =
         OrchestratorClient::connect_to_orchestrator(args.clone()).<span class="kw">await</span>;
@@ -1423,15 +1419,15 @@
         <span class="prelude-val">Some</span>(ip) =&gt; ip,
         <span class="prelude-val">None </span>=&gt; IpAddr::V4(Ipv4Addr::new(<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)),
     };
-    <span class="macro">error!</span>(
+    <span class="macro">info!</span>(
         <span class="string">&quot;Identifying with orchestrator using IP address {}&quot;</span>,
         public_ip.to_string()
     );
     <span class="kw">let </span>node_index: u16 = orchestrator_client
         .identify_with_orchestrator(public_ip.to_string())
         .<span class="kw">await</span>;
-    <span class="macro">error!</span>(<span class="string">&quot;Finished identifying; our node index is {node_index}&quot;</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;Getting config from orchestrator&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Finished identifying; our node index is {node_index}&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Getting config from orchestrator&quot;</span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>run_config = orchestrator_client
         .get_config_from_orchestrator::&lt;TYPES&gt;(node_index)
@@ -1440,16 +1436,16 @@
     run_config.node_index = node_index.into();
     <span class="comment">//run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
-    </span><span class="macro">error!</span>(<span class="string">&quot;Initializing networking&quot;</span>);
+    </span><span class="macro">info!</span>(<span class="string">&quot;Initializing networking&quot;</span>);
     <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone()).<span class="kw">await</span>;
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
-    <span class="macro">error!</span>(<span class="string">&quot;Waiting for start command from orchestrator&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Waiting for start command from orchestrator&quot;</span>);
     orchestrator_client
         .wait_for_all_nodes_ready(run_config.clone().node_index)
         .<span class="kw">await</span>;
 
-    <span class="macro">error!</span>(<span class="string">&quot;All nodes are ready!  Starting HotShot&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;All nodes are ready!  Starting HotShot&quot;</span>);
     run.run_hotshot(hotshot).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

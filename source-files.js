@@ -1,8 +1,6 @@
 var sourcesIndex = JSON.parse('{\
-"benchmark_client":["",[],["main.rs"]],\
 "counter":["",[["common",[],["lossy_network.rs","mod.rs","web.rs"]]],["counter.rs"]],\
-"hotshot":["",[["demos",[],["sdemo.rs","vdemo.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs","vrf.rs"]],["networking",[],["centralized_server_network.rs","libp2p_network.rs","memory_network.rs","web_server_network.rs","web_sever_libp2p_fallback.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
-"hotshot_centralized_server":["",[],["client.rs","clients.rs","config.rs","lib.rs","runs.rs"]],\
+"hotshot":["",[["demos",[],["sdemo.rs","vdemo.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs","vrf.rs"]],["networking",[],["libp2p_network.rs","memory_network.rs","web_server_network.rs","web_sever_libp2p_fallback.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
 "hotshot_consensus":["",[],["da_member.rs","leader.rs","lib.rs","next_leader.rs","replica.rs","sequencing_leader.rs","sequencing_replica.rs","traits.rs","utils.rs"]],\
 "hotshot_orchestrator":["",[],["client.rs","config.rs","lib.rs"]],\
 "hotshot_qc":["",[["snarked",[],["circuit.rs"]]],["bit_vector.rs","lib.rs","snarked.rs"]],\

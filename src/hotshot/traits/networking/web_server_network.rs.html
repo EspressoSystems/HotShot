@@ -1213,7 +1213,7 @@
     time::Duration,
 };
 <span class="kw">use </span>surf_disco::error::ClientError;
-<span class="kw">use </span>tracing::{debug, error, warn};
+<span class="kw">use </span>tracing::{debug, error, info, warn};
 <span class="doccomment">/// Represents the communication channel abstraction for the web server
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WebCommChannel&lt;
@@ -1646,7 +1646,7 @@
         is_da_server: bool,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>base_url_string = <span class="macro">format!</span>(<span class="string">&quot;http://{host}:{port}&quot;</span>);
-        <span class="macro">error!</span>(<span class="string">&quot;Connecting to web server at {base_url_string:?} is da: {is_da_server}&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Connecting to web server at {base_url_string:?} is da: {is_da_server}&quot;</span>);
 
         <span class="kw">let </span>base_url = base_url_string.parse();
         <span class="kw">if </span>base_url.is_err() {
@@ -1927,7 +1927,7 @@
 
     <span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent) {
-        <span class="macro">error!</span>(
+        <span class="macro">debug!</span>(
             <span class="string">&quot;Injecting event: {:?} is da {}&quot;</span>,
             event.clone(),
             <span class="self">self</span>.inner.is_da
@@ -2213,7 +2213,7 @@
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
         <span class="comment">// TODO ED Restrict this to be an open port using portpicker
         </span><span class="kw">let </span>port = random::&lt;u16&gt;();
-        <span class="macro">error!</span>(<span class="string">&quot;Launching web server on port {port}&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Launching web server on port {port}&quot;</span>);
         <span class="comment">// Start web server
         </span>async_spawn(hotshot_web_server::run_web_server::&lt;TYPES::SignatureKey&gt;(
             <span class="prelude-val">Some</span>(server_shutdown),

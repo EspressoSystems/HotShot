@@ -401,6 +401,10 @@
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Message;
@@ -569,6 +573,10 @@
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
     /// [`SystemContext`] instance.
+    ///
+    /// For now this function is deprecated.  Use `send_transaction` instead
+    /// This function will be updated with &lt;https://github.com/EspressoSystems/HotShot/issues/1526&gt;
+    </span><span class="attr">#[deprecated]
     </span><span class="kw">pub async fn </span>submit_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tx: TYPES::Transaction,

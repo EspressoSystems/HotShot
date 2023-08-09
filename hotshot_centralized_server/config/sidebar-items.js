@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["default_config","default_padding","default_rounds","default_start_delay_seconds","default_transactions_per_round"],"struct":["ClientConfig","HotShotConfigFile","Libp2pConfig","Libp2pConfigFile","NetworkConfig","NetworkConfigFile","RoundConfig"]};

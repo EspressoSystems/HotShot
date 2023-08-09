@@ -1,5 +1,4 @@
 (function() {var implementors = {
-"benchmark_client":[["impl Parser for <a class=\"struct\" href=\"benchmark_client/struct.Opts.html\" title=\"struct benchmark_client::Opts\">Opts</a>"]],
 "counter":[["impl Parser for <a class=\"struct\" href=\"counter/common/struct.CliOpt.html\" title=\"struct counter::common::CliOpt\">CliOpt</a>"]],
 "hotshot_orchestrator":[["impl Parser for <a class=\"struct\" href=\"hotshot_orchestrator/client/struct.ValidatorArgs.html\" title=\"struct hotshot_orchestrator::client::ValidatorArgs\">ValidatorArgs</a>"]],
 "multi_validator":[["impl Parser for <a class=\"struct\" href=\"multi_validator/infra/struct.OrchestratorArgs.html\" title=\"struct multi_validator::infra::OrchestratorArgs\">OrchestratorArgs</a>"],["impl Parser for <a class=\"struct\" href=\"multi_validator/struct.MultiValidatorArgs.html\" title=\"struct multi_validator::MultiValidatorArgs\">MultiValidatorArgs</a>"]],

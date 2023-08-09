@@ -722,7 +722,7 @@
 <span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Instant;
-<span class="kw">use </span>tracing::{error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>ConsensusTaskError {}
@@ -945,11 +945,11 @@
                 <span class="comment">// Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
                 </span><span class="kw">if </span>view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;Throwing away DA proposal that is more than one view older&quot;</span>);
+                    <span class="macro">warn!</span>(<span class="string">&quot;Throwing away DA proposal that is more than one view older&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="macro">error!</span>(
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;Got a DA block with {} transactions!&quot;</span>,
                     proposal.data.deltas.contained_transactions().len()
                 );
@@ -973,7 +973,7 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>, view, e);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;We were not chosen for DA committee on {:?}&quot;</span>, view);
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for DA committee on {:?}&quot;</span>, view);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
                         <span class="comment">// Generate and send vote
@@ -1132,7 +1132,7 @@
                     <span class="comment">// panic!(&quot;We are not the DA leader for view {}&quot;, *self.cur_view + 1);
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="macro">error!</span>(<span class="string">&quot;Polling for DA votes for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;Polling for DA votes for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
 
                 <span class="comment">// Start polling for DA votes for the &quot;next view&quot;
                 </span><span class="self">self</span>.committee_exchange
@@ -1258,7 +1258,7 @@
 
         <span class="kw">loop </span>{
             <span class="kw">let </span>all_txns = consensus.transactions.cloned().<span class="kw">await</span>;
-            <span class="macro">error!</span>(<span class="string">&quot;Size of transactions: {}&quot;</span>, all_txns.len());
+            <span class="macro">debug!</span>(<span class="string">&quot;Size of transactions: {}&quot;</span>, all_txns.len());
             <span class="kw">let </span>unclaimed_txns: Vec&lt;<span class="kw">_</span>&gt; = all_txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))

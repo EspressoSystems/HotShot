@@ -2279,7 +2279,7 @@
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="macro">error!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
 
         <span class="kw">let </span>consensus_metrics = Arc::new(ConsensusMetrics::new(
             <span class="kw-2">&amp;*</span>metrics.subgroup(<span class="string">&quot;consensus&quot;</span>.to_string()),
@@ -2429,15 +2429,15 @@
         <span class="comment">// Wrap up a message
         // TODO place a view number here that makes sense
         // we haven&#39;t worked out how this will work yet
-        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(<span class="number">0</span>));
+        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
-        <span class="comment">// self.inner.exchanges.committee_exchange().network.broadcast(message).await;
+        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
 
-        </span><span class="kw">let </span>api = <span class="self">self</span>.clone();
-        async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>_result = api.send_broadcast_message(message).<span class="kw">await</span>.is_err();
-        });
-        <span class="prelude-val">Ok</span>(())
+        // let api = self.clone();
+        // async_spawn(async move {
+        //     // let _result = self.inner.exchanges.committee_exchange().network.broadcast(message).await.is_err();
+        // });
+        </span><span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Returns a copy of the state
@@ -3003,7 +3003,7 @@
         .<span class="kw">await</span>;
         async_spawn(<span class="kw">async move </span>{
             task_runner.launch().<span class="kw">await</span>;
-            <span class="macro">error!</span>(<span class="string">&quot;Task runner exited!&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">&quot;Task runner exited!&quot;</span>);
         });
 
         handle

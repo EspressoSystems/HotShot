@@ -1048,7 +1048,7 @@
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Duration;
-<span class="kw">use </span>tracing::{error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="kw">pub enum </span>ViewSyncPhase {
@@ -1265,7 +1265,7 @@
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
-                <span class="macro">error!</span>(
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>,
                     last_seen_certificate
                 );
@@ -1273,13 +1273,13 @@
                 <span class="comment">// This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
                 </span><span class="kw">if </span><span class="self">self</span>.current_view &gt; certificate_internal.round {
-                    <span class="macro">error!</span>(<span class="string">&quot;Already in a higher view than the view sync message&quot;</span>);
+                    <span class="macro">warn!</span>(<span class="string">&quot;Already in a higher view than the view sync message&quot;</span>);
                     <span class="kw">return</span>;
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(replica_task) = <span class="self">self</span>.replica_task_map.get(<span class="kw-2">&amp;</span>certificate_internal.round) {
                     <span class="comment">// Forward event then return
-                    </span><span class="macro">error!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
+                    </span><span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
                     <span class="self">self</span>.event_stream
                         .direct_message(replica_task.event_stream_id, event)
                         .<span class="kw">await</span>;

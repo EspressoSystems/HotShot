@@ -691,7 +691,7 @@
 <span class="kw">use </span>tide_disco::Api;
 <span class="kw">use </span>tide_disco::App;
 <span class="kw">use </span>tide_disco::StatusCode;
-<span class="kw">use </span>tracing::{error, info};
+<span class="kw">use </span>tracing::info;
 
 <span class="kw">type </span>State&lt;KEY&gt; = RwLock&lt;WebServerState&lt;KEY&gt;&gt;;
 <span class="kw">type </span>Error = ServerError;
@@ -923,7 +923,7 @@
         }
 
         <span class="kw">if </span>!txns_to_return.is_empty() {
-            <span class="macro">error!</span>(<span class="string">&quot;Returning this many txs {}&quot;</span>, txns_to_return.len());
+            <span class="macro">info!</span>(<span class="string">&quot;Returning this many txs {}&quot;</span>, txns_to_return.len());
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((index, txns_to_return)))
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(ServerError {
@@ -999,7 +999,7 @@
     }
     <span class="doccomment">/// Stores a received proposal in the `WebServerState`
     </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">error!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
+        <span class="macro">info!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.proposals.len() &gt;= MAX_VIEWS {
@@ -1047,7 +1047,7 @@
 
     <span class="doccomment">/// Stores a received DA certificate in the `WebServerState`
     </span><span class="kw">fn </span>post_da_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>cert: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">error!</span>(<span class="string">&quot;Received DA Certificate for view {}&quot;</span>, view_number);
+        <span class="macro">info!</span>(<span class="string">&quot;Received DA Certificate for view {}&quot;</span>, view_number);
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.da_certificates.len() &gt;= MAX_VIEWS {
@@ -1072,7 +1072,7 @@
         <span class="self">self</span>.transactions.insert(<span class="self">self</span>.num_txns, txn);
         <span class="self">self</span>.num_txns += <span class="number">1</span>;
 
-        <span class="macro">error!</span>(
+        <span class="macro">info!</span>(
             <span class="string">&quot;Received transaction!  Number of transactions received is: {}&quot;</span>,
             <span class="self">self</span>.num_txns
         );
@@ -1336,7 +1336,7 @@
 
     <span class="kw">let </span>app_future = app.serve(<span class="macro">format!</span>(<span class="string">&quot;http://0.0.0.0:{port}&quot;</span>));
 
-    <span class="macro">error!</span>(<span class="string">&quot;Web server started on port {port}&quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Web server started on port {port}&quot;</span>);
 
     app_future.<span class="kw">await
 </span>}

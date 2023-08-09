@@ -61,8 +61,7 @@
 //! - [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory testing-only implementation
 //! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.
 
-</span><span class="kw">pub mod </span>centralized_server_network;
-<span class="kw">pub mod </span>libp2p_network;
+</span><span class="kw">pub mod </span>libp2p_network;
 <span class="kw">pub mod </span>memory_network;
 <span class="kw">pub mod </span>web_server_network;
 <span class="kw">pub mod </span>web_sever_libp2p_fallback;
@@ -76,7 +75,8 @@
 
 <span class="doccomment">/// Contains the metrics that we&#39;re interested in from the networking interfaces
 </span><span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">struct </span>NetworkingMetrics {
-    <span class="doccomment">/// A [`Gauge`] which tracks how many peers are connected
+    <span class="attr">#[allow(dead_code)]
+    </span><span class="doccomment">/// A [`Gauge`] which tracks how many peers are connected
     </span><span class="kw">pub </span>connected_peers: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// A [`Counter`] which tracks how many messages have been received
     </span><span class="kw">pub </span>incoming_message_count: Box&lt;<span class="kw">dyn </span>Counter&gt;,

@@ -1486,7 +1486,7 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{error, info, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>ConsensusTaskError {}
@@ -1769,7 +1769,7 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>, view, e);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
                         <span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
@@ -1835,7 +1835,7 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>, view, e);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
                         <span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
@@ -1990,14 +1990,14 @@
     </span><span class="kw">pub async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SequencingHotShotEvent&lt;TYPES, I&gt;) {
         <span class="kw">match </span>event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
-                <span class="macro">error!</span>(
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;Receved Quorum Propsoal for view {}&quot;</span>,
                     <span class="kw-2">*</span>proposal.data.view_number
                 );
 
                 <span class="kw">let </span>view = proposal.data.get_view_number();
                 <span class="kw">if </span>view &lt; <span class="self">self</span>.cur_view {
-                    <span class="macro">error!</span>(<span class="string">&quot;view to high&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;view too high&quot;</span>);
                     <span class="kw">return</span>;
                 }
 
@@ -2021,10 +2021,10 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>, view, e);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>, view);
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;We were chosen for consensus committee on {:?}&quot;</span>, view);
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were chosen for consensus committee on {:?}&quot;</span>, view);
                         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
                         <span class="kw">let </span>message;
 
@@ -2306,8 +2306,8 @@
 
                             <span class="comment">// warn!(&quot;Inserting leaf into storage {:?}&quot;, leaf.commit());
                             // if *view % 10 == 0 &amp;&amp; self.quorum_exchange.is_leader(view) {
-                            </span><span class="macro">warn!</span>(<span class="string">&quot;Sending Decide for view {:?}&quot;</span>, consensus.last_decided_view);
-                            <span class="macro">warn!</span>(<span class="string">&quot;Decided txns len {:?}&quot;</span>, included_txns_set.len());
+                            </span><span class="macro">debug!</span>(<span class="string">&quot;Sending Decide for view {:?}&quot;</span>, consensus.last_decided_view);
+                            <span class="macro">debug!</span>(<span class="string">&quot;Decided txns len {:?}&quot;</span>, included_txns_set.len());
                             <span class="comment">// }
                             </span>decide_sent.<span class="kw">await</span>;
                         }
@@ -2322,7 +2322,7 @@
 
                         drop(consensus);
                         <span class="kw">if </span>should_propose {
-                            <span class="macro">error!</span>(
+                            <span class="macro">debug!</span>(
                                 <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
                                 <span class="kw-2">*</span>new_view
                             );
@@ -2530,7 +2530,7 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="macro">error!</span>(<span class="string">&quot;View Change event for view {}&quot;</span>, <span class="kw-2">*</span>new_view);
+                <span class="macro">debug!</span>(<span class="string">&quot;View Change event for view {}&quot;</span>, <span class="kw-2">*</span>new_view);
 
                 <span class="comment">// ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -2630,7 +2630,7 @@
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
-                <span class="macro">error!</span>(
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;We received a timeout event in the consensus task for view {}!&quot;</span>,
                     <span class="kw-2">*</span>view
                 )
@@ -2744,7 +2744,7 @@
             data: proposal,
             signature,
         };
-        <span class="macro">error!</span>(<span class="string">&quot;Sending proposal for view {:?} \n {:?}&quot;</span>, <span class="self">self</span>.cur_view, <span class="string">&quot;&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;Sending proposal for view {:?} \n {:?}&quot;</span>, <span class="self">self</span>.cur_view, <span class="string">&quot;&quot;</span>);
 
         <span class="comment">// warn!(&quot;Sending proposal for view {:?}&quot;, message.data.clone());
 

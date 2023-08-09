@@ -1327,10 +1327,10 @@
         <span class="kw">loop </span>{
             <span class="kw">if </span>should_submit_txns {
                 <span class="kw">for _ in </span><span class="number">0</span>..transactions_per_round {
-                    <span class="kw">let </span>txn = txns.pop_front().unwrap();
+                    <span class="kw">let </span>_txn = txns.pop_front().unwrap();
                     <span class="macro">tracing::info!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
-                    context.submit_transaction(txn).<span class="kw">await</span>.unwrap();
-                    total_transactions += <span class="number">1</span>;
+                    <span class="comment">// context.submit_transaction(txn).await.unwrap();
+                    </span>total_transactions += <span class="number">1</span>;
                 }
                 should_submit_txns = <span class="bool-val">false</span>;
             }
