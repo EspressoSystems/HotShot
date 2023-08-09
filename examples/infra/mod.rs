@@ -348,9 +348,9 @@ pub trait Run<
         loop {
             if should_submit_txns {
                 for _ in 0..transactions_per_round {
-                    let txn = txns.pop_front().unwrap();
+                    let _txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
-                    context.submit_transaction(txn).await.unwrap();
+                    // context.submit_transaction(txn).await.unwrap();
                     total_transactions += 1;
                 }
                 should_submit_txns = false;
