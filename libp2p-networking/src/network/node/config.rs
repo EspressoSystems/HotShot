@@ -1,7 +1,7 @@
 use crate::network::NetworkNodeType;
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
 /// replication factor for kademlia
 pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(20);
@@ -30,6 +30,10 @@ pub struct NetworkNodeConfig {
 
     /// list of addresses to connect to at initialization
     pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>,
+    /// republication interval in DHT, must be much less than `ttl`
+    pub republication_interval: Option<Duration>,
+    /// expiratiry for records in DHT
+    pub ttl: Option<Duration>,
 }
 
 /// NOTE: `mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high`
