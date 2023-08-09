@@ -190,6 +190,9 @@ where
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
+                        // setting to sane defaults
+                        .ttl(None)
+                        .republication_interval(None)
                         .build()
                         .unwrap()
                 } else {
@@ -207,6 +210,9 @@ where
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
+                        // setting to sane defaults
+                        .ttl(None)
+                        .republication_interval(None)
                         .build()
                         .unwrap()
                 };
