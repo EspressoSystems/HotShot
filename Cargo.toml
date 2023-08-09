@@ -49,7 +49,6 @@ hotshot-testing = []
 
 async-std-executor = [
         "dep:async-std",
-        "hotshot-centralized-server/async-std-executor",
         "hotshot-consensus/async-std-executor",
         "hotshot-types/async-std-executor",
         "hotshot-task/async-std-executor",
@@ -59,7 +58,6 @@ async-std-executor = [
 ]
 tokio-executor = [
         "dep:tokio",
-        "hotshot-centralized-server/tokio-executor",
         "hotshot-consensus/tokio-executor",
         "hotshot-types/tokio-executor",
         "hotshot-task/tokio-executor",
@@ -69,7 +67,6 @@ tokio-executor = [
 ]
 
 channel-flume = [
-        "hotshot-centralized-server/channel-flume",
         "hotshot-web-server/channel-flume",
         "hotshot-consensus/channel-flume",
         "hotshot-types/channel-flume",
@@ -78,7 +75,6 @@ channel-flume = [
         "async-compatibility-layer/channel-flume",
 ]
 channel-tokio = [
-        "hotshot-centralized-server/channel-tokio",
         "hotshot-web-server/channel-tokio",
         "hotshot-consensus/channel-tokio",
         "hotshot-types/channel-tokio",
@@ -87,7 +83,6 @@ channel-tokio = [
         "async-compatibility-layer/channel-tokio",
 ]
 channel-async-std = [
-        "hotshot-centralized-server/channel-async-std",
         "hotshot-web-server/channel-async-std",
         "hotshot-consensus/channel-async-std",
         "hotshot-types/channel-async-std",
@@ -119,7 +114,7 @@ channel-async-std = [
 [[example]]
 name = "web-server"
 required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server/web-server.rs"
+path = "examples/web-server-da/web-server.rs"
 
 [[example]]
 name = "web-server-da-orchestrator"
@@ -165,7 +160,6 @@ either = { version = "1.8.1", features = [ "serde" ] }
 embed-doc-image = "0.1.4"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 futures = "0.3.28"
-hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
@@ -280,8 +274,6 @@ incremental = true
 # when implementing traits externally
 [workspace]
 members = [
-        "centralized_server",
-        "centralized_server/benchmark_client",
         "consensus",
         "libp2p-networking",
         "testing",

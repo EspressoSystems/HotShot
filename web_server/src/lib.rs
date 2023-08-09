@@ -20,7 +20,7 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
-use tracing::{error, info};
+use tracing::info;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -252,7 +252,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
 
         if !txns_to_return.is_empty() {
-            error!("Returning this many txs {}", txns_to_return.len());
+            info!("Returning this many txs {}", txns_to_return.len());
             Ok(Some((index, txns_to_return)))
         } else {
             Err(ServerError {
@@ -328,7 +328,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
-        error!("Received proposal for view {}", view_number);
+        info!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -376,7 +376,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     /// Stores a received DA certificate in the `WebServerState`
     fn post_da_certificate(&mut self, view_number: u64, mut cert: Vec<u8>) -> Result<(), Error> {
-        error!("Received DA Certificate for view {}", view_number);
+        info!("Received DA Certificate for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.da_certificates.len() >= MAX_VIEWS {
@@ -401,7 +401,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
-        error!(
+        info!(
             "Received transaction!  Number of transactions received is: {}",
             self.num_txns
         );
@@ -665,7 +665,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 
     let app_future = app.serve(format!("http://0.0.0.0:{port}"));
 
-    error!("Web server started on port {port}");
+    info!("Web server started on port {port}");
 
     app_future.await
 }

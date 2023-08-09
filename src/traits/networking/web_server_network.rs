@@ -53,7 +53,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -486,7 +486,7 @@ impl<
         is_da_server: bool,
     ) -> Self {
         let base_url_string = format!("http://{host}:{port}");
-        error!("Connecting to web server at {base_url_string:?} is da: {is_da_server}");
+        info!("Connecting to web server at {base_url_string:?} is da: {is_da_server}");
 
         let base_url = base_url_string.parse();
         if base_url.is_err() {
@@ -767,7 +767,7 @@ impl<
 
     #[allow(clippy::too_many_lines)]
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
-        error!(
+        debug!(
             "Injecting event: {:?} is da {}",
             event.clone(),
             self.inner.is_da
@@ -1053,7 +1053,7 @@ where
         let sender = Arc::new(server_shutdown_sender);
         // TODO ED Restrict this to be an open port using portpicker
         let port = random::<u16>();
-        error!("Launching web server on port {port}");
+        info!("Launching web server on port {port}");
         // Start web server
         async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
             Some(server_shutdown),
