@@ -121,6 +121,20 @@ impl TestMetadata {
             ..TestMetadata::default()
         }
     }
+
+    pub fn default_more_nodes_less_success() -> TestMetadata {
+        TestMetadata {
+            total_nodes: 20,
+            start_nodes: 20,
+            num_bootstrap_nodes: 20,
+            da_committee_size: 20,
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: 10,
+                ..Default::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
 }
 
 impl Default for TestMetadata {
