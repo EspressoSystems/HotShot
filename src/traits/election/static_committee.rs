@@ -205,4 +205,10 @@ where
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.committee_nodes.clone().into_iter().collect()
     }
+
+    fn get_committee_in_vec(
+        &self,
+    ) -> Vec<<TYPES as NodeType>::SignatureKey> {
+        self.committee_nodes.clone()
+    }
 }

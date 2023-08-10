@@ -248,6 +248,12 @@ pub trait Membership<TYPES: NodeType>:
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
+    /// The members of the committee for view `view_number` in Vec rather than BTreeSet.
+    fn get_committee_in_vec(
+        &self,
+    ) -> Vec<<TYPES as NodeType>::SignatureKey>;
+
+
     /// Attempts to generate a vote token for self
     ///
     /// Returns `None` if the number of seats would be zero
@@ -466,31 +472,36 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             return Either::Left(accumulator);
         }
 
-        let append_node_id = self.membership().get_committee_qc_stake_table().iter().position(|x| *x == vota_meta.entry.clone()).unwrap();
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(&vota_meta.encoded_key) {
+            let append_node_id = self.membership().get_committee_in_vec().iter().position(|x| *x == key.clone()).unwrap();
 
-        match accumulator.append((
-            vota_meta.commitment,
-            (
-                vota_meta.encoded_key.clone(),
+            match accumulator.append((
+                vota_meta.commitment,
                 (
-                    vota_meta.encoded_signature.clone(),
-                    self.membership().get_committee_qc_stake_table(),
-                    append_node_id,
-                    vota_meta.data,
-                    vota_meta.vote_token,
+                    vota_meta.encoded_key.clone(),
+                    (
+                        vota_meta.encoded_signature.clone(),
+                        self.membership().get_committee_qc_stake_table(),
+                        append_node_id,
+                        vota_meta.data,
+                        vota_meta.vote_token,
+                    ),
                 ),
-            ),
-        )) {
-            Either::Left(accumulator) => Either::Left(accumulator),
-            Either::Right(signatures) => {
-                Either::Right(Self::Certificate::from_signatures_and_commitment(
-                    vota_meta.view_number,
-                    signatures,
-                    vota_meta.commitment,
-                    vota_meta.relay,
-                ))
+            )) {
+                Either::Left(accumulator) => Either::Left(accumulator),
+                Either::Right(signatures) => {
+                    Either::Right(Self::Certificate::from_signatures_and_commitment(
+                        vota_meta.view_number,
+                        signatures,
+                        vota_meta.commitment,
+                        vota_meta.relay,
+                    ))
+                }
             }
+        } else {
+            Either::Left(accumulator)
         }
+        
     }
 
     /// Add a vote to the accumulating signature.  Return The certificate if the vote

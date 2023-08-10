@@ -56,12 +56,14 @@ impl SignatureKey for BN254Pub {
                 Ok(s) => {
                     // This is the validation for QC partial signature before append().
                     let generic_msg: &GenericArray<u8, U32> = GenericArray::from_slice(data);
-                    BLSOverBN254CurveSignatureScheme::verify(
+                    let res = BLSOverBN254CurveSignatureScheme::verify(
                         &(),
                         &ver_key, 
                         &generic_msg,
                         &s,
-                    ).is_ok()
+                    ).is_ok();
+                    println!("Signature validation result: {}", res);
+                    res
                 }
                 Err(_) => false,
             }
