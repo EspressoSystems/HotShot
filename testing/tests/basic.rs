@@ -54,7 +54,6 @@ async fn test_with_failures_one() {
         .await;
 }
 
-
 /// Test f/2 nodes leaving the network.
 #[cfg(test)]
 #[cfg_attr(
