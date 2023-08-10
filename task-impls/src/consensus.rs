@@ -228,7 +228,6 @@ where
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
                     &vote.signature.1,
-                    vote.signature.2,
                     vote.leaf_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
@@ -983,7 +982,6 @@ where
                         let accumulator = self.quorum_exchange.accumulate_vote(
                             &vote.clone().signature.0,
                             &vote.clone().signature.1,
-                            vote.clone().signature.2,
                             vote.clone().leaf_commitment,
                             vote.clone().vote_data.clone(),
                             vote.clone().vote_token.clone(),

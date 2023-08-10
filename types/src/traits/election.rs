@@ -506,7 +506,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        entry: StakeTableEntry<VerKey>,
         leaf_commitment: Commitment<Self::Commitment>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
@@ -543,7 +542,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
     fn sign_da_vote(
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a vote on DA proposal.
     fn create_da_message(
@@ -605,12 +604,12 @@ impl<
     fn sign_da_vote(
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a vote on DA proposal.
     fn create_da_message(
@@ -687,7 +686,6 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        entry: StakeTableEntry<VerKey>,
         leaf_commitment: Commitment<Self::Commitment>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
@@ -751,7 +749,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     fn sign_yes_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Sign a neagtive vote on validating or commitment proposal.
     ///
@@ -761,7 +759,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     fn sign_no_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Sign a timeout vote.
     ///
@@ -770,7 +768,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ///
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
-    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
@@ -874,12 +872,12 @@ impl<
     fn sign_yes_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
 
     /// Sign a neagtive vote on validating or commitment proposal.
@@ -890,12 +888,12 @@ impl<
     fn sign_no_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
 
     /// Sign a timeout vote.
@@ -905,12 +903,12 @@ impl<
     ///
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
-    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::<TYPES::Time>::Timeout(view_number.commit()).commit().as_ref(),
         );
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
@@ -1009,7 +1007,6 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        entry: StakeTableEntry<VerKey>,
         leaf_commitment: Commitment<LEAF>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
@@ -1058,7 +1055,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_precommit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a commit vote
     fn create_commit_message<I: NodeImplementation<TYPES>>(
@@ -1072,7 +1069,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_commit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
     fn create_finalize_message<I: NodeImplementation<TYPES>>(
@@ -1086,7 +1083,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     fn sign_finalize_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>);
+    ) -> (EncodedPublicKey, EncodedSignature);
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 
@@ -1160,13 +1157,13 @@ impl<
     fn sign_precommit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
 
     fn create_commit_message<I: NodeImplementation<TYPES>>(
@@ -1201,13 +1198,13 @@ impl<
     fn sign_commit_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
 
     fn create_finalize_message<I: NodeImplementation<TYPES>>(
@@ -1242,13 +1239,13 @@ impl<
     fn sign_finalize_message(
         &self,
         commitment: Commitment<ViewSyncData<TYPES>>,
-    ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
+    ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             &VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
-        (self.public_key.to_bytes(), signature, self.entry.clone())
+        (self.public_key.to_bytes(), signature)
     }
 
     
@@ -1392,7 +1389,6 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        entry: StakeTableEntry<VerKey>,
         leaf_commitment: Commitment<ViewSyncData<TYPES>>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,

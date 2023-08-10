@@ -988,7 +988,6 @@ where
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
                     &vote_internal.signature.1,
-                    vote_internal.signature.2,
                     view_sync_data.clone(),
                     vote_internal.vote_data,
                     vote_internal.vote_token.clone(),

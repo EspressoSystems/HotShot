@@ -173,7 +173,6 @@ where
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
                 &vote.signature.1,
-                vote.signature.2,
                 vote.block_commitment,
                 vote.vote_data,
                 vote.vote_token.clone(),
@@ -385,7 +384,6 @@ where
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.clone().signature.0,
                     &vote.clone().signature.1,
-                    vote.clone().signature.2,
                     vote.clone().block_commitment,
                     vote.clone().vote_data.clone(),
                     vote.clone().vote_token.clone(),
