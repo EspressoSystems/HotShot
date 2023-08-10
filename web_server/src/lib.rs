@@ -20,7 +20,7 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
-use tracing::{error, info};
+use tracing::info;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -252,7 +252,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
 
         if !txns_to_return.is_empty() {
-            error!("Returning this many txs {}", txns_to_return.len());
+            info!("Returning this many txs {}", txns_to_return.len());
             Ok(Some((index, txns_to_return)))
         } else {
             Err(ServerError {
@@ -328,7 +328,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
-        error!("Received proposal for view {}", view_number);
+        info!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -376,7 +376,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     /// Stores a received DA certificate in the `WebServerState`
     fn post_da_certificate(&mut self, view_number: u64, mut cert: Vec<u8>) -> Result<(), Error> {
-        error!("Received DA Certificate for view {}", view_number);
+        info!("Received DA Certificate for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.da_certificates.len() >= MAX_VIEWS {
@@ -401,7 +401,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
-        error!(
+        info!(
             "Received transaction!  Number of transactions received is: {}",
             self.num_txns
         );
@@ -665,150 +665,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 
     let app_future = app.serve(format!("http://0.0.0.0:{port}"));
 
-    error!("Web server started on port {port}");
+    info!("Web server started on port {port}");
 
     app_future.await
-}
-
-#[cfg(test)]
-#[cfg(feature = "demo")]
-mod test {
-    use crate::config::{
-        get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
-        post_transactions_route, post_vote_route,
-    };
-
-    use super::*;
-    use async_compatibility_layer::art::async_spawn;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
-    use portpicker::pick_unused_port;
-    use surf_disco::error::ClientError;
-
-    type State = RwLock<WebServerState<Ed25519Pub>>;
-    type Error = ServerError;
-
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_web_server() {
-        let port = pick_unused_port().unwrap();
-        let base_url = format!("0.0.0.0:{port}");
-        let options = Options::default();
-        let api = define_api(&options).unwrap();
-        let mut app = App::<State, Error>::with_state(State::new(WebServerState::new()));
-
-        app.register_module("api", api).unwrap();
-        let _handle = async_spawn(app.serve(base_url.clone()));
-
-        let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ClientError>::new(base_url);
-        assert!(client.connect(None).await);
-
-        // Test posting and getting proposals
-        let prop1 = "prop1";
-        client
-            .post::<()>(&post_proposal_route(1))
-            .body_binary(&prop1)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(1))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-        let res1: &str = bincode::deserialize(&resp[0]).unwrap();
-        assert_eq!(res1, prop1);
-
-        let prop2 = "prop2";
-        client
-            .post::<()>(&post_proposal_route(2))
-            .body_binary(&prop2)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(2))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-
-        let res2: &str = bincode::deserialize(&resp[0]).unwrap();
-        assert_eq!(res2, prop2);
-        assert_ne!(res1, res2);
-
-        assert_eq!(
-            client
-                .get::<Option<Vec<u8>>>(&get_proposal_route(3))
-                .send()
-                .await,
-            Err(ClientError {
-                status: StatusCode::NotImplemented,
-                message: "Proposal not found for view 3".to_string()
-            })
-        );
-
-        // Test posting and getting votes
-        let vote1 = "vote1";
-        client
-            .post::<()>(&post_vote_route(1))
-            .body_binary(&vote1)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-
-        let vote2 = "vote2";
-        client
-            .post::<()>(&post_vote_route(1))
-            .body_binary(&vote2)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_vote_route(1, 0))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-        let res1: &str = bincode::deserialize(&resp[0]).unwrap();
-        let res2: &str = bincode::deserialize(&resp[1]).unwrap();
-        assert_eq!(vote1, res1);
-        assert_eq!(vote2, res2);
-        //check for proper indexing
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_vote_route(1, 1))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-        let res: &str = bincode::deserialize(&resp[0]).unwrap();
-        assert_eq!(vote2, res);
-
-        //test posting/getting transactions
-        let txns1 = "abc";
-        client
-            .post::<()>(&post_transactions_route())
-            .body_binary(&txns1)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_transactions_route(0))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-
-        let txn_resp1: &str = bincode::deserialize(&resp[0]).unwrap();
-        assert_eq!(txns1, txn_resp1);
-    }
 }

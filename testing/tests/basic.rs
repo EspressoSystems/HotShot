@@ -25,7 +25,7 @@ async fn test_with_failures_one() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription, spinning_task::SpinningTaskDescription, overall_safety_task::OverallSafetyPropertiesDescription,
+        completion_task::TimeBasedCompletionTaskDescription, spinning_task::SpinningTaskDescription,
     };
 
     async_compatibility_layer::logging::setup_logging();
@@ -73,17 +73,8 @@ async fn test_with_failures_half_f() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata = hotshot_testing::test_builder::TestMetadata {
-        total_nodes: 20,
-        start_nodes: 20,
-        num_bootstrap_nodes: 20,
-        da_committee_size: 20,
-        completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
-         overall_safety_properties: OverallSafetyPropertiesDescription {
-            num_successful_views: 10,
-            ..Default::default()
-        },..hotshot_testing::test_builder::TestMetadata::default()
-    };
+    let mut metadata = hotshot_testing::test_builder::TestMetadata::default_more_nodes_less_success();
+
     let dead_nodes = vec![
         hotshot_testing::spinning_task::ChangeNode {
             idx: 5,
@@ -124,17 +115,7 @@ async fn test_with_failures_f() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata = hotshot_testing::test_builder::TestMetadata {
-        total_nodes: 20,
-        start_nodes: 20,
-        num_bootstrap_nodes: 20,
-        da_committee_size: 20,
-        completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
-         overall_safety_properties: OverallSafetyPropertiesDescription {
-            num_successful_views: 10,
-            ..Default::default()
-        },..hotshot_testing::test_builder::TestMetadata::default()
-    };
+    let mut metadata = hotshot_testing::test_builder::TestMetadata::default_more_nodes_less_success();
     let dead_nodes = vec![
         hotshot_testing::spinning_task::ChangeNode {
             idx: 5,

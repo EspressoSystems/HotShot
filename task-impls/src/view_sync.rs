@@ -42,7 +42,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
@@ -259,7 +259,7 @@ where
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
-                error!(
+                debug!(
                     "Received view sync cert for phase {:?}",
                     last_seen_certificate
                 );
@@ -267,13 +267,13 @@ where
                 // This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
                 if self.current_view > certificate_internal.round {
-                    error!("Already in a higher view than the view sync message");
+                    warn!("Already in a higher view than the view sync message");
                     return;
                 }
 
                 if let Some(replica_task) = self.replica_task_map.get(&certificate_internal.round) {
                     // Forward event then return
-                    error!("Forwarding message");
+                    debug!("Forwarding message");
                     self.event_stream
                         .direct_message(replica_task.event_stream_id, event)
                         .await;

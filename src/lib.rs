@@ -197,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        error!("Creating a new hotshot");
+        info!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
             &*metrics.subgroup("consensus".to_string()),
@@ -347,14 +347,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         // Wrap up a message
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
-        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
         // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
 
-        let api = self.clone();
-        async_spawn(async move {
-            let _result = api.send_broadcast_message(message).await.is_err();
-        });
+        // let api = self.clone();
+        // async_spawn(async move {
+        //     // let _result = self.inner.exchanges.committee_exchange().network.broadcast(message).await.is_err();
+        // });
         Ok(())
     }
 
@@ -921,7 +921,7 @@ where
         .await;
         async_spawn(async move {
             task_runner.launch().await;
-            error!("Task runner exited!");
+            info!("Task runner exited!");
         });
 
         handle
