@@ -59,7 +59,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument};
 
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
@@ -237,7 +237,7 @@ where
                         return (None, state);
                     }
                     Either::Right(qc) => {
-                        warn!("QCFormed! {:?}", qc.view_number);
+                        debug!("QCFormed! {:?}", qc.view_number);
                         state
                             .event_stream
                             .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
@@ -384,7 +384,7 @@ where
                             );
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!(
+                            debug!(
                                 "Sending vote to next quorum leader {:?}",
                                 vote.current_view()
                             );
@@ -464,7 +464,7 @@ where
 
                         // TODO ED Only publish event in vote if able
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            warn!(
+                            debug!(
                                 "Sending vote to next quorum leader {:?}",
                                 vote.current_view()
                             );
@@ -476,13 +476,13 @@ where
                     }
                 }
             }
-            warn!(
+            debug!(
                 "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
                 *proposal.get_view_number(),
             );
             return false;
         }
-        warn!(
+        debug!(
             "Could not vote because we don't have a proposal yet for view {}",
             *self.cur_view
         );
@@ -494,7 +494,7 @@ where
 
     async fn update_view(&mut self, new_view: ViewNumber) -> bool {
         if *self.cur_view < *new_view {
-            warn!(
+            debug!(
                 "Updating view from {} to {} in consensus task",
                 *self.cur_view, *new_view
             );
@@ -522,7 +522,7 @@ where
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
-                warn!("Polling for quorum votes for view {}", *self.cur_view);
+                debug!("Polling for quorum votes for view {}", *self.cur_view);
                 self.quorum_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view))
@@ -856,7 +856,7 @@ where
                                 .outstanding_transactions_memory_size
                                 .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
-                            warn!("about to publish decide");
+                            debug!("about to publish decide");
                             let decide_sent = self.output_event_stream.publish(Event {
                                 view_number: consensus.last_decided_view,
                                 event: EventType::Decide {
@@ -917,7 +917,7 @@ where
                         self.update_view(new_view).await;
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            info!("Sending vote to next leader {:?}", vote);
+                            debug!("Sending vote to next leader {:?}", vote);
                             // warn!("Vote is {:?}", vote.current_view());
 
                             // self.event_stream
@@ -928,7 +928,7 @@ where
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                warn!("Received quroum vote: {:?}", vote.current_view());
+                debug!("Received quroum vote: {:?}", vote.current_view());
 
                 if !self.quorum_exchange.is_leader(vote.current_view() + 1) {
                     error!(
@@ -1010,7 +1010,7 @@ where
                             let _task = async_spawn(async move {
                                 VoteCollectionTypes::build(builder).launch().await;
                             });
-                            warn!("Starting vote handle for view {:?}", vote.current_view);
+                            debug!("Starting vote handle for view {:?}", vote.current_view);
                         } else if let Some((_, _, stream_id)) = self.vote_collector {
                             self.event_stream
                                 .direct_message(
@@ -1026,7 +1026,7 @@ where
                 }
             }
             SequencingHotShotEvent::QCFormed(qc) => {
-                warn!("QC Formed event happened!");
+                debug!("QC Formed event happened!");
 
                 let mut consensus = self.consensus.write().await;
                 consensus.high_qc = qc.clone();
@@ -1058,7 +1058,7 @@ where
                 // warn!("Handle qc formed event!");
                 // TODO ED Why isn't cur view correct here?
                 // // So we don't create a QC on the first view unless we are the leader
-                warn!(
+                debug!(
                     "Attempting to publish proposal after forming a QC for view {}",
                     *qc.view_number
                 );
@@ -1068,7 +1068,7 @@ where
                 }
             }
             SequencingHotShotEvent::DACRecv(cert) => {
-                warn!("DAC Recved for view ! {}", *cert.view_number);
+                debug!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
                 self.certs.insert(view, cert);
@@ -1084,7 +1084,7 @@ where
             }
 
             SequencingHotShotEvent::ViewChange(new_view) => {
-                warn!("View Change event for view {}", *new_view);
+                debug!("View Change event for view {}", *new_view);
 
                 let old_view_number = self.cur_view;
 
@@ -1144,7 +1144,7 @@ where
                 let mut next_parent_hash = original_parent_hash;
 
                 if !reached_decided {
-                    warn!("not reached decide fro view {:?}", self.cur_view);
+                    debug!("not reached decide fro view {:?}", self.cur_view);
                     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash)
                     {
                         if next_parent_leaf.view_number <= consensus.last_decided_view {
@@ -1153,7 +1153,7 @@ where
                         next_parent_hash = next_parent_leaf.parent_commitment;
                     }
                     // TODO do some sort of sanity check on the view number that it matches decided
-                    warn!("updated saved leaves");
+                    debug!("updated saved leaves");
                 }
 
                 let block_commitment = self.block.commit();
@@ -1186,8 +1186,8 @@ where
                     data: proposal,
                     signature,
                 };
-                // warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                warn!("Sending proposal for view {:?}", message.data.clone());
+                // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
+                debug!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(
@@ -1210,7 +1210,7 @@ where
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
-                // warn!("Updating self . block!");
+                // debug!("Updating self . block!");
                 self.block = block;
             }
             _ => {}
@@ -1267,20 +1267,20 @@ where
 
         // Walk back until we find a decide
         if !reached_decided {
-            warn!("not reached decide fro view {:?}", self.cur_view);
+            debug!("not reached decide fro view {:?}", self.cur_view);
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
                 }
                 next_parent_hash = next_parent_leaf.parent_commitment;
             }
-            warn!("updated saved leaves");
+            debug!("updated saved leaves");
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
         let block_commitment = self.block.commit();
         if block_commitment == TYPES::BlockType::new().commit() {
-            warn!("Block is generic block! {:?}", self.cur_view);
+            debug!("Block is generic block! {:?}", self.cur_view);
         }
         // warn!(
         //     "leaf commitment of new qc: {:?}",

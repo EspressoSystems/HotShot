@@ -17,7 +17,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
-use tracing::warn;
+use tracing::debug;
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
@@ -160,7 +160,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
             signatures,
             is_genesis: false,
         };
-        warn!("QC commitment when formed is {:?}", qc.leaf_commitment);
+        debug!("QC commitment when formed is {:?}", qc.leaf_commitment);
         qc
     }
 
