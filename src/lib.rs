@@ -197,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES::Consens
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
-        info!("Creating a new hotshot");
+        debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(ConsensusMetrics::new(
             &*metrics.subgroup("consensus".to_string()),

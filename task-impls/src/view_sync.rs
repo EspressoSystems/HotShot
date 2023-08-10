@@ -42,7 +42,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument};
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
@@ -267,7 +267,7 @@ where
                 // This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
                 if self.current_view > certificate_internal.round {
-                    warn!("Already in a higher view than the view sync message");
+                    debug!("Already in a higher view than the view sync message");
                     return;
                 }
 
@@ -360,7 +360,7 @@ where
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
                     // This will occur because everyone is pulling down votes for now, will fix soon ED
-                    warn!("View sync vote sent to wrong leader");
+                    debug!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -419,7 +419,7 @@ where
             SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
-                    warn!(
+                    debug!(
                         "Change from view {} to view {} in view sync task",
                         *self.current_view, *new_view
                     );
@@ -600,7 +600,7 @@ where
 
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
-                    warn!("We're already in a higher round");
+                    debug!("We're already in a higher round");
 
                     return (None, self);
                 }
@@ -780,7 +780,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                            warn!(
+                            debug!(
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
@@ -928,7 +928,7 @@ where
                     }
                 };
 
-                warn!(
+                debug!(
                     "Recved vote for next view {}, and relay {}, and phase {:?}",
                     *vote_internal.round, vote_internal.relay, phase
                 );
@@ -938,7 +938,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    warn!("We are not the correct relay");
+                    debug!("We are not the correct relay");
                     return (None, self);
                 }
 
@@ -948,7 +948,7 @@ where
                 }
                 .commit();
 
-                warn!(
+                debug!(
                     "Accumulating view sync vote {} relay {}",
                     *vote_internal.round, vote_internal.relay
                 );

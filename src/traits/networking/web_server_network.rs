@@ -53,7 +53,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -182,7 +182,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
 
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
-            warn!("Previous tx index was {}", tx_index);
+            debug!("Previous tx index was {}", tx_index);
         };
 
         while self.running.load(Ordering::Relaxed) {
@@ -232,10 +232,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 error!("We should not receive transactions in this function");
                             }
                             MessagePurpose::Proposal => {
-                                // warn!(
-                                //     "Received proposal from web server for view {} {}",
-                                //     view_number, self.is_da
-                                // );
+                                
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                                 self.broadcast_poll_queue
                                     .write()
@@ -266,7 +263,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 }
                             }
                             MessagePurpose::DAC => {
-                                warn!(
+                                debug!(
                                     "Received DAC from web server for view {} {}",
                                     view_number, self.is_da
                                 );
@@ -335,7 +332,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number == event_view {
-                                warn!("Shutting down polling task for view {}", event_view);
+                                debug!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
                         }
@@ -346,7 +343,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                             *lock = tx_index;
 
                             if view_number == event_view {
-                                warn!("Shutting down polling task for view {}", event_view);
+                                debug!("Shutting down polling task for view {}", event_view);
                                 return Ok(());
                             }
                         }
@@ -1027,7 +1024,7 @@ impl<
                         .send(ConsensusIntentEvent::CancelPollForTransactions(view_number))
                         .await;
                 } else {
-                    error!("Task map entry should have existed");
+                    info!("Task map entry should have existed");
                 };
             }
 

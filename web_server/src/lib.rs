@@ -21,6 +21,7 @@ use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
 use tracing::info;
+use tracing::debug;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -252,7 +253,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
 
         if !txns_to_return.is_empty() {
-            info!("Returning this many txs {}", txns_to_return.len());
+            debug!("Returning this many txs {}", txns_to_return.len());
             Ok(Some((index, txns_to_return)))
         } else {
             Err(ServerError {
@@ -328,7 +329,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
-        info!("Received proposal for view {}", view_number);
+        debug!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -376,7 +377,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     /// Stores a received DA certificate in the `WebServerState`
     fn post_da_certificate(&mut self, view_number: u64, mut cert: Vec<u8>) -> Result<(), Error> {
-        info!("Received DA Certificate for view {}", view_number);
+        debug!("Received DA Certificate for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.da_certificates.len() >= MAX_VIEWS {
@@ -401,7 +402,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
 
-        info!(
+        debug!(
             "Received transaction!  Number of transactions received is: {}",
             self.num_txns
         );
@@ -452,7 +453,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         view_number: u64,
         mut proposal: Vec<u8>,
     ) -> Result<(), Error> {
-        info!("Received proposal for view {}", view_number);
+        debug!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of views
         if self.proposals.len() >= MAX_VIEWS {
