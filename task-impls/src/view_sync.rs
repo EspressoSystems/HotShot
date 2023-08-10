@@ -709,7 +709,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -800,7 +800,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -855,7 +855,7 @@ where
                     let maybe_vote_token = self
                         .exchange
                         .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                        .make_vote_token(self.next_view, &self.exchange.private_key());
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {

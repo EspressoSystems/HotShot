@@ -257,7 +257,6 @@ pub trait Membership<TYPES: NodeType>:
         &self,
         view_number: TYPES::Time,
         priv_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        key_pair: QCKeyPair,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Checks the claims of a received vote token
@@ -350,7 +349,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         view_number: TYPES::Time,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.membership()
-            .make_vote_token(view_number, self.private_key(), (*self.key_pair()).clone())
+            .make_vote_token(view_number, self.private_key())
     }
 
     /// The contents of a vote on `commit`.
@@ -674,7 +673,7 @@ impl<
         view_number: TYPES::Time,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.membership
-            .make_vote_token(view_number, &self.private_key, self.key_pair.clone())
+            .make_vote_token(view_number, &self.private_key)
     }
 
     fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
