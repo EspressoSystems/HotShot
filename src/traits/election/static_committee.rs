@@ -137,22 +137,18 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &<PUBKEY as SignatureKey>::PrivateKey,
-        key_pair: QCKeyPair,
+        _key_pair: QCKeyPair,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
-        let entry = StakeTableEntry {
-            stake_key: key_pair.ver_key(),
-            stake_amount: U256::from(1u8),
-        };
-        if !self.committee_nodes_qc.contains(&entry) {
+        if !self.committee_nodes.contains(&pub_key) {
             return Ok(None);
         }
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
         // Change the length from 8 to 32 to make it consistent with other commitments, use defined constant? instead of 32.
         message.extend_from_slice(&[0u8; 32 - 8]);
-        let signature = PUBKEY::sign(key_pair, &message);
+        let signature = PUBKEY::sign(private_key, &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 

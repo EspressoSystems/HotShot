@@ -593,7 +593,7 @@ impl<
         block_commitment: &Commitment<TYPES::BlockType>,
     ) -> (EncodedSignature, VerKey) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(), 
+            &self.private_key,
             block_commitment.as_ref()
         );
         (signature, self.key_pair.ver_key())
@@ -607,7 +607,7 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -861,7 +861,7 @@ impl<
         leaf_commitment: &Commitment<LEAF>,
     ) -> (EncodedSignature, VerKey) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(), 
+            &self.private_key,
             leaf_commitment.as_ref()
         );
         (signature, self.key_pair.ver_key().clone())
@@ -878,7 +878,7 @@ impl<
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -894,7 +894,7 @@ impl<
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -909,7 +909,7 @@ impl<
     /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::<TYPES::Time>::Timeout(view_number.commit()).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature, self.entry.clone())
@@ -1166,7 +1166,7 @@ impl<
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
@@ -1207,7 +1207,7 @@ impl<
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
@@ -1248,7 +1248,7 @@ impl<
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature, StakeTableEntry<VerKey>) {
         let signature = TYPES::SignatureKey::sign(
-            self.key_pair.clone(),
+            &self.private_key,
             &VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
@@ -1338,7 +1338,10 @@ impl<
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey) {
-        let signature = TYPES::SignatureKey::sign(self.key_pair.clone(), &certificate.commit().as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key, 
+            &certificate.commit().as_ref()
+        );
         ( signature, self.key_pair.ver_key().clone())
     }
 }

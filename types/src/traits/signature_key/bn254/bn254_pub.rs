@@ -7,7 +7,7 @@ use std::{
 };
 use tracing::{debug, instrument, warn};
 use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey, SignKey};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
@@ -67,12 +67,12 @@ impl SignatureKey for BN254Pub {
             }
     }
 
-    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
+    fn sign(sk: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
         let generic_msg = GenericArray::from_slice(data);
         let agg_signature_test_wrap = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             &generic_msg,
-            key_pair.sign_key_ref(),
+            &(*sk).priv_key,
             &mut rand::thread_rng(),
         );
         match agg_signature_test_wrap {
