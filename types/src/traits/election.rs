@@ -425,11 +425,9 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// Validate a vote by checking its signature and token.
     fn is_valid_vote(
         &self,
-        ver_key: VerKey,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         data: VoteData<Self::Commitment>,
-        view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
@@ -458,11 +456,9 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         accumulator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         if !self.is_valid_vote(
-            vota_meta.ver_key,
             &vota_meta.encoded_key,
             &vota_meta.encoded_signature,
             vota_meta.data.clone(),
-            vota_meta.view_number,
             // Ignoring deserialization errors below since we are getting rid of it soon
             Checked::Unchecked(vota_meta.vote_token.clone()),
         ) {
@@ -489,7 +485,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             Either::Right(signatures) => {
                 Either::Right(Self::Certificate::from_signatures_and_commitment(
                     vota_meta.view_number,
-                    // agg_signatures,
                     signatures,
                     vota_meta.commitment,
                     vota_meta.relay,
