@@ -30,7 +30,7 @@ _test_basic_tokio:
   echo Testing with async std executor
   RUST_LOG="" cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
 
-test_with_failures:
+_test_with_failures:
   echo Testing nodes leaving the network with async std executor
   RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 

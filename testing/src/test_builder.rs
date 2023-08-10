@@ -122,6 +122,7 @@ impl TestMetadata {
         }
     }
 
+    /// Default setting with 20 nodes and 10 views of successful views.
     pub fn default_more_nodes_less_success() -> TestMetadata {
         TestMetadata {
             total_nodes: 20,

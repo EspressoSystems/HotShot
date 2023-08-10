@@ -5,16 +5,22 @@
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_basic() {
+    use hotshot_testing::{
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        test_builder::TestMetadata,
+    };
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata = hotshot_testing::test_builder::TestMetadata::default();
+    let metadata = TestMetadata::default();
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;
 }
 
+/// Test one node leaving the network.
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
@@ -25,28 +31,31 @@ async fn test_with_failures_one() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription, spinning_task::SpinningTaskDescription,
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
     };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata =
-        hotshot_testing::test_builder::TestMetadata::default_more_nodes_less_success();
-    let dead_nodes = vec![hotshot_testing::spinning_task::ChangeNode {
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
+    let dead_nodes = vec![ChangeNode {
         idx: 10,
-        updown: hotshot_testing::spinning_task::UpDown::Down,
+        updown: UpDown::Down,
     }];
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(std::time::Duration::new(4, 0), dead_nodes)],
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
     };
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;
 }
 
+
+/// Test f/2 nodes leaving the network.
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
@@ -57,40 +66,40 @@ async fn test_with_failures_half_f() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription,
-        overall_safety_task::OverallSafetyPropertiesDescription,
-        spinning_task::SpinningTaskDescription,
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
     };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata =
-        hotshot_testing::test_builder::TestMetadata::default_more_nodes_less_success();
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
     let dead_nodes = vec![
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 5,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 10,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 15,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
     ];
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(std::time::Duration::new(4, 0), dead_nodes)],
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
     };
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;
 }
 
+/// Test f nodes leaving the network.
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
@@ -101,47 +110,46 @@ async fn test_with_failures_f() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription,
-        overall_safety_task::OverallSafetyPropertiesDescription,
-        spinning_task::SpinningTaskDescription,
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
     };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata =
-        hotshot_testing::test_builder::TestMetadata::default_more_nodes_less_success();
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
     let dead_nodes = vec![
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 5,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 6,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 10,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 11,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 15,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
+        ChangeNode {
             idx: 16,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+            updown: UpDown::Down,
         },
     ];
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(std::time::Duration::new(4, 0), dead_nodes)],
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
     };
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;
