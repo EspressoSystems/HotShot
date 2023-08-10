@@ -1,5 +1,4 @@
 use nll::nll_todo::nll_todo;
-use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
@@ -29,11 +28,8 @@ use hotshot_types::{
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
-use hotshot_types::traits::signature_key::bn254::{BN254Priv};
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
-use rand_chacha::ChaCha20Rng;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -552,7 +548,6 @@ pub mod test {
         },
         vote::DAVote,
     };
-    use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(

@@ -94,7 +94,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{ViewSyncData, ViewSyncVote, VoteType},
+    vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};

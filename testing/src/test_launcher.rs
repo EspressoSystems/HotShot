@@ -16,11 +16,8 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;
 
 /// generators for resources used by each node

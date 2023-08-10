@@ -3,11 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::Debug,
-    str::FromStr,
 };
 use tracing::{debug, instrument, warn};
 use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey, SignKey};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
@@ -23,7 +22,7 @@ use hotshot_utils::bincode::bincode_opts;
 
 pub struct BN254Pub {
     /// The public key for this keypair
-    pub pub_key: VerKey,
+    pub_key: VerKey,
 }
 
 

@@ -504,7 +504,6 @@ where
                         continue;
                     }
                 }
-                let block_commitment = block.commit();
 
                 let consensus = self.consensus.read().await;
                 let signature = self.committee_exchange.sign_da_proposal(&block.commit());

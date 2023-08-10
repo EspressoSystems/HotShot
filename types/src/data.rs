@@ -34,7 +34,7 @@ use hotshot_primitives::qc::bit_vector::BitVectorQC;
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme, VerKey,
+    BLSOverBN254CurveSignatureScheme,
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.

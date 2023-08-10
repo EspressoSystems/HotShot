@@ -1,4 +1,3 @@
-use rand::SeedableRng;
 use std::sync::Arc;
 
 use hotshot::{
@@ -33,10 +32,7 @@ use super::{
     test_launcher::TestLauncher,
     txn_task::TxnTask,
 };
-use hotshot_types::traits::signature_key::bn254::{BN254Priv, BN254Pub};
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;
 
 /// The runner of a test network

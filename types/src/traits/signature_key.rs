@@ -4,7 +4,7 @@ use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 
 #[cfg(feature = "demo")]
 pub mod bn254;

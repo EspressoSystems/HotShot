@@ -13,7 +13,7 @@ use super::{
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
-    State, signature_key::bn254::BN254Pub,
+    State,
 };
 use crate::traits::election::Membership;
 use crate::vote::ViewSyncVote;
@@ -43,7 +43,7 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 /// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;

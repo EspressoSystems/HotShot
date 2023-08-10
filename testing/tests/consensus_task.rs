@@ -22,7 +22,6 @@ use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot::demos::sdemo::SDemoState;
 use hotshot::demos::sdemo::SDemoTransaction;
-use hotshot::rand::SeedableRng;
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::election::static_committee::StaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
@@ -79,12 +78,9 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
-use hotshot_types::traits::signature_key::bn254::{BN254Priv, BN254Pub};
+use hotshot_types::traits::signature_key::bn254::BN254Pub;
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand::prelude::*;
 use ethereum_types::U256;
-use rand_chacha::ChaCha20Rng;
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

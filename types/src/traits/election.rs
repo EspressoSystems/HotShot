@@ -48,7 +48,7 @@ use std::num::NonZeroU64;
 use tracing::error;
 use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry, QCParams};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
 use blake3::traits::digest::generic_array::GenericArray;
 use ethereum_types::U256;
 
@@ -1067,8 +1067,10 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
         commitment: Commitment<ViewSyncData<TYPES>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
+    /// Check whether a view sync certificate is valid
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 
+    /// Signs a view sync certificate
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 

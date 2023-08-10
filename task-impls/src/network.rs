@@ -21,7 +21,6 @@ use hotshot_types::{
 };
 use hotshot_types::{
     message::{CommitteeConsensusMessage, SequencingMessage},
-    traits::election::SignedCertificate,
 };
 use nll::nll_todo::nll_todo;
 use snafu::Snafu;

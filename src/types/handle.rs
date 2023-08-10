@@ -39,7 +39,6 @@ use std::sync::{
     Arc,
 };
 use tracing::{debug, error};
-use jf_primitives::signatures::bls_over_bn254::VerKey;
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;

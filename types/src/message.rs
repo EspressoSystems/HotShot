@@ -22,7 +22,6 @@ use crate::{
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
 use hotshot_task::task::PassType;
-use jf_primitives::signatures::bls_over_bn254::VerKey;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;

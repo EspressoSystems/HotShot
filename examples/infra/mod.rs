@@ -68,8 +68,6 @@ use std::{
 };
 #[allow(deprecated)]
 use tracing::error;
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;

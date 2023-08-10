@@ -10,14 +10,12 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey, bn254::BN254Pub},
     },
 };
-use jf_primitives::signatures::{bls_over_bn254::VerKey};
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
-use ethereum_types::U256;
 
 /// Dummy implementation of [`Membership`]
 

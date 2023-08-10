@@ -25,7 +25,6 @@ use hotshot_types::traits::network::ConsensusIntentEvent;
 
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::certificate::ViewSyncCertificate;
-use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::GeneralConsensusMessage;
@@ -38,7 +37,6 @@ use hotshot_types::traits::election::ViewSyncExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;

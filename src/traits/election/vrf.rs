@@ -4,31 +4,16 @@
 // use ark_ed_on_bls12_381::EdwardsConfig as Param381;
 // use ark_bls12_381::Parameters as Param381;
 // use ark_ec::bls12::Bls12Parameters;
-use bincode::Options;
-use digest::generic_array::GenericArray;
 // use blake3::Hasher;
 // use commit::{Commitment, Committable, RawCommitmentBuilder};
 // use derivative::Derivative;
 // use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::signature_key::{
-    EncodedPublicKey, EncodedSignature, SignatureKey,
+    EncodedPublicKey,
 };
-use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    // hash_to_group::TEHashToGroup,
-    signatures::{
-        SignatureScheme
-    },
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
-};
-use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey as QCVerKey};
-use typenum::U32;
 
 #[allow(deprecated)]
 // use num::{rational::Ratio, BigUint, ToPrimitive};
-use rand::SeedableRng;
 use serde::{de, Deserialize, Serialize};
 use std::{
     collections::BTreeMap,

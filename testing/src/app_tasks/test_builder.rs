@@ -23,11 +23,8 @@ use super::{
     safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
     txn_task::TxnTaskDescription,
 };
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;
 
 /// metadata describing a test
