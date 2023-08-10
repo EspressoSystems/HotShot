@@ -31,8 +31,10 @@ pub struct NetworkNodeConfig {
     /// list of addresses to connect to at initialization
     pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>,
     /// republication interval in DHT, must be much less than `ttl`
+    #[builder(default)]
     pub republication_interval: Option<Duration>,
     /// expiratiry for records in DHT
+    #[builder(default)]
     pub ttl: Option<Duration>,
 }
 
