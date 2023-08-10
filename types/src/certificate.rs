@@ -133,10 +133,6 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
-    /// Entry with public key and staking value for certificate aggregation
-    pub entry: StakeTableEntry<VerKey>,
-    /// Voter's public key under QC KeyPair Signature Scheme
-    pub ver_key: VerKey,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
     pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA

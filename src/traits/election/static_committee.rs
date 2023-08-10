@@ -113,13 +113,7 @@ where
     ) -> Self::StakeTable {
         self.nodes.clone()
     }
-    /// Clone the public key and corresponding stake table
-    fn get_qc_stake_table (
-            &self,
-        ) -> Vec<StakeTableEntry<VerKey>> {
-            self.nodes_qc.clone()
-    }
-
+    /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
     ) -> Vec<StakeTableEntry<VerKey>> {

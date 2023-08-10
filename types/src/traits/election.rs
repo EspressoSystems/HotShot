@@ -232,11 +232,6 @@ pub trait Membership<TYPES: NodeType>:
         state: &TYPES::StateType,
     ) -> Self::StakeTable;
 
-    /// Clone the public key and corresponding stake table for all the nodes
-    fn get_qc_stake_table (
-        &self
-    ) -> Vec<StakeTableEntry<VerKey>>;
-
     /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
@@ -703,8 +698,6 @@ impl<
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
-            entry: entry.clone(),
-            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,
@@ -1027,8 +1020,6 @@ impl<
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
-            entry: entry.clone(),
-            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,
@@ -1412,8 +1403,6 @@ impl<
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
-            entry: entry.clone(),
-            ver_key: entry.stake_key,
             commitment: leaf_commitment,
             data: vote_data,
             vote_token,
