@@ -320,7 +320,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-    ) -> (EncodedSignature, VerKey) {
+    ) -> EncodedSignature {
         let inner = self.hotshot.inner.clone();
         inner
             .exchanges

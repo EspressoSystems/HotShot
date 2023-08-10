@@ -1195,7 +1195,7 @@ where
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.api.public_key().to_bytes(),
                 };
-                let (signature, ver_key) = self
+                let signature = self
                     .quorum_exchange
                     .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
                 // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1206,13 +1206,11 @@ where
                     justify_qc: consensus.high_qc.clone(),
                     proposer_id: leaf.proposer_id,
                     dac: None,
-                    ver_key: ver_key,
                 };
 
                 let message = Proposal {
                     data: proposal,
                     signature,
-                    ver_key,
                 };
                 // warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 warn!("Sending proposal for view {:?}", message.data.clone());
@@ -1328,7 +1326,7 @@ where
         };
         // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
 
-        let (signature, ver_key) = self
+        let signature = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1339,13 +1337,11 @@ where
             justify_qc: consensus.high_qc.clone(),
             proposer_id: leaf.proposer_id,
             dac: None,
-            ver_key: ver_key,
         };
 
         let message = Proposal {
             data: proposal,
             signature,
-            ver_key,
         };
         error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 

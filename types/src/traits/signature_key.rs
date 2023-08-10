@@ -74,5 +74,8 @@ pub trait SignatureKey:
 
     /// Generate a new key pair
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
+
+    /// since the stake table entry needs VerKey directly rather than the wrapped BN254Pub, we need to get the internal VerKey
+    fn get_internal_pub_key(&self) -> VerKey;
 }
 

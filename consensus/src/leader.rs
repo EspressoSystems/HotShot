@@ -197,7 +197,7 @@ where
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: pk.to_bytes(),
             };
-            let (signature, ver_key) = self
+            let signature = self
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
@@ -205,7 +205,6 @@ where
                 ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
                     data,
                     signature,
-                    ver_key,
                 }));
             consensus
                 .metrics

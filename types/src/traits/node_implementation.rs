@@ -13,7 +13,7 @@ use super::{
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
-    State,
+    State, signature_key::bn254::BN254Pub,
 };
 use crate::traits::election::Membership;
 use crate::vote::ViewSyncVote;
@@ -182,7 +182,6 @@ pub trait ExchangesType<
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
@@ -269,7 +268,6 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
@@ -280,11 +278,10 @@ where
                 configs.0.clone(),
                 networks.0,
                 pk.clone(),
-                key_pair.clone(),
                 entry.clone(),
                 sk.clone(),
             ),
-            view_sync_exchange: VIEWSYNCEXCHANGE::create(entries, keys, configs.0, networks.1, pk, key_pair, entry, sk),
+            view_sync_exchange: VIEWSYNCEXCHANGE::create(entries, keys, configs.0, networks.1, pk, entry, sk),
             _phantom: PhantomData,
         }
     }
@@ -370,7 +367,6 @@ where
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
@@ -380,7 +376,6 @@ where
             configs.0.clone(),
             networks.0,
             pk.clone(),
-            key_pair.clone(),
             entry.clone(),
             sk.clone(),
         );
@@ -390,11 +385,10 @@ where
             configs.0,
             networks.1,
             pk.clone(),
-            key_pair.clone(),
             entry.clone(),
             sk.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys, configs.1, networks.2, pk, key_pair, entry, sk);
+        let committee_exchange = COMMITTEEEXCHANGE::create(entries, keys, configs.1, networks.2, pk, entry, sk);
 
         Self {
             quorum_exchange,

@@ -155,8 +155,6 @@ pub struct DAProposal<TYPES: NodeType> {
     pub deltas: TYPES::BlockType,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
-    /// the proposer's public key
-    pub ver_key: VerKey,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -179,9 +177,6 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// Data availibity certificate
     pub dac: Option<DACertificate<TYPES>>,
-
-    /// the proposer's public key
-    pub ver_key: VerKey,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType

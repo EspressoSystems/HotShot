@@ -117,12 +117,8 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     config.config.known_nodes_qc = (0..config.config.total_nodes.get())
     .map(|node_id| {
-        let real_seed = BN254Priv::get_seed_from_seed_indexed(
-                config.seed,
-                node_id.try_into().unwrap(),
-            );
         let entry = StakeTableEntry {
-                stake_key: QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed)).ver_key(),
+                stake_key: config.config.known_nodes[node_id].clone(),
                 stake_amount: U256::from(1u8),
             };
         entry
@@ -262,20 +258,15 @@ pub trait Run<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        // Get KeyPair for certificate Aggregation
-        let real_seed = BN254Priv::get_seed_from_seed_indexed(
-            config.seed,
-            config.node_index.try_into().unwrap(),
-        );
-        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
-            stake_key: key_pair.ver_key(),
+            stake_key: pk.get_internal_pub_key(),
             stake_amount: U256::from(1u8),
         };
-        let known_nodes = config.config.known_nodes.clone();
-        let known_nodes_qc = config.config.known_nodes_qc.clone();
+        let known_nodes = config.config.known_nodes.clone(); // PUBKEY
+        let known_nodes_qc = config.config.known_nodes_qc.clone(); // PUBKEY + StakeValue
 
         let network = self.get_network();
 
@@ -300,7 +291,6 @@ pub trait Run<
             //Kaley todo: add view sync network
             (network.clone(), nll_todo(), ()),
             pk.clone(),
-            key_pair.clone(),
             entry.clone(),
             sk.clone(),
         );

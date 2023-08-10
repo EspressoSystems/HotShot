@@ -284,17 +284,15 @@ where
         let block_commitment = block.commit();
 
         let consensus = self.consensus.read().await;
-        let (signature, ver_key) = self.committee_exchange.sign_da_proposal(&block.commit());
+        let signature = self.committee_exchange.sign_da_proposal(&block.commit());
         let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
-            ver_key,
         };
         let message =
             SequencingMessage::<TYPES, I>(Right(CommitteeConsensusMessage::DAProposal(Proposal {
                 data,
                 signature,
-                ver_key,
             })));
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
@@ -392,7 +390,7 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
-        let (signature, ver_key) = self
+        let signature = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -403,13 +401,11 @@ where
             justify_qc: self.high_qc.clone(),
             dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
-            ver_key: ver_key,
         };
         let message =
             SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
                 signature,
-                ver_key,
             })));
         if let Err(e) = self
             .api

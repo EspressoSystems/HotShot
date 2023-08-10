@@ -119,18 +119,11 @@ where
             .collect();
         let known_nodes_qc: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
         .map(|id| {
-            let real_seed = BN254Priv::get_seed_from_seed_indexed(
-                [0_u8; 32],
-                (id as u64).try_into().unwrap(),
-            );
-
             let entry = StakeTableEntry {
-                stake_key: QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed)).ver_key(),
+                stake_key: known_nodes[id].get_internal_pub_key(),
                 stake_amount: U256::from(1u8),
             };
-
             entry
-
         })
         .collect();
 

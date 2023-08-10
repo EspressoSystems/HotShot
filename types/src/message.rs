@@ -538,6 +538,4 @@ pub struct Proposal<PROPOSAL: ProposalType> {
     pub data: PROPOSAL,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
-    /// The proposer's public key
-    pub ver_key: VerKey,
 }

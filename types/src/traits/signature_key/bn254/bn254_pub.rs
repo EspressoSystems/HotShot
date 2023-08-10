@@ -23,7 +23,7 @@ use hotshot_utils::bincode::bincode_opts;
 
 pub struct BN254Pub {
     /// The public key for this keypair
-    pub_key: VerKey,
+    pub pub_key: VerKey,
 }
 
 
@@ -43,10 +43,8 @@ impl Ord for BN254Pub {
     }
 }
 
-
 impl SignatureKey for BN254Pub {
     type PrivateKey = BN254Priv;
-
     #[instrument(skip(self))]
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
         let ver_key = self.pub_key;
@@ -128,4 +126,9 @@ impl SignatureKey for BN254Pub {
         let priv_key = Self::PrivateKey::generated_from_seed_indexed(seed, index);
         (Self::from_private(&priv_key), priv_key)
     }
+
+    fn get_internal_pub_key(&self) -> VerKey {
+        self.pub_key
+    }
+
 }

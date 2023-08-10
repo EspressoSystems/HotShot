@@ -308,7 +308,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
@@ -522,9 +521,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// This participant's private key.
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
-
-    /// Get KeyPair for signature scheme in certificate Aggregation
-    fn key_pair(&self) -> &QCKeyPair;
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
@@ -533,7 +529,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
-        -> (EncodedSignature, VerKey);
+        -> EncodedSignature;
 
     /// Sign a vote on DA proposal.
     ///
@@ -568,8 +564,6 @@ pub struct CommitteeExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// KeyPair with signature scheme for certificate aggregation,
-    key_pair: QCKeyPair,
     /// Entry with public key and staking value for certificate aggregation
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
@@ -590,12 +584,12 @@ impl<
     fn sign_da_proposal(
         &self,
         block_commitment: &Commitment<TYPES::BlockType>,
-    ) -> (EncodedSignature, VerKey) {
+    ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             block_commitment.as_ref()
         );
-        (signature, self.key_pair.ver_key())
+        signature
     }
     /// Sign a vote on DA proposal.
     ///
@@ -649,7 +643,6 @@ impl<
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
@@ -659,7 +652,6 @@ impl<
             network,
             membership,
             public_key: pk,
-            key_pair,
             entry,
             private_key: sk,
             _pd: PhantomData,
@@ -713,9 +705,6 @@ impl<
     fn private_key(&self) -> &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey {
         &self.private_key
     }
-    fn key_pair(&self) -> &QCKeyPair {
-        &self.key_pair
-    }
 }
 
 /// A [`ConsensusExchange`] where participants vote to append items to a log.
@@ -738,7 +727,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-    ) -> (EncodedSignature, VerKey);
+    ) -> EncodedSignature;
 
     /// Sign a positive vote on validating or commitment proposal.
     ///
@@ -809,8 +798,6 @@ pub struct QuorumExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// KeyPair with Signature Scheme for certificate aggregation,
-    key_pair: QCKeyPair,
     /// Entry with public key and staking value for certificate aggregation
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
@@ -855,12 +842,12 @@ impl<
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-    ) -> (EncodedSignature, VerKey) {
+    ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
             leaf_commitment.as_ref()
         );
-        (signature, self.key_pair.ver_key().clone())
+        signature
     }
 
     /// Sign a positive vote on validating or commitment proposal.
@@ -976,7 +963,6 @@ impl<
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
@@ -986,7 +972,6 @@ impl<
             network,
             membership,
             public_key: pk,
-            key_pair,
             entry,
             private_key: sk,
             _pd: PhantomData,
@@ -1033,9 +1018,6 @@ impl<
     }
     fn private_key(&self) -> &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey {
         &self.private_key
-    }
-    fn key_pair(&self) -> &QCKeyPair {
-        &self.key_pair
     }
 }
 
@@ -1087,7 +1069,7 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
 
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool;
 
-    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey);
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature;
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
@@ -1106,8 +1088,6 @@ pub struct ViewSyncExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
-    /// KeyPair with signature scheme for certificate aggregation,
-    key_pair: QCKeyPair,
     /// Entry with public key and staking value for certificate aggregation in the stake table.
     entry: StakeTableEntry<VerKey>,
     /// This participant's private key.
@@ -1330,12 +1310,12 @@ impl<
         }
     }
 
-    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> (EncodedSignature, VerKey) {
+    fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key, 
             &certificate.commit().as_ref()
         );
-        ( signature, self.key_pair.ver_key().clone())
+        signature
     }
 }
 
@@ -1360,7 +1340,6 @@ impl<
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        key_pair: QCKeyPair,
         entry: StakeTableEntry<VerKey>,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
@@ -1370,7 +1349,6 @@ impl<
             network,
             membership,
             public_key: pk,
-            key_pair,
             entry,
             private_key: sk,
             _pd: PhantomData,
@@ -1416,9 +1394,6 @@ impl<
     }
     fn private_key(&self) -> &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey {
         &self.private_key
-    }
-    fn key_pair(&self) -> &QCKeyPair {
-        &self.key_pair
     }
 }
 

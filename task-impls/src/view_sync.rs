@@ -999,12 +999,11 @@ where
                 self.accumulator = match accumulator {
                     Left(new_accumulator) => Either::Left(new_accumulator),
                     Right(certificate) => {
-                        let (signature, ver_key) =
+                        let signature =
                             self.exchange.sign_certificate_proposal(certificate.clone());
                         let message = Proposal {
                             data: certificate.clone(),
                             signature,
-                            ver_key,
                         };
                         // error!("Sending view sync cert {:?}", message.clone());
                         self.event_stream

@@ -247,20 +247,15 @@ where
         let known_nodes = config.known_nodes.clone();
         let known_nodes_qc = config.known_nodes_qc.clone();
         // Get KeyPair for certificate Aggregation
-        let real_seed = BN254Priv::get_seed_from_seed_indexed(
-            [0_u8; 32],
-            node_id.try_into().unwrap(),
-        );
-        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
-        let entry = StakeTableEntry {
-            stake_key: key_pair.ver_key(),
-            stake_amount: U256::from(1u8),
-        };
         let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
             [0u8; 32],
             node_id,
         ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
+        let entry = StakeTableEntry {
+            stake_key: public_key.get_internal_pub_key(),
+            stake_amount: U256::from(1u8),
+        };
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -279,7 +274,6 @@ where
             ),
             (quorum_network, view_sync_network, committee_network),
             public_key.clone(),
-            key_pair.clone(),
             entry.clone(),
             private_key.clone(),
         );
