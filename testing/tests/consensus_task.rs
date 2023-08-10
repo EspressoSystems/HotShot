@@ -34,7 +34,6 @@ use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::QuorumExchange;
@@ -78,7 +77,6 @@ use std::sync::Arc;
 )]
 pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
-    type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme>;
@@ -171,13 +169,11 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 // once we have unit tests using this function.
 pub async fn build_consensus_task<
     TYPES: NodeType<
-        ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
         SignatureKey = JfPubKey<BLSSignatureScheme>,
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
-        TYPES::ConsensusType,
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
@@ -191,7 +187,6 @@ where
     I::Exchanges: SequencingExchangesType<
         TYPES,
         Message<TYPES, I>,
-        Networks = (StaticQuroumComm, StaticViewSyncComm, StaticDAComm),
         ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
     >,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -230,11 +225,11 @@ where
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
 
     let node_id = 1;
-    let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
-    let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
-    let committee_network =
-        (launcher.resource_generator.committee_network)(network_generator.clone());
-    let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
+    // let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
+    // let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
+    // let committee_network =
+    //     (launcher.resource_generator.committee_network)(network_generator.clone());
+    // let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
     let initializer =
@@ -261,7 +256,7 @@ where
     let exchanges = I::Exchanges::create(
         known_nodes.clone(),
         (quorum_election_config, committee_election_config),
-        (quorum_network, view_sync_network, committee_network),
+        (nll_todo(), nll_todo(), nll_todo()),
         public_key.clone(),
         private_key.clone(),
         ek.clone(),

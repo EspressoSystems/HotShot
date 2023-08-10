@@ -17,7 +17,7 @@ use crate::vote::ViewSyncVoteInternal;
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::traits::{
-    consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::ExchangesType,
+    node_implementation::ExchangesType,
     state::ConsensusTime,
 };
 use crate::vote::ViewSyncData;
@@ -452,7 +452,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
-pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsensus>, M: NetworkMsg>:
+pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
     /// Sign a DA proposal.
@@ -481,7 +481,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsen
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
 pub struct CommitteeExchange<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
     M: NetworkMsg,
@@ -502,7 +502,7 @@ pub struct CommitteeExchange<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
@@ -549,7 +549,7 @@ impl<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
@@ -645,7 +645,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> GeneralConsensusMessage<TYPES, I>
     where
         <Self as ConsensusExchange<TYPES, M>>::Certificate: commit::Committable,
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>;
+        I::Exchanges: ExchangesType<TYPES, LEAF, Message<TYPES, I>>;
 
     /// Sign a validating or commitment proposal.
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
@@ -692,7 +692,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>;
+        I::Exchanges: ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>;
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
@@ -702,7 +702,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>;
+        I::Exchanges: ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>;
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -750,7 +750,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>,
+        I::Exchanges: ExchangesType<TYPES, LEAF, Message<TYPES, I>>,
     {
         let signature = self.sign_yes_vote(leaf_commitment);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
@@ -827,7 +827,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I>>,
+        I::Exchanges: ExchangesType<TYPES, LEAF, Message<TYPES, I>>,
     {
         let signature = self.sign_no_vote(leaf_commitment);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
@@ -848,7 +848,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
     where
-        I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
+        I::Exchanges: ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
     {
         let signature = self.sign_timeout_vote(current_view);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {

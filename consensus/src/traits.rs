@@ -3,19 +3,16 @@
 use async_trait::async_trait;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::message::DataMessage;
-use hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
+    NodeImplementation, NodeType, SequencingExchangesType,
 };
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf},
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
-        consensus_type::{
-            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
-        },
         network::NetworkError,
         signature_key::SignatureKey,
     },
@@ -127,46 +124,10 @@ pub trait ConsensusSharedApi<
     }
 }
 
-/// The API that [`HotStuff`] needs to talk to the system for validating consensus.
-#[async_trait]
-pub trait ValidatingConsensusApi<
-    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = ValidatingLeaf<TYPES>,
-        ConsensusMessage = ValidatingMessage<TYPES, I>,
-    >,
->: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
-{
-    /// Send a direct message to the given recipient
-    async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: ValidatingMessage<TYPES, I>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a broadcast message to the entire network.
-    async fn send_broadcast_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
-        &self,
-        message: ValidatingMessage<TYPES, I>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a message with a transaction.
-    async fn send_transaction(
-        &self,
-        message: DataMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
-}
-
 /// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
 #[async_trait]
 pub trait SequencingConsensusApi<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >: ConsensusSharedApi<TYPES, LEAF, I> where

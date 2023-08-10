@@ -30,7 +30,6 @@ use hotshot_types::{
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
@@ -47,7 +46,7 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -81,7 +80,7 @@ pub struct DALeader<
 }
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -315,7 +314,7 @@ where
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -349,7 +348,7 @@ pub struct ConsensusLeader<
 }
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -414,7 +413,7 @@ where
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -446,7 +445,7 @@ pub struct ConsensusNextLeader<
 
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

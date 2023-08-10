@@ -1,5 +1,4 @@
 use hotshot::types::SignatureKey;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -152,7 +151,7 @@ impl Default for TestMetadata {
 impl TestMetadata {
     pub fn gen_launcher<
         TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+        I: TestableNodeImplementation<TYPES>,
     >(
         self,
     ) -> TestLauncher<TYPES, I>
@@ -164,7 +163,7 @@ impl TestMetadata {
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
         >,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         <I as NodeImplementation<TYPES>>::Exchanges:
             SequencingExchangesType<TYPES, Message<TYPES, I>>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
@@ -213,10 +212,6 @@ impl TestMetadata {
                 total_nodes as u64
             )),
         };
-        let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
-        let secondary_network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,
@@ -242,11 +237,7 @@ impl TestMetadata {
         let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
-                network_generator,
-                secondary_network_generator,
-                quorum_network: I::quorum_comm_channel_generator(),
-                committee_network: I::committee_comm_channel_generator(),
-                view_sync_network: I::view_sync_comm_channel_generator(),
+                channel_generator: nll::nll_todo::nll_todo(),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
@@ -260,3 +251,5 @@ impl TestMetadata {
         .modify_default_config(mod_config)
     }
 }
+
+

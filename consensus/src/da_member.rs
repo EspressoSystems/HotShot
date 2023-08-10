@@ -17,7 +17,6 @@ use hotshot_types::{
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{
             CommitteeEx, CommitteeProposalType, CommitteeVote, NodeImplementation, NodeType,
@@ -34,7 +33,7 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DAMember<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -67,7 +66,7 @@ pub struct DAMember<
 
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

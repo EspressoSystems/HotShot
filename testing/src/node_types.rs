@@ -20,7 +20,6 @@ use hotshot_types::{certificate::ViewSyncCertificate, data::QuorumProposal};
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
         node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
     },
@@ -44,7 +43,6 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
-    type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme>;
