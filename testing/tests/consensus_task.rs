@@ -269,7 +269,7 @@ where
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 
     let known_nodes = config.known_nodes.clone();
-    let known_nodes_qc = config.known_nodes_qc.clone();
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
      // Get KeyPair for certificate Aggregation
     let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = TYPES::SignatureKey::from_private(&private_key);
@@ -291,7 +291,7 @@ where
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
     });
     let exchanges = I::Exchanges::create(
-        known_nodes_qc.clone(),
+        known_nodes_with_stake.clone(),
         known_nodes.clone(),
         (quorum_election_config, committee_election_config),
         (quorum_network, view_sync_network, committee_network),

@@ -115,7 +115,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
         })
         .collect();
 
-    config.config.known_nodes_qc = (0..config.config.total_nodes.get())
+    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
     .map(|node_id| {
         let entry = StakeTableEntry {
                 stake_key: config.config.known_nodes[node_id].clone(),
@@ -266,7 +266,7 @@ pub trait Run<
             stake_amount: U256::from(1u8),
         };
         let known_nodes = config.config.known_nodes.clone(); // PUBKEY
-        let known_nodes_qc = config.config.known_nodes_qc.clone(); // PUBKEY + StakeValue
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone(); // PUBKEY + StakeValue
 
         let network = self.get_network();
 
@@ -285,7 +285,7 @@ pub trait Run<
         });
 
         let exchanges = NODE::Exchanges::create(
-            known_nodes_qc.clone(),
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (election_config.clone(), ()),
             //Kaley todo: add view sync network

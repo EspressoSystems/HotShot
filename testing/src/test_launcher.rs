@@ -117,7 +117,7 @@ where
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let known_nodes_qc: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
+        let known_nodes_with_stake: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
         .map(|id| {
             let entry = StakeTableEntry {
                 stake_key: known_nodes[id].get_internal_pub_key(),
@@ -134,7 +134,7 @@ where
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            known_nodes_qc,
+            known_nodes_with_stake,
             da_committee_size: NonZeroUsize::new(da_committee_size).unwrap().into(),
             next_view_timeout: 500,
             timeout_ratio: (11, 10),

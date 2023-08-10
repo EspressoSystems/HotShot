@@ -265,7 +265,7 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let known_nodes_qc = config.known_nodes_qc.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
         // Generate key pair for certificate aggregation
         let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
             [0u8; 32],
@@ -286,7 +286,7 @@ where
         let committee_election_config = I::committee_election_config_generator();
 
         let exchanges = I::Exchanges::create(
-            known_nodes_qc.clone(),
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,

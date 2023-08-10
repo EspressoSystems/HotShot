@@ -243,7 +243,7 @@ pub trait RunDA<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
-        let known_nodes_qc = config.config.known_nodes_qc.clone();
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
         let entry = StakeTableEntry {
             stake_key: pk.get_internal_pub_key(),
             stake_amount: U256::from(1u8),
@@ -271,7 +271,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
-            known_nodes_qc.clone(),
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, _committee_election_config),
             (

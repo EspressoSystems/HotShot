@@ -25,10 +25,10 @@ use ethereum_types::U256;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
-    nodes_qc: Vec<StakeTableEntry<VerKey>>,
+    nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
-    committee_nodes_qc: Vec<StakeTableEntry<VerKey>>,
+    committee_nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -43,12 +43,12 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
 {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(nodes: Vec<PUBKEY>, nodes_qc: Vec<StakeTableEntry<VerKey>>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>, nodes_with_stake: Vec<StakeTableEntry<VerKey>>) -> Self {
         Self {
             nodes: nodes.clone(),
-            nodes_qc: nodes_qc.clone(),
+            nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes: nodes,
-            committee_nodes_qc: nodes_qc,
+            committee_nodes_with_stake: nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -117,7 +117,7 @@ where
     fn get_committee_qc_stake_table (
         &self,
     ) -> Vec<StakeTableEntry<VerKey>> {
-        self.committee_nodes_qc.clone()
+        self.committee_nodes_with_stake.clone()
     }
 
     /// Index the vector of public keys with the current view number
@@ -168,14 +168,14 @@ where
 
     fn create_election(keys_qc: Vec<StakeTableEntry<VerKey>>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
-        let mut committee_nodes_qc = keys_qc.clone();
+        let mut committee_nodes_with_stake = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
-        committee_nodes_qc.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
         Self {
-            nodes_qc: keys_qc,
+            nodes_with_stake: keys_qc,
             nodes: keys,
             committee_nodes,
-            committee_nodes_qc,
+            committee_nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
