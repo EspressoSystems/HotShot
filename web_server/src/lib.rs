@@ -20,8 +20,8 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
-use tracing::info;
 use tracing::debug;
+use tracing::info;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;

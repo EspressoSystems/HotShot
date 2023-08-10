@@ -232,7 +232,6 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                                 error!("We should not receive transactions in this function");
                             }
                             MessagePurpose::Proposal => {
-                                
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                                 self.broadcast_poll_queue
                                     .write()
