@@ -236,7 +236,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Arc::new(RwLock::new(consensus));
         let txns = consensus.read().await.get_transactions();
 
-        let (send_network_lookup, recv_network_lookup) = unbounded();
+        let (_send_network_lookup, recv_network_lookup) = unbounded();
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             id: nonce,
