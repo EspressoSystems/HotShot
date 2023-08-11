@@ -51,7 +51,6 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        election::SignedCertificate,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{
             CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,

@@ -7,11 +7,11 @@ use hotshot::{
         // dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::JfPubKey, // VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            // VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
-    },
+    }, types::bn254::BN254Pub,
 };
 use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::ViewSyncVote;
@@ -27,7 +27,6 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme};
 use serde::{Deserialize, Serialize};
 
 // #[derive(
@@ -76,8 +75,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSOverBN254CurveSignatureScheme>>;
+    type SignatureKey = BN254Pub;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;

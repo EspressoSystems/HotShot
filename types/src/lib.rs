@@ -50,7 +50,7 @@ pub struct HotShotConfig<K, ELECTIONCONFIG> {
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
     /// List of known node's public keys under KeyPair for certificate aggregation, and list of entries serve as public parameter
-    pub known_nodes_qc: Vec<StakeTableEntry<VerKey>>,
+    pub known_nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds

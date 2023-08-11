@@ -228,7 +228,6 @@ where
                 match state.quorum_exchange.accumulate_vote(
                     &vote.signature.0,
                     &vote.signature.1,
-                    vote.signature.2,
                     vote.leaf_commitment,
                     vote.vote_data,
                     vote.vote_token.clone(),
@@ -675,7 +674,7 @@ where
                         }
                         // Validate the signature.
                         else if !view_leader_key
-                            .validate(proposal.ver_key, &proposal.signature, leaf_commitment.as_ref())
+                            .validate(&proposal.signature, leaf_commitment.as_ref())
                         {
                             error!(?proposal.signature, "Could not verify proposal.");
                             message = self.quorum_exchange.create_no_message(
@@ -983,7 +982,6 @@ where
                         let accumulator = self.quorum_exchange.accumulate_vote(
                             &vote.clone().signature.0,
                             &vote.clone().signature.1,
-                            vote.clone().signature.2,
                             vote.clone().leaf_commitment,
                             vote.clone().vote_data.clone(),
                             vote.clone().vote_token.clone(),
@@ -1197,7 +1195,7 @@ where
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.api.public_key().to_bytes(),
                 };
-                let (signature, ver_key) = self
+                let signature = self
                     .quorum_exchange
                     .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
                 // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1208,13 +1206,11 @@ where
                     justify_qc: consensus.high_qc.clone(),
                     proposer_id: leaf.proposer_id,
                     dac: None,
-                    ver_key: ver_key,
                 };
 
                 let message = Proposal {
                     data: proposal,
                     signature,
-                    ver_key,
                 };
                 // warn!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 warn!("Sending proposal for view {:?}", message.data.clone());
@@ -1330,7 +1326,7 @@ where
         };
         // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
 
-        let (signature, ver_key) = self
+        let signature = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
@@ -1341,13 +1337,11 @@ where
             justify_qc: consensus.high_qc.clone(),
             proposer_id: leaf.proposer_id,
             dac: None,
-            ver_key: ver_key,
         };
 
         let message = Proposal {
             data: proposal,
             signature,
-            ver_key,
         };
         error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 

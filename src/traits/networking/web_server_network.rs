@@ -21,7 +21,6 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use blake3::Hash;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_task_impls::da;
 use hotshot_types::message::{Message, MessagePurpose};

@@ -1,4 +1,3 @@
-use super::vrf::JfPubKey;
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
@@ -8,11 +7,10 @@ use hotshot_types::{
     traits::{
         election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::{EncodedSignature, SignatureKey, bn254::BN254Pub},
     },
 };
-use jf_primitives::signatures::{bls_over_bn254::VerKey};
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
+use jf_primitives::signatures::bls_over_bn254::VerKey;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -25,10 +23,10 @@ use tracing::error;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
-    nodes_qc: Vec<StakeTableEntry<VerKey>>,
+    nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
-    committee_nodes_qc: Vec<StakeTableEntry<VerKey>>,
+    committee_nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -36,19 +34,19 @@ pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: Signa
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, JfPubKey<BLSOverBN254CurveSignatureScheme>>;
+pub type StaticCommittee<T, LEAF> = GeneralStaticCommittee<T, LEAF, BN254Pub>; 
 
 impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
 {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(nodes: Vec<PUBKEY>, nodes_qc: Vec<StakeTableEntry<VerKey>>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>, nodes_with_stake: Vec<StakeTableEntry<VerKey>>) -> Self {
         Self {
             nodes: nodes.clone(),
-            nodes_qc: nodes_qc.clone(),
+            nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes: nodes,
-            committee_nodes_qc: nodes_qc,
+            committee_nodes_with_stake: nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -113,17 +111,11 @@ where
     ) -> Self::StakeTable {
         self.nodes.clone()
     }
-    /// Clone the public key and corresponding stake table
-    fn get_qc_stake_table (
-            &self,
-        ) -> Vec<StakeTableEntry<VerKey>> {
-            self.nodes_qc.clone()
-    }
-
+    /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
     ) -> Vec<StakeTableEntry<VerKey>> {
-        self.committee_nodes_qc.clone()
+        self.committee_nodes_with_stake.clone()
     }
 
     /// Index the vector of public keys with the current view number
@@ -137,7 +129,6 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &<PUBKEY as SignatureKey>::PrivateKey,
-        key_pair: QCKeyPair,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         // TODO ED Below
         let pub_key = PUBKEY::from_private(private_key);
@@ -148,13 +139,12 @@ where
         message.extend(view_number.to_le_bytes());
         // Change the length from 8 to 32 to make it consistent with other commitments, use defined constant? instead of 32.
         message.extend_from_slice(&[0u8; 32 - 8]);
-        let signature = PUBKEY::sign(key_pair, &message);
+        let signature = PUBKEY::sign(private_key, &message);
         Ok(Some(StaticVoteToken { signature, pub_key }))
     }
 
     fn validate_vote_token(
         &self,
-        _view_number: TYPES::Time,
         pub_key: PUBKEY,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
@@ -176,14 +166,14 @@ where
 
     fn create_election(keys_qc: Vec<StakeTableEntry<VerKey>>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
-        let mut committee_nodes_qc = keys_qc.clone();
+        let mut committee_nodes_with_stake = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
-        committee_nodes_qc.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
         Self {
-            nodes_qc: keys_qc,
+            nodes_with_stake: keys_qc,
             nodes: keys,
             committee_nodes,
-            committee_nodes_qc,
+            committee_nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -206,5 +196,11 @@ where
         _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.committee_nodes.clone().into_iter().collect()
+    }
+
+    fn get_committee_in_vec(
+        &self,
+    ) -> Vec<<TYPES as NodeType>::SignatureKey> {
+        self.committee_nodes.clone()
     }
 }

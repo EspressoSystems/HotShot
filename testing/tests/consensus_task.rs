@@ -22,12 +22,10 @@ use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot::demos::sdemo::SDemoState;
 use hotshot::demos::sdemo::SDemoTransaction;
-use hotshot::rand::SeedableRng;
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::election::static_committee::StaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::traits::election::static_committee::StaticVoteToken;
-use hotshot::traits::election::vrf::JfPubKey;
 use hotshot::traits::implementations::CentralizedCommChannel;
 use hotshot::traits::implementations::MemoryCommChannel;
 use hotshot::traits::implementations::MemoryStorage;
@@ -80,12 +78,9 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
+use hotshot_types::traits::signature_key::bn254::BN254Pub;
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand::prelude::*;
 use ethereum_types::U256;
-use rand_chacha::ChaCha20Rng;
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -114,7 +109,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -204,7 +199,7 @@ async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>,
+        SignatureKey = BN254Pub, 
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -253,7 +248,7 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSOverBN254CurveSignatureScheme>,
+        BN254Pub,
     >: Membership<TYPES>,
 {
     let builder = TestBuilder::default_multiple_rounds();
@@ -270,19 +265,14 @@ where
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 
     let known_nodes = config.known_nodes.clone();
-    let known_nodes_qc = config.known_nodes_qc.clone();
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
      // Get KeyPair for certificate Aggregation
-     let real_seed = BN254Priv::get_seed_from_seed_indexed(
-        [0u8; 32],
-        node_id.try_into().unwrap(),
-    );
-    let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
-    let entry = StakeTableEntry {
-        stake_key: key_pair.ver_key(),
-        stake_amount: U256::from(1u8),
-    };
     let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = TYPES::SignatureKey::from_private(&private_key);
+    let entry = StakeTableEntry {
+        stake_key: public_key.get_internal_pub_key(),
+        stake_amount: U256::from(1u8),
+    };
     let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -297,12 +287,11 @@ where
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
     });
     let exchanges = I::Exchanges::create(
-        known_nodes_qc.clone(),
+        known_nodes_with_stake.clone(),
         known_nodes.clone(),
         (quorum_election_config, committee_election_config),
         (quorum_network, view_sync_network, committee_network),
         public_key.clone(),
-        key_pair.clone(),
         entry.clone(),
         private_key.clone(),
     );

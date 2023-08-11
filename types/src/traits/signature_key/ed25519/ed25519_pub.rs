@@ -65,7 +65,7 @@ impl SignatureKey for Ed25519Pub {
     type PrivateKey = Ed25519Priv;
 
     #[instrument(skip(self))]
-    fn validate(&self, _ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
         let signature = &signature.0[..];
         // Convert to the signature type
         match Signature::from_slice(signature) {

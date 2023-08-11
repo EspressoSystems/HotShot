@@ -1,5 +1,4 @@
 use nll::nll_todo::nll_todo;
-use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
@@ -29,11 +28,8 @@ use hotshot_types::{
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
-use hotshot_types::traits::signature_key::bn254::{BN254Priv};
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use ethereum_types::U256;
-use rand_chacha::ChaCha20Rng;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -265,20 +261,15 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let known_nodes_qc = config.known_nodes_qc.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        // Generate key pair for certificate aggregation
         let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
             [0u8; 32],
             node_id,
         ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        // Generate key pair for certificate aggregation
-        let real_seed = BN254Priv::get_seed_from_seed_indexed(
-            [0_u8; 32],
-            (node_id as u64).try_into().unwrap(),
-        );
-        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
         let entry = StakeTableEntry {
-            stake_key: key_pair.ver_key(),
+            stake_key: public_key.get_internal_pub_key(),
             stake_amount: U256::from(1u8),
         };
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
@@ -291,7 +282,7 @@ where
         let committee_election_config = I::committee_election_config_generator();
 
         let exchanges = I::Exchanges::create(
-            known_nodes_qc.clone(),
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,
@@ -300,7 +291,6 @@ where
             // TODO ED Add view sync network here
             (quorum_network, nll_todo(), committee_network),
             public_key.clone(),
-            key_pair.clone(),
             entry.clone(),
             private_key.clone(),
         );
@@ -536,14 +526,13 @@ pub mod test {
         traits::{
             election::{
                 static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-                vrf::JfPubKey,
             },
             implementations::{
                 CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
                 WebCommChannel,
             },
             NodeImplementation,
-        },
+        }, types::bn254::BN254Pub,
     };
     use hotshot_types::message::{Message, SequencingMessage};
     use hotshot_types::traits::election::ViewSyncExchange;
@@ -559,7 +548,6 @@ pub mod test {
         },
         vote::DAVote,
     };
-    use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
     #[derive(
@@ -580,7 +568,7 @@ pub mod test {
         type ConsensusType = SequencingConsensus;
         type Time = ViewNumber;
         type BlockType = SDemoBlock;
-        type SignatureKey = JfPubKey<BLSOverBN254CurveSignatureScheme>;
+        type SignatureKey = BN254Pub; 
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = SDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;

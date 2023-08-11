@@ -25,7 +25,6 @@ use hotshot_types::traits::network::ConsensusIntentEvent;
 
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::certificate::ViewSyncCertificate;
-use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::GeneralConsensusMessage;
@@ -38,7 +37,6 @@ use hotshot_types::traits::election::ViewSyncExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -641,7 +639,7 @@ where
                     .exchange
                     .get_leader(certificate_internal.round + certificate_internal.relay);
 
-                if !relay_key.validate(message.ver_key, &message.signature, &message.data.commit().as_ref()) {
+                if !relay_key.validate(&message.signature, &message.data.commit().as_ref()) {
                     error!("Key does not validate for certificate sender");
                     return (None, self);
                 }
@@ -709,7 +707,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -800,7 +798,7 @@ where
                 let maybe_vote_token = self
                     .exchange
                     .membership()
-                    .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                    .make_vote_token(self.next_view, &self.exchange.private_key());
 
                 match maybe_vote_token {
                     Ok(Some(vote_token)) => {
@@ -855,7 +853,7 @@ where
                     let maybe_vote_token = self
                         .exchange
                         .membership()
-                        .make_vote_token(self.next_view, &self.exchange.private_key(), (*self.exchange.key_pair()).clone());
+                        .make_vote_token(self.next_view, &self.exchange.private_key());
 
                     match maybe_vote_token {
                         Ok(Some(vote_token)) => {
@@ -988,7 +986,6 @@ where
                 let mut accumulator = self.exchange.accumulate_vote(
                     &vote_internal.signature.0,
                     &vote_internal.signature.1,
-                    vote_internal.signature.2,
                     view_sync_data.clone(),
                     vote_internal.vote_data,
                     vote_internal.vote_token.clone(),
@@ -1000,12 +997,11 @@ where
                 self.accumulator = match accumulator {
                     Left(new_accumulator) => Either::Left(new_accumulator),
                     Right(certificate) => {
-                        let (signature, ver_key) =
+                        let signature =
                             self.exchange.sign_certificate_proposal(certificate.clone());
                         let message = Proposal {
                             data: certificate.clone(),
                             signature,
-                            ver_key,
                         };
                         // error!("Sending view sync cert {:?}", message.clone());
                         self.event_stream

@@ -20,9 +20,9 @@ use std::fmt::{self, Display, Formatter};
 use tracing::{error, warn};
 use std::{fmt::Debug, ops::Deref};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
-use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry};
+use hotshot_primitives::qc::bit_vector::{BitVectorQC};
 use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme, VerKey,
+    BLSOverBN254CurveSignatureScheme,
 };
 
 /// A `DACertificate` is a threshold signature that some data is available.
@@ -119,25 +119,20 @@ pub enum AssembledSignature {
     DA(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
     /// These signatures are for genesis certificate
     Genesis(),
-    /// These signatures are for ViewSync
+    /// These signatures are for ViewSyncPreCommit
     ViewSyncPreCommit(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
-
+    /// These signatures are for ViewSyncCommit
     ViewSyncCommit(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
-
+    /// These signatures are for ViewSyncFinalize
     ViewSyncFinalize(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
 pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
-    /// Voter's public key (Sishan NOTE: In certificate aggregation, this encoded_key is substitued by the following ver_key)
-    /// This TODO will be resolved after issue #1512 is resolved.
+    /// Voter's public key
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
-    /// Entry with public key and staking value for certificate aggregation
-    pub entry: StakeTableEntry<VerKey>,
-    /// Voter's public key under QC KeyPair Signature Scheme
-    pub ver_key: VerKey,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
     pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA

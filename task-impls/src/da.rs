@@ -173,7 +173,6 @@ where
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
                 &vote.signature.1,
-                vote.signature.2,
                 vote.block_commitment,
                 vote.vote_data,
                 vote.vote_token.clone(),
@@ -296,7 +295,7 @@ where
                     return None;
                 }
 
-                if !view_leader_key.validate(proposal.ver_key, &proposal.signature, block_commitment.as_ref()) {
+                if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
                     panic!("Could not verify proposal.");
                     return None;
                 }
@@ -385,7 +384,6 @@ where
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.clone().signature.0,
                     &vote.clone().signature.1,
-                    vote.clone().signature.2,
                     vote.clone().block_commitment,
                     vote.clone().vote_data.clone(),
                     vote.clone().vote_token.clone(),
@@ -506,22 +504,20 @@ where
                         continue;
                     }
                 }
-                let block_commitment = block.commit();
 
                 let consensus = self.consensus.read().await;
-                let (signature, ver_key) = self.committee_exchange.sign_da_proposal(&block.commit());
+                let signature = self.committee_exchange.sign_da_proposal(&block.commit());
                 let data: DAProposal<TYPES> = DAProposal {
                     deltas: block.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
-                    ver_key: ver_key.clone(),
                 };
                 warn!("Sending DA proposal for view {:?}", data.view_number);
 
                 // let message = SequencingMessage::<TYPES, I>(Right(
                 //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
                 // ));
-                let message = Proposal { data, signature, ver_key };
+                let message = Proposal { data, signature };
                 // Brodcast DA proposal
                 // TODO ED We should send an event to do this, but just getting it to work for now
 

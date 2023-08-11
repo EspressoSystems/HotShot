@@ -3,11 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::Debug,
-    str::FromStr,
 };
 use tracing::{debug, instrument, warn};
 use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
@@ -43,12 +42,11 @@ impl Ord for BN254Pub {
     }
 }
 
-
 impl SignatureKey for BN254Pub {
     type PrivateKey = BN254Priv;
-
     #[instrument(skip(self))]
-    fn validate(&self, ver_key: VerKey, signature: &EncodedSignature, data: &[u8]) -> bool {
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let ver_key = self.pub_key;
         let x: Result<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, _> = 
             bincode_opts().deserialize(&signature.0);
             match x {
@@ -66,12 +64,12 @@ impl SignatureKey for BN254Pub {
             }
     }
 
-    fn sign(key_pair: QCKeyPair, data: &[u8]) -> EncodedSignature {
+    fn sign(sk: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
         let generic_msg = GenericArray::from_slice(data);
         let agg_signature_test_wrap = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             &generic_msg,
-            key_pair.sign_key_ref(),
+            &(*sk).priv_key,
             &mut rand::thread_rng(),
         );
         match agg_signature_test_wrap {
@@ -125,4 +123,9 @@ impl SignatureKey for BN254Pub {
         let priv_key = Self::PrivateKey::generated_from_seed_indexed(seed, index);
         (Self::from_private(&priv_key), priv_key)
     }
+
+    fn get_internal_pub_key(&self) -> VerKey {
+        self.pub_key
+    }
+
 }

@@ -23,11 +23,8 @@ use super::{
     safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
     txn_task::TxnTaskDescription,
 };
-use hotshot_types::traits::signature_key::bn254::BN254Priv;
-use jf_primitives::signatures::bls_over_bn254::{KeyPair as QCKeyPair, VerKey};
+use jf_primitives::signatures::bls_over_bn254::{VerKey};
 use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 use ethereum_types::U256;
 
 /// metadata describing a test
@@ -128,15 +125,10 @@ impl TestMetadata {
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let known_nodes_qc: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
+        let known_nodes_with_stake: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
         .map(|id| {
-            let real_seed = BN254Priv::get_seed_from_seed_indexed(
-                [0_u8; 32],
-                (id as u64).try_into().unwrap(),
-            );
-
             let entry = StakeTableEntry {
-                stake_key: QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed)).ver_key(),
+                stake_key: known_nodes[id].get_internal_pub_key(),
                 stake_amount: U256::from(1u8),
             };
 
@@ -156,7 +148,7 @@ impl TestMetadata {
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
-            known_nodes_qc,
+            known_nodes_with_stake,
             da_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),

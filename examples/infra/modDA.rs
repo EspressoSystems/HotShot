@@ -239,25 +239,21 @@ pub trait RunDA<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
-        let known_nodes_qc = config.config.known_nodes_qc.clone();
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+        let entry = StakeTableEntry {
+            stake_key: pk.get_internal_pub_key(),
+            stake_amount: U256::from(1u8),
+        };
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
         let view_sync_network = self.get_view_sync_network();
 
-        // Get KeyPair for certificate Aggregation
-        let real_seed = BN254Priv::get_seed_from_seed_indexed(
-            config.seed,
-            config.node_index.try_into().unwrap(),
-        );
-        let key_pair = QCKeyPair::generate(&mut ChaCha20Rng::from_seed(real_seed));
-        let entry = StakeTableEntry {
-            stake_key: key_pair.ver_key(),
-            stake_amount: U256::from(1u8),
-        };
+        
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
@@ -275,7 +271,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
-            known_nodes_qc.clone(),
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, _committee_election_config),
             (
@@ -284,7 +280,6 @@ pub trait RunDA<
                 da_network.clone(),
             ),
             pk.clone(),
-            key_pair.clone(),
             entry.clone(),
             sk.clone(),
         );
