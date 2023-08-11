@@ -13,8 +13,8 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     data::SequencingLeaf,
     message::{
-        ConsensusMessageType, Message, ProcessedCommitteeConsensusMessage,
-        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
+        ConsensusMessageType, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
         election::{CommitteeExchangeType, ConsensusExchange},

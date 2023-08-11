@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
+
+use hotshot_types::traits::node_implementation::{NodeType, QuorumEx};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
@@ -223,7 +223,7 @@ impl TestMetadata {
         let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
-                channel_generator: Box::new(|id| nll_todo()),
+                channel_generator: Box::new(|_id| nll_todo()),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },

@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::message::DataMessage;
-use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
