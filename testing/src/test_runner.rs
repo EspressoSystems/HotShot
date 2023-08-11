@@ -1,6 +1,7 @@
 use super::overall_safety_task::OverallSafetyTask;
 use super::overall_safety_task::RoundCtx;
 use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use crate::test_launcher::Networks;
 use crate::test_launcher::TestLauncher;
 use hotshot::types::SystemContextHandle;
 use hotshot::{
@@ -24,7 +25,6 @@ use hotshot_types::{
 };
 #[allow(deprecated)]
 use rand::SeedableRng;
-use std::sync::Arc;
 use tracing::info;
 
 #[derive(Clone)]
@@ -213,14 +213,7 @@ where
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let node_id = self
-                .add_node_with_config(
-                    nll::nll_todo::nll_todo(),
-                    nll::nll_todo::nll_todo(),
-                    nll::nll_todo::nll_todo(),
-                    storage,
-                    initializer,
-                    config,
-                )
+                .add_node_with_config(nll::nll_todo::nll_todo(), storage, initializer, config)
                 .await;
             results.push(node_id);
         }
@@ -231,15 +224,7 @@ where
     ///
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: <<
-                I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>
-            >::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
-        committee_network: <<
-                I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>
-            >::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
-        view_sync_network: <<
-                I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>
-            >::ViewSyncExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+        networks: Networks<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -275,7 +260,7 @@ where
                 quorum_election_config,
                 committee_election_config(config.da_committee_size as u64),
             ),
-            (view_sync_network, committee_network, quorum_network),
+            networks,
             public_key.clone(),
             private_key.clone(),
             ek.clone(),

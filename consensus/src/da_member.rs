@@ -20,7 +20,6 @@ use hotshot_types::{
         election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{
             CommitteeEx, CommitteeProposalType, CommitteeVote, NodeImplementation, NodeType,
-            SequencingExchangesType,
         },
         signature_key::SignatureKey,
     },
@@ -39,9 +38,7 @@ pub struct DAMember<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
@@ -73,8 +70,6 @@ impl<
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > DAMember<A, TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.

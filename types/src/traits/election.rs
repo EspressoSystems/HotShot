@@ -16,10 +16,7 @@ use crate::vote::ViewSyncVoteInternal;
 
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
-use crate::traits::{
-    node_implementation::ExchangesType,
-    state::ConsensusTime,
-};
+use crate::traits::{node_implementation::ExchangesType, state::ConsensusTime};
 use crate::vote::ViewSyncData;
 use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;

@@ -255,9 +255,9 @@ pub trait RunDA<
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
-                view_sync_network.clone(),
-                da_network.clone(),
                 quorum_network.clone(),
+                da_network.clone(),
+                view_sync_network.clone(),
             ),
             pk.clone(),
             sk.clone(),

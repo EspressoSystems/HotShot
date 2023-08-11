@@ -76,8 +76,8 @@ use hotshot_types::{
         metrics::Metrics,
         network::NetworkError,
         node_implementation::{
-            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks,
-            SequencingExchangesType, SequencingQuorumEx, ViewSyncEx,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
+            ViewSyncEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -637,7 +637,6 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > HotShotType<TYPES, I> for SystemContext<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
@@ -1085,7 +1084,6 @@ impl<
         >,
     > ViewRunner<TYPES, I> for SystemContext<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -1454,8 +1452,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > hotshot_consensus::SequencingConsensusApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

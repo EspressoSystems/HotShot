@@ -26,7 +26,7 @@ use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
 use hotshot_types::{
@@ -60,7 +60,6 @@ pub struct DATaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -94,7 +93,6 @@ pub struct DAVoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -115,7 +113,6 @@ pub struct DAVoteCollectionTaskState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
     for DAVoteCollectionTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -137,7 +134,6 @@ async fn vote_handle<
     DAVoteCollectionTaskState<TYPES, I>,
 )
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -212,7 +208,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -647,7 +642,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

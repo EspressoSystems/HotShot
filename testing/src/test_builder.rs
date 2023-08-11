@@ -1,5 +1,6 @@
 use hotshot::types::SignatureKey;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
+use nll::nll_todo::nll_todo;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,9 +8,7 @@ use std::time::Duration;
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{
-    NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType,
-};
+use hotshot_types::traits::node_implementation::{NodeType, QuorumCommChannel, QuorumEx};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
@@ -149,23 +148,10 @@ impl Default for TestMetadata {
 }
 
 impl TestMetadata {
-    pub fn gen_launcher<
-        TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES>,
-    >(
+    pub fn gen_launcher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TestLauncher<TYPES, I>
     where
-        QuorumCommChannel<TYPES, I>: CommunicationChannel<
-            TYPES,
-            Message<TYPES, I>,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
-        >,
-        TYPES: NodeType,
-        <I as NodeImplementation<TYPES>>::Exchanges:
-            SequencingExchangesType<TYPES, Message<TYPES, I>>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
         let TestMetadata {
@@ -237,7 +223,7 @@ impl TestMetadata {
         let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
-                channel_generator: nll::nll_todo::nll_todo(),
+                channel_generator: Box::new(|id| nll_todo()),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
@@ -251,5 +237,3 @@ impl TestMetadata {
         .modify_default_config(mod_config)
     }
 }
-
-

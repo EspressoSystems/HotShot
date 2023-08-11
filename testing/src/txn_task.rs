@@ -12,11 +12,9 @@ use hotshot_task::{
     GeneratedStream,
 };
 use hotshot_types::message::DataMessage;
-use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::state::ConsensusTime;
 use rand::thread_rng;
 use snafu::Snafu;
@@ -70,8 +68,6 @@ impl TxnTaskDescription {
     ) -> TaskGenerator<TxnTask<TYPES, I>>
     where
         TYPES: NodeType,
-        <I as NodeImplementation<TYPES>>::Exchanges:
-            SequencingExchangesType<TYPES, Message<TYPES, I>>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
         Box::new(move |state, mut registry, test_event_stream| {

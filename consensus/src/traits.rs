@@ -4,18 +4,13 @@ use async_trait::async_trait;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::message::DataMessage;
 use hotshot_types::message::{Message, SequencingMessage};
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, NodeType, SequencingExchangesType,
-};
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{
-        network::NetworkError,
-        signature_key::SignatureKey,
-    },
+    traits::{network::NetworkError, signature_key::SignatureKey},
     vote::VoteType,
 };
 
@@ -130,8 +125,7 @@ pub trait SequencingConsensusApi<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+>: ConsensusSharedApi<TYPES, LEAF, I>
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(

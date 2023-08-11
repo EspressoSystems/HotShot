@@ -30,7 +30,6 @@ use hotshot_types::traits::election::ViewSyncExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::traits::state::ConsensusTime;
@@ -68,7 +67,6 @@ pub struct ViewSyncTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -109,7 +107,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -136,7 +133,6 @@ pub struct ViewSyncReplicaTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -169,7 +165,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -232,7 +227,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -563,7 +557,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -892,7 +885,6 @@ impl<
         >,
     > ViewSyncRelayTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

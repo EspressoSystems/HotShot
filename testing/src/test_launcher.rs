@@ -27,6 +27,24 @@ use super::{
     test_builder::TestMetadata, test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
 };
 
+pub type Networks<TYPES, I> = (
+    <<<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+    <<<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+    <<<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::ViewSyncExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+);
+
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
@@ -59,10 +77,8 @@ pub type Hook = Box<
 >;
 
 /// generators for resources used by each node
-pub struct ResourceGenerators<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES>,
-> where
+pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+where
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
@@ -72,11 +88,7 @@ pub struct ResourceGenerators<
     >,
 {
     // generate channels
-    pub channel_generator: Generator<(
-        <<I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>>::ViewSyncExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
-        <<I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>>::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
-        <<I::Exchanges as ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>>::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
-    )>,
+    pub channel_generator: Generator<Networks<TYPES, I>>,
     /// generate a new storage for each node
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node

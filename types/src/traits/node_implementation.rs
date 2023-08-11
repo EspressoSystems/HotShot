@@ -21,9 +21,7 @@ use crate::{
     data::{LeafType, SequencingLeaf},
     message::{ConsensusMessageType, SequencingMessage},
     traits::{
-        network::TestableChannelImplementation,
-        signature_key::SignatureKey,
-        storage::Storage,
+        network::TestableChannelImplementation, signature_key::SignatureKey, storage::Storage,
         Block,
     },
 };
@@ -150,6 +148,7 @@ pub trait NodeImplementation<TYPES: NodeType>:
 }
 
 /// Contains the protocols for exchanging proposals and votes.
+#[allow(clippy::type_complexity)]
 #[async_trait]
 pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSAGE: NetworkMsg>:
     Send + Sync
@@ -174,9 +173,9 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: (
-            <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
-            <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -197,17 +196,12 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
     async fn shut_down_networks(&self);
 }
 
-/// An [`ExchangesType`] for sequencing consensus.
-pub trait SequencingExchangesType<TYPES: NodeType, MESSAGE: NetworkMsg>:
-    ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>
-{
-}
-
 /// an exchange that is testable
-pub trait TestableExchange<TYPES: NodeType, MESSAGE: NetworkMsg>:
-    SequencingExchangesType<TYPES, MESSAGE>
+pub trait TestableExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSAGE: NetworkMsg>:
+    ExchangesType<TYPES, LEAF, MESSAGE>
 {
     /// generate communication channels
+    #[allow(clippy::type_complexity)]
     fn gen_comm_channels(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -216,8 +210,8 @@ pub trait TestableExchange<TYPES: NodeType, MESSAGE: NetworkMsg>:
         dyn Fn(
                 u64,
             ) -> (
-                <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
                 <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+                <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
                 <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             ) + 'static,
     >;
@@ -245,18 +239,6 @@ pub struct SequencingExchanges<
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
-    SequencingExchangesType<TYPES, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
-where
-    TYPES: NodeType,
-    MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
-    VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
-{
-}
-
 #[async_trait]
 impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
     ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>
@@ -281,9 +263,9 @@ where
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: (
-            <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
-            <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -292,7 +274,7 @@ where
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
             configs.0.clone(),
-            networks.2,
+            networks.0,
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -300,7 +282,7 @@ where
         let view_sync_exchange = VIEWSYNCEXCHANGE::create(
             keys.clone(),
             configs.0,
-            networks.0,
+            networks.2,
             pk.clone(),
             sk.clone(),
             ek.clone(),
@@ -417,7 +399,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
     > TestableNodeImplementation<TYPES> for I
 where
-    <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeNetwork<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
     QuorumNetwork<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
     QuorumCommChannel<TYPES, I>: TestableChannelImplementation<

@@ -35,7 +35,7 @@ use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::traits::Block;
 use hotshot_types::vote::VoteType;
@@ -73,7 +73,6 @@ pub struct SequencingConsensusTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -143,7 +142,6 @@ pub struct VoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -165,7 +163,6 @@ pub struct VoteCollectionTaskState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
     for VoteCollectionTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -186,7 +183,6 @@ async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Sequen
     VoteCollectionTaskState<TYPES, I>,
 )
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -278,7 +274,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > SequencingConsensusTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -1335,7 +1330,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     > TS for SequencingConsensusTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -1382,7 +1376,6 @@ pub async fn sequencing_consensus_handle<
     SequencingConsensusTaskState<TYPES, I, A>,
 )
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

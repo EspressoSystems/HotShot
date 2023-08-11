@@ -18,7 +18,7 @@ use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
@@ -52,9 +52,7 @@ pub struct DALeader<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -88,7 +86,6 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -320,9 +317,7 @@ pub struct ConsensusLeader<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -356,7 +351,6 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -419,9 +413,7 @@ pub struct ConsensusNextLeader<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -453,7 +445,6 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

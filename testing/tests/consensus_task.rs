@@ -43,7 +43,6 @@ use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::node_implementation::QuorumEx;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::SequencingQuorumEx;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::{
@@ -184,8 +183,9 @@ pub async fn build_consensus_task<
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<
+    I::Exchanges: ExchangesType<
         TYPES,
+        I::Leaf,
         Message<TYPES, I>,
         ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
     >,

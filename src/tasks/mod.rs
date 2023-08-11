@@ -4,12 +4,9 @@ use crate::async_spawn;
 use crate::types::SystemContextHandle;
 use crate::{
     DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
-    SystemContext, ViewRunner,
+    SystemContext,
 };
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn_local},
-    channel::UnboundedReceiver,
-};
+use async_compatibility_layer::art::{async_sleep, async_spawn_local};
 use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
@@ -43,9 +40,7 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
         network::{CommunicationChannel, TransmitType},
-        node_implementation::{
-            CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
-        },
+        node_implementation::{CommitteeEx, ExchangesType, NodeImplementation, NodeType},
         state::ConsensusTime,
         Block,
     },
@@ -337,7 +332,6 @@ pub async fn add_consensus_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -435,7 +429,6 @@ pub async fn add_da_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -504,7 +497,6 @@ pub async fn add_view_sync_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
