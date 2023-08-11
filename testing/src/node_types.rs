@@ -12,7 +12,7 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::{message::{Message, SequencingMessage}, traits::node_implementation::TestableExchange};
 use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::vote::ViewSyncVote;
@@ -184,34 +184,54 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
     }
 }
 
-impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
-    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
-    type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type Exchanges = SequencingExchanges<
+pub type SequencingMemoryExchange = SequencingExchanges<
         SequencingTestTypes,
-        Message<SequencingTestTypes, Self>,
+        Message<SequencingTestTypes, SequencingMemoryImpl>,
         QuorumExchange<
             SequencingTestTypes,
-            Self::Leaf,
+            <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
             QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             StaticMembership,
             StaticMemoryQuorumComm,
-            Message<SequencingTestTypes, Self>,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
         >,
         CommitteeExchange<
             SequencingTestTypes,
             StaticMembership,
             StaticMemoryDAComm,
-            Message<SequencingTestTypes, Self>,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
         >,
         ViewSyncExchange<
             SequencingTestTypes,
             ViewSyncCertificate<SequencingTestTypes>,
             StaticMembership,
             StaticMemoryViewSyncComm,
-            Message<SequencingTestTypes, Self>,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
         >,
     >;
+
+impl TestableExchange<SequencingTestTypes, <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf, Message<SequencingTestTypes, SequencingMemoryImpl>> for SequencingMemoryExchange {
+    fn gen_comm_channels(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        da_committee_size: usize,
+    ) -> Box<
+        dyn Fn(
+                u64,
+            ) -> (
+                <Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
+                <Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
+                <Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
+            ) + 'static,
+    > {
+        todo!()
+    }
+}
+
+impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
+    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+    type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type Exchanges = SequencingMemoryExchange;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(

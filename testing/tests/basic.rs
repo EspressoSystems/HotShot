@@ -1,3 +1,5 @@
+use hotshot_testing::node_types::SequencingMemoryImpl;
+
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
@@ -9,7 +11,7 @@ async fn test_basic() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = hotshot_testing::test_builder::TestMetadata::default();
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;

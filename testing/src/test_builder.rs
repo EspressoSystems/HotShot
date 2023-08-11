@@ -8,7 +8,7 @@ use std::time::Duration;
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
 
-use hotshot_types::traits::node_implementation::{NodeType, QuorumEx};
+use hotshot_types::traits::node_implementation::{NodeType, QuorumEx, TestableExchange};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
@@ -153,6 +153,7 @@ impl TestMetadata {
     ) -> TestLauncher<TYPES, I>
     where
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        <I as NodeImplementation<TYPES>>::Exchanges : TestableExchange<TYPES, <I as NodeImplementation<TYPES>>::Leaf, Message<TYPES, I>>,
     {
         let TestMetadata {
             total_nodes,
