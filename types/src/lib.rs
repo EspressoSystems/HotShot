@@ -38,6 +38,7 @@ pub enum ExecutionType {
 
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = ""))]
 pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG>
 {
     /// Whether to run one view or continuous views
