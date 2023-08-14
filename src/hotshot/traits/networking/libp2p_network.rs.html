@@ -881,6 +881,12 @@
 <a href="#881" id="881">881</a>
 <a href="#882" id="882">882</a>
 <a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1073,6 +1079,9 @@
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(<span class="prelude-val">Some</span>(addr))
                         .to_connect_addrs(HashSet::default())
+                        <span class="comment">// setting to sane defaults
+                        </span>.ttl(<span class="prelude-val">None</span>)
+                        .republication_interval(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 } <span class="kw">else </span>{
@@ -1090,6 +1099,9 @@
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(<span class="prelude-val">Some</span>(addr))
                         .to_connect_addrs(HashSet::default())
+                        <span class="comment">// setting to sane defaults
+                        </span>.ttl(<span class="prelude-val">None</span>)
+                        .republication_interval(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 };

@@ -57,10 +57,16 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize};
+<span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
 <span class="doccomment">/// replication factor for kademlia
 </span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">20</span>);
@@ -89,6 +95,12 @@
 
     <span class="doccomment">/// list of addresses to connect to at initialization
     </span><span class="kw">pub </span>to_connect_addrs: HashSet&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;,
+    <span class="doccomment">/// republication interval in DHT, must be much less than `ttl`
+    </span><span class="attr">#[builder(default)]
+    </span><span class="kw">pub </span>republication_interval: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="doccomment">/// expiratiry for records in DHT
+    </span><span class="attr">#[builder(default)]
+    </span><span class="kw">pub </span>ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
 <span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= mesh_n_low &lt;= mesh_n &lt;= mesh_n_high`

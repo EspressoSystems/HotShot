@@ -6,13 +6,13 @@
     Self: <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,</span>{
     // Required methods
     fn <a href="#tymethod.initialize_networking" class="fn">initialize_networking</a>&lt;'async_trait&gt;(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;
+        config: <a class="struct" href="../../hotshot_orchestrator/config/struct.NetworkConfig.html" title="struct hotshot_orchestrator::config::NetworkConfig">NetworkConfig</a>&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.71.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = Self&gt; + <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_network" class="fn">get_network</a>(&amp;self) -&gt; NETWORK;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_config" class="fn">get_config</a>(
         &amp;self
-    ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;;
+    ) -&gt; <a class="struct" href="../../hotshot_orchestrator/config/struct.NetworkConfig.html" title="struct hotshot_orchestrator::config::NetworkConfig">NetworkConfig</a>&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;;
 
     // Provided methods
     fn <a href="#method.initialize_state_and_hotshot" class="fn">initialize_state_and_hotshot</a>&lt;'life0, 'async_trait&gt;(
@@ -28,13 +28,13 @@
              'life0: 'async_trait</span> { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Defines the behavior of a “run” of the network with a given configuration</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.initialize_networking" class="method"><a class="srclink rightside" href="../../src/web_server_da_validator/infra/mod.rs.html#224-226">source</a><h4 class="code-header">fn <a href="#tymethod.initialize_networking" class="fn">initialize_networking</a>&lt;'async_trait&gt;(
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;
+    config: <a class="struct" href="../../hotshot_orchestrator/config/struct.NetworkConfig.html" title="struct hotshot_orchestrator::config::NetworkConfig">NetworkConfig</a>&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.71.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = Self&gt; + <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Initializes networking, returns self</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_network" class="method"><a class="srclink rightside" href="../../src/web_server_da_validator/infra/mod.rs.html#454">source</a><h4 class="code-header">fn <a href="#tymethod.get_network" class="fn">get_network</a>(&amp;self) -&gt; NETWORK</h4></section></summary><div class="docblock"><p>Returns the network for this run</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_config" class="method"><a class="srclink rightside" href="../../src/web_server_da_validator/infra/mod.rs.html#460">source</a><h4 class="code-header">fn <a href="#tymethod.get_config" class="fn">get_config</a>(
     &amp;self
-) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;</h4></section></summary><div class="docblock"><p>Returns view sync network for this run KALEY TODO
+) -&gt; <a class="struct" href="../../hotshot_orchestrator/config/struct.NetworkConfig.html" title="struct hotshot_orchestrator::config::NetworkConfig">NetworkConfig</a>&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;</h4></section></summary><div class="docblock"><p>Returns view sync network for this run KALEY TODO
 Returns the config for this run</p>
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.initialize_state_and_hotshot" class="method"><a class="srclink rightside" href="../../src/web_server_da_validator/infra/mod.rs.html#231-296">source</a><h4 class="code-header">fn <a href="#method.initialize_state_and_hotshot" class="fn">initialize_state_and_hotshot</a>&lt;'life0, 'async_trait&gt;(
     &amp;'life0 self

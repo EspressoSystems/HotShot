@@ -612,6 +612,14 @@
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -790,8 +798,9 @@
                 // at some point in the future.
                 </span><span class="kw">match </span>config.node_type {
                     NetworkNodeType::Bootstrap =&gt; MeshParams {
-                        mesh_n_high: <span class="number">50</span>,
-                        mesh_n_low: <span class="number">10</span>,
+                        mesh_n_high: <span class="number">1000</span>, <span class="comment">// make this super high in case we end up scaling to 1k
+                        // nodes
+                        </span>mesh_n_low: <span class="number">10</span>,
                         mesh_outbound_min: <span class="number">5</span>,
                         mesh_n: <span class="number">15</span>,
                     },
@@ -839,7 +848,7 @@
             )
             .map_err(|s| GossipsubBuildSnafu { message: s }.build())<span class="question-mark">?</span>;
 
-            <span class="comment">// - Build a identify network behavior needed for own
+            <span class="comment">//   Build a identify network behavior needed for own
             //   node connection information
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
@@ -849,9 +858,16 @@
 
             <span class="comment">// - Build DHT needed for peer discovery
             </span><span class="kw">let </span><span class="kw-2">mut </span>kconfig = KademliaConfig::default();
-            <span class="comment">// FIXME do we need this?
-            // &lt;https://github.com/EspressoSystems/HotShot/issues/344&gt;
-            </span>kconfig.set_parallelism(NonZeroUsize::new(<span class="number">1</span>).unwrap());
+            <span class="comment">// 8 hours by default
+            </span><span class="kw">let </span>record_republication_interval = config
+                .republication_interval
+                .unwrap_or(Duration::from_secs(<span class="number">28800</span>));
+            <span class="kw">let </span>ttl = <span class="prelude-val">Some</span>(config.ttl.unwrap_or(<span class="number">16 </span>* record_republication_interval));
+            kconfig
+                .set_parallelism(NonZeroUsize::new(<span class="number">1</span>).unwrap())
+                .set_provider_publication_interval(<span class="prelude-val">Some</span>(record_republication_interval))
+                .set_publication_interval(<span class="prelude-val">Some</span>(record_republication_interval))
+                .set_record_ttl(ttl);
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
