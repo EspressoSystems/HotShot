@@ -240,11 +240,7 @@ impl NetworkNode {
             let record_republication_interval = config
                 .republication_interval
                 .unwrap_or(Duration::from_secs(28800));
-            let ttl = Some(
-                config
-                    .republication_interval
-                    .unwrap_or(16 * record_republication_interval),
-            );
+            let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
             kconfig
                 .set_parallelism(NonZeroUsize::new(1).unwrap())
                 .set_provider_publication_interval(Some(record_republication_interval))
