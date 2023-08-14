@@ -245,12 +245,11 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
-
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
-        // TODO ED Match on &event
-        match event.clone() {
+        match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                let (certificate_internal, last_seen_certificate) = match message.data {
+                // let message = message_ref.clone();
+                let (certificate_internal, last_seen_certificate) = match &message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
                     }
@@ -299,7 +298,7 @@ where
                     id: self.id,
                 };
 
-                let result = replica_state.handle_event(event).await;
+                let result = replica_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -382,7 +381,7 @@ where
                     id: self.id,
                 };
 
-                let result = relay_state.handle_event(event).await;
+                let result = relay_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -418,7 +417,7 @@ where
                 });
             }
 
-            SequencingHotShotEvent::ViewChange(new_view) => {
+            &SequencingHotShotEvent::ViewChange(new_view) => {
                 // TODO ED Don't call new twice
                 if self.current_view < TYPES::Time::new(*new_view) {
                     debug!(
@@ -439,7 +438,7 @@ where
                     self.last_garbage_collected_view = self.current_view - 1;
                 }
             }
-            SequencingHotShotEvent::Timeout(view_number) => {
+            &SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
