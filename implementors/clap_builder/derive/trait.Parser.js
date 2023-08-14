@@ -1,7 +1,7 @@
 (function() {var implementors = {
 "counter":[["impl Parser for <a class=\"struct\" href=\"counter/common/struct.CliOpt.html\" title=\"struct counter::common::CliOpt\">CliOpt</a>"]],
 "hotshot_orchestrator":[["impl Parser for <a class=\"struct\" href=\"hotshot_orchestrator/client/struct.ValidatorArgs.html\" title=\"struct hotshot_orchestrator::client::ValidatorArgs\">ValidatorArgs</a>"]],
-"multi_validator":[["impl Parser for <a class=\"struct\" href=\"multi_validator/struct.MultiValidatorArgs.html\" title=\"struct multi_validator::MultiValidatorArgs\">MultiValidatorArgs</a>"],["impl Parser for <a class=\"struct\" href=\"multi_validator/infra/struct.OrchestratorArgs.html\" title=\"struct multi_validator::infra::OrchestratorArgs\">OrchestratorArgs</a>"]],
+"multi_validator":[["impl Parser for <a class=\"struct\" href=\"multi_validator/infra/struct.OrchestratorArgs.html\" title=\"struct multi_validator::infra::OrchestratorArgs\">OrchestratorArgs</a>"],["impl Parser for <a class=\"struct\" href=\"multi_validator/struct.MultiValidatorArgs.html\" title=\"struct multi_validator::MultiValidatorArgs\">MultiValidatorArgs</a>"]],
 "multi_web_server":[["impl Parser for <a class=\"struct\" href=\"multi_web_server/struct.MultiWebServerArgs.html\" title=\"struct multi_web_server::MultiWebServerArgs\">MultiWebServerArgs</a>"]],
 "web_server":[["impl Parser for <a class=\"struct\" href=\"web_server/struct.WebServerArgs.html\" title=\"struct web_server::WebServerArgs\">WebServerArgs</a>"]],
 "web_server_da_orchestrator":[["impl Parser for <a class=\"struct\" href=\"web_server_da_orchestrator/infra/struct.OrchestratorArgs.html\" title=\"struct web_server_da_orchestrator::infra::OrchestratorArgs\">OrchestratorArgs</a>"]],
