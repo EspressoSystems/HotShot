@@ -692,6 +692,7 @@ where
         relay_task_map: HashMap::default(),
         view_sync_timeout: Duration::new(5, 0),
         id: handle.hotshot.inner.id,
+        last_garbage_collected_view: TYPES::Time::new(0)
     };
     let registry = task_runner.registry.clone();
     let view_sync_event_handler =

@@ -60,6 +60,7 @@ pub struct ViewSyncTaskInfo {
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
 
+// TODO ED Make a constructor function for this
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -98,6 +99,8 @@ pub struct ViewSyncTaskState<
     pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
     pub view_sync_timeout: Duration,
+
+    pub last_garbage_collected_view: TYPES::Time, 
 }
 
 impl<
@@ -359,7 +362,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    // This will occur because everyone is pulling down votes for now, will fix soon ED
+                    // TODO ED This will occur because everyone is pulling down votes for now, will fix soon
                     debug!("View sync vote sent to wrong leader");
                     return;
                 }
@@ -428,8 +431,6 @@ where
                     self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
 
-                    // Inject view info into network
-                    // Move this to consensus task probably
                 }
             }
             SequencingHotShotEvent::Timeout(view_number) => {
