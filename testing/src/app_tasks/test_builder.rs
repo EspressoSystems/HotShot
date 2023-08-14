@@ -170,7 +170,7 @@ impl TestMetadata {
         } = timing_data;
         let mod_config =
             // TODO this should really be using the timing config struct
-            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+            |a: &mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;

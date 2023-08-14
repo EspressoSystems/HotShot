@@ -26,7 +26,6 @@ use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::election::static_committee::StaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::traits::election::static_committee::StaticVoteToken;
-use hotshot::traits::implementations::CentralizedCommChannel;
 use hotshot::traits::implementations::MemoryCommChannel;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::traits::Block;

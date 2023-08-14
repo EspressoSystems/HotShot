@@ -218,7 +218,7 @@ where
         view_sync_network: I::ViewSyncCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
     ) -> u64
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,

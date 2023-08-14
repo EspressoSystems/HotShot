@@ -47,7 +47,7 @@ pub struct ResourceGenerators<
     /// generate a new storage for each node
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
-    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
 }
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -151,7 +151,7 @@ where
 
         let mod_config =
             // TODO this should really be using the timing config struct
-            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+            |a: &mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;
@@ -258,7 +258,7 @@ where
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_default_config(
         mut self,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
     ) -> Self {
         self.generator.config = config;
         self
@@ -267,7 +267,7 @@ where
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>),
+        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>),
     ) -> Self {
         f(&mut self.generator.config);
         self

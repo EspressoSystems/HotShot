@@ -238,7 +238,7 @@ where
         committee_network: I::CommitteeCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
     ) -> u64
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
@@ -523,7 +523,7 @@ pub mod test {
                 static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
             },
             implementations::{
-                CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+                Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
                 WebCommChannel,
             },
             NodeImplementation,
