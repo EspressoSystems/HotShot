@@ -32,8 +32,6 @@ use super::{
     test_launcher::TestLauncher,
     txn_task::TxnTask,
 };
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
@@ -248,10 +246,7 @@ where
             node_id,
         ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        let entry = StakeTableEntry {
-            stake_key: public_key.get_internal_pub_key(),
-            stake_amount: U256::from(1u8),
-        };
+        let entry = public_key.get_stake_table_entry(1u64);
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,

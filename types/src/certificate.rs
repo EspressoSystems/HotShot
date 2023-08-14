@@ -7,7 +7,7 @@ use crate::{
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
     },
 };
@@ -19,16 +19,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use tracing::{error, warn};
 use std::{fmt::Debug, ops::Deref};
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
-use hotshot_primitives::qc::bit_vector::{BitVectorQC};
-use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme,
-};
 
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, custom_debug::Debug, serde::Serialize, serde::Deserialize, Hash)]
+#[serde(bound(deserialize = ""))]
 pub struct DACertificate<TYPES: NodeType> {
     /// The view number this quorum certificate was generated during
     ///
@@ -38,17 +34,8 @@ pub struct DACertificate<TYPES: NodeType> {
     /// committment to the block
     pub block_commitment: Commitment<TYPES::BlockType>,
 
-    /// The list of signatures establishing the validity of this Quorum Certifcate
-    ///
-    /// This is a mapping of the byte encoded public keys provided by the [`crate::traits::node_implementation::NodeImplementation`], to
-    /// the byte encoded signatures provided by those keys.
-    ///
-    /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
-    /// assumption that singatures are constant in length
-    /// TODO (da) make a separate vote token type for DA and QC
-    // pub signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>, // no genesis bc not meaningful
     /// Assembled signature for certificate aggregation
-    pub signatures: AssembledSignature,
+    pub signatures: AssembledSignature<TYPES>,
 }
 
 /// The type used for Quorum Certificates
@@ -61,11 +48,10 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// commitment to previous leaf
     #[debug(skip)]
     pub leaf_commitment: Commitment<LEAF>,
-
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
-    pub signatures: AssembledSignature,
+    pub signatures: AssembledSignature<TYPES>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
 }
@@ -103,28 +89,28 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Aggregated QC 
-    pub signatures: AssembledSignature,
+    pub signatures: AssembledSignature<TYPES>,
 }
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
-pub enum AssembledSignature {
+pub enum AssembledSignature<TYPES: NodeType> {
     /// These signatures are for a 'Yes' certificate
-    Yes(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    Yes(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for a 'No' certificate
-    No(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    No(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for a 'DA' certificate
-    DA(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    DA(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for genesis certificate
     Genesis(),
     /// These signatures are for ViewSyncPreCommit
-    ViewSyncPreCommit(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    ViewSyncPreCommit(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for ViewSyncCommit
-    ViewSyncCommit(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    ViewSyncCommit(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for ViewSyncFinalize
-    ViewSyncFinalize(<BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC),
+    ViewSyncFinalize(<TYPES::SignatureKey as SignatureKey>::QCType),
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
@@ -147,12 +133,12 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for QuorumCertificate<TYPES, LEAF>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: AssembledSignature,
+        signatures: AssembledSignature<TYPES>,
         commit: Commitment<LEAF>,
         relay: Option<u64>,
     ) -> Self {
@@ -170,7 +156,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         self.view_number
     }
 
-    fn signatures(&self) -> AssembledSignature {
+    fn signatures(&self) -> AssembledSignature<TYPES> {
         self.signatures.clone()
     }
 
@@ -218,12 +204,12 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
 }
 
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
     for DACertificate<TYPES>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: AssembledSignature,
+        signatures: AssembledSignature<TYPES>,
         commit: Commitment<TYPES::BlockType>,
         relay: Option<u64>,
     ) -> Self {
@@ -238,7 +224,7 @@ impl<TYPES: NodeType>
         self.view_number
     }
 
-    fn signatures(&self) -> AssembledSignature {
+    fn signatures(&self) -> AssembledSignature<TYPES> {
         self.signatures.clone()
     }
 
@@ -307,13 +293,13 @@ impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
 }
 
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
     for ViewSyncCertificate<TYPES>
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: AssembledSignature,
+        signatures: AssembledSignature<TYPES>,
         commit: Commitment<ViewSyncData<TYPES>>,
         relay: Option<u64>,
     ) -> Self {
@@ -344,7 +330,7 @@ impl<TYPES: NodeType>
     }
 
     /// Get signatures.
-    fn signatures(&self) -> AssembledSignature {
+    fn signatures(&self) -> AssembledSignature<TYPES> {
         match self.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal)
             | ViewSyncCertificate::Commit(certificate_internal)

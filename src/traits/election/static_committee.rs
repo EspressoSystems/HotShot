@@ -1,7 +1,6 @@
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -10,7 +9,6 @@ use hotshot_types::{
         signature_key::{EncodedSignature, SignatureKey, bn254::BN254Pub},
     },
 };
-use jf_primitives::signatures::bls_over_bn254::VerKey;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -23,10 +21,10 @@ use tracing::error;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
-    nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
+    nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
-    committee_nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
+    committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
     /// Leaf phantom
@@ -41,7 +39,7 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
 {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(nodes: Vec<PUBKEY>, nodes_with_stake: Vec<StakeTableEntry<VerKey>>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>, nodes_with_stake: Vec<PUBKEY::StakeTableEntry>) -> Self {
         Self {
             nodes: nodes.clone(),
             nodes_with_stake: nodes_with_stake.clone(),
@@ -114,7 +112,7 @@ where
     /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
-    ) -> Vec<StakeTableEntry<VerKey>> {
+    ) -> Vec<PUBKEY::StakeTableEntry> {
         self.committee_nodes_with_stake.clone()
     }
 
@@ -164,7 +162,7 @@ where
         StaticElectionConfig { num_nodes }
     }
 
-    fn create_election(keys_qc: Vec<StakeTableEntry<VerKey>>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys_qc: Vec<PUBKEY::StakeTableEntry>, keys: Vec<PUBKEY>, config: TYPES::ElectionConfigType) -> Self {
         let mut committee_nodes = keys.clone();
         let mut committee_nodes_with_stake = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());

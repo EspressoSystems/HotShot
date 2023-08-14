@@ -56,8 +56,6 @@ use hotshot_types::{
 };
 
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair as QCKeyPair};
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 use rand_chacha::ChaCha20Rng;
 
 use hotshot_web_server::config::{DEFAULT_WEB_SERVER_DA_PORT, DEFAULT_WEB_SERVER_VIEW_SYNC_PORT};
@@ -244,10 +242,7 @@ pub trait RunDA<
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
-        let entry = StakeTableEntry {
-            stake_key: pk.get_internal_pub_key(),
-            stake_amount: U256::from(1u8),
-        };
+        let entry = pk.get_stake_table_entry(1u64);
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();

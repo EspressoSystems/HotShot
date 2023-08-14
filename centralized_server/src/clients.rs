@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
 #[allow(clippy::type_complexity)]
-pub struct Clients<K: SignatureKey, E: ElectionConfig>(
+pub struct Clients<K, E>(
     Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>,
 );
 

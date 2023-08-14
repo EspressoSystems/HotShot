@@ -10,9 +10,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 use std::{num::NonZeroUsize, time::Duration};
-
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use jf_primitives::signatures::bls_over_bn254::VerKey;
+use crate::traits::signature_key::bn254::BN254Pub;
+use traits::signature_key::SignatureKey;
+use traits::election::ElectionConfig;
 
 pub mod certificate;
 pub mod constants;
@@ -37,8 +37,9 @@ pub enum ExecutionType {
 }
 
 /// Holds configuration for a `HotShot`
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
-pub struct HotShotConfig<K, ELECTIONCONFIG> {
+#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = ""))]
+pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
@@ -49,8 +50,8 @@ pub struct HotShotConfig<K, ELECTIONCONFIG> {
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
-    /// List of known node's public keys under KeyPair for certificate aggregation, and list of entries serve as public parameter
-    pub known_nodes_with_stake: Vec<StakeTableEntry<VerKey>>,
+    /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
+    pub known_nodes_with_stake: Vec<K::StakeTableEntry>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds

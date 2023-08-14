@@ -1,11 +1,12 @@
-use super::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::Debug,
 };
 use tracing::{debug, instrument, warn};
-use hotshot_primitives::qc::bit_vector::BitVectorQC;
+use super::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
+use ethereum_types::U256;
+use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry as JFStakeTableEntry, QCParams as JFQCParams};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
 use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
@@ -13,6 +14,7 @@ use blake3::traits::digest::generic_array::GenericArray;
 use typenum::U32;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
+use bitvec::prelude::*;
 
 /// Public key type for an bn254 [`SignatureKey`] pair
 ///
@@ -44,6 +46,12 @@ impl Ord for BN254Pub {
 
 impl SignatureKey for BN254Pub {
     type PrivateKey = BN254Priv;
+    type StakeTableEntry = JFStakeTableEntry<VerKey>;
+    type QCParams = JFQCParams<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::VerificationKey,
+        <BLSOverBN254CurveSignatureScheme as SignatureScheme>::PublicParameter>;
+    type QCType = (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, BitVec);
+    // <BitVectorQC<BLSOverBN254CurveSignatureScheme> as AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC;
+
     #[instrument(skip(self))]
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
         let ver_key = self.pub_key;
@@ -124,8 +132,40 @@ impl SignatureKey for BN254Pub {
         (Self::from_private(&priv_key), priv_key)
     }
 
-    fn get_internal_pub_key(&self) -> VerKey {
-        self.pub_key
+    fn get_stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry {
+        JFStakeTableEntry {
+            stake_key: self.pub_key,
+            stake_amount: U256::from(stake),
+        }
+    }
+
+    fn get_public_parameter(stake_entries: Vec<Self::StakeTableEntry>, threshold: U256) -> Self::QCParams {
+        JFQCParams {
+            stake_entries: stake_entries, 
+            threshold: threshold,
+            agg_sig_pp: (),
+        }
+    }
+
+    fn check(real_qc_pp: &Self::QCParams, data: &[u8], qc: &Self::QCType) -> bool {
+        let msg = GenericArray::from_slice(data);
+        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+            real_qc_pp, 
+            msg,
+            qc,
+        ).is_ok()
+    }
+
+    fn get_sig_proof(signature: &Self::QCType) -> (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, BitVec) {
+        signature.clone()
+    }
+
+    fn assemble(real_qc_pp: &Self::QCParams, signers: &BitSlice, sigs: &[<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature]) -> Self::QCType {
+        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
+            real_qc_pp,
+            signers,
+            sigs,
+        ).expect("this assembling shouldn't fail")//Sishan NOTE TODO: change this expect() to something else
     }
 
 }

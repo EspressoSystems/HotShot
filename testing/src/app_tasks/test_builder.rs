@@ -23,9 +23,6 @@ use super::{
     safety_task::{NodeSafetyPropertiesDescription, OverallSafetyPropertiesDescription},
     txn_task::TxnTaskDescription,
 };
-use jf_primitives::signatures::bls_over_bn254::{VerKey};
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
@@ -125,15 +122,9 @@ impl TestMetadata {
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let known_nodes_with_stake: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
+        let known_nodes_with_stake: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> = (0..total_nodes)
         .map(|id| {
-            let entry = StakeTableEntry {
-                stake_key: known_nodes[id].get_internal_pub_key(),
-                stake_amount: U256::from(1u8),
-            };
-
-            entry
-
+            known_nodes[id].get_stake_table_entry(1u64)
         })
         .collect();
 

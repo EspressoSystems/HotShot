@@ -7,7 +7,8 @@ use std::{
     num::NonZeroUsize,
     time::Duration,
 };
-
+use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::election::ElectionConfig;
 pub struct ClientConfig<K, E> {
     pub run: Run,
     pub config: NetworkConfig<K, E>,

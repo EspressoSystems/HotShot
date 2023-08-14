@@ -9,7 +9,7 @@ use crate::{
     traits::{
         election::{VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey,},
     },
 };
 use commit::{Commitment, Committable};
@@ -23,10 +23,9 @@ use tracing::error;
 use bincode::Options;
 use hotshot_utils::bincode::bincode_opts;
 use bitvec::prelude::*;
-use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry, QCParams};
-use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as QCVerKey}};
+use jf_primitives::signatures::{bls_over_bn254::{BLSOverBN254CurveSignatureScheme}};
 use jf_primitives::signatures::SignatureScheme;
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
+
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
@@ -286,13 +285,13 @@ pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone> {
     pub signers: BitVec,
 }
 
-impl<TOKEN, LEAF: Committable + Serialize + Clone>
+impl<TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType>
     Accumulator<
         (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, Vec<StakeTableEntry<QCVerKey>>,  usize, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,  usize, VoteData<LEAF>, TOKEN)),
         ),
-        AssembledSignature,
+        AssembledSignature<TYPES>,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -301,9 +300,9 @@ where
         mut self,
         val: (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, Vec<StakeTableEntry<QCVerKey>>, usize, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>, usize, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, AssembledSignature> {
+    ) -> Either<Self, AssembledSignature<TYPES>> {
         let (commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
 
         // Desereialize the sig so that it can be assembeld into a QC
@@ -399,17 +398,16 @@ where
         if *total_stake_casted >= u64::from(self.success_threshold) {
 
             // Do assemble for QC here
-            let real_qc_pp = QCParams {
-                stake_entries: entries.clone(),
-                threshold: U256::from(self.success_threshold.get()),
-                agg_sig_pp: (),
-            };
+            let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                entries.clone(),
+                U256::from(self.success_threshold.get()),
+            );
 
-            let real_qc_sig = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
+            let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
                 &real_qc_pp,
                 self.signers.as_bitslice(),
                 &self.sig_lists[..],
-            ).expect("this assembling shouldn't fail");
+            );
 
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 self.yes_vote_outcomes.remove(&commitment).unwrap().1;
@@ -429,17 +427,17 @@ where
             }
         }
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
-            let real_qc_pp = QCParams {
-                stake_entries: entries.clone(),
-                threshold: U256::from(self.success_threshold.get()),
-                agg_sig_pp: (),
-            };
 
-            let real_qc_sig = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(
+            let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                entries.clone(),
+                U256::from(self.success_threshold.get()),
+            );
+
+            let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
                 &real_qc_pp,
                 self.signers.as_bitslice(),
                 &self.sig_lists[..],
-            ).unwrap();
+            );
 
             self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
             return Either::Right(AssembledSignature::ViewSyncPreCommit(real_qc_sig));

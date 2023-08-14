@@ -43,8 +43,6 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-use jf_primitives::signatures::bls_over_bn254::VerKey;
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 /// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;
 
@@ -177,12 +175,12 @@ pub trait ExchangesType<
 
     /// Create all exchanges.
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
@@ -263,12 +261,12 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, ());
 
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         Self {
@@ -362,12 +360,12 @@ where
     type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(

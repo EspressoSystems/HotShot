@@ -68,9 +68,7 @@ use std::{
 };
 #[allow(deprecated)]
 use tracing::error;
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
 use rand_chacha::ChaCha20Rng;
-use ethereum_types::U256;
 
 // ORCHESTRATOR
 
@@ -115,11 +113,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
     .map(|node_id| {
-        let entry = StakeTableEntry {
-                stake_key: config.config.known_nodes[node_id].clone(),
-                stake_amount: U256::from(1u8),
-            };
-        entry
+        config.config.known_nodes[node_id].get_stake_table_entry(1u64)
     })
     .collect();
 
@@ -259,10 +253,7 @@ pub trait Run<
         // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let entry = StakeTableEntry {
-            stake_key: pk.get_internal_pub_key(),
-            stake_amount: U256::from(1u8),
-        };
+        let entry = pk.get_stake_table_entry(1u64);
         let known_nodes = config.config.known_nodes.clone(); // PUBKEY
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone(); // PUBKEY + StakeValue
 

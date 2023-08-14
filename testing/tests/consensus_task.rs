@@ -79,8 +79,6 @@ use hotshot_types::{
     },
 };
 use hotshot_types::traits::signature_key::bn254::BN254Pub;
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -269,10 +267,7 @@ where
      // Get KeyPair for certificate Aggregation
     let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = TYPES::SignatureKey::from_private(&private_key);
-    let entry = StakeTableEntry {
-        stake_key: public_key.get_internal_pub_key(),
-        stake_amount: U256::from(1u8),
-    };
+    let entry = public_key.get_stake_table_entry(1u64);
     let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,

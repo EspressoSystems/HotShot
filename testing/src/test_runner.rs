@@ -28,8 +28,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 use tracing::{debug, info, warn};
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -268,10 +266,7 @@ where
             node_id,
         ).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        let entry = StakeTableEntry {
-            stake_key: public_key.get_internal_pub_key(),
-            stake_amount: U256::from(1u8),
-        };
+        let entry =  public_key.get_stake_table_entry(1u64);
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
