@@ -431,7 +431,17 @@ where
                     self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
 
+                    // GC old tasks: non inclusive of end, so is fine because we won't GC the latest view
+                    for i in *self.last_garbage_collected_view..*self.current_view {
+                        self.replica_task_map.remove_entry(&TYPES::Time::new(i));
+                        self.relay_task_map.remove_entry(&TYPES::Time::new(i));
+
+                    }
+                
+                    self.last_garbage_collected_view = self.current_view - 1; 
+
                 }
+
             }
             SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
@@ -443,7 +453,7 @@ where
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 if self.num_timeouts_tracked > 2 {
-                    panic!("Too many timeouts!  This shouldn't happen");
+                    error!("Too many timeouts!  This shouldn't happen");
                 }
 
                 // TODO ED Make this a configurable variable
