@@ -12,7 +12,7 @@
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.71.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.71.1/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.71.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
              'life0: 'async_trait</span>;
-<span class="item-spacer"></span>    fn <a href="#tymethod.shut_down" class="fn">shut_down</a>&lt;'a, 'b&gt;(&amp;'a self) -&gt; BoxSyncFuture&lt;'b, <a class="primitive" href="https://doc.rust-lang.org/1.71.1/std/primitive.unit.html">()</a>&gt;
+<span class="item-spacer"></span>    fn <a href="#tymethod.shut_down" class="fn">shut_down</a>&lt;'a, 'b&gt;(&amp;'a self) -&gt; <a class="type" href="../../../hotshot_task/type.BoxSyncFuture.html" title="type hotshot_task::BoxSyncFuture">BoxSyncFuture</a>&lt;'b, <a class="primitive" href="https://doc.rust-lang.org/1.71.1/std/primitive.unit.html">()</a>&gt;
        <span class="where">where Self: 'b,
              'a: 'b</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.broadcast_message" class="fn">broadcast_message</a>&lt;'life0, 'life1, 'async_trait&gt;(
@@ -33,7 +33,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.recv_msgs" class="fn">recv_msgs</a>&lt;'a, 'b&gt;(
         &amp;'a self,
         transmit_type: <a class="enum" href="enum.TransmitType.html" title="enum hotshot_types::traits::network::TransmitType">TransmitType</a>
-    ) -&gt; BoxSyncFuture&lt;'b, <a class="enum" href="https://doc.rust-lang.org/1.71.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;M&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt;
+    ) -&gt; <a class="type" href="../../../hotshot_task/type.BoxSyncFuture.html" title="type hotshot_task::BoxSyncFuture">BoxSyncFuture</a>&lt;'b, <a class="enum" href="https://doc.rust-lang.org/1.71.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;M&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt;
        <span class="where">where Self: 'b,
              'a: 'b</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.lookup_node" class="fn">lookup_node</a>&lt;'life0, 'async_trait&gt;(
@@ -63,7 +63,7 @@ into the network</p>
     Self: 'async_trait,
     'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>checks if the network is ready
 nonblocking</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.shut_down" class="method"><a class="srclink rightside" href="../../../src/hotshot_types/traits/network.rs.html#220-223">source</a><h4 class="code-header">fn <a href="#tymethod.shut_down" class="fn">shut_down</a>&lt;'a, 'b&gt;(&amp;'a self) -&gt; BoxSyncFuture&lt;'b, <a class="primitive" href="https://doc.rust-lang.org/1.71.1/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.shut_down" class="method"><a class="srclink rightside" href="../../../src/hotshot_types/traits/network.rs.html#220-223">source</a><h4 class="code-header">fn <a href="#tymethod.shut_down" class="fn">shut_down</a>&lt;'a, 'b&gt;(&amp;'a self) -&gt; <a class="type" href="../../../hotshot_task/type.BoxSyncFuture.html" title="type hotshot_task::BoxSyncFuture">BoxSyncFuture</a>&lt;'b, <a class="primitive" href="https://doc.rust-lang.org/1.71.1/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
     Self: 'b,
     'a: 'b,</span></h4></section></summary><div class="docblock"><p>Shut down this network. Afterwards this network should no longer be used.</p>
 <p>This should also cause other functions to immediately return with a <a href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError"><code>NetworkError</code></a></p>
@@ -87,7 +87,7 @@ blocking</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.recv_msgs" class="method"><a class="srclink rightside" href="../../../src/hotshot_types/traits/network.rs.html#245-251">source</a><h4 class="code-header">fn <a href="#tymethod.recv_msgs" class="fn">recv_msgs</a>&lt;'a, 'b&gt;(
     &amp;'a self,
     transmit_type: <a class="enum" href="enum.TransmitType.html" title="enum hotshot_types::traits::network::TransmitType">TransmitType</a>
-) -&gt; BoxSyncFuture&lt;'b, <a class="enum" href="https://doc.rust-lang.org/1.71.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;M&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt;<span class="where fmt-newline">where
+) -&gt; <a class="type" href="../../../hotshot_task/type.BoxSyncFuture.html" title="type hotshot_task::BoxSyncFuture">BoxSyncFuture</a>&lt;'b, <a class="enum" href="https://doc.rust-lang.org/1.71.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.71.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;M&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt;<span class="where fmt-newline">where
     Self: 'b,
     'a: 'b,</span></h4></section></summary><div class="docblock"><p>Moves out the entire queue of received messages of ’transmit_type`</p>
 <p>Will unwrap the underlying <code>NetworkMessage</code>
