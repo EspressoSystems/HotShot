@@ -38,8 +38,7 @@ pub enum ExecutionType {
 
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
-#[serde(bound(deserialize = ""))]
-pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG>
+pub struct HotShotConfig<K, ENTRY, ELECTIONCONFIG>
 {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
@@ -52,7 +51,7 @@ pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG>
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
-    pub known_nodes_with_stake: Vec<K::StakeTableEntry>,
+    pub known_nodes_with_stake: Vec<ENTRY>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds
