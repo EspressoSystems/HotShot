@@ -60,7 +60,6 @@ pub struct ViewSyncTaskInfo {
 #[derive(Snafu, Debug)]
 pub struct ViewSyncTaskError {}
 
-// TODO ED Make a constructor function for this
 pub struct ViewSyncTaskState<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<
@@ -100,7 +99,7 @@ pub struct ViewSyncTaskState<
 
     pub view_sync_timeout: Duration,
 
-    pub last_garbage_collected_view: TYPES::Time, 
+    pub last_garbage_collected_view: TYPES::Time,
 }
 
 impl<
@@ -435,13 +434,10 @@ where
                     for i in *self.last_garbage_collected_view..*self.current_view {
                         self.replica_task_map.remove_entry(&TYPES::Time::new(i));
                         self.relay_task_map.remove_entry(&TYPES::Time::new(i));
-
                     }
-                
-                    self.last_garbage_collected_view = self.current_view - 1; 
 
+                    self.last_garbage_collected_view = self.current_view - 1;
                 }
-
             }
             SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
