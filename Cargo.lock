@@ -1245,21 +1245,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "benchmark_client"
-version = "0.1.0"
-dependencies = [
- "async-compatibility-layer",
- "async-std",
- "clap 4.3.21",
- "futures",
- "hotshot-centralized-server",
- "hotshot-types",
- "hotshot-utils",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3227,7 +3212,6 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "ethereum-types",
  "futures",
- "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-orchestrator",
  "hotshot-primitives",
@@ -3256,28 +3240,6 @@ dependencies = [
  "toml 0.7.6",
  "tracing",
  "typenum",
-]
-
-[[package]]
-name = "hotshot-centralized-server"
-version = "0.1.1"
-dependencies = [
- "async-compatibility-layer",
- "async-std",
- "async-trait",
- "bincode",
- "commit",
- "futures",
- "hotshot-types",
- "hotshot-utils",
- "libp2p-core",
- "libp2p-identity",
- "serde",
- "serde_json",
- "snafu",
- "tokio",
- "toml 0.7.6",
- "tracing",
 ]
 
 [[package]]

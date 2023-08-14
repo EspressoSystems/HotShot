@@ -9,10 +9,10 @@
 )]
 #![allow(clippy::module_name_repetitions)]
 
-use std::{num::NonZeroUsize, time::Duration};
 use crate::traits::signature_key::bn254::BN254Pub;
-use traits::signature_key::SignatureKey;
+use std::{num::NonZeroUsize, time::Duration};
 use traits::election::ElectionConfig;
+use traits::signature_key::SignatureKey;
 
 pub mod certificate;
 pub mod constants;
@@ -38,8 +38,7 @@ pub enum ExecutionType {
 
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
-#[serde(bound(deserialize = ""))]
-pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG> {
+pub struct HotShotConfig<K, ELECTIONCONFIG> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
@@ -51,7 +50,7 @@ pub struct HotShotConfig<K: SignatureKey, ELECTIONCONFIG> {
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<K>,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
-    pub known_nodes_with_stake: Vec<K::StakeTableEntry>,
+    pub known_nodes_with_stake: Vec<K>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds
