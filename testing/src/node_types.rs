@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
@@ -6,13 +8,12 @@ use hotshot::{
             vrf::JfPubKey,
         },
         implementations::{
-            Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
+            Libp2pCommChannel, MemoryCommChannel, MemoryNetwork, MemoryStorage, WebCommChannel,
             WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
     },
 };
-use hotshot_types::{message::{Message, SequencingMessage}, traits::node_implementation::TestableExchange};
 use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::vote::ViewSyncVote;
@@ -24,6 +25,13 @@ use hotshot_types::{
         node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
     },
     vote::DAVote,
+};
+use hotshot_types::{
+    message::{Message, SequencingMessage},
+    traits::{
+        network::{TestableChannelImplementation, TestableNetworkingImplementation},
+        node_implementation::TestableExchange,
+    },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
@@ -185,32 +193,38 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
 }
 
 pub type SequencingMemoryExchange = SequencingExchanges<
+    SequencingTestTypes,
+    Message<SequencingTestTypes, SequencingMemoryImpl>,
+    QuorumExchange<
         SequencingTestTypes,
+        <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
+        QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        StaticMembership,
+        StaticMemoryQuorumComm,
         Message<SequencingTestTypes, SequencingMemoryImpl>,
-        QuorumExchange<
-            SequencingTestTypes,
-            <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
-            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            StaticMembership,
-            StaticMemoryQuorumComm,
-            Message<SequencingTestTypes, SequencingMemoryImpl>,
-        >,
-        CommitteeExchange<
-            SequencingTestTypes,
-            StaticMembership,
-            StaticMemoryDAComm,
-            Message<SequencingTestTypes, SequencingMemoryImpl>,
-        >,
-        ViewSyncExchange<
-            SequencingTestTypes,
-            ViewSyncCertificate<SequencingTestTypes>,
-            StaticMembership,
-            StaticMemoryViewSyncComm,
-            Message<SequencingTestTypes, SequencingMemoryImpl>,
-        >,
-    >;
+    >,
+    CommitteeExchange<
+        SequencingTestTypes,
+        StaticMembership,
+        StaticMemoryDAComm,
+        Message<SequencingTestTypes, SequencingMemoryImpl>,
+    >,
+    ViewSyncExchange<
+        SequencingTestTypes,
+        ViewSyncCertificate<SequencingTestTypes>,
+        StaticMembership,
+        StaticMemoryViewSyncComm,
+        Message<SequencingTestTypes, SequencingMemoryImpl>,
+    >,
+>;
 
-impl TestableExchange<SequencingTestTypes, <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf, Message<SequencingTestTypes, SequencingMemoryImpl>> for SequencingMemoryExchange {
+impl
+    TestableExchange<
+        SequencingTestTypes,
+        <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
+        Message<SequencingTestTypes, SequencingMemoryImpl>,
+    > for SequencingMemoryExchange
+{
     fn gen_comm_channels(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -219,12 +233,55 @@ impl TestableExchange<SequencingTestTypes, <SequencingMemoryImpl as NodeImplemen
         dyn Fn(
                 u64,
             ) -> (
-                <Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
-                <Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
-                <Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking,
+                <Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<
+                    SequencingTestTypes,
+                    Message<SequencingTestTypes, SequencingMemoryImpl>,
+                >>::Networking,
+                <Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<
+                    SequencingTestTypes,
+                    Message<SequencingTestTypes, SequencingMemoryImpl>,
+                >>::Networking,
+                <Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<
+                    SequencingTestTypes,
+                    Message<SequencingTestTypes, SequencingMemoryImpl>,
+                >>::Networking,
             ) + 'static,
     > {
-        todo!()
+        let network_generator = Arc::new(<MemoryNetwork<
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+            <SequencingTestTypes as NodeType>::SignatureKey,
+        > as TestableNetworkingImplementation<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+        >>::generator(
+            expected_node_count,
+            num_bootstrap,
+            0,
+            da_committee_size,
+            false,
+        ));
+        let network_da_generator = Arc::new(<MemoryNetwork<
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+            <SequencingTestTypes as NodeType>::SignatureKey,
+        > as TestableNetworkingImplementation<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+        >>::generator(
+            expected_node_count,
+            num_bootstrap,
+            1,
+            da_committee_size,
+            true,
+        ));
+        Box::new(move |id| {
+            let network = Arc::new(network_generator(id));
+            let network_da = Arc::new(network_da_generator(id));
+            let quorum_chan = <<Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()(network.clone());
+            let committee_chan = <<Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()(network_da);
+            let view_sync_chan = <<Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<SequencingTestTypes, Message<SequencingTestTypes, SequencingMemoryImpl>>>::Networking as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()(network);
+
+            (quorum_chan, committee_chan, view_sync_chan)
+        })
     }
 }
 

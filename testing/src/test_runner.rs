@@ -184,36 +184,13 @@ where
         for _i in 0..count {
             tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
-            // let network_generator = Arc::new((self.launcher.resource_generator.network_generator)(
-            //     node_id,
-            // ));
-            //
-            // // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
-            // // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
-            // // test libp2p commout out the below lines where noted.
-            //
-            // // NOTE ED: Comment out this line to run libp2p tests
-            // let secondary_network_generator =
-            //     Arc::new((self
-            //         .launcher
-            //         .resource_generator
-            //         .secondary_network_generator)(node_id));
-
-            // let quorum_network =
-            //     (self.launcher.resource_generator.quorum_network)(network_generator.clone());
-            // let committee_network =
-            //     (self.launcher.resource_generator.committee_network)(secondary_network_generator);
-            // NOTE ED: Switch the below line with the above line to run libp2p tests
-            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
-
-            // let view_sync_network =
-            //     (self.launcher.resource_generator.view_sync_network)(network_generator);
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
+            let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             let node_id = self
-                .add_node_with_config(nll::nll_todo::nll_todo(), storage, initializer, config)
+                .add_node_with_config(networks, storage, initializer, config)
                 .await;
             results.push(node_id);
         }
@@ -221,7 +198,7 @@ where
         results
     }
 
-    ///
+    /// add a specific node with a config
     pub async fn add_node_with_config(
         &mut self,
         networks: Networks<TYPES, I>,

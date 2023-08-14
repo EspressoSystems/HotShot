@@ -1,6 +1,5 @@
 use hotshot::types::SignatureKey;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use nll::nll_todo::nll_todo;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -153,7 +152,8 @@ impl TestMetadata {
     ) -> TestLauncher<TYPES, I>
     where
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        <I as NodeImplementation<TYPES>>::Exchanges : TestableExchange<TYPES, <I as NodeImplementation<TYPES>>::Leaf, Message<TYPES, I>>,
+        <I as NodeImplementation<TYPES>>::Exchanges:
+            TestableExchange<TYPES, <I as NodeImplementation<TYPES>>::Leaf, Message<TYPES, I>>,
     {
         let TestMetadata {
             total_nodes,
@@ -224,7 +224,7 @@ impl TestMetadata {
         let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
-                channel_generator: Box::new(|_id| nll_todo()),
+                channel_generator: <<I as NodeImplementation<TYPES>>::Exchanges as TestableExchange<_, _, _>>::gen_comm_channels(total_nodes, num_bootstrap_nodes, da_committee_size),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
