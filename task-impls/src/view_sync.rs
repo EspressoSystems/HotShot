@@ -248,7 +248,6 @@ where
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                // let message = message_ref.clone();
                 let (certificate_internal, last_seen_certificate) = match &message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
@@ -282,8 +281,6 @@ where
                 }
 
                 // We do not have a replica task already running, so start one
-
-                // TODO ED Need to GC old entries in task map once we know we don't need them anymore
                 let mut replica_state = ViewSyncReplicaTaskState {
                     current_view: certificate_internal.round,
                     next_view: certificate_internal.round,
@@ -360,7 +357,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    // TODO ED This will occur because everyone is pulling down votes for now, will fix soon
+                    // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
                 }
@@ -418,7 +415,6 @@ where
 
             &SequencingHotShotEvent::ViewChange(new_view) => {
                 let new_view = TYPES::Time::new(*new_view);
-                // TODO ED Don't call new twice
                 if self.current_view < new_view {
                     debug!(
                         "Change from view {} to view {} in view sync task",
