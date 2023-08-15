@@ -165,7 +165,7 @@ impl SignatureKey for BN254Pub {
             real_qc_pp,
             signers,
             sigs,
-        ).expect("this assembling shouldn't fail")//Sishan NOTE TODO: change this expect() to something else
+        ).expect("this assembling shouldn't fail")
     }
 
 }

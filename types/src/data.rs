@@ -843,7 +843,7 @@ pub fn serialize_signature<TYPES: NodeType>(signature: &AssembledSignature<TYPES
     if signatures != None {
         let (sig, proof) = TYPES::SignatureKey::get_sig_proof(
             &signatures.expect("Deserialization on (sig, proof) shouldn't be able to fail.")
-        );//Sishan NOTE TODO: change this expect() to something else
+        );
         let proof_bytes = bincode_opts()
             .serialize(&proof.as_bitslice())
             .expect("This serialization shouldn't be able to fail");
