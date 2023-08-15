@@ -39,11 +39,11 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 }
 
 #[derive(Default, Clone)]
-struct OrchestratorState<KEY, ELECTION> {
+struct OrchestratorState<KEY, ENTRY, ELECTION> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
     /// The network configuration
-    config: NetworkConfig<KEY, ELECTION>,
+    config: NetworkConfig<KEY, ENTRY, ELECTION>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -54,9 +54,9 @@ struct OrchestratorState<KEY, ELECTION> {
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
-    OrchestratorState<KEY, ELECTION>
+    OrchestratorState<KEY, KEY::StakeTableEntry, ELECTION>
 {
-    pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
+    pub fn new(network_config: NetworkConfig<KEY, KEY::StakeTableEntry, ELECTION>) -> Self {
         let mut web_client = None;
         if network_config.web_server_config.is_some() {
             let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
@@ -72,18 +72,18 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     }
 }
 
-pub trait OrchestratorApi<KEY, ELECTION> {
+pub trait OrchestratorApi<KEY, ENTRY, ELECTION> {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError>;
     fn post_getconfig(
         &mut self,
         node_index: u16,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    ) -> Result<NetworkConfig<KEY, ENTRY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
     fn post_run_results(&mut self) -> Result<(), ServerError>;
 }
 
-impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
+impl<KEY, ELECTION> OrchestratorApi<KEY, KEY::StakeTableEntry, ELECTION> for OrchestratorState<KEY, KEY::StakeTableEntry, ELECTION>
 where
     KEY: serde::Serialize + Clone + SignatureKey,
     ELECTION: serde::Serialize + Clone + Send,
@@ -144,7 +144,7 @@ where
     fn post_getconfig(
         &mut self,
         _node_index: u16,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    ) -> Result<NetworkConfig<KEY, KEY::StakeTableEntry, ELECTION>, ServerError> {
         if self.config.libp2p_config.is_some() {
             let libp2p_config = self.config.clone().libp2p_config.unwrap();
             if libp2p_config.bootstrap_nodes.len()
@@ -186,33 +186,34 @@ where
     }
 }
 
-/// Sets up all API routes
-fn define_api<KEY, ELECTION, State>() -> Result<Api<State, ServerError>, ApiError>
-where
-    State: 'static + Send + Sync + ReadState + WriteState,
-    <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ELECTION>,
-    KEY: serde::Serialize,
-    ELECTION: serde::Serialize,
-{
-    let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/api.toml"
-    )))
-    .expect("API file is not valid toml");
-    let mut api = Api::<State, ServerError>::new(api_toml)?;
-    api.post("postidentity", |req, state| {
-        async move {
-            let identity = req.string_param("identity")?.parse::<IpAddr>();
-            if identity.is_err() {
-                return Err(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
-                    message: "Identity is not a properly formed IP address".to_string(),
-                });
+    /// Sets up all API routes
+    fn define_api<KEY, ELECTION, ENTRY, State>() -> Result<Api<State, ServerError>, ApiError>
+    where
+        State: 'static + Send + Sync + ReadState + WriteState,
+        <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ENTRY, ELECTION>,
+        KEY: serde::Serialize,
+        ENTRY: serde::Serialize,
+        ELECTION: serde::Serialize,
+    {
+        let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/api.toml"
+        )))
+        .expect("API file is not valid toml");
+        let mut api = Api::<State, ServerError>::new(api_toml)?;
+        api.post("postidentity", |req, state| {
+            async move {
+                let identity = req.string_param("identity")?.parse::<IpAddr>();
+                if identity.is_err() {
+                    return Err(ServerError {
+                        status: tide_disco::StatusCode::BadRequest,
+                        message: "Identity is not a properly formed IP address".to_string(),
+                    });
+                }
+                state.post_identity(identity.unwrap())
             }
-            state.post_identity(identity.unwrap())
-        }
-        .boxed()
-    })?
+            .boxed()
+        })?
     .post("post_getconfig", |req, state| {
         async move {
             let node_index = req.integer_param("node_index")?;
@@ -234,7 +235,7 @@ where
 
 /// Runs the orchestrator
 pub async fn run_orchestrator<KEY, ELECTION>(
-    network_config: NetworkConfig<KEY, ELECTION>,
+    network_config: NetworkConfig<KEY, KEY::StakeTableEntry, ELECTION>,
     host: IpAddr,
     port: u16,
 ) -> io::Result<()>
@@ -244,10 +245,10 @@ where
 {
     let api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
-    let state: RwLock<OrchestratorState<KEY, ELECTION>> =
+    let state: RwLock<OrchestratorState<KEY, KEY::StakeTableEntry, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 
-    let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
+    let mut app = App::<RwLock<OrchestratorState<KEY, KEY::StakeTableEntry, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
     tracing::error!("lisening on {:?}:{:?}", host, port);

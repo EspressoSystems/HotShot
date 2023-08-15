@@ -10,7 +10,7 @@ use crate::{
         consensus_type::validating_consensus::ValidatingConsensusType,
         election::SignedCertificate,
         node_implementation::NodeType,
-        signature_key::EncodedPublicKey,
+        signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         Block, State,
@@ -30,12 +30,7 @@ use std::{
     ops::{Add, Div, Rem},
 };
 use bincode::Options;
-use hotshot_primitives::qc::bit_vector::BitVectorQC;
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::signatures::bls_over_bn254::{
-    BLSOverBN254CurveSignatureScheme,
-};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -779,11 +774,9 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 }
 
 /// Serialization for the QC assembled signature
-pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
+pub fn serialize_signature<TYPES: NodeType>(signature: &AssembledSignature<TYPES>) -> Vec<u8> {
     let mut signatures_bytes = vec![];
-    let signatures: Option<
-        <BitVectorQC<BLSOverBN254CurveSignatureScheme> as
-            AssembledQuorumCertificate<BLSOverBN254CurveSignatureScheme>>::QC>  = match &signature {
+    let signatures: Option<<TYPES::SignatureKey as SignatureKey>::QCType>  = match &signature {
             AssembledSignature::DA(signatures) => {
                 signatures_bytes.extend("DA".as_bytes());
                 Some(signatures.clone())
@@ -813,8 +806,9 @@ pub fn serialize_signature(signature: &AssembledSignature) -> Vec<u8> {
             }
         };
     if signatures != None {
-        let (sig, proof) = signatures
-            .expect("Deserialization on (sig, proof) shouldn't be able to fail.");
+        let (sig, proof) = TYPES::SignatureKey::get_sig_proof(
+            &signatures.expect("Deserialization on (sig, proof) shouldn't be able to fail.")
+        );//Sishan NOTE TODO: change this expect() to something else
         let proof_bytes = bincode_opts()
             .serialize(&proof.as_bitslice())
             .expect("This serialization shouldn't be able to fail");

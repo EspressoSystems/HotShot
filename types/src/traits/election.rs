@@ -46,10 +46,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
-use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry, QCParams};
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
-use blake3::traits::digest::generic_array::GenericArray;
 use ethereum_types::U256;
 
 /// Error for election problems
@@ -171,12 +167,12 @@ pub trait VoteToken:
 
 /// election config
 pub trait ElectionConfig:
-    Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
+    Default + Clone + serde::Serialize + for<'de> serde::Deserialize<'de> + Sync + Send + core::fmt::Debug
 {
 }
 
 /// A certificate of some property which has been signed by a quroum of nodes.
-pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, COMMITTABLE>
+pub trait SignedCertificate<TYPES: NodeType, TIME, TOKEN, COMMITTABLE>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     COMMITTABLE: Committable + Serialize + Clone,
@@ -185,7 +181,7 @@ where
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: AssembledSignature,
+        signatures: AssembledSignature<TYPES>,
         commit: Commitment<COMMITTABLE>,
         relay: Option<u64>,
     ) -> Self;
@@ -194,7 +190,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> AssembledSignature;
+    fn signatures(&self) -> AssembledSignature<TYPES>;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -215,38 +211,24 @@ where
 pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + 'static
 {
-    /// Data used to determine the weight (voting power) of participants.
-    type StakeTable: Send + Sync;
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
-    fn create_election(entries: Vec<StakeTableEntry<VerKey>>, keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
-
-    /// Returns the table from the current committed state
-    fn get_stake_table(
-        &self,
-        view_number: TYPES::Time,
-        state: &TYPES::StateType,
-    ) -> Self::StakeTable;
+    fn create_election(entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>, keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
 
     /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
-    ) -> Vec<StakeTableEntry<VerKey>>;
+    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
     /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
-
-    /// The members of the committee for view `view_number` in Vec rather than BTreeSet.
-    fn get_committee_in_vec(
-        &self,
-    ) -> Vec<<TYPES as NodeType>::SignatureKey>;
 
 
     /// Attempts to generate a vote token for self
@@ -291,7 +273,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// A vote on a [`Proposal`](Self::Proposal).
     type Vote: VoteType<TYPES>;
     /// A [`SignedCertificate`] attesting to a decision taken by the committee.
-    type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
+    type Certificate: SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
         + Hash
         + Eq;
     /// The committee eligible to make decisions.
@@ -303,12 +285,12 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
@@ -371,45 +353,39 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         match qc.signatures() {
             AssembledSignature::DA(qc) => {
                 let real_commit = VoteData::DA(leaf_commitment).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &qc
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &qc,
+                )
             }
             AssembledSignature::Yes(qc) => {
                 let real_commit = VoteData::Yes(leaf_commitment).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &qc
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &qc,
+                )
             }
             AssembledSignature::No(qc) => {
                 let real_commit = VoteData::No(leaf_commitment).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &qc
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &qc,
+                )
             }
             AssembledSignature::Genesis() => {
                 return true;
@@ -467,7 +443,8 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(&vota_meta.encoded_key) {
-            let append_node_id = self.membership().get_committee_in_vec().iter().position(|x| *x == key.clone()).unwrap();
+            let stake_table_entry = key.get_stake_table_entry(1u64);
+            let append_node_id = self.membership().get_committee_qc_stake_table().iter().position(|x| *x == stake_table_entry.clone()).unwrap();
 
             match accumulator.append((
                 vota_meta.commitment,
@@ -565,7 +542,7 @@ pub struct CommitteeExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// Entry with public key and staking value for certificate aggregation
-    entry: StakeTableEntry<VerKey>,
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -638,12 +615,12 @@ impl<
     type Commitment = TYPES::BlockType;
 
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
@@ -799,7 +776,7 @@ pub struct QuorumExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// Entry with public key and staking value for certificate aggregation
-    entry: StakeTableEntry<VerKey>,
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -958,12 +935,12 @@ impl<
     type Commitment = LEAF;
 
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
@@ -1091,7 +1068,7 @@ pub struct ViewSyncExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// Entry with public key and staking value for certificate aggregation in the stake table.
-    entry: StakeTableEntry<VerKey>,
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -1268,45 +1245,39 @@ impl<
         match certificate_internal.signatures {
             AssembledSignature::ViewSyncPreCommit(raw_signatures) => {
                 let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &raw_signatures
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
             }
             AssembledSignature::ViewSyncCommit(raw_signatures) => {
                 let real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &raw_signatures
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
             }
             AssembledSignature::ViewSyncFinalize(raw_signatures) => {
                 let real_commit = VoteData::ViewSyncFinalize(vote_data.commit()).commit();
-                let msg = GenericArray::from_slice(real_commit.as_ref());
-                let real_qc_pp = QCParams {
-                    stake_entries: self.membership().get_committee_qc_stake_table(), 
-                    threshold: U256::from(self.membership().success_threshold().get()),
-                    agg_sig_pp: (),
-                };
-                BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp, 
-                    &msg,
-                    &raw_signatures
-                ).is_ok()
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
             }
             _ => true,
         }
@@ -1337,12 +1308,12 @@ impl<
     type Commitment = ViewSyncData<TYPES>;
 
     fn create(
-        entries: Vec<StakeTableEntry<VerKey>>,
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
-        entry: StakeTableEntry<VerKey>,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =

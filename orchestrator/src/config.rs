@@ -1,7 +1,8 @@
 use hotshot_types::{ExecutionType, HotShotConfig};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
-
+use hotshot_types::traits::election::ElectionConfig;
+use hotshot_types::traits::signature_key::SignatureKey;
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
@@ -53,7 +54,7 @@ pub struct WebServerConfig {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct NetworkConfig<KEY, ELECTIONCONFIG> {
+pub struct NetworkConfig<KEY, ENTRY, ELECTIONCONFIG> {
     pub rounds: usize,
     pub transactions_per_round: usize,
     pub node_index: u64,
@@ -63,14 +64,14 @@ pub struct NetworkConfig<KEY, ELECTIONCONFIG> {
     pub key_type_name: String,
     pub election_config_type_name: String,
     pub libp2p_config: Option<Libp2pConfig>,
-    pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
+    pub config: HotShotConfig<KEY, ENTRY, ELECTIONCONFIG>,
     pub web_server_config: Option<WebServerConfig>,
     pub da_web_server_config: Option<WebServerConfig>,
 }
 
-impl<K, E> Default for NetworkConfig<K, E> {
+impl<K, ENTRY, E> Default for NetworkConfig<K, ENTRY, E> {
     fn default() -> Self {
-        Self {
+            Self {
             rounds: default_rounds(),
             transactions_per_round: default_transactions_per_round(),
             node_index: 0,
@@ -115,7 +116,7 @@ fn default_web_server_config() -> Option<WebServerConfig> {
     None
 }
 
-impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
+impl<K, ENTRY, E> From<NetworkConfigFile> for NetworkConfig<K, ENTRY, E> {
     fn from(val: NetworkConfigFile) -> Self {
         NetworkConfig {
             rounds: val.rounds,
@@ -179,7 +180,7 @@ pub struct HotShotConfigFile {
     pub propose_max_round_time: Duration,
 }
 
-impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
+impl<K, ENTRY, E> From<HotShotConfigFile> for HotShotConfig<K, ENTRY, E> {
     fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,

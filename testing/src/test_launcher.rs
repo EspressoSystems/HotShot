@@ -16,9 +16,6 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
-use jf_primitives::signatures::bls_over_bn254::VerKey;
-use hotshot_primitives::qc::bit_vector::StakeTableEntry;
-use ethereum_types::U256;
 
 /// generators for resources used by each node
 pub struct ResourceGenerators<
@@ -50,7 +47,7 @@ pub struct ResourceGenerators<
     /// generate a new storage for each node
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
-    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
 }
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -114,13 +111,9 @@ where
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
-        let known_nodes_with_stake: Vec<StakeTableEntry<VerKey>> = (0..total_nodes)
+        let known_nodes_with_stake: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> = (0..total_nodes)
         .map(|id| {
-            let entry = StakeTableEntry {
-                stake_key: known_nodes[id].get_internal_pub_key(),
-                stake_amount: U256::from(1u8),
-            };
-            entry
+            known_nodes[id].get_stake_table_entry(1u64)
         })
         .collect();
 
@@ -158,7 +151,7 @@ where
 
         let mod_config =
             // TODO this should really be using the timing config struct
-            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+            |a: &mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;
@@ -265,7 +258,7 @@ where
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_default_config(
         mut self,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
     ) -> Self {
         self.generator.config = config;
         self
@@ -274,7 +267,7 @@ where
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>),
+        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>),
     ) -> Self {
         f(&mut self.generator.config);
         self

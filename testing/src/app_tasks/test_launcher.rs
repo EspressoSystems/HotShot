@@ -11,6 +11,8 @@ use hotshot_types::{event::Event, traits::node_implementation::NodeType, HotShot
 
 use crate::test_launcher::ResourceGenerators;
 
+use hotshot_types::traits::signature_key::SignatureKey;
+
 use super::{
     completion_task::CompletionTask, safety_task::SafetyTask, test_builder::TestMetadata,
     test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
@@ -70,7 +72,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>),
+        mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>),
     ) -> Self {
         f(&mut self.resource_generator.config);
         self

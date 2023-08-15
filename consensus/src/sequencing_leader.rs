@@ -167,12 +167,8 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    AssembledSignature::Yes(signature) => {
-                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
-                                    }
-                                    AssembledSignature::DA(signature) => {
-                                        info!("Number of DA signatures in this QC: {}", signature.1.len());
-                                    }
+                                    AssembledSignature::Yes(signature) => {}
+                                    AssembledSignature::DA(signature) => {}
                                     _ => unimplemented!(),
                                 };
                                 return Some(qc);
@@ -524,10 +520,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            AssembledSignature::Yes(signature) => info!(
-                                                "Number of qurorum signatures in this QC: {}",
-                                                signature.1.len()
-                                            ),
+                                            AssembledSignature::Yes(signature) => {}
                                             _ => unimplemented!(),
                                         };
                                         return qc;
