@@ -457,7 +457,8 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         }
 
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(&vota_meta.encoded_key) {
-            let append_node_id = self.membership().get_committee_in_vec().iter().position(|x| *x == key.clone()).unwrap();
+            let stake_table_entry = key.get_stake_table_entry(1u64);
+            let append_node_id = self.membership().get_committee_qc_stake_table().iter().position(|x| *x == stake_table_entry.clone()).unwrap();
 
             match accumulator.append((
                 vota_meta.commitment,
