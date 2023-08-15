@@ -10,9 +10,11 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 
+use futures::future::BoxFuture;
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::Arc;
 
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -44,11 +46,13 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
-pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
-    build_fn: fn(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> TaskRunner,
-) {
+    build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
+) where
+    Fut: Future<Output = TaskRunner>,
+{
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
     let event_stream = event_stream::ChannelStream::new();
@@ -70,7 +74,7 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task = TestHarnessTaskTypes::build(builder).launch();
 
     let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
-    let task_runner = build_fn(task_runner, event_stream.clone());
+    let task_runner = build_fn(task_runner, event_stream.clone()).await;
 
     let _runner = async_spawn(async move { task_runner.launch().await });
 

@@ -26,6 +26,11 @@ use hotshot_task::task_launcher::TaskRunner;
 use hotshot_task_impls::consensus::ConsensusTaskTypes;
 use hotshot_task_impls::consensus::SequencingConsensusTaskState;
 use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_testing::node_types::SequencingMemoryImpl;
+use hotshot_testing::node_types::SequencingTestTypes;
+use hotshot_testing::node_types::{
+    StaticMembership, StaticMemoryDAComm, StaticMemoryQuorumComm, StaticMemoryViewSyncComm,
+};
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::DAProposal;
@@ -39,9 +44,11 @@ use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::metrics::NoMetrics;
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::ChannelMaps;
 use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
+use hotshot_types::traits::node_implementation::QuorumCommChannel;
 use hotshot_types::traits::node_implementation::QuorumEx;
 use hotshot_types::traits::node_implementation::SequencingExchanges;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
@@ -60,112 +67,9 @@ use jf_primitives::signatures::BLSSignatureScheme;
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct SequencingTestTypes;
-impl NodeType for SequencingTestTypes {
-    type ConsensusType = SequencingConsensus;
-    type Time = ViewNumber;
-    type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
-    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
-    type Transaction = SDemoTransaction;
-    type ElectionConfigType = StaticElectionConfig;
-    type StateType = SDemoState;
-}
-
-type StaticDAComm = MemoryCommChannel<
-    SequencingTestTypes,
-    SequencingMemoryImpl,
-    DAProposal<SequencingTestTypes>,
-    DAVote<SequencingTestTypes>,
-    StaticMembership,
->;
-type StaticQuroumComm = MemoryCommChannel<
-    SequencingTestTypes,
-    SequencingMemoryImpl,
-    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-    StaticMembership,
->;
-
-// #[cfg_attr(
-//     feature = "tokio-executor",
-//     tokio::test(flavor = "multi_thread", worker_threads = 2)
-// )]
-// #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// #[instrument]
-// pub fn test_basic() {}
-
-type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
-#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-pub struct SequencingMemoryImpl {}
-use hotshot_types::vote::ViewSyncVote;
-
-type StaticViewSyncComm = MemoryCommChannel<
-    SequencingTestTypes,
-    SequencingMemoryImpl,
-    ViewSyncCertificate<SequencingTestTypes>,
-    ViewSyncVote<SequencingTestTypes>,
-    StaticMembership,
->;
-use hotshot_types::traits::election::ViewSyncExchange;
-impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
-    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
-    type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type Exchanges = SequencingExchanges<
-        SequencingTestTypes,
-        Message<SequencingTestTypes, Self>,
-        QuorumExchange<
-            SequencingTestTypes,
-            Self::Leaf,
-            QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            StaticMembership,
-            StaticQuroumComm,
-            Message<SequencingTestTypes, Self>,
-        >,
-        CommitteeExchange<
-            SequencingTestTypes,
-            StaticMembership,
-            StaticDAComm,
-            Message<SequencingTestTypes, Self>,
-        >,
-        ViewSyncExchange<
-            SequencingTestTypes,
-            ViewSyncCertificate<SequencingTestTypes>,
-            StaticMembership,
-            StaticViewSyncComm,
-            Message<SequencingTestTypes, Self>,
-        >,
-    >;
-    type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
-
-    fn new_channel_maps(
-        start_view: ViewNumber,
-    ) -> (
-        ChannelMaps<SequencingTestTypes, Self>,
-        Option<ChannelMaps<SequencingTestTypes, Self>>,
-    ) {
-        (
-            ChannelMaps::new(start_view),
-            Some(ChannelMaps::new(start_view)),
-        )
-    }
-}
 
 // TODO (Keyao) `pub` was added to avoid the `function never used` warning, but we can remove it
 // once we have unit tests using this function.
@@ -191,7 +95,11 @@ where
     I::Exchanges: SequencingExchangesType<
         TYPES,
         Message<TYPES, I>,
-        Networks = (StaticQuroumComm, StaticViewSyncComm, StaticDAComm),
+        Networks = (
+            StaticMemoryQuorumComm,
+            StaticMemoryViewSyncComm,
+            StaticMemoryDAComm,
+        ),
         ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
     >,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
@@ -201,6 +109,7 @@ where
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
         Membership = StaticMembership,
+        Networking = StaticMemoryQuorumComm,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -209,6 +118,7 @@ where
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
         Membership = StaticMembership,
+        Networking = StaticMemoryDAComm,
     >,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -217,6 +127,7 @@ where
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = ViewSyncData<TYPES>,
         Membership = StaticMembership,
+        Networking = StaticMemoryViewSyncComm,
     >,
     // Why do we need this?
     GeneralStaticCommittee<
@@ -348,4 +259,28 @@ where
         consensus_name.to_string(),
         consensus_task,
     )
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_consensus_task() {
+    use hotshot_task::event_stream::{self, EventStream};
+    use hotshot_task_impls::harness::run_harness;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let input = Vec::new();
+    let output = HashSet::new();
+
+    let build_fn = build_consensus_task::<
+        hotshot_testing::node_types::SequencingTestTypes,
+        hotshot_testing::node_types::SequencingMemoryImpl,
+    >;
+
+    run_harness(input, output, build_fn).await;
 }
