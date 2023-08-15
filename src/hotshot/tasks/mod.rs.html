@@ -567,6 +567,7 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::async_spawn;
@@ -1090,6 +1091,7 @@
         relay_task_map: HashMap::default(),
         view_sync_timeout: Duration::new(<span class="number">5</span>, <span class="number">0</span>),
         id: handle.hotshot.inner.id,
+        last_garbage_collected_view: TYPES::Time::new(<span class="number">0</span>),
     };
     <span class="kw">let </span>registry = task_runner.registry.clone();
     <span class="kw">let </span>view_sync_event_handler =

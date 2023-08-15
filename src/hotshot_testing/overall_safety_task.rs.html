@@ -540,6 +540,7 @@
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -969,7 +970,8 @@
                                         }
                                     }
                                 }
-                                EventType::ReplicaViewTimeout { view_number } =&gt; {
+                                <span class="comment">// TODO Emit this event in the consensus task once canceling the timeout task is implemented
+                                </span>EventType::ReplicaViewTimeout { view_number } =&gt; {
                                     <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimeoutError {
                                         view_number,
                                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,

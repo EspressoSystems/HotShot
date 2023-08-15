@@ -995,6 +995,23 @@
 <a href="#995" id="995">995</a>
 <a href="#996" id="996">996</a>
 <a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
@@ -1085,13 +1102,15 @@
     <span class="doccomment">/// How many timeouts we&#39;ve seen in a row; is reset upon a successful view change
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
 
-    <span class="doccomment">/// Represents if replica task is running,
+    <span class="doccomment">/// Map of running replica tasks
     </span><span class="kw">pub </span>replica_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
 
-    <span class="doccomment">/// Represents if relay task is running
+    <span class="doccomment">/// Map of running relay tasks
     </span><span class="kw">pub </span>relay_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
 
     <span class="kw">pub </span>view_sync_timeout: Duration,
+
+    <span class="kw">pub </span>last_garbage_collected_view: TYPES::Time,
 }
 
 <span class="kw">impl</span>&lt;
@@ -1233,12 +1252,10 @@
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-
     </span><span class="kw">pub async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SequencingHotShotEvent&lt;TYPES, I&gt;) {
-        <span class="comment">// TODO ED Match on &amp;event
-        </span><span class="kw">match </span>event.clone() {
+        <span class="kw">match </span><span class="kw-2">&amp;</span>event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) =&gt; {
-                <span class="kw">let </span>(certificate_internal, last_seen_certificate) = <span class="kw">match </span>message.data {
+                <span class="kw">let </span>(certificate_internal, last_seen_certificate) = <span class="kw">match </span><span class="kw-2">&amp;</span>message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) =&gt; {
                         (certificate_internal, ViewSyncPhase::PreCommit)
                     }
@@ -1271,8 +1288,6 @@
                 }
 
                 <span class="comment">// We do not have a replica task already running, so start one
-
-                // TODO ED Need to GC old entries in task map once we know we don&#39;t need them anymore
                 </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state = ViewSyncReplicaTaskState {
                     current_view: certificate_internal.round,
                     next_view: certificate_internal.round,
@@ -1287,7 +1302,7 @@
                     id: <span class="self">self</span>.id,
                 };
 
-                <span class="kw">let </span>result = replica_state.handle_event(event).<span class="kw">await</span>;
+                <span class="kw">let </span>result = replica_state.handle_event(event.clone()).<span class="kw">await</span>;
 
                 <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
                     <span class="comment">// The protocol has finished
@@ -1349,7 +1364,7 @@
                     </span>.exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    <span class="comment">// This will occur because everyone is pulling down votes for now, will fix soon ED
+                    <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">&quot;View sync vote sent to wrong leader&quot;</span>);
                     <span class="kw">return</span>;
                 }
@@ -1370,7 +1385,7 @@
                     id: <span class="self">self</span>.id,
                 };
 
-                <span class="kw">let </span>result = relay_state.handle_event(event).<span class="kw">await</span>;
+                <span class="kw">let </span>result = relay_state.handle_event(event.clone()).<span class="kw">await</span>;
 
                 <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
                     <span class="comment">// The protocol has finished
@@ -1400,29 +1415,52 @@
 
                 <span class="self">self</span>.relay_task_map
                     .insert(vote_internal.round, ViewSyncTaskInfo { event_stream_id });
-                <span class="comment">// TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
-                </span><span class="kw">let </span>_view_sync_relay_task = async_spawn(<span class="kw">async move </span>{
+                <span class="kw">let </span>_view_sync_relay_task = async_spawn(<span class="kw">async move </span>{
                     ViewSyncRelayTaskStateTypes::build(builder).launch().<span class="kw">await
                 </span>});
             }
 
-            SequencingHotShotEvent::ViewChange(new_view) =&gt; {
-                <span class="comment">// TODO ED Don&#39;t call new twice
-                </span><span class="kw">if </span><span class="self">self</span>.current_view &lt; TYPES::Time::new(<span class="kw-2">*</span>new_view) {
+            <span class="kw-2">&amp;</span>SequencingHotShotEvent::ViewChange(new_view) =&gt; {
+                <span class="kw">let </span>new_view = TYPES::Time::new(<span class="kw-2">*</span>new_view);
+                <span class="kw">if </span><span class="self">self</span>.current_view &lt; new_view {
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;Change from view {} to view {} in view sync task&quot;</span>,
                         <span class="kw-2">*</span><span class="self">self</span>.current_view, <span class="kw-2">*</span>new_view
                     );
 
-                    <span class="self">self</span>.current_view = TYPES::Time::new(<span class="kw-2">*</span>new_view);
+                    <span class="self">self</span>.current_view = new_view;
                     <span class="self">self</span>.next_view = <span class="self">self</span>.current_view;
                     <span class="self">self</span>.num_timeouts_tracked = <span class="number">0</span>;
 
-                    <span class="comment">// Inject view info into network
-                    // Move this to consensus task probably
-                </span>}
+                    <span class="comment">// Garbage collect old tasks
+                    // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
+                    </span><span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.last_garbage_collected_view..<span class="kw-2">*</span><span class="self">self</span>.current_view {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, replica_task_info)) =
+                            <span class="self">self</span>.replica_task_map.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i))
+                        {
+                            <span class="self">self</span>.event_stream
+                                .direct_message(
+                                    replica_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .<span class="kw">await</span>;
+                        }
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) =
+                            <span class="self">self</span>.relay_task_map.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i))
+                        {
+                            <span class="self">self</span>.event_stream
+                                .direct_message(
+                                    relay_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .<span class="kw">await</span>;
+                        }
+                    }
+
+                    <span class="self">self</span>.last_garbage_collected_view = <span class="self">self</span>.current_view - <span class="number">1</span>;
+                }
             }
-            SequencingHotShotEvent::Timeout(view_number) =&gt; {
+            <span class="kw-2">&amp;</span>SequencingHotShotEvent::Timeout(view_number) =&gt; {
                 <span class="comment">// This is an old timeout and we can ignore it
                 </span><span class="kw">if </span>view_number &lt; ViewNumber::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
                     <span class="kw">return</span>;
@@ -1432,7 +1470,7 @@
                 <span class="macro">error!</span>(<span class="string">&quot;Num timeouts tracked is {}&quot;</span>, <span class="self">self</span>.num_timeouts_tracked);
 
                 <span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked &gt; <span class="number">2 </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Too many timeouts!  This shouldn&#39;t happen&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Too many timeouts!  This shouldn&#39;t happen&quot;</span>);
                 }
 
                 <span class="comment">// TODO ED Make this a configurable variable
@@ -1491,8 +1529,7 @@
                         },
                     ));
 
-                    <span class="comment">// TODO ED Change from default filter
-                    </span><span class="kw">let </span>filter = FilterEvent::default();
+                    <span class="kw">let </span>filter = FilterEvent(Arc::new(<span class="self">Self</span>::filter));
                     <span class="kw">let </span>builder =
                         TaskBuilder::&lt;ViewSyncReplicaTaskStateTypes&lt;TYPES, I, A&gt;&gt;::new(name)
                             .register_event_stream(replica_state.event_stream.clone(), filter)
@@ -1509,8 +1546,7 @@
                         ViewSyncTaskInfo { event_stream_id },
                     );
 
-                    <span class="comment">// TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
-                    </span><span class="kw">let </span>_view_sync_replica_task = async_spawn(<span class="kw">async move </span>{
+                    <span class="kw">let </span>_view_sync_replica_task = async_spawn(<span class="kw">async move </span>{
                         ViewSyncReplicaTaskStateTypes::build(builder).launch().<span class="kw">await
                     </span>});
                 } <span class="kw">else </span>{
@@ -1585,9 +1621,7 @@
                     }
                 };
 
-                <span class="comment">// warn!(&quot;received cert in handle_event for replica&quot;);
-
-                // Ignore certificate if it is for an older round
+                <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate_internal.round &lt; <span class="self">self</span>.next_view {
                     <span class="macro">debug!</span>(<span class="string">&quot;We&#39;re already in a higher round&quot;</span>);
 
