@@ -7,7 +7,6 @@ use crate::{
     certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
-        consensus_type::validating_consensus::ValidatingConsensusType,
         election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
@@ -912,90 +911,6 @@ impl<TYPES: NodeType> From<ValidatingLeaf<TYPES>>
             proposer_id: leaf.proposer_id,
             block_commitment: leaf.deltas.commit(),
         }
-    }
-}
-
-impl<TYPES: NodeType> ValidatingLeaf<TYPES>
-where
-    TYPES::ConsensusType: ValidatingConsensusType,
-{
-    /// Creates a new leaf with the specified block and parent
-    ///
-    /// # Arguments
-    ///   * `item` - The block to include
-    ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        state: TYPES::StateType,
-        deltas: TYPES::BlockType,
-        parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
-        justify_qc: QuorumCertificate<TYPES, Self>,
-        view_number: TYPES::Time,
-        height: u64,
-        rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
-        timestamp: i128,
-        proposer_id: EncodedPublicKey,
-    ) -> Self {
-        ValidatingLeaf {
-            view_number,
-            height,
-            justify_qc,
-            parent_commitment,
-            deltas,
-            state,
-            rejected,
-            timestamp,
-            proposer_id,
-        }
-    }
-
-    /// Creates the genesis Leaf for the genesis View (special case),
-    /// from the genesis block (deltas, application supplied)
-    /// and genesis state (result of deltas applied to the default state)
-    /// justified by the genesis qc (special case)
-    ///
-    /// # Panics
-    ///
-    /// Panics if deltas is not a valid genesis block,
-    /// or if state cannot extend deltas from default()
-    pub fn genesis(deltas: TYPES::BlockType) -> Self {
-        // if this fails, we're not able to initialize consensus.
-        let state = <TYPES as NodeType>::StateType::append(
-            &TYPES::StateType::default(),
-            &deltas,
-            &TYPES::Time::genesis(),
-        )
-        .unwrap();
-        Self {
-            view_number: TYPES::Time::genesis(),
-            height: 0,
-            justify_qc: QuorumCertificate::genesis(),
-            parent_commitment: fake_commitment(),
-            deltas,
-            state,
-            rejected: Vec::new(),
-            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id: genesis_proposer_id(),
-        }
-    }
-}
-
-impl<TYPES: NodeType> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
-where
-    TYPES::ConsensusType: ValidatingConsensusType,
-{
-    fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
-        ValidatingLeaf::new(
-            append.state,
-            append.deltas,
-            append.parent,
-            append.justify_qc,
-            append.view_number,
-            append.height,
-            Vec::new(),
-            append.timestamp,
-            append.proposer_id,
-        )
     }
 }
 

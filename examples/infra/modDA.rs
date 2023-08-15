@@ -38,7 +38,6 @@ use hotshot_types::{
     data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
     message::SequencingMessage,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
@@ -82,7 +81,7 @@ use tracing::warn;
 
 /// Runs the orchestrator
 pub async fn run_orchestrator_da<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -150,7 +149,7 @@ pub async fn run_orchestrator_da<
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -203,9 +202,9 @@ pub trait RunDA<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
-    SystemContext<SequencingConsensus, TYPES, NODE>: HotShotType<TYPES, NODE>,
+    SystemContext<TYPES, NODE>: HotShotType<TYPES, NODE>,
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
@@ -257,8 +256,8 @@ pub trait RunDA<
             (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
-                view_sync_network.clone(),
                 da_network.clone(),
+                view_sync_network.clone(),
             ),
             pk.clone(),
             sk.clone(),
@@ -449,7 +448,7 @@ type StaticViewSyncComm<TYPES, I, MEMBERSHIP> =
 
 /// Represents a web server-based run
 pub struct WebServerDARun<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
@@ -461,7 +460,7 @@ pub struct WebServerDARun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+        TYPES: NodeType<Time = ViewNumber>,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -519,7 +518,7 @@ where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
     async fn initialize_networking(
@@ -623,7 +622,7 @@ where
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -679,7 +678,7 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
 {
     setup_logging();
     setup_backtrace();

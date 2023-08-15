@@ -30,7 +30,6 @@ async fn web_server_network() {
         },
         ..TestMetadata::default()
     };
-    // TODO web server network doesn't implement TestableNetworkingImplementation
     metadata
         .gen_launcher::<SequencingTestTypes, SequencingWebImpl>()
         .launch()

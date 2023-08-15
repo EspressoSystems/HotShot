@@ -12,9 +12,6 @@
 #![allow(clippy::module_name_repetitions)]
 
 mod da_member;
-mod leader;
-mod next_leader;
-mod replica;
 mod sequencing_leader;
 mod sequencing_replica;
 pub mod traits;
@@ -23,13 +20,10 @@ pub mod utils;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use da_member::DAMember;
 pub use hotshot_types::traits::node_implementation::ViewQueue;
-pub use leader::ValidatingLeader;
-pub use next_leader::NextValidatingLeader;
-pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
 use std::collections::HashSet;
-pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
+pub use traits::{ConsensusSharedApi, SequencingConsensusApi};
 pub use utils::{View, ViewInner};
 
 use commit::{Commitment, Committable};

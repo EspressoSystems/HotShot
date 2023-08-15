@@ -31,16 +31,12 @@ pub type SpinningTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     SpinningTask<TYPES, I>,
 >;
 
-pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-{
+pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) handles: Vec<Node<TYPES, I>>,
     pub(crate) changes: Vec<Vec<ChangeNode>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for SpinningTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for SpinningTask<TYPES, I> {}
 
 /// Spin the node up or down
 #[derive(Clone, Debug)]
@@ -66,7 +62,7 @@ pub struct SpinningTaskDescription {
 }
 
 impl SpinningTaskDescription {
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {

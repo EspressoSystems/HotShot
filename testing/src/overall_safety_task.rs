@@ -58,10 +58,7 @@ pub enum OverallSafetyTaskErr {
 }
 
 /// Data availability task state
-pub struct OverallSafetyTask<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-> {
+pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handles
     pub handles: Vec<Node<TYPES, I>>,
     /// ctx
@@ -70,10 +67,7 @@ pub struct OverallSafetyTask<
     pub test_event_stream: ChannelStream<GlobalTestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for OverallSafetyTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for OverallSafetyTask<TYPES, I> {}
 
 /// Result of running a round of consensus
 #[derive(Debug)]
@@ -114,9 +108,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<
 
 /// smh my head I shouldn't need to implement this
 /// Rust doesn't realize I doesn't need to implement default
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
-    for RoundCtx<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
     fn default() -> Self {
         Self {
             round_results: Default::default(),
@@ -131,7 +123,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 /// that we poll when things are event driven
 /// this context will be passed around
 #[derive(Debug)]
-pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// results from previous rounds
     /// view number -> round result
     pub round_results:
@@ -142,9 +134,7 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Consen
     pub successful_views: HashSet<TYPES::Time>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-    RoundCtx<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
     /// inserts an error into the context
     pub fn insert_error_to_context(
         &mut self,
@@ -340,7 +330,7 @@ impl Default for OverallSafetyPropertiesDescription {
 
 impl OverallSafetyPropertiesDescription {
     /// build a task
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<OverallSafetyTask<TYPES, I>> {
         let Self {

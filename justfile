@@ -20,7 +20,7 @@ test_tokio:
 
 test_async_std_all:
   echo Testing with async std executor
-  RUST_LOG="error" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
+  cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
 _test_basic:
   echo Testing with async std executor

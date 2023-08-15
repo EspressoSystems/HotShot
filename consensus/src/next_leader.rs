@@ -1,7 +1,6 @@
 //! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::ConsensusMetrics;
-use crate::ValidatingConsensusApi;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
@@ -9,14 +8,12 @@ use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedGeneralConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
-};
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::vote::VoteAccumulator;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessageType, InternalTrigger, ValidatingMessage},
+    message::{ConsensusMessageType, InternalTrigger},
     traits::consensus_type::validating_consensus::ValidatingConsensus,
     vote::QuorumVote,
 };
@@ -27,140 +24,3 @@ use std::{
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
-
-/// The next view's validating leader
-#[derive(custom_debug::Debug, Clone)]
-pub struct NextValidatingLeader<
-    A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = ValidatingLeaf<TYPES>,
-        ConsensusMessage = ValidatingMessage<TYPES, I>,
-    >,
-> where
-    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
-{
-    /// id of node
-    pub id: u64,
-    /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-    /// channel through which the leader collects votes
-    #[allow(clippy::type_complexity)]
-    pub vote_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I>>>>,
-    /// The view number we're running on
-    pub cur_view: TYPES::Time,
-    /// Limited access to the consensus protocol
-    pub api: A,
-
-    /// quorum exchange
-    pub exchange: Arc<ValidatingQuorumEx<TYPES, I>>,
-    /// Metrics for reporting stats
-    #[debug(skip)]
-    pub metrics: Arc<ConsensusMetrics>,
-
-    /// needed to type check
-    pub _pd: PhantomData<I>,
-}
-
-impl<
-        A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
-    > NextValidatingLeader<A, TYPES, I>
-where
-    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
-    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        Commitment = ValidatingLeaf<TYPES>,
-    >,
-{
-    /// Run one view of the next leader task
-    /// # Panics
-    /// While we are unwrapping, this function can logically never panic
-    /// unless there is a bug in std
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
-        info!("Next validating leader task started!");
-
-        let vote_collection_start = Instant::now();
-
-        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
-        qcs.insert(self.generic_qc.clone());
-
-        let mut accumlator = VoteAccumulator {
-            total_vote_outcomes: HashMap::new(),
-            yes_vote_outcomes: HashMap::new(),
-            no_vote_outcomes: HashMap::new(),
-            viewsync_precommit_vote_outcomes: HashMap::new(),
-            success_threshold: self.exchange.success_threshold(),
-            failure_threshold: self.exchange.failure_threshold(),
-        };
-
-        let lock = self.vote_collection_chan.lock().await;
-        while let Ok(msg) = lock.recv().await {
-            // If the message is for a different view number, skip it.
-            if Into::<ValidatingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
-                continue;
-            }
-            match msg {
-                ProcessedGeneralConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        QuorumVote::Yes(vote) | QuorumVote::No(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
-                            }
-                            match self.exchange.accumulate_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                vote.leaf_commitment,
-                                vote.vote_data,
-                                vote.vote_token.clone(),
-                                self.cur_view,
-                                accumlator,
-                                None,
-                            ) {
-                                Either::Left(acc) => {
-                                    accumlator = acc;
-                                }
-                                Either::Right(qc) => {
-                                    self.metrics
-                                        .vote_validate_duration
-                                        .add_point(vote_collection_start.elapsed().as_secs_f64());
-                                    return qc;
-                                }
-                            }
-                        }
-                        QuorumVote::Timeout(vote) => {
-                            qcs.insert(vote.justify_qc);
-                        }
-                    }
-                }
-                ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
-                    InternalTrigger::Timeout(_) => {
-                        self.api.send_next_leader_timeout(self.cur_view).await;
-                        break;
-                    }
-                },
-                ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
-                    warn!("The next leader has received an unexpected proposal!");
-                }
-                ProcessedGeneralConsensusMessage::ViewSyncCertificate(_) => todo!(),
-                ProcessedGeneralConsensusMessage::ViewSyncVote(_) => todo!(),
-            }
-        }
-
-        qcs.into_iter()
-            .max_by_key(hotshot_types::traits::election::SignedCertificate::view_number)
-            .unwrap()
-    }
-}

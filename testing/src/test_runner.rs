@@ -1,6 +1,7 @@
 use super::overall_safety_task::OverallSafetyTask;
 use super::overall_safety_task::RoundCtx;
 use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use crate::test_launcher::Networks;
 use crate::test_launcher::TestLauncher;
 use hotshot::types::SystemContextHandle;
 use hotshot::{
@@ -24,18 +25,17 @@ use hotshot_types::{
 };
 #[allow(deprecated)]
 use rand::SeedableRng;
-use std::sync::Arc;
 use tracing::info;
 
 #[derive(Clone)]
-pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 where
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
@@ -51,10 +51,9 @@ where
     pub(crate) task_runner: TaskRunner,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-    TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
-    SystemContext<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    SystemContext<TYPES, I>: HotShotType<TYPES, I>,
     QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
@@ -66,17 +65,11 @@ where
     /// excecute test
     pub async fn run_test(mut self)
     where
-        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (
-                QuorumCommChannel<TYPES, I>,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
@@ -179,17 +172,11 @@ where
     /// add nodes
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
-        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (
-                QuorumCommChannel<TYPES, I>,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
@@ -197,43 +184,13 @@ where
         for _i in 0..count {
             tracing::error!("running node{}", _i);
             let node_id = self.next_node_id;
-            let network_generator = Arc::new((self.launcher.resource_generator.network_generator)(
-                node_id,
-            ));
-
-            // NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
-            // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
-            // test libp2p commout out the below lines where noted.
-
-            // NOTE ED: Comment out this line to run libp2p tests
-            let secondary_network_generator =
-                Arc::new((self
-                    .launcher
-                    .resource_generator
-                    .secondary_network_generator)(node_id));
-
-            let quorum_network =
-                (self.launcher.resource_generator.quorum_network)(network_generator.clone());
-            let committee_network =
-                (self.launcher.resource_generator.committee_network)(secondary_network_generator);
-            // NOTE ED: Switch the below line with the above line to run libp2p tests
-            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
-
-            let view_sync_network =
-                (self.launcher.resource_generator.view_sync_network)(network_generator);
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
+            let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             let node_id = self
-                .add_node_with_config(
-                    quorum_network,
-                    committee_network,
-                    view_sync_network,
-                    storage,
-                    initializer,
-                    config,
-                )
+                .add_node_with_config(networks, storage, initializer, config)
                 .await;
             results.push(node_id);
         }
@@ -241,28 +198,20 @@ where
         results
     }
 
-    ///
+    /// add a specific node with a config
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: QuorumCommChannel<TYPES, I>,
-        committee_network: I::CommitteeCommChannel,
-        view_sync_network: I::ViewSyncCommChannel,
+        networks: Networks<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
-        SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (
-                QuorumCommChannel<TYPES, I>,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
@@ -288,7 +237,7 @@ where
                 quorum_election_config,
                 committee_election_config(config.da_committee_size as u64),
             ),
-            (quorum_network, view_sync_network, committee_network),
+            networks,
             public_key.clone(),
             private_key.clone(),
             ek.clone(),

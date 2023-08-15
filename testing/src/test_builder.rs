@@ -1,5 +1,4 @@
 use hotshot::types::SignatureKey;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -7,10 +6,8 @@ use std::time::Duration;
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::{
-    NodeType, QuorumCommChannel, QuorumEx, SequencingExchangesType,
-};
+
+use hotshot_types::traits::node_implementation::{NodeType, QuorumEx, TestableExchange};
 use hotshot_types::{ExecutionType, HotShotConfig};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
@@ -150,24 +147,13 @@ impl Default for TestMetadata {
 }
 
 impl TestMetadata {
-    pub fn gen_launcher<
-        TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-    >(
+    pub fn gen_launcher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TestLauncher<TYPES, I>
     where
-        QuorumCommChannel<TYPES, I>: CommunicationChannel<
-            TYPES,
-            Message<TYPES, I>,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
-        >,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        <I as NodeImplementation<TYPES>>::Exchanges:
-            SequencingExchangesType<TYPES, Message<TYPES, I>>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        <I as NodeImplementation<TYPES>>::Exchanges:
+            TestableExchange<TYPES, <I as NodeImplementation<TYPES>>::Leaf, Message<TYPES, I>>,
     {
         let TestMetadata {
             total_nodes,
@@ -213,10 +199,6 @@ impl TestMetadata {
                 total_nodes as u64
             )),
         };
-        let network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, false);
-        let secondary_network_generator =
-            I::network_generator(total_nodes, num_bootstrap_nodes, da_committee_size, true);
         let TimingData {
             next_view_timeout,
             timeout_ratio,
@@ -242,11 +224,7 @@ impl TestMetadata {
         let spinning_task_generator = spinning_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
-                network_generator,
-                secondary_network_generator,
-                quorum_network: I::quorum_comm_channel_generator(),
-                committee_network: I::committee_comm_channel_generator(),
-                view_sync_network: I::view_sync_comm_channel_generator(),
+                channel_generator: <<I as NodeImplementation<TYPES>>::Exchanges as TestableExchange<_, _, _>>::gen_comm_channels(total_nodes, num_bootstrap_nodes, da_committee_size),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },

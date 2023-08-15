@@ -18,7 +18,7 @@ use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
@@ -30,7 +30,6 @@ use hotshot_types::{
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
@@ -47,15 +46,13 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -81,7 +78,7 @@ pub struct DALeader<
 }
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -89,7 +86,6 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -315,15 +311,13 @@ where
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -349,7 +343,7 @@ pub struct ConsensusLeader<
 }
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -357,7 +351,6 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -414,15 +407,13 @@ where
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -446,7 +437,7 @@ pub struct ConsensusNextLeader<
 
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -454,7 +445,6 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

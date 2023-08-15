@@ -4,12 +4,9 @@ use crate::async_spawn;
 use crate::types::SystemContextHandle;
 use crate::{
     DACertificate, HotShotSequencingConsensusApi, QuorumCertificate, SequencingQuorumEx,
-    SystemContext, ViewRunner,
+    SystemContext,
 };
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn_local},
-    channel::UnboundedReceiver,
-};
+use async_compatibility_layer::art::{async_sleep, async_spawn_local};
 use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
@@ -42,11 +39,8 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ProposalType, SequencingLeaf, ViewNumber},
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         network::{CommunicationChannel, TransmitType},
-        node_implementation::{
-            CommitteeEx, ExchangesType, NodeImplementation, NodeType, SequencingExchangesType,
-        },
+        node_implementation::{CommitteeEx, ExchangesType, NodeImplementation, NodeType},
         state::ConsensusTime,
         Block,
     },
@@ -63,171 +57,9 @@ use std::{
 };
 use tracing::info;
 
-#[cfg(feature = "async-std-executor")]
-use async_std::task::yield_now;
-#[cfg(feature = "tokio-executor")]
-use tokio::task::yield_now;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-
-/// A handle with senders to send events to the background runners.
-// #[derive(Default)]
-// pub struct TaskHandle<TYPES: NodeType> {
-//     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
-//     /// early on in the [`SystemContext`] struct. It should be safe to `unwrap` this.
-//     pub(crate) inner: RwLock<Option<TaskHandleInner>>,
-//     /// Reference to the [`NodeType`] used in this configuration
-//     _types: PhantomData<TYPES>,
-// }
-//
-// impl<TYPES: NodeType> TaskHandle<TYPES> {
-//     /// Start the round runner. This will make it run until `pause` is called
-//     ///
-//     /// # Panics
-//     ///
-//     /// If the [`TaskHandle`] has not been properly initialized.
-//     pub async fn start(&self) {
-//         let handle = self.inner.read().await;
-//         if handle.is_some() {
-//             let handle = handle.as_ref().unwrap();
-//             handle.started.store(true, Ordering::Relaxed);
-//         }
-//     }
-//
-//     /// Make the round runner run 1 round.
-//     /// Does/should not block.
-//     ///
-//     /// # Panics
-//     ///
-//     /// If the [`TaskHandle`] has not been properly initialized.
-//     pub async fn start_one_round(&self) {
-//         let handle = self.inner.read().await;
-//         if handle.is_some() {
-//             let handle = handle.as_ref().unwrap();
-//             if let Some(s) = &handle.run_view_channels {
-//                 handle.started.store(true, Ordering::Relaxed);
-//                 let _: Result<_, _> = s.send(()).await;
-//             } else {
-//                 error!("Run one view channel not configured for this hotshot instance");
-//             }
-//         }
-//     }
-//
-//     /// Wait until all underlying handles are shut down
-//     ///
-//     /// # Panics
-//     ///
-//     /// If the [`TaskHandle`] has not been properly initialized.
-//     pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
-//         let inner = self.inner.write().await.take().unwrap();
-//
-//         // this shuts down the networking task
-//         if send_network_lookup.send(None).await.is_err() {
-//             error!("network lookup task already shut down!");
-//         }
-//
-//         // shutdown_timeout == the hotshot's view timeout
-//         // in case the round_runner task is running for `view_timeout`
-//         // (exponential timeout maxed out)
-//         // then this needs to be slightly longer such that it ends up being checked
-//         let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
-//
-//         for (handle, name) in [
-//             (
-//                 inner.network_broadcast_task_handle,
-//                 "network_broadcast_task_handle",
-//             ),
-//             (
-//                 inner.network_direct_task_handle,
-//                 "network_direct_task_handle",
-//             ),
-//             (inner.consensus_task_handle, "network_change_task_handle"),
-//         ] {
-//             assert!(
-//                 async_timeout(long_timeout, handle).await.is_ok(),
-//                 "{name} did not shut down within a second",
-//             );
-//         }
-//
-//         if let Some(committee_network_broadcast_task_handle) =
-//             inner.committee_network_broadcast_task_handle
-//         {
-//             assert!(
-//                 async_timeout(long_timeout, committee_network_broadcast_task_handle)
-//                     .await
-//                     .is_ok(),
-//                 "committee_network_broadcast_task_handle did not shut down within a second",
-//             );
-//             if let Some(committee_network_direct_task_handle) =
-//                 inner.committee_network_direct_task_handle
-//             {
-//                 assert!(
-//                     async_timeout(long_timeout, committee_network_direct_task_handle)
-//                         .await
-//                         .is_ok(),
-//                     "committee_network_direct_task_handle did not shut down within a second",
-//                 );
-//             }
-//         }
-//     }
-// }
-
-/// Inner struct of the [`TaskHandle`]
-// pub(crate) struct TaskHandleInner {
-//     /// for the client to indicate "increment a view"
-//     /// only Some in Incremental exeuction mode
-//     /// otherwise None
-//     pub run_view_channels: Option<UnboundedSender<()>>,
-//
-//     /// Join handle for `network_broadcast_task`
-//     pub network_broadcast_task_handle: JoinHandle<()>,
-//
-//     /// Join handle for `network_direct_task`
-//     pub network_direct_task_handle: JoinHandle<()>,
-//
-//     /// Join Handle for committee broadcast network task
-//     pub committee_network_broadcast_task_handle: Option<JoinHandle<()>>,
-//
-//     /// Join Handle for committee direct network task
-//     pub committee_network_direct_task_handle: Option<JoinHandle<()>>,
-//
-//     /// Join handle for `consensus_task`
-//     pub consensus_task_handle: JoinHandle<()>,
-//
-//     /// Global to signify the `HotShot` should be started
-//     pub(crate) started: Arc<AtomicBool>,
-//
-//     /// same as hotshot's view_timeout such that
-//     /// there is not an accidental race between the two
-//     pub(crate) shutdown_timeout: Duration,
-// }
-
-/// main thread driving consensus
-/// TODO `run_view` refactor: delete
-pub async fn view_runner_old<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
-    started: Arc<AtomicBool>,
-    shut_down: Arc<AtomicBool>,
-    run_once: Option<UnboundedReceiver<()>>,
-) where
-    SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
-{
-    while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
-        yield_now().await;
-    }
-
-    while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
-        if let Some(ref recv) = run_once {
-            let _: Result<(), _> = recv.recv().await;
-        }
-        let _: Result<_, _> =
-            SystemContext::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
-    }
-}
-
 /// Task to look up a node in the future as needed
 pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    hotshot: SystemContext<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
@@ -297,7 +129,7 @@ pub enum GlobalEvent {
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_message_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -407,7 +239,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_event_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -487,7 +319,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -500,7 +332,6 @@ pub async fn add_consensus_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -585,7 +416,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_da_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -598,7 +429,6 @@ pub async fn add_da_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -655,7 +485,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_view_sync_task<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -667,7 +497,6 @@ pub async fn add_view_sync_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
