@@ -17,7 +17,6 @@ use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
 use crate::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
-
 #[derive(Snafu, Debug)]
 pub struct SpinningTaskErr {}
 
@@ -125,7 +124,7 @@ impl SpinningTaskDescription {
                     },
                 ));
                 let builder = TaskBuilder::<SpinningTaskTypes<TYPES, I>>::new(
-                    "Spinning Nodes Task".to_string(),
+                    "Test Spinning Task".to_string(),
                 )
                 .register_event_stream(test_event_stream, FilterEvent::default())
                 .await

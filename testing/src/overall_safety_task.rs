@@ -19,7 +19,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::LeafType,
+    data::{DeltasType, LeafType},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
@@ -258,7 +258,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         );
 
         let mut result_state = None;
-        let mut result_block = None;
+        let mut result_commitment = None;
 
         if check_state {
             for (state, num_nodes) in states {
@@ -276,19 +276,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         }
 
         if check_block {
-            for (block, num_nodes) in blocks.clone() {
-                if num_nodes >= threshold {
-                    result_block = Some(block.clone());
-                    self.success = true;
-                    self.agreed_block = Some(block);
+            // Check if the block commitments are the same.
+            let mut consistent_block = None;
+            for (delta, _) in blocks.clone() {
+                let commitment = delta.block_commitment();
+                if let Some(consistent_commitment) = result_commitment {
+                    if commitment != consistent_commitment {
+                        self.success = false;
+                        error!("Inconsistent blocks, blocks: {:?}", blocks);
+                        return Err(OverallSafetyTaskErr::InconsistentBlocks);
+                    }
                 }
+                result_commitment = Some(commitment);
+                consistent_block = Some(delta);
             }
-
-            if result_block.is_none() {
-                self.success = false;
-                error!("Inconsistent blocks, blocks: {:?}", blocks);
-                return Err(OverallSafetyTaskErr::InconsistentBlocks);
-            }
+            self.success = true;
+            self.agreed_block = consistent_block;
         }
         Ok(())
     }

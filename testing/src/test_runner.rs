@@ -122,7 +122,7 @@ where
             test_event_stream.clone(),
         )
         .await;
-        task_runner = task_runner.add_task(id, "Completion Task".to_string(), task);
+        task_runner = task_runner.add_task(id, "Test Completion Task".to_string(), task);
 
         // add spinning task
         let spinning_task_state = crate::spinning_task::SpinningTask {
@@ -135,7 +135,7 @@ where
             test_event_stream.clone(),
         )
         .await;
-        task_runner = task_runner.add_task(id, "Completion Task".to_string(), task);
+        task_runner = task_runner.add_task(id, "Test Spinning Task".to_string(), task);
 
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
@@ -149,7 +149,7 @@ where
             test_event_stream.clone(),
         )
         .await;
-        task_runner = task_runner.add_task(id, "Overall Safety Task".to_string(), task);
+        task_runner = task_runner.add_task(id, "Test Overall Safety Task".to_string(), task);
 
         // Start hotshot
         // Goes through all nodes, but really only needs to call this on the leader node of the first view

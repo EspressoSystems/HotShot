@@ -39,8 +39,13 @@ async fn test_with_failures_one() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
     let dead_nodes = vec![ChangeNode {
-        idx: 10,
+        idx: 19,
         updown: UpDown::Down,
     }];
 
@@ -73,17 +78,22 @@ async fn test_with_failures_half_f() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
     let dead_nodes = vec![
         ChangeNode {
-            idx: 5,
+            idx: 17,
             updown: UpDown::Down,
         },
         ChangeNode {
-            idx: 10,
+            idx: 18,
             updown: UpDown::Down,
         },
         ChangeNode {
-            idx: 15,
+            idx: 19,
             updown: UpDown::Down,
         },
     ];
@@ -117,21 +127,14 @@ async fn test_with_failures_f() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
     let dead_nodes = vec![
         ChangeNode {
-            idx: 5,
-            updown: UpDown::Down,
-        },
-        ChangeNode {
-            idx: 6,
-            updown: UpDown::Down,
-        },
-        ChangeNode {
-            idx: 10,
-            updown: UpDown::Down,
-        },
-        ChangeNode {
-            idx: 11,
+            idx: 14,
             updown: UpDown::Down,
         },
         ChangeNode {
@@ -140,6 +143,18 @@ async fn test_with_failures_f() {
         },
         ChangeNode {
             idx: 16,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 17,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 18,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 19,
             updown: UpDown::Down,
         },
     ];
