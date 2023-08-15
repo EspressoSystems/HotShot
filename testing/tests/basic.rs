@@ -1,5 +1,3 @@
-use hotshot_testing::node_types::SequencingMemoryImpl;
-
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
