@@ -239,11 +239,6 @@ pub trait Membership<TYPES: NodeType>:
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
-    /// The members of the committee for view `view_number` in Vec rather than BTreeSet.
-    fn get_committee_in_vec(
-        &self,
-    ) -> Vec<<TYPES as NodeType>::SignatureKey>;
-
 
     /// Attempts to generate a vote token for self
     ///
