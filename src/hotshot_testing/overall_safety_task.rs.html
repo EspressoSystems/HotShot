@@ -540,16 +540,6 @@
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -610,10 +600,7 @@
 }
 
 <span class="doccomment">/// Data availability task state
-</span><span class="kw">pub struct </span>OverallSafetyTask&lt;
-    TYPES: NodeType,
-    I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-&gt; {
+</span><span class="kw">pub struct </span>OverallSafetyTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// handles
     </span><span class="kw">pub </span>handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// ctx
@@ -622,10 +609,7 @@
     </span><span class="kw">pub </span>test_event_stream: ChannelStream&lt;GlobalTestEvent&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; TS
-    <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I&gt;
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I&gt; {}
 
 <span class="doccomment">/// Result of running a round of consensus
 </span><span class="attr">#[derive(Debug)]
@@ -666,9 +650,7 @@
 
 <span class="doccomment">/// smh my head I shouldn&#39;t need to implement this
 /// Rust doesn&#39;t realize I doesn&#39;t need to implement default
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; Default
-    <span class="kw">for </span>RoundCtx&lt;TYPES, I&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>RoundCtx&lt;TYPES, I&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             round_results: Default::default(),
@@ -683,7 +665,7 @@
 /// that we poll when things are event driven
 /// this context will be passed around
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>RoundCtx&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>RoundCtx&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// results from previous rounds
     /// view number -&gt; round result
     </span><span class="kw">pub </span>round_results:
@@ -694,9 +676,7 @@
     </span><span class="kw">pub </span>successful_views: HashSet&lt;TYPES::Time&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-    RoundCtx&lt;TYPES, I&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; RoundCtx&lt;TYPES, I&gt; {
     <span class="doccomment">/// inserts an error into the context
     </span><span class="kw">pub fn </span>insert_error_to_context(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -892,7 +872,7 @@
 
 <span class="kw">impl </span>OverallSafetyPropertiesDescription {
     <span class="doccomment">/// build a task
-    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;(
+    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt; {
         <span class="kw">let </span><span class="self">Self </span>{

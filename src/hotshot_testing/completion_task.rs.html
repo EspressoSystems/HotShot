@@ -125,18 +125,6 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -163,18 +151,12 @@
 </span><span class="kw">pub struct </span>CompletionTaskErr {}
 
 <span class="doccomment">/// Data availability task state
-</span><span class="kw">pub struct </span>CompletionTask&lt;
-    TYPES: NodeType,
-    I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-&gt; {
+</span><span class="kw">pub struct </span>CompletionTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) test_event_stream: ChannelStream&lt;GlobalTestEvent&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; TS
-    <span class="kw">for </span>CompletionTask&lt;TYPES, I&gt;
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>CompletionTask&lt;TYPES, I&gt; {}
 
 <span class="doccomment">/// Completion task types
 </span><span class="kw">pub type </span>CompletionTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
@@ -202,10 +184,7 @@
 
 <span class="kw">impl </span>CompletionTaskDescription {
     <span class="doccomment">/// Build and launch a completion task.
-    </span><span class="kw">pub fn </span>build_and_launch&lt;
-        TYPES: NodeType,
-        I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-    &gt;(
+    </span><span class="kw">pub fn </span>build_and_launch&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;CompletionTask&lt;TYPES, I&gt;&gt; {
         <span class="kw">match </span><span class="self">self </span>{
@@ -216,10 +195,7 @@
 
 <span class="kw">impl </span>TimeBasedCompletionTaskDescription {
     <span class="doccomment">/// create the task and launch it
-    </span><span class="kw">pub fn </span>build_and_launch&lt;
-        TYPES: NodeType,
-        I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-    &gt;(
+    </span><span class="kw">pub fn </span>build_and_launch&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;CompletionTask&lt;TYPES, I&gt;&gt; {
         Box::new(<span class="kw">move </span>|state, <span class="kw-2">mut </span>registry, test_event_stream| {

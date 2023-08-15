@@ -23,7 +23,7 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::demos::vdemo::VDemoTypes;
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_compatibility_layer::{
@@ -44,7 +44,7 @@
     <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
     <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender);
     <span class="kw">let </span>_result = hotshot_web_server::run_web_server::&lt;
-        &lt;VDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+        &lt;SDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
     &gt;(<span class="prelude-val">Some</span>(server_shutdown), args.port)
     .<span class="kw">await</span>;
 }

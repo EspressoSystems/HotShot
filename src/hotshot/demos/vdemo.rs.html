@@ -605,611 +605,611 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Validating (vanilla) consensus demo
-//!
-//! This module provides an implementation of the `HotShot` suite of traits that implements a
-//! basic demonstration of validating consensus.
-//!
-//! These implementations are useful in examples and integration testing, but are not suitable for
-//! production use.
-
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::{
-    election::static_committee::{StaticElectionConfig, StaticVoteToken},
-    Block,
-};
-<span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>derivative::Derivative;
-
-<span class="kw">use </span>hotshot_types::{
-    certificate::{QuorumCertificate, YesNoSignature},
-    constants::genesis_proposer_id,
-    data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
-    traits::{
-        block_contents::Transaction,
-        consensus_type::validating_consensus::ValidatingConsensus,
-        election::Membership,
-        node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
-        state::{ConsensusTime, TestableBlock, TestableState},
-        State,
-    },
-};
-
-<span class="kw">use </span>rand::Rng;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::{ensure, Snafu};
-<span class="kw">use </span>std::{
-    collections::{BTreeMap, HashSet},
-    fmt::{Debug, Display},
-    marker::PhantomData,
-};
-<span class="kw">use </span>tracing::error;
-
-<span class="doccomment">/// The account identifier type used by the demo
-///
-/// This is a type alias to [`String`] for simplicity.
-</span><span class="kw">pub type </span>Account = String;
-
-<span class="doccomment">/// The account balance type used by the demo
-///
-/// This is a type alias to [`u64`] for simplicity.
-</span><span class="kw">pub type </span>Balance = u64;
-
-<span class="doccomment">/// Records a reduction in an account balance
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>Subtraction {
-    <span class="doccomment">/// An account identifier
-    </span><span class="kw">pub </span>account: Account,
-    <span class="doccomment">/// An account balance
-    </span><span class="kw">pub </span>amount: Balance,
-}
-
-<span class="doccomment">/// Records an increase in an account balance
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>Addition {
-    <span class="doccomment">/// An account identifier
-    </span><span class="kw">pub </span>account: Account,
-    <span class="doccomment">/// An account balance
-    </span><span class="kw">pub </span>amount: Balance,
-}
-
-<span class="doccomment">/// The error type for the validating demo
-</span><span class="attr">#[derive(Snafu, Debug)]
-</span><span class="kw">pub enum </span>VDemoError {
-    <span class="doccomment">/// The subtraction and addition amounts for this transaction were not equal
-    </span>InconsistentTransaction,
-    <span class="doccomment">/// No such input account exists
-    </span>NoSuchInputAccount,
-    <span class="doccomment">/// No such output account exists
-    </span>NoSuchOutputAccount,
-    <span class="doccomment">/// Tried to move more money than was in the account
-    </span>InsufficentBalance,
-    <span class="doccomment">/// Previous state commitment does not match
-    </span>PreviousStateMismatch,
-    <span class="doccomment">/// Nonce was reused
-    </span>ReusedNonce,
-    <span class="doccomment">/// Genesis failure
-    </span>GenesisFailed,
-    <span class="doccomment">/// Genesis reencountered after initialization
-    </span>GenesisAfterStart,
-}
-
-<span class="doccomment">/// The transaction for the validating demo
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>VDemoTransaction {
-    <span class="doccomment">/// An increment to an account balance
-    </span><span class="kw">pub </span>add: Addition,
-    <span class="doccomment">/// A decrement to an account balance
-    </span><span class="kw">pub </span>sub: Subtraction,
-    <span class="doccomment">/// The nonce for a transaction, no two transactions can have the same nonce
-    </span><span class="kw">pub </span>nonce: u64,
-    <span class="doccomment">/// Number of bytes to pad to each transaction
-    </span><span class="kw">pub </span>padding: Vec&lt;u8&gt;,
-}
-
-<span class="kw">impl </span>Transaction <span class="kw">for </span>VDemoTransaction {}
-
-<span class="kw">impl </span>VDemoTransaction {
-    <span class="doccomment">/// Ensures that this transaction is at least consistent with itself
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>validate_independence(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="comment">// Ensure that we are adding to one account exactly as much as we are subtracting from
-        // another
-        </span><span class="self">self</span>.add.amount &lt;= <span class="self">self</span>.sub.amount <span class="comment">// TODO why not strict equality?
-    </span>}
-}
-
-<span class="doccomment">/// The state for the validating demo
-/// NOTE both fields are btrees because we need
-/// ordered-ing otherwise commitments will not match
-</span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
-</span><span class="kw">pub struct </span>VDemoState {
-    <span class="doccomment">/// Key/value store of accounts and balances
-    </span><span class="kw">pub </span>balances: BTreeMap&lt;Account, Balance&gt;,
-    <span class="comment">// /// Set of previously seen nonces
-    // pub nonces: BTreeSet&lt;u64&gt;,
-</span>}
-
-<span class="kw">impl </span>Committable <span class="kw">for </span>VDemoState {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = commit::RawCommitmentBuilder::new(<span class="string">&quot;VDemo State Comm&quot;</span>);
-
-        <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.balances {
-            builder = builder.u64_field(k, <span class="kw-2">*</span>v);
-        }
-        builder = builder.constant_str(<span class="string">&quot;nonces&quot;</span>);
-
-        <span class="comment">// for nonce in &amp;self.nonces {
-        //     builder = builder.u64(*nonce);
-        // }
-
-        </span>builder.finalize()
-    }
-
-    <span class="kw">fn </span>tag() -&gt; String {
-        <span class="string">&quot;VALIDATING_DEMO_STATE&quot;</span>.to_string()
-    }
-}
-
-<span class="doccomment">/// initializes the first state on genesis
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>VDemoGenesisBlock {
-    <span class="doccomment">/// initializes the first state
-    </span><span class="kw">pub </span>accounts: BTreeMap&lt;Account, Balance&gt;,
-}
-
-<span class="doccomment">/// Any block after genesis
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>VDemoNormalBlock {
-    <span class="doccomment">/// Block state commitment
-    </span><span class="kw">pub </span>previous_state: Commitment&lt;VDemoState&gt;,
-    <span class="doccomment">/// Transaction vector
-    </span><span class="kw">pub </span>transactions: Vec&lt;VDemoTransaction&gt;,
-}
-
-<span class="doccomment">/// The block for the validating demo
-</span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub enum </span>VDemoBlock {
-    <span class="doccomment">/// genesis block
-    </span>Genesis(VDemoGenesisBlock),
-    <span class="doccomment">/// normal block
-    </span>Normal(VDemoNormalBlock),
-}
-
-<span class="kw">impl </span>Committable <span class="kw">for </span>VDemoBlock {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            VDemoBlock::Genesis(block) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>builder = commit::RawCommitmentBuilder::new(<span class="string">&quot;VDemo Genesis Comm&quot;</span>)
-                    .u64_field(<span class="string">&quot;account_count&quot;</span>, block.accounts.len() <span class="kw">as </span>u64);
-                <span class="kw">for </span>account <span class="kw">in </span><span class="kw-2">&amp;</span>block.accounts {
-                    builder = builder.u64_field(account.<span class="number">0</span>, <span class="kw-2">*</span>account.<span class="number">1</span>);
-                }
-                builder.finalize()
-            }
-            VDemoBlock::Normal(block) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>builder = commit::RawCommitmentBuilder::new(<span class="string">&quot;VDemo Block Comm&quot;</span>)
-                    .var_size_field(<span class="string">&quot;Previous State&quot;</span>, block.previous_state.as_ref());
-
-                <span class="kw">for </span>txn <span class="kw">in </span><span class="kw-2">&amp;</span>block.transactions {
-                    builder = builder
-                        .u64_field(<span class="kw-2">&amp;</span>txn.add.account, txn.add.amount)
-                        .u64_field(<span class="kw-2">&amp;</span>txn.sub.account, txn.sub.amount)
-                        .constant_str(<span class="string">&quot;nonce&quot;</span>)
-                        .u64_field(<span class="string">&quot;nonce&quot;</span>, txn.nonce);
-                }
-
-                builder.finalize()
-            }
-        }
-    }
-
-    <span class="kw">fn </span>tag() -&gt; String {
-        <span class="string">&quot;VALIDATING_DEMO_BLOCK&quot;</span>.to_string()
-    }
-}
-
-<span class="kw">impl </span>Committable <span class="kw">for </span>VDemoTransaction {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">&quot;VDemo Txn Comm&quot;</span>)
-            .u64_field(<span class="kw-2">&amp;</span><span class="self">self</span>.add.account, <span class="self">self</span>.add.amount)
-            .u64_field(<span class="kw-2">&amp;</span><span class="self">self</span>.sub.account, <span class="self">self</span>.sub.amount)
-            .constant_str(<span class="string">&quot;nonce&quot;</span>)
-            .u64_field(<span class="string">&quot;nonce&quot;</span>, <span class="self">self</span>.nonce)
-            .finalize()
-    }
-
-    <span class="kw">fn </span>tag() -&gt; String {
-        <span class="string">&quot;VALIDATING_DEMO_TXN&quot;</span>.to_string()
-    }
-}
-
-<span class="kw">impl </span>VDemoBlock {
-    <span class="doccomment">/// generate a genesis block with the provided initial accounts and balances
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>genesis_from(accounts: BTreeMap&lt;Account, Balance&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::Genesis(VDemoGenesisBlock { accounts })
-    }
-}
-
-<span class="kw">impl </span>State <span class="kw">for </span>VDemoState {
-    <span class="kw">type </span>Error = VDemoError;
-
-    <span class="kw">type </span>BlockType = VDemoBlock;
-
-    <span class="kw">type </span>Time = ViewNumber;
-
-    <span class="attr">#[allow(clippy::panic)]
-    </span><span class="kw">fn </span>next_block(state: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>::BlockType {
-        <span class="kw">match </span>state {
-            <span class="prelude-val">Some</span>(state) =&gt; VDemoBlock::Normal(VDemoNormalBlock {
-                previous_state: state.commit(),
-                transactions: Vec::new(),
-            }),
-            <span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;State is required for the next block&quot;</span>),
-        }
-    }
-
-    <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
-    // for clarity, the logic is duplicated with append_to
-    </span><span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, _view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool {
-        <span class="kw">match </span>block {
-            VDemoBlock::Genesis(<span class="kw">_</span>) =&gt; <span class="self">self</span>.balances.is_empty(), <span class="comment">//  &amp;&amp; self.nonces.is_empty(),
-            </span>VDemoBlock::Normal(block) =&gt; {
-                <span class="kw">let </span>state = <span class="self">self</span>;
-                <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in
-                // nobody having a negative balance
-                //
-                // We will check this, in this case, by making a trial copy of our balances map, making
-                // trial modifications to it, and then asserting that no balances are negative
-                </span><span class="kw">let </span><span class="kw-2">mut </span>trial_balances = state.balances.clone();
-                <span class="kw">for </span>tx <span class="kw">in </span><span class="kw-2">&amp;</span>block.transactions {
-                    <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied
-                    //
-                    // We first check that the transaction is internally consistent, then apply the change
-                    // to our trial map
-                    </span><span class="kw">if </span>!tx.validate_independence() {
-                        <span class="macro">error!</span>(<span class="string">&quot;validate_independence failed&quot;</span>);
-                        <span class="kw">return </span><span class="bool-val">false</span>;
-                    }
-                    <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it
-                    // doesn&#39;t exist
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(input_account) = trial_balances.get_mut(<span class="kw-2">&amp;</span>tx.sub.account) {
-                        <span class="kw-2">*</span>input_account -= tx.sub.amount;
-                    } <span class="kw">else </span>{
-                        <span class="macro">error!</span>(<span class="string">&quot;no such input account&quot;</span>);
-                        <span class="kw">return </span><span class="bool-val">false</span>;
-                    }
-                    <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t
-                    // exist
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(output_account) = trial_balances.get_mut(<span class="kw-2">&amp;</span>tx.add.account) {
-                        <span class="kw-2">*</span>output_account += tx.add.amount;
-                    } <span class="kw">else </span>{
-                        <span class="macro">error!</span>(<span class="string">&quot;no such output account&quot;</span>);
-                        <span class="kw">return </span><span class="bool-val">false</span>;
-                    }
-                    <span class="comment">// // Check to make sure the nonce isn&#39;t used
-                    // if state.nonces.contains(&amp;tx.nonce) {
-                    //     warn!(?state, ?tx, &quot;State nonce is used for transaction&quot;);
-                    //     return false;
-                    // }
-                </span>}
-                <span class="comment">// This block has now passed all our tests, and thus has not done anything bad, so the block
-                // is valid if its previous state hash matches that of the previous state
-                </span><span class="kw">let </span>result = block.previous_state == state.commit();
-                <span class="kw">if </span>!result {
-                    <span class="macro">error!</span>(
-                        <span class="string">&quot;hash failure. previous_block: {:?} hash_state: {:?}&quot;</span>,
-                        block.previous_state,
-                        state.commit()
-                    );
-                }
-                result
-            }
-        }
-    }
-
-    <span class="kw">fn </span>append(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType,
-        _view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time,
-    ) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">match </span>block {
-            VDemoBlock::Genesis(block) =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.balances.is_empty() {
-                    <span class="comment">// &amp;&amp; self.nonces.is_empty()
-                    </span><span class="kw">let </span><span class="kw-2">mut </span>new_state = <span class="self">Self</span>::default();
-                    <span class="kw">for </span>account <span class="kw">in </span><span class="kw-2">&amp;</span>block.accounts {
-                        <span class="kw">if </span>new_state
-                            .balances
-                            .insert(account.<span class="number">0</span>.clone(), <span class="kw-2">*</span>account.<span class="number">1</span>)
-                            .is_some()
-                        {
-                            <span class="macro">error!</span>(<span class="string">&quot;Adding the same account twice during application of genesis block!&quot;</span>);
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(VDemoError::GenesisFailed);
-                        }
-                    }
-                    <span class="prelude-val">Ok</span>(new_state)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">Err</span>(VDemoError::GenesisAfterStart)
-                }
-            }
-            VDemoBlock::Normal(block) =&gt; {
-                <span class="kw">let </span>state = <span class="self">self</span>;
-                <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in
-                // nobody having a negative balance
-                //
-                // We will check this, in this case, by making a trial copy of our balances map, making
-                // trial modifications to it, and then asserting that no balances are negative
-                </span><span class="kw">let </span><span class="kw-2">mut </span>trial_balances = state.balances.clone();
-                <span class="kw">for </span>tx <span class="kw">in </span><span class="kw-2">&amp;</span>block.transactions {
-                    <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied
-                    //
-                    // We first check that the transaction is internally consistent, then apply the change
-                    // to our trial map
-                    </span><span class="macro">ensure!</span>(tx.validate_independence(), InconsistentTransactionSnafu);
-                    <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it
-                    // doesn&#39;t exist
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(input_account) = trial_balances.get_mut(<span class="kw-2">&amp;</span>tx.sub.account) {
-                        <span class="kw-2">*</span>input_account -= tx.sub.amount;
-                    } <span class="kw">else </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(VDemoError::NoSuchInputAccount);
-                    }
-                    <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t
-                    // exist
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(output_account) = trial_balances.get_mut(<span class="kw-2">&amp;</span>tx.add.account) {
-                        <span class="kw-2">*</span>output_account += tx.add.amount;
-                    } <span class="kw">else </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(VDemoError::NoSuchOutputAccount);
-                    }
-                    <span class="comment">// // Check for nonce reuse
-                    // if state.nonces.contains(&amp;tx.nonce) {
-                    //     return Err(VDemoError::ReusedNonce);
-                    // }
-                </span>}
-                <span class="comment">// Make sure our previous state commitment matches the provided state
-                </span><span class="kw">if </span>block.previous_state == state.commit() {
-                    <span class="comment">// This block has now passed all our tests, and thus has not done anything bad
-                    // Add the nonces from this block
-                    // let mut nonces = state.nonces.clone();
-                    // for tx in &amp;block.transactions {
-                    //     nonces.insert(tx.nonce);
-                    // }
-                    </span><span class="prelude-val">Ok</span>(VDemoState {
-                        balances: trial_balances,
-                        <span class="comment">// nonces,
-                    </span>})
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">Err</span>(VDemoError::PreviousStateMismatch)
-                }
-            }
-        }
-    }
-
-    <span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Does nothing in this implementation
-    </span>}
-}
-
-<span class="kw">impl </span>Display <span class="kw">for </span>VDemoBlock {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="kw">match </span><span class="self">self </span>{
-            VDemoBlock::Genesis(block) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;VDemo Genesis Block: {block:#?}&quot;</span>)
-            }
-            VDemoBlock::Normal(block) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;VDemo Normal Block #txns={}&quot;</span>, block.transactions.len())
-            }
-        }
-    }
-}
-
-<span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
-    <span class="kw">fn </span>create_random_transaction(
-        state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
-        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-        padding: u64,
-    ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
-        <span class="kw">use </span>rand::seq::IteratorRandom;
-
-        <span class="kw">let </span>state = state.expect(<span class="string">&quot;Missing state&quot;</span>);
-
-        <span class="kw">let </span>non_zero_balances = state
-            .balances
-            .iter()
-            .filter(|b| <span class="kw-2">*</span>b.<span class="number">1 </span>&gt; <span class="number">0</span>)
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-        <span class="macro">assert!</span>(
-            !non_zero_balances.is_empty(),
-            <span class="string">&quot;No nonzero balances were available! Unable to generate transaction.&quot;
-        </span>);
-
-        <span class="kw">let </span>input_account = non_zero_balances.iter().choose(rng).unwrap().<span class="number">0</span>;
-        <span class="kw">let </span>output_account = state.balances.keys().choose(rng).unwrap();
-        <span class="kw">let </span>amount = rng.gen_range(<span class="number">0</span>..<span class="number">100</span>);
-
-        VDemoTransaction {
-            add: Addition {
-                account: output_account.to_string(),
-                amount,
-            },
-            sub: Subtraction {
-                account: input_account.to_string(),
-                amount,
-            },
-            nonce: rng.gen(),
-            padding: <span class="macro">vec!</span>[<span class="number">0</span>; padding <span class="kw">as </span>usize],
-        }
-    }
-}
-
-<span class="kw">impl </span>TestableBlock <span class="kw">for </span>VDemoBlock {
-    <span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
-            (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
-            (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000</span>),
-            (<span class="string">&quot;John&quot;</span>, <span class="number">400_000</span>),
-            (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000</span>),
-            (<span class="string">&quot;Ian&quot;</span>, <span class="number">5_000_000</span>),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        <span class="self">Self</span>::Genesis(VDemoGenesisBlock { accounts })
-    }
-
-    <span class="kw">fn </span>txn_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="kw">if let </span>VDemoBlock::Normal(block) = <span class="self">self </span>{
-            block.transactions.len() <span class="kw">as </span>u64
-        } <span class="kw">else </span>{
-            <span class="number">0
-        </span>}
-    }
-}
-
-<span class="kw">impl </span>Block <span class="kw">for </span>VDemoBlock {
-    <span class="kw">type </span>Transaction = VDemoTransaction;
-
-    <span class="kw">type </span>Error = VDemoError;
-
-    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-        &lt;<span class="self">Self </span><span class="kw">as </span>TestableBlock&gt;::genesis()
-    }
-
-    <span class="kw">fn </span>add_transaction_raw(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        tx: <span class="kw-2">&amp;</span><span class="self">Self</span>::Transaction,
-    ) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            VDemoBlock::Genesis(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(VDemoError::GenesisAfterStart),
-            VDemoBlock::Normal(block) =&gt; {
-                <span class="comment">// first, make sure that the transaction is internally valid
-                </span><span class="kw">if </span>tx.validate_independence() {
-                    <span class="comment">// Then check the previous transactions in the block
-                    </span><span class="kw">if </span>block.transactions.iter().any(|x| x.nonce == tx.nonce) {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(VDemoError::ReusedNonce);
-                    }
-                    <span class="kw">let </span><span class="kw-2">mut </span>new_block = block.clone();
-                    <span class="comment">// Insert our transaction and return
-                    </span>new_block.transactions.push(tx.clone());
-                    <span class="prelude-val">Ok</span>(VDemoBlock::Normal(new_block))
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">Err</span>(VDemoError::InconsistentTransaction)
-                }
-            }
-        }
-    }
-    <span class="kw">fn </span>contained_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashSet&lt;Commitment&lt;VDemoTransaction&gt;&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            VDemoBlock::Genesis(<span class="kw">_</span>) =&gt; HashSet::new(),
-            VDemoBlock::Normal(block) =&gt; block
-                .transactions
-                .clone()
-                .into_iter()
-                .map(|tx| tx.commit())
-                .collect(),
-        }
-    }
-}
-
-<span class="doccomment">/// Implementation of [`NodeType`] for [`VDemoNode`]
-</span><span class="attr">#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-</span><span class="kw">pub struct </span>VDemoTypes;
-
-<span class="kw">impl </span>NodeType <span class="kw">for </span>VDemoTypes {
-    <span class="kw">type </span>ConsensusType = ValidatingConsensus;
-    <span class="kw">type </span>Time = ViewNumber;
-    <span class="kw">type </span>BlockType = VDemoBlock;
-    <span class="kw">type </span>SignatureKey = Ed25519Pub;
-    <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;<span class="self">Self</span>::SignatureKey&gt;;
-    <span class="kw">type </span>Transaction = VDemoTransaction;
-    <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
-    <span class="kw">type </span>StateType = VDemoState;
-}
-
-<span class="doccomment">/// The node implementation for the validating demo
-</span><span class="attr">#[derive(Derivative)]
-#[derivative(Clone(bound = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>VDemoNode&lt;MEMBERSHIP&gt;(PhantomData&lt;MEMBERSHIP&gt;)
-<span class="kw">where
-    </span>MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug;
-
-<span class="kw">impl</span>&lt;MEMBERSHIP&gt; VDemoNode&lt;MEMBERSHIP&gt;
-<span class="kw">where
-    </span>MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
-{
-    <span class="doccomment">/// Create a new `VDemoNode`
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        VDemoNode(PhantomData)
-    }
-}
-
-<span class="kw">impl</span>&lt;MEMBERSHIP&gt; Debug <span class="kw">for </span>VDemoNode&lt;MEMBERSHIP&gt;
-<span class="kw">where
-    </span>MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
-{
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;VDemoNode&quot;</span>)
-            .field(<span class="string">&quot;_phantom&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;phantom&quot;</span>)
-            .finish()
-    }
-}
-
-<span class="kw">impl</span>&lt;MEMBERSHIP&gt; Default <span class="kw">for </span>VDemoNode&lt;MEMBERSHIP&gt;
-<span class="kw">where
-    </span>MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
-{
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
-    }
-}
-
-<span class="doccomment">/// Provides a random [`QuorumCertificate`]
-</span><span class="kw">pub fn </span>random_quorum_certificate&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;(
-    rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; QuorumCertificate&lt;TYPES, LEAF&gt; {
-    QuorumCertificate {
-        <span class="comment">// block_commitment: random_commitment(rng),
-        </span>leaf_commitment: random_commitment(rng),
-        view_number: TYPES::Time::new(rng.gen()),
-        signatures: YesNoSignature::Yes(BTreeMap::default()),
-        is_genesis: rng.gen(),
-    }
-}
-
-<span class="doccomment">/// Provides a random [`ValidatingLeaf`]
-</span><span class="kw">pub fn </span>random_validating_leaf&lt;TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;&gt;(
-    deltas: TYPES::BlockType,
-    rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; ValidatingLeaf&lt;TYPES&gt; {
-    <span class="kw">let </span>justify_qc = random_quorum_certificate(rng);
-    <span class="kw">let </span>state = TYPES::StateType::default()
-        .append(<span class="kw-2">&amp;</span>deltas, <span class="kw-2">&amp;</span>TYPES::Time::new(<span class="number">42</span>))
-        .unwrap_or_default();
-    ValidatingLeaf {
-        view_number: justify_qc.view_number,
-        height: rng.next_u64(),
-        justify_qc,
-        parent_commitment: random_commitment(rng),
-        deltas,
-        state,
-        rejected: Vec::new(),
-        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-        proposer_id: genesis_proposer_id(),
-    }
-}
-</code></pre></div></section></main></body></html>
+</pre></div><pre class="rust"><code><span class="comment">// //! Validating (vanilla) consensus demo
+// //!
+// //! This module provides an implementation of the `HotShot` suite of traits that implements a
+// //! basic demonstration of validating consensus.
+// //!
+// //! These implementations are useful in examples and integration testing, but are not suitable for
+// //! production use.
+//
+// use crate::traits::{
+//     election::static_committee::{StaticElectionConfig, StaticVoteToken},
+//     Block,
+// };
+// use commit::{Commitment, Committable};
+// use derivative::Derivative;
+//
+// use hotshot_types::{
+//     certificate::{QuorumCertificate, YesNoSignature},
+//     constants::genesis_proposer_id,
+//     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
+//     traits::{
+//         block_contents::Transaction,
+//         consensus_type::validating_consensus::ValidatingConsensus,
+//         election::Membership,
+//         node_implementation::NodeType,
+//         signature_key::ed25519::Ed25519Pub,
+//         state::{ConsensusTime, TestableBlock, TestableState},
+//         State,
+//     },
+// };
+//
+// use rand::Rng;
+// use serde::{Deserialize, Serialize};
+// use snafu::{ensure, Snafu};
+// use std::{
+//     collections::{BTreeMap, HashSet},
+//     fmt::{Debug, Display},
+//     marker::PhantomData,
+// };
+// use tracing::error;
+//
+// /// The account identifier type used by the demo
+// ///
+// /// This is a type alias to [`String`] for simplicity.
+// pub type Account = String;
+//
+// /// The account balance type used by the demo
+// ///
+// /// This is a type alias to [`u64`] for simplicity.
+// pub type Balance = u64;
+//
+// /// Records a reduction in an account balance
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct Subtraction {
+//     /// An account identifier
+//     pub account: Account,
+//     /// An account balance
+//     pub amount: Balance,
+// }
+//
+// /// Records an increase in an account balance
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct Addition {
+//     /// An account identifier
+//     pub account: Account,
+//     /// An account balance
+//     pub amount: Balance,
+// }
+//
+// /// The error type for the validating demo
+// #[derive(Snafu, Debug)]
+// pub enum VDemoError {
+//     /// The subtraction and addition amounts for this transaction were not equal
+//     InconsistentTransaction,
+//     /// No such input account exists
+//     NoSuchInputAccount,
+//     /// No such output account exists
+//     NoSuchOutputAccount,
+//     /// Tried to move more money than was in the account
+//     InsufficentBalance,
+//     /// Previous state commitment does not match
+//     PreviousStateMismatch,
+//     /// Nonce was reused
+//     ReusedNonce,
+//     /// Genesis failure
+//     GenesisFailed,
+//     /// Genesis reencountered after initialization
+//     GenesisAfterStart,
+// }
+//
+// /// The transaction for the validating demo
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct VDemoTransaction {
+//     /// An increment to an account balance
+//     pub add: Addition,
+//     /// A decrement to an account balance
+//     pub sub: Subtraction,
+//     /// The nonce for a transaction, no two transactions can have the same nonce
+//     pub nonce: u64,
+//     /// Number of bytes to pad to each transaction
+//     pub padding: Vec&lt;u8&gt;,
+// }
+//
+// impl Transaction for VDemoTransaction {}
+//
+// impl VDemoTransaction {
+//     /// Ensures that this transaction is at least consistent with itself
+//     #[must_use]
+//     pub fn validate_independence(&amp;self) -&gt; bool {
+//         // Ensure that we are adding to one account exactly as much as we are subtracting from
+//         // another
+//         self.add.amount &lt;= self.sub.amount // TODO why not strict equality?
+//     }
+// }
+//
+// /// The state for the validating demo
+// /// NOTE both fields are btrees because we need
+// /// ordered-ing otherwise commitments will not match
+// #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+// pub struct VDemoState {
+//     /// Key/value store of accounts and balances
+//     pub balances: BTreeMap&lt;Account, Balance&gt;,
+//     // /// Set of previously seen nonces
+//     // pub nonces: BTreeSet&lt;u64&gt;,
+// }
+//
+// impl Committable for VDemoState {
+//     fn commit(&amp;self) -&gt; Commitment&lt;Self&gt; {
+//         let mut builder = commit::RawCommitmentBuilder::new(&quot;VDemo State Comm&quot;);
+//
+//         for (k, v) in &amp;self.balances {
+//             builder = builder.u64_field(k, *v);
+//         }
+//         builder = builder.constant_str(&quot;nonces&quot;);
+//
+//         // for nonce in &amp;self.nonces {
+//         //     builder = builder.u64(*nonce);
+//         // }
+//
+//         builder.finalize()
+//     }
+//
+//     fn tag() -&gt; String {
+//         &quot;VALIDATING_DEMO_STATE&quot;.to_string()
+//     }
+// }
+//
+// /// initializes the first state on genesis
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct VDemoGenesisBlock {
+//     /// initializes the first state
+//     pub accounts: BTreeMap&lt;Account, Balance&gt;,
+// }
+//
+// /// Any block after genesis
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct VDemoNormalBlock {
+//     /// Block state commitment
+//     pub previous_state: Commitment&lt;VDemoState&gt;,
+//     /// Transaction vector
+//     pub transactions: Vec&lt;VDemoTransaction&gt;,
+// }
+//
+// /// The block for the validating demo
+// #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub enum VDemoBlock {
+//     /// genesis block
+//     Genesis(VDemoGenesisBlock),
+//     /// normal block
+//     Normal(VDemoNormalBlock),
+// }
+//
+// impl Committable for VDemoBlock {
+//     fn commit(&amp;self) -&gt; Commitment&lt;Self&gt; {
+//         match &amp;self {
+//             VDemoBlock::Genesis(block) =&gt; {
+//                 let mut builder = commit::RawCommitmentBuilder::new(&quot;VDemo Genesis Comm&quot;)
+//                     .u64_field(&quot;account_count&quot;, block.accounts.len() as u64);
+//                 for account in &amp;block.accounts {
+//                     builder = builder.u64_field(account.0, *account.1);
+//                 }
+//                 builder.finalize()
+//             }
+//             VDemoBlock::Normal(block) =&gt; {
+//                 let mut builder = commit::RawCommitmentBuilder::new(&quot;VDemo Block Comm&quot;)
+//                     .var_size_field(&quot;Previous State&quot;, block.previous_state.as_ref());
+//
+//                 for txn in &amp;block.transactions {
+//                     builder = builder
+//                         .u64_field(&amp;txn.add.account, txn.add.amount)
+//                         .u64_field(&amp;txn.sub.account, txn.sub.amount)
+//                         .constant_str(&quot;nonce&quot;)
+//                         .u64_field(&quot;nonce&quot;, txn.nonce);
+//                 }
+//
+//                 builder.finalize()
+//             }
+//         }
+//     }
+//
+//     fn tag() -&gt; String {
+//         &quot;VALIDATING_DEMO_BLOCK&quot;.to_string()
+//     }
+// }
+//
+// impl Committable for VDemoTransaction {
+//     fn commit(&amp;self) -&gt; Commitment&lt;Self&gt; {
+//         commit::RawCommitmentBuilder::new(&quot;VDemo Txn Comm&quot;)
+//             .u64_field(&amp;self.add.account, self.add.amount)
+//             .u64_field(&amp;self.sub.account, self.sub.amount)
+//             .constant_str(&quot;nonce&quot;)
+//             .u64_field(&quot;nonce&quot;, self.nonce)
+//             .finalize()
+//     }
+//
+//     fn tag() -&gt; String {
+//         &quot;VALIDATING_DEMO_TXN&quot;.to_string()
+//     }
+// }
+//
+// impl VDemoBlock {
+//     /// generate a genesis block with the provided initial accounts and balances
+//     #[must_use]
+//     pub fn genesis_from(accounts: BTreeMap&lt;Account, Balance&gt;) -&gt; Self {
+//         Self::Genesis(VDemoGenesisBlock { accounts })
+//     }
+// }
+//
+// impl State for VDemoState {
+//     type Error = VDemoError;
+//
+//     type BlockType = VDemoBlock;
+//
+//     type Time = ViewNumber;
+//
+//     #[allow(clippy::panic)]
+//     fn next_block(state: Option&lt;Self&gt;) -&gt; Self::BlockType {
+//         match state {
+//             Some(state) =&gt; VDemoBlock::Normal(VDemoNormalBlock {
+//                 previous_state: state.commit(),
+//                 transactions: Vec::new(),
+//             }),
+//             None =&gt; panic!(&quot;State is required for the next block&quot;),
+//         }
+//     }
+//
+//     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
+//     // for clarity, the logic is duplicated with append_to
+//     fn validate_block(&amp;self, block: &amp;Self::BlockType, _view_number: &amp;Self::Time) -&gt; bool {
+//         match block {
+//             VDemoBlock::Genesis(_) =&gt; self.balances.is_empty(), //  &amp;&amp; self.nonces.is_empty(),
+//             VDemoBlock::Normal(block) =&gt; {
+//                 let state = self;
+//                 // A valid block is one in which every transaction is internally consistent, and results in
+//                 // nobody having a negative balance
+//                 //
+//                 // We will check this, in this case, by making a trial copy of our balances map, making
+//                 // trial modifications to it, and then asserting that no balances are negative
+//                 let mut trial_balances = state.balances.clone();
+//                 for tx in &amp;block.transactions {
+//                     // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+//                     //
+//                     // We first check that the transaction is internally consistent, then apply the change
+//                     // to our trial map
+//                     if !tx.validate_independence() {
+//                         error!(&quot;validate_independence failed&quot;);
+//                         return false;
+//                     }
+//                     // Find the input account, and subtract the transfer balance from it, failing if it
+//                     // doesn&#39;t exist
+//                     if let Some(input_account) = trial_balances.get_mut(&amp;tx.sub.account) {
+//                         *input_account -= tx.sub.amount;
+//                     } else {
+//                         error!(&quot;no such input account&quot;);
+//                         return false;
+//                     }
+//                     // Find the output account, and add the transfer balance to it, failing if it doesn&#39;t
+//                     // exist
+//                     if let Some(output_account) = trial_balances.get_mut(&amp;tx.add.account) {
+//                         *output_account += tx.add.amount;
+//                     } else {
+//                         error!(&quot;no such output account&quot;);
+//                         return false;
+//                     }
+//                     // // Check to make sure the nonce isn&#39;t used
+//                     // if state.nonces.contains(&amp;tx.nonce) {
+//                     //     warn!(?state, ?tx, &quot;State nonce is used for transaction&quot;);
+//                     //     return false;
+//                     // }
+//                 }
+//                 // This block has now passed all our tests, and thus has not done anything bad, so the block
+//                 // is valid if its previous state hash matches that of the previous state
+//                 let result = block.previous_state == state.commit();
+//                 if !result {
+//                     error!(
+//                         &quot;hash failure. previous_block: {:?} hash_state: {:?}&quot;,
+//                         block.previous_state,
+//                         state.commit()
+//                     );
+//                 }
+//                 result
+//             }
+//         }
+//     }
+//
+//     fn append(
+//         &amp;self,
+//         block: &amp;Self::BlockType,
+//         _view_number: &amp;Self::Time,
+//     ) -&gt; std::result::Result&lt;Self, Self::Error&gt; {
+//         match block {
+//             VDemoBlock::Genesis(block) =&gt; {
+//                 if self.balances.is_empty() {
+//                     // &amp;&amp; self.nonces.is_empty()
+//                     let mut new_state = Self::default();
+//                     for account in &amp;block.accounts {
+//                         if new_state
+//                             .balances
+//                             .insert(account.0.clone(), *account.1)
+//                             .is_some()
+//                         {
+//                             error!(&quot;Adding the same account twice during application of genesis block!&quot;);
+//                             return Err(VDemoError::GenesisFailed);
+//                         }
+//                     }
+//                     Ok(new_state)
+//                 } else {
+//                     Err(VDemoError::GenesisAfterStart)
+//                 }
+//             }
+//             VDemoBlock::Normal(block) =&gt; {
+//                 let state = self;
+//                 // A valid block is one in which every transaction is internally consistent, and results in
+//                 // nobody having a negative balance
+//                 //
+//                 // We will check this, in this case, by making a trial copy of our balances map, making
+//                 // trial modifications to it, and then asserting that no balances are negative
+//                 let mut trial_balances = state.balances.clone();
+//                 for tx in &amp;block.transactions {
+//                     // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+//                     //
+//                     // We first check that the transaction is internally consistent, then apply the change
+//                     // to our trial map
+//                     ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
+//                     // Find the input account, and subtract the transfer balance from it, failing if it
+//                     // doesn&#39;t exist
+//                     if let Some(input_account) = trial_balances.get_mut(&amp;tx.sub.account) {
+//                         *input_account -= tx.sub.amount;
+//                     } else {
+//                         return Err(VDemoError::NoSuchInputAccount);
+//                     }
+//                     // Find the output account, and add the transfer balance to it, failing if it doesn&#39;t
+//                     // exist
+//                     if let Some(output_account) = trial_balances.get_mut(&amp;tx.add.account) {
+//                         *output_account += tx.add.amount;
+//                     } else {
+//                         return Err(VDemoError::NoSuchOutputAccount);
+//                     }
+//                     // // Check for nonce reuse
+//                     // if state.nonces.contains(&amp;tx.nonce) {
+//                     //     return Err(VDemoError::ReusedNonce);
+//                     // }
+//                 }
+//                 // Make sure our previous state commitment matches the provided state
+//                 if block.previous_state == state.commit() {
+//                     // This block has now passed all our tests, and thus has not done anything bad
+//                     // Add the nonces from this block
+//                     // let mut nonces = state.nonces.clone();
+//                     // for tx in &amp;block.transactions {
+//                     //     nonces.insert(tx.nonce);
+//                     // }
+//                     Ok(VDemoState {
+//                         balances: trial_balances,
+//                         // nonces,
+//                     })
+//                 } else {
+//                     Err(VDemoError::PreviousStateMismatch)
+//                 }
+//             }
+//         }
+//     }
+//
+//     fn on_commit(&amp;self) {
+//         // Does nothing in this implementation
+//     }
+// }
+//
+// impl Display for VDemoBlock {
+//     fn fmt(&amp;self, f: &amp;mut std::fmt::Formatter&lt;&#39;_&gt;) -&gt; std::fmt::Result {
+//         match self {
+//             VDemoBlock::Genesis(block) =&gt; {
+//                 write!(f, &quot;VDemo Genesis Block: {block:#?}&quot;)
+//             }
+//             VDemoBlock::Normal(block) =&gt; {
+//                 write!(f, &quot;VDemo Normal Block #txns={}&quot;, block.transactions.len())
+//             }
+//         }
+//     }
+// }
+//
+// impl TestableState for VDemoState {
+//     fn create_random_transaction(
+//         state: Option&lt;&amp;Self&gt;,
+//         rng: &amp;mut dyn rand::RngCore,
+//         padding: u64,
+//     ) -&gt; &lt;Self::BlockType as Block&gt;::Transaction {
+//         use rand::seq::IteratorRandom;
+//
+//         let state = state.expect(&quot;Missing state&quot;);
+//
+//         let non_zero_balances = state
+//             .balances
+//             .iter()
+//             .filter(|b| *b.1 &gt; 0)
+//             .collect::&lt;Vec&lt;_&gt;&gt;();
+//
+//         assert!(
+//             !non_zero_balances.is_empty(),
+//             &quot;No nonzero balances were available! Unable to generate transaction.&quot;
+//         );
+//
+//         let input_account = non_zero_balances.iter().choose(rng).unwrap().0;
+//         let output_account = state.balances.keys().choose(rng).unwrap();
+//         let amount = rng.gen_range(0..100);
+//
+//         VDemoTransaction {
+//             add: Addition {
+//                 account: output_account.to_string(),
+//                 amount,
+//             },
+//             sub: Subtraction {
+//                 account: input_account.to_string(),
+//                 amount,
+//             },
+//             nonce: rng.gen(),
+//             padding: vec![0; padding as usize],
+//         }
+//     }
+// }
+//
+// impl TestableBlock for VDemoBlock {
+//     fn genesis() -&gt; Self {
+//         let accounts: BTreeMap&lt;Account, Balance&gt; = vec![
+//             (&quot;Joe&quot;, 1_000_000),
+//             (&quot;Nathan M&quot;, 500_000),
+//             (&quot;John&quot;, 400_000),
+//             (&quot;Nathan Y&quot;, 600_000),
+//             (&quot;Ian&quot;, 5_000_000),
+//         ]
+//         .into_iter()
+//         .map(|(x, y)| (x.to_string(), y))
+//         .collect();
+//         Self::Genesis(VDemoGenesisBlock { accounts })
+//     }
+//
+//     fn txn_count(&amp;self) -&gt; u64 {
+//         if let VDemoBlock::Normal(block) = self {
+//             block.transactions.len() as u64
+//         } else {
+//             0
+//         }
+//     }
+// }
+//
+// impl Block for VDemoBlock {
+//     type Transaction = VDemoTransaction;
+//
+//     type Error = VDemoError;
+//
+//     fn new() -&gt; Self {
+//         &lt;Self as TestableBlock&gt;::genesis()
+//     }
+//
+//     fn add_transaction_raw(
+//         &amp;self,
+//         tx: &amp;Self::Transaction,
+//     ) -&gt; std::result::Result&lt;Self, Self::Error&gt; {
+//         match self {
+//             VDemoBlock::Genesis(_) =&gt; Err(VDemoError::GenesisAfterStart),
+//             VDemoBlock::Normal(block) =&gt; {
+//                 // first, make sure that the transaction is internally valid
+//                 if tx.validate_independence() {
+//                     // Then check the previous transactions in the block
+//                     if block.transactions.iter().any(|x| x.nonce == tx.nonce) {
+//                         return Err(VDemoError::ReusedNonce);
+//                     }
+//                     let mut new_block = block.clone();
+//                     // Insert our transaction and return
+//                     new_block.transactions.push(tx.clone());
+//                     Ok(VDemoBlock::Normal(new_block))
+//                 } else {
+//                     Err(VDemoError::InconsistentTransaction)
+//                 }
+//             }
+//         }
+//     }
+//     fn contained_transactions(&amp;self) -&gt; HashSet&lt;Commitment&lt;VDemoTransaction&gt;&gt; {
+//         match self {
+//             VDemoBlock::Genesis(_) =&gt; HashSet::new(),
+//             VDemoBlock::Normal(block) =&gt; block
+//                 .transactions
+//                 .clone()
+//                 .into_iter()
+//                 .map(|tx| tx.commit())
+//                 .collect(),
+//         }
+//     }
+// }
+//
+// /// Implementation of [`NodeType`] for [`VDemoNode`]
+// #[derive(
+//     Copy,
+//     Clone,
+//     Debug,
+//     Default,
+//     Hash,
+//     PartialEq,
+//     Eq,
+//     PartialOrd,
+//     Ord,
+//     serde::Serialize,
+//     serde::Deserialize,
+// )]
+// pub struct VDemoTypes;
+//
+// impl NodeType for VDemoTypes {
+//     type ConsensusType = ValidatingConsensus;
+//     type Time = ViewNumber;
+//     type BlockType = VDemoBlock;
+//     type SignatureKey = Ed25519Pub;
+//     type VoteTokenType = StaticVoteToken&lt;Self::SignatureKey&gt;;
+//     type Transaction = VDemoTransaction;
+//     type ElectionConfigType = StaticElectionConfig;
+//     type StateType = VDemoState;
+// }
+//
+// /// The node implementation for the validating demo
+// #[derive(Derivative)]
+// #[derivative(Clone(bound = &quot;&quot;))]
+// pub struct VDemoNode&lt;MEMBERSHIP&gt;(PhantomData&lt;MEMBERSHIP&gt;)
+// where
+//     MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug;
+//
+// impl&lt;MEMBERSHIP&gt; VDemoNode&lt;MEMBERSHIP&gt;
+// where
+//     MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
+// {
+//     /// Create a new `VDemoNode`
+//     #[must_use]
+//     pub fn new() -&gt; Self {
+//         VDemoNode(PhantomData)
+//     }
+// }
+//
+// impl&lt;MEMBERSHIP&gt; Debug for VDemoNode&lt;MEMBERSHIP&gt;
+// where
+//     MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
+// {
+//     fn fmt(&amp;self, f: &amp;mut std::fmt::Formatter&lt;&#39;_&gt;) -&gt; std::fmt::Result {
+//         f.debug_struct(&quot;VDemoNode&quot;)
+//             .field(&quot;_phantom&quot;, &amp;&quot;phantom&quot;)
+//             .finish()
+//     }
+// }
+//
+// impl&lt;MEMBERSHIP&gt; Default for VDemoNode&lt;MEMBERSHIP&gt;
+// where
+//     MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
+// {
+//     fn default() -&gt; Self {
+//         Self::new()
+//     }
+// }
+//
+// /// Provides a random [`QuorumCertificate`]
+// pub fn random_quorum_certificate&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;(
+//     rng: &amp;mut dyn rand::RngCore,
+// ) -&gt; QuorumCertificate&lt;TYPES, LEAF&gt; {
+//     QuorumCertificate {
+//         // block_commitment: random_commitment(rng),
+//         leaf_commitment: random_commitment(rng),
+//         view_number: TYPES::Time::new(rng.gen()),
+//         signatures: YesNoSignature::Yes(BTreeMap::default()),
+//         is_genesis: rng.gen(),
+//     }
+// }
+//
+// /// Provides a random [`ValidatingLeaf`]
+// pub fn random_validating_leaf&lt;TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;&gt;(
+//     deltas: TYPES::BlockType,
+//     rng: &amp;mut dyn rand::RngCore,
+// ) -&gt; ValidatingLeaf&lt;TYPES&gt; {
+//     let justify_qc = random_quorum_certificate(rng);
+//     let state = TYPES::StateType::default()
+//         .append(&amp;deltas, &amp;TYPES::Time::new(42))
+//         .unwrap_or_default();
+//     ValidatingLeaf {
+//         view_number: justify_qc.view_number,
+//         height: rng.next_u64(),
+//         justify_qc,
+//         parent_commitment: random_commitment(rng),
+//         deltas,
+//         state,
+//         rejected: Vec::new(),
+//         timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+//         proposer_id: genesis_proposer_id(),
+//     }
+// }
+</span></code></pre></div></section></main></body></html>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["sequencing_consensus","validating_consensus"],"trait":["ConsensusType"]};

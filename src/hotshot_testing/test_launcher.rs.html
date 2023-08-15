@@ -194,6 +194,8 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>futures::future::BoxFuture;
@@ -209,7 +211,9 @@
     traits::{
         election::ConsensusExchange,
         network::CommunicationChannel,
-        node_implementation::{NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork},
+        node_implementation::{
+            ExchangesType, NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork,
+        },
     },
     HotShotConfig,
 };
@@ -220,6 +224,24 @@
     completion_task::CompletionTask, overall_safety_task::OverallSafetyTask,
     test_builder::TestMetadata, test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
 };
+
+<span class="kw">pub type </span>Networks&lt;TYPES, I&gt; = (
+    &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges <span class="kw">as </span>ExchangesType&lt;
+        TYPES,
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
+        Message&lt;TYPES, I&gt;,
+    &gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking,
+    &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges <span class="kw">as </span>ExchangesType&lt;
+        TYPES,
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
+        Message&lt;TYPES, I&gt;,
+    &gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking,
+    &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges <span class="kw">as </span>ExchangesType&lt;
+        TYPES,
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
+        Message&lt;TYPES, I&gt;,
+    &gt;&gt;::ViewSyncExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking,
+);
 
 <span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 </span><span class="kw">pub type </span>Generator&lt;T&gt; = Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
@@ -253,10 +275,8 @@
 &gt;;
 
 <span class="doccomment">/// generators for resources used by each node
-</span><span class="kw">pub struct </span>ResourceGenerators&lt;
-    TYPES: NodeType,
-    I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;,
-&gt; <span class="kw">where
+</span><span class="kw">pub struct </span>ResourceGenerators&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
+<span class="kw">where
     </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
@@ -265,21 +285,8 @@
         &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
     &gt;,
 {
-    <span class="doccomment">/// generate the underlying quorum network used for each node
-    </span><span class="kw">pub </span>network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
-
-    <span class="comment">// TODO ED Make this a committee network; is a quorum network for now to get things working
-    </span><span class="kw">pub </span>secondary_network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// generate a new quorum network for each node
-    </span><span class="kw">pub </span>quorum_network: QuorumNetworkGenerator&lt;TYPES, I, QuorumCommChannel&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// generate a new committee network for each node
-    </span><span class="kw">pub </span>committee_network:
-        CommitteeNetworkGenerator&lt;QuorumNetwork&lt;TYPES, I&gt;, I::CommitteeCommChannel&gt;,
-
-    <span class="doccomment">/// generate view sync network
-    </span><span class="kw">pub </span>view_sync_network:
-        ViewSyncNetworkGenerator&lt;QuorumNetwork&lt;TYPES, I&gt;, I::ViewSyncCommChannel&gt;,
-
+    <span class="comment">// generate channels
+    </span><span class="kw">pub </span>channel_generator: Generator&lt;Networks&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// generate a new storage for each node
     </span><span class="kw">pub </span>storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
@@ -287,8 +294,7 @@
 }
 
 <span class="doccomment">/// test launcher
-</span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-{
+</span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// generator for resources
     </span><span class="kw">pub </span>resource_generator: ResourceGenerators&lt;TYPES, I&gt;,
     <span class="doccomment">/// metadasta used for tasks
@@ -305,9 +311,7 @@
     <span class="kw">pub </span>hooks: Vec&lt;Hook&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-    TestLauncher&lt;TYPES, I&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
     <span class="doccomment">/// launch the test
     </span><span class="kw">pub fn </span>launch(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I&gt; {
         TestRunner {

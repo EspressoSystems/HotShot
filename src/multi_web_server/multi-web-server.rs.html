@@ -54,12 +54,12 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::demos::vdemo::VDemoTypes;
-<span class="kw">use </span>std::sync::Arc;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_compatibility_layer::channel::oneshot;
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
 <span class="kw">use </span>tracing::error;
 
 <span class="attr">#[derive(Parser, Debug)]
@@ -80,7 +80,7 @@
 
     <span class="kw">let </span>cdn_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;VDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+            &lt;SDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
         &gt;(<span class="prelude-val">Some</span>(server_shutdown_cdn), args.cdn_port)
         .<span class="kw">await
         </span>{
@@ -90,7 +90,7 @@
     });
     <span class="kw">let </span>da_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;VDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+            &lt;SDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
         &gt;(<span class="prelude-val">Some</span>(server_shutdown_da), args.da_port)
         .<span class="kw">await
         </span>{
@@ -100,7 +100,7 @@
     });
     <span class="kw">let </span>vs_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;VDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+            &lt;SDemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
         &gt;(<span class="prelude-val">Some</span>(server_shutdown_view_sync), args.view_sync_port)
         .<span class="kw">await
         </span>{

@@ -460,7 +460,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: GlobalRegistry,
 
     <span class="doccomment">/// Internal reference to the underlying [`HotShot`]
-    </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;,
+    </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES, I&gt;,
 
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,

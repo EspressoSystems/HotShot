@@ -138,10 +138,6 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
@@ -175,16 +171,12 @@
     SpinningTask&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-{
+<span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) changes: Vec&lt;Vec&lt;ChangeNode&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; TS
-    <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {}
 
 <span class="doccomment">/// Spin the node up or down
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -210,7 +202,7 @@
 }
 
 <span class="kw">impl </span>SpinningTaskDescription {
-    <span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;(
+    <span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt; {
         Box::new(<span class="kw">move </span>|state, <span class="kw-2">mut </span>registry, test_event_stream| {

@@ -258,60 +258,10 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::overall_safety_task::OverallSafetyTask;
 <span class="kw">use </span><span class="kw">super</span>::overall_safety_task::RoundCtx;
 <span class="kw">use super</span>::{completion_task::CompletionTask, txn_task::TxnTask};
+<span class="kw">use </span><span class="kw">crate</span>::test_launcher::Networks;
 <span class="kw">use </span><span class="kw">crate</span>::test_launcher::TestLauncher;
 <span class="kw">use </span>hotshot::types::SystemContextHandle;
 <span class="kw">use </span>hotshot::{
@@ -335,18 +285,17 @@
 };
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>rand::SeedableRng;
-<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::info;
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub </span>node_id: u64,
     <span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
 /// spin up and down nodes, execute rounds
-</span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
+</span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
 <span class="kw">where
     </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
@@ -362,10 +311,9 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) task_runner: TaskRunner,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;
-    TestRunner&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    </span>SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
@@ -377,17 +325,11 @@
     <span class="doccomment">/// excecute test
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>)
     <span class="kw">where
-        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
-            Networks = (
-                QuorumCommChannel&lt;TYPES, I&gt;,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         &gt;,
     {
@@ -490,17 +432,11 @@
     <span class="doccomment">/// add nodes
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: usize) -&gt; Vec&lt;u64&gt;
     <span class="kw">where
-        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
-            Networks = (
-                QuorumCommChannel&lt;TYPES, I&gt;,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         &gt;,
     {
@@ -508,43 +444,13 @@
         <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..count {
             <span class="macro">tracing::error!</span>(<span class="string">&quot;running node{}&quot;</span>, _i);
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
-            <span class="kw">let </span>network_generator = Arc::new((<span class="self">self</span>.launcher.resource_generator.network_generator)(
-                node_id,
-            ));
-
-            <span class="comment">// NOTE ED: This creates a secondary network for the committee network.  As of now this always creates a secondary network,
-            // so libp2p tests will not work since they are not configured to have two running at the same time.  If you want to
-            // test libp2p commout out the below lines where noted.
-
-            // NOTE ED: Comment out this line to run libp2p tests
-            </span><span class="kw">let </span>secondary_network_generator =
-                Arc::new((<span class="self">self
-                    </span>.launcher
-                    .resource_generator
-                    .secondary_network_generator)(node_id));
-
-            <span class="kw">let </span>quorum_network =
-                (<span class="self">self</span>.launcher.resource_generator.quorum_network)(network_generator.clone());
-            <span class="kw">let </span>committee_network =
-                (<span class="self">self</span>.launcher.resource_generator.committee_network)(secondary_network_generator);
-            <span class="comment">// NOTE ED: Switch the below line with the above line to run libp2p tests
-            // let committee_network = (self.launcher.generator.committee_network)(network_generator);
-
-            </span><span class="kw">let </span>view_sync_network =
-                (<span class="self">self</span>.launcher.resource_generator.view_sync_network)(network_generator);
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
             <span class="kw">let </span>initializer =
                 HotShotInitializer::&lt;TYPES, I::Leaf&gt;::from_genesis(I::block_genesis()).unwrap();
+            <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id);
             <span class="kw">let </span>node_id = <span class="self">self
-                </span>.add_node_with_config(
-                    quorum_network,
-                    committee_network,
-                    view_sync_network,
-                    storage,
-                    initializer,
-                    config,
-                )
+                </span>.add_node_with_config(networks, storage, initializer, config)
                 .<span class="kw">await</span>;
             results.push(node_id);
         }
@@ -552,28 +458,20 @@
         results
     }
 
-    <span class="doccomment">///
+    <span class="doccomment">/// add a specific node with a config
     </span><span class="kw">pub async fn </span>add_node_with_config(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        quorum_network: QuorumCommChannel&lt;TYPES, I&gt;,
-        committee_network: I::CommitteeCommChannel,
-        view_sync_network: I::ViewSyncCommChannel,
+        networks: Networks&lt;TYPES, I&gt;,
         storage: I::Storage,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     ) -&gt; u64
     <span class="kw">where
-        </span>SystemContext&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
+        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         I::Exchanges: ExchangesType&lt;
-            TYPES::ConsensusType,
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
-            Networks = (
-                QuorumCommChannel&lt;TYPES, I&gt;,
-                I::ViewSyncCommChannel,
-                I::CommitteeCommChannel,
-            ),
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         &gt;,
     {
@@ -599,7 +497,7 @@
                 quorum_election_config,
                 committee_election_config(config.da_committee_size <span class="kw">as </span>u64),
             ),
-            (quorum_network, view_sync_network, committee_network),
+            networks,
             public_key.clone(),
             private_key.clone(),
             ek.clone(),

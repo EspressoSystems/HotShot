@@ -1013,7 +1013,7 @@
     <span class="kw">for </span>Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+    MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -1639,7 +1639,7 @@
     <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+    MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -1688,7 +1688,7 @@
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
     <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
-    </span>MessageKind&lt;TYPES::ConsensusType, TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+    </span>MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="kw">type </span>NETWORK = Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;;
 

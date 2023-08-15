@@ -640,10 +640,6 @@
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
@@ -661,8 +657,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
-    SequencingQuorumEx,
+    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingQuorumEx,
 };
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
@@ -673,8 +668,8 @@
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
-        node_implementation::NodeType, signature_key::SignatureKey, Block,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        Block,
     },
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
@@ -687,15 +682,13 @@
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>SequencingReplica&lt;
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-&gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-{
+&gt; {
     <span class="doccomment">/// ID of node.
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
@@ -723,7 +716,7 @@
 
 <span class="kw">impl</span>&lt;
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -731,8 +724,7 @@
         &gt;,
     &gt; SequencingReplica&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,

@@ -547,16 +547,6 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -577,7 +567,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 <span class="kw">use </span>hotshot_types::traits::state::State;
 <span class="kw">use </span>hotshot_types::{
@@ -589,7 +579,6 @@
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
@@ -606,15 +595,13 @@
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DALeader&lt;
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-&gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-{
+&gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -640,7 +627,7 @@
 }
 <span class="kw">impl</span>&lt;
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -648,8 +635,7 @@
         &gt;,
     &gt; DALeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -874,15 +860,13 @@
 /// For now this step happens after the `DALeader` completes it&#39;s proposal and collects enough votes.
 </span><span class="kw">pub struct </span>ConsensusLeader&lt;
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-&gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-{
+&gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -908,7 +892,7 @@
 }
 <span class="kw">impl</span>&lt;
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -916,8 +900,7 @@
         &gt;,
     &gt; ConsensusLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -973,15 +956,13 @@
 <span class="doccomment">/// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 </span><span class="kw">pub struct </span>ConsensusNextLeader&lt;
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-&gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-{
+&gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -1005,7 +986,7 @@
 
 <span class="kw">impl</span>&lt;
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1013,8 +994,7 @@
         &gt;,
     &gt; ConsensusNextLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,

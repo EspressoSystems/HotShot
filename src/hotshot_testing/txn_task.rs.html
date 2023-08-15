@@ -169,14 +169,6 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::test_runner::Node;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>futures::FutureExt;
@@ -191,12 +183,9 @@
     GeneratedStream,
 };
 <span class="kw">use </span>hotshot_types::message::DataMessage;
-<span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::message::SequencingMessage;
-<span class="kw">use </span>hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::SequencingExchangesType;
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>rand::thread_rng;
 <span class="kw">use </span>snafu::Snafu;
@@ -213,7 +202,7 @@
 </span><span class="kw">pub struct </span>TxnTaskErr {}
 
 <span class="doccomment">/// state of task that decides when things are completed
-</span><span class="kw">pub struct </span>TxnTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TxnTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="comment">// TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
     </span><span class="doccomment">/// Handles for all nodes.
     </span><span class="kw">pub </span>handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
@@ -221,10 +210,7 @@
     </span><span class="kw">pub </span>next_node_idx: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt; TS
-    <span class="kw">for </span>TxnTask&lt;TYPES, I&gt;
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>TxnTask&lt;TYPES, I&gt; {}
 
 <span class="doccomment">/// types for task that deices when things are completed
 </span><span class="kw">pub type </span>TxnTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
@@ -248,13 +234,11 @@
 
 <span class="kw">impl </span>TxnTaskDescription {
     <span class="doccomment">/// build a task
-    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES::ConsensusType, TYPES&gt;&gt;(
+    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;TxnTask&lt;TYPES, I&gt;&gt;
     <span class="kw">where
-        </span>TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges:
-            SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+        </span>TYPES: NodeType,
         I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
     {
         Box::new(<span class="kw">move </span>|state, <span class="kw-2">mut </span>registry, test_event_stream| {

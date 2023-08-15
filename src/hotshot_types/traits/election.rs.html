@@ -1284,9 +1284,6 @@
 <a href="#1284" id="1284">1284</a>
 <a href="#1285" id="1285">1285</a>
 <a href="#1286" id="1286">1286</a>
-<a href="#1287" id="1287">1287</a>
-<a href="#1288" id="1288">1288</a>
-<a href="#1289" id="1289">1289</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1305,10 +1302,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::network::CommunicationChannel;
 <span class="kw">use </span><span class="kw">crate</span>::traits::network::NetworkMsg;
-<span class="kw">use </span><span class="kw">crate</span>::traits::{
-    consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::ExchangesType,
-    state::ConsensusTime,
-};
+<span class="kw">use </span><span class="kw">crate</span>::traits::{node_implementation::ExchangesType, state::ConsensusTime};
 <span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncData;
 <span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncVote;
 <span class="kw">use </span><span class="kw">crate</span>::vote::VoteAccumulator;
@@ -1741,7 +1735,7 @@
 }
 
 <span class="doccomment">/// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
-</span><span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;, M: NetworkMsg&gt;:
+</span><span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType, M: NetworkMsg&gt;:
     ConsensusExchange&lt;TYPES, M&gt;
 {
     <span class="doccomment">/// Sign a DA proposal.
@@ -1770,7 +1764,7 @@
 </span><span class="attr">#[derive(Derivative)]
 #[derivative(Clone, Debug)]
 </span><span class="kw">pub struct </span>CommitteeExchange&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
     M: NetworkMsg,
@@ -1791,7 +1785,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
         NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
         M: NetworkMsg,
@@ -1838,7 +1832,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
         NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
         M: NetworkMsg,
@@ -1934,7 +1928,7 @@
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
         </span>&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate: commit::Committable,
-        I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;;
+        I::Exchanges: ExchangesType&lt;TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;;
 
     <span class="doccomment">/// Sign a validating or commitment proposal.
     </span><span class="kw">fn </span>sign_validating_or_commitment_proposal&lt;I: NodeImplementation&lt;TYPES&gt;&gt;(
@@ -1981,7 +1975,7 @@
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
+        </span>I::Exchanges: ExchangesType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
 
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
@@ -1991,7 +1985,7 @@
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
+        </span>I::Exchanges: ExchangesType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;;
 }
 
 <span class="doccomment">/// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -2039,7 +2033,7 @@
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_yes_vote(leaf_commitment);
         GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Yes(YesOrNoVote {
@@ -2116,7 +2110,7 @@
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES, LEAF, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_no_vote(leaf_commitment);
         GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::No(YesOrNoVote {
@@ -2137,7 +2131,7 @@
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
     <span class="kw">where
-        </span>I::Exchanges: ExchangesType&lt;TYPES::ConsensusType, TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+        </span>I::Exchanges: ExchangesType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_timeout_vote(current_view);
         GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Timeout(TimeoutVote {

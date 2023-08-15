@@ -1412,19 +1412,6 @@
 <a href="#1412" id="1412">1412</a>
 <a href="#1413" id="1413">1413</a>
 <a href="#1414" id="1414">1414</a>
-<a href="#1415" id="1415">1415</a>
-<a href="#1416" id="1416">1416</a>
-<a href="#1417" id="1417">1417</a>
-<a href="#1418" id="1418">1418</a>
-<a href="#1419" id="1419">1419</a>
-<a href="#1420" id="1420">1420</a>
-<a href="#1421" id="1421">1421</a>
-<a href="#1422" id="1422">1422</a>
-<a href="#1423" id="1423">1423</a>
-<a href="#1424" id="1424">1424</a>
-<a href="#1425" id="1425">1425</a>
-<a href="#1426" id="1426">1426</a>
-<a href="#1427" id="1427">1427</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
@@ -1462,7 +1449,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
 <span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::traits::Block;
 <span class="kw">use </span>hotshot_types::vote::VoteType;
@@ -1471,7 +1458,6 @@
     data::{QuorumProposal, SequencingLeaf},
     message::{GeneralConsensusMessage, SequencingMessage},
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::SignedCertificate,
         node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
@@ -1493,7 +1479,7 @@
 
 <span class="comment">// #[derive(Debug)]
 </span><span class="kw">pub struct </span>SequencingConsensusTaskState&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1501,8 +1487,7 @@
     &gt;,
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
 &gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -1568,11 +1553,10 @@
 }
 
 <span class="kw">pub struct </span>VoteCollectionTaskState&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -1590,13 +1574,10 @@
     <span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt; TS <span class="kw">for </span>VoteCollectionTaskState&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt; TS
+    <span class="kw">for </span>VoteCollectionTaskState&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -1608,10 +1589,7 @@
 
 <span class="attr">#[instrument(skip_all, fields(id = state.id, view = <span class="kw-2">*</span>state.cur_view), name = <span class="string">&quot;Quorum Vote Collection Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
-</span><span class="kw">async fn </span>vote_handle&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
-&gt;(
+</span><span class="kw">async fn </span>vote_handle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt;(
     <span class="kw-2">mut </span>state: VoteCollectionTaskState&lt;TYPES, I&gt;,
     event: SequencingHotShotEvent&lt;TYPES, I&gt;,
 ) -&gt; (
@@ -1619,8 +1597,7 @@
     VoteCollectionTaskState&lt;TYPES, I&gt;,
 )
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -1702,7 +1679,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+        TYPES: NodeType&lt;Time = ViewNumber&gt;,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1711,8 +1688,7 @@
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
     &gt; SequencingConsensusTaskState&lt;TYPES, I, A&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -2759,7 +2735,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -2768,8 +2744,7 @@
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
     &gt; TS <span class="kw">for </span>SequencingConsensusTaskState&lt;TYPES, I, A&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -2800,7 +2775,7 @@
 &gt;;
 
 <span class="kw">pub async fn </span>sequencing_consensus_handle&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+    TYPES: NodeType&lt;Time = ViewNumber&gt;,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -2815,8 +2790,7 @@
     SequencingConsensusTaskState&lt;TYPES, I, A&gt;,
 )
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>SequencingQuorumEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,

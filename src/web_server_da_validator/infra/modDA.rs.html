@@ -722,7 +722,6 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -763,7 +762,6 @@
     data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
     message::SequencingMessage,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
@@ -807,7 +805,7 @@
 
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator_da&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;
             TYPES,
@@ -875,7 +873,7 @@
 <span class="doccomment">/// Defines the behavior of a &quot;run&quot; of the network with a given configuration
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>RunDA&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+    TYPES: NodeType&lt;Time = ViewNumber&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;
             TYPES,
@@ -928,9 +926,9 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
-    SystemContext&lt;SequencingConsensus, TYPES, NODE&gt;: HotShotType&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES, NODE&gt;: HotShotType&lt;TYPES, NODE&gt;,
 {
     <span class="doccomment">/// Initializes networking, returns self
     </span><span class="kw">async fn </span>initialize_networking(
@@ -982,8 +980,8 @@
             (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
-                view_sync_network.clone(),
                 da_network.clone(),
+                view_sync_network.clone(),
             ),
             pk.clone(),
             sk.clone(),
@@ -1174,7 +1172,7 @@
 
 <span class="doccomment">/// Represents a web server-based run
 </span><span class="kw">pub struct </span>WebServerDARun&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt; {
@@ -1186,7 +1184,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+        TYPES: NodeType&lt;Time = ViewNumber&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
         NODE: NodeImplementation&lt;
             TYPES,
@@ -1244,7 +1242,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
@@ -1348,7 +1346,7 @@
 
 <span class="doccomment">/// Main entry point for validators
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+    TYPES: NodeType&lt;Time = ViewNumber&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;
             TYPES,
@@ -1404,7 +1402,7 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES::ConsensusType, TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
+    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
 {
     setup_logging();
     setup_backtrace();

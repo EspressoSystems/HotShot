@@ -664,15 +664,6 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
@@ -701,7 +692,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
 <span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::traits::Block;
 <span class="kw">use </span>hotshot_types::traits::State;
 <span class="kw">use </span>hotshot_types::{
@@ -709,7 +700,6 @@
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -728,7 +718,7 @@
 </span><span class="kw">pub struct </span>ConsensusTaskError {}
 
 <span class="kw">pub struct </span>DATaskState&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -736,8 +726,7 @@
     &gt;,
     A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
 &gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -767,11 +756,10 @@
 }
 
 <span class="kw">pub struct </span>DAVoteCollectionTaskState&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt; <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -788,13 +776,10 @@
     <span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt; TS <span class="kw">for </span>DAVoteCollectionTaskState&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt; TS
+    <span class="kw">for </span>DAVoteCollectionTaskState&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -805,7 +790,7 @@
 
 <span class="attr">#[instrument(skip_all, fields(id = state.id, view = <span class="kw-2">*</span>state.cur_view), name = <span class="string">&quot;DA Vote Collection Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 </span><span class="kw">async fn </span>vote_handle&lt;
-    TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+    TYPES: NodeType&lt;Time = ViewNumber&gt;,
     I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt;(
     <span class="kw-2">mut </span>state: DAVoteCollectionTaskState&lt;TYPES, I&gt;,
@@ -815,8 +800,7 @@
     DAVoteCollectionTaskState&lt;TYPES, I&gt;,
 )
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -881,7 +865,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus, Time = ViewNumber&gt;,
+        TYPES: NodeType&lt;Time = ViewNumber&gt;,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -890,8 +874,7 @@
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
     &gt; DATaskState&lt;TYPES, I, A&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
@@ -1316,7 +1299,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1325,8 +1308,7 @@
         A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
     &gt; TS <span class="kw">for </span>DATaskState&lt;TYPES, I, A&gt;
 <span class="kw">where
-    </span>I::Exchanges: SequencingExchangesType&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
+    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,

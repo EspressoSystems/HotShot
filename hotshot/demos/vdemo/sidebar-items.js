@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["VDemoBlock","VDemoError"],"fn":["random_quorum_certificate","random_validating_leaf"],"struct":["Addition","GenesisAfterStartSnafu","GenesisFailedSnafu","InconsistentTransactionSnafu","InsufficentBalanceSnafu","NoSuchInputAccountSnafu","NoSuchOutputAccountSnafu","PreviousStateMismatchSnafu","ReusedNonceSnafu","Subtraction","VDemoGenesisBlock","VDemoNode","VDemoNormalBlock","VDemoState","VDemoTransaction","VDemoTypes"],"type":["Account","Balance"]};
+window.SIDEBAR_ITEMS = {};
