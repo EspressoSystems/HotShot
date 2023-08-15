@@ -427,6 +427,7 @@ impl OverallSafetyPropertiesDescription {
                                         }
                                     }
                                 }
+                                // TODO Emit this event in the consensus task once canceling the timeout task is implemented
                                 EventType::ReplicaViewTimeout { view_number } => {
                                     let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
                                         view_number,

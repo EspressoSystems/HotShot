@@ -88,13 +88,15 @@ pub struct ViewSyncTaskState<
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
-    /// Represents if replica task is running,
+    /// Map of running replica tasks
     pub replica_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
-    /// Represents if relay task is running
+    /// Map of running relay tasks
     pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
     pub view_sync_timeout: Duration,
+
+    pub last_garbage_collected_view: TYPES::Time,
 }
 
 impl<
@@ -236,12 +238,10 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
-
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
-        // TODO ED Match on &event
-        match event.clone() {
+        match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                let (certificate_internal, last_seen_certificate) = match message.data {
+                let (certificate_internal, last_seen_certificate) = match &message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
                     }
@@ -274,8 +274,6 @@ where
                 }
 
                 // We do not have a replica task already running, so start one
-
-                // TODO ED Need to GC old entries in task map once we know we don't need them anymore
                 let mut replica_state = ViewSyncReplicaTaskState {
                     current_view: certificate_internal.round,
                     next_view: certificate_internal.round,
@@ -290,7 +288,7 @@ where
                     id: self.id,
                 };
 
-                let result = replica_state.handle_event(event).await;
+                let result = replica_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -352,7 +350,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    // This will occur because everyone is pulling down votes for now, will fix soon ED
+                    // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
                 }
@@ -373,7 +371,7 @@ where
                     id: self.id,
                 };
 
-                let result = relay_state.handle_event(event).await;
+                let result = relay_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -403,29 +401,52 @@ where
 
                 self.relay_task_map
                     .insert(vote_internal.round, ViewSyncTaskInfo { event_stream_id });
-                // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                 let _view_sync_relay_task = async_spawn(async move {
                     ViewSyncRelayTaskStateTypes::build(builder).launch().await
                 });
             }
 
-            SequencingHotShotEvent::ViewChange(new_view) => {
-                // TODO ED Don't call new twice
-                if self.current_view < TYPES::Time::new(*new_view) {
+            &SequencingHotShotEvent::ViewChange(new_view) => {
+                let new_view = TYPES::Time::new(*new_view);
+                if self.current_view < new_view {
                     debug!(
                         "Change from view {} to view {} in view sync task",
                         *self.current_view, *new_view
                     );
 
-                    self.current_view = TYPES::Time::new(*new_view);
+                    self.current_view = new_view;
                     self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
 
-                    // Inject view info into network
-                    // Move this to consensus task probably
+                    // Garbage collect old tasks
+                    // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
+                    for i in *self.last_garbage_collected_view..*self.current_view {
+                        if let Some((_key, replica_task_info)) =
+                            self.replica_task_map.remove_entry(&TYPES::Time::new(i))
+                        {
+                            self.event_stream
+                                .direct_message(
+                                    replica_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .await;
+                        }
+                        if let Some((_key, relay_task_info)) =
+                            self.relay_task_map.remove_entry(&TYPES::Time::new(i))
+                        {
+                            self.event_stream
+                                .direct_message(
+                                    relay_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .await;
+                        }
+                    }
+
+                    self.last_garbage_collected_view = self.current_view - 1;
                 }
             }
-            SequencingHotShotEvent::Timeout(view_number) => {
+            &SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
@@ -435,7 +456,7 @@ where
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 if self.num_timeouts_tracked > 2 {
-                    panic!("Too many timeouts!  This shouldn't happen");
+                    error!("Too many timeouts!  This shouldn't happen");
                 }
 
                 // TODO ED Make this a configurable variable
@@ -494,8 +515,7 @@ where
                         },
                     ));
 
-                    // TODO ED Change from default filter
-                    let filter = FilterEvent::default();
+                    let filter = FilterEvent(Arc::new(Self::filter));
                     let builder =
                         TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
                             .register_event_stream(replica_state.event_stream.clone(), filter)
@@ -512,7 +532,6 @@ where
                         ViewSyncTaskInfo { event_stream_id },
                     );
 
-                    // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                     let _view_sync_replica_task = async_spawn(async move {
                         ViewSyncReplicaTaskStateTypes::build(builder).launch().await
                     });
@@ -587,8 +606,6 @@ where
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
-
-                // warn!("received cert in handle_event for replica");
 
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
