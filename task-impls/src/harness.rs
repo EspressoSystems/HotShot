@@ -76,17 +76,16 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
     let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
     let task_runner = build_fn(task_runner, event_stream.clone()).await;
 
-    let _runner = async_spawn(async move { task_runner.launch().await });
+    let runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
         let _ = event_stream.publish(event).await;
     }
     // TODO fix type weirdness btwn tokio and async-std
-    todo!();
 
-    // for (_task_name, result) in runner.await.into_iter() {
-    //     assert!(matches!(result, HotShotTaskCompleted::ShutDown));
-    // }
+    for (_task_name, result) in runner.await.into_iter() {
+        assert!(matches!(result, HotShotTaskCompleted::ShutDown));
+    }
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(

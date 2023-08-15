@@ -203,7 +203,7 @@ where
         SequencingConsensusTaskState::<TYPES, I, HotShotSequencingConsensusApi<TYPES, I>> {
             registry: registry.clone(),
             consensus,
-            timeout: nll_todo(),
+            timeout: 1000,
             cur_view: TYPES::Time::new(0),
             block: TYPES::BlockType::new(),
             quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
@@ -213,10 +213,10 @@ where
             vote_collector: None,
             timeout_task: async_spawn(async move {}),
             event_stream: event_stream.clone(),
-            output_event_stream: nll_todo(),
+            output_event_stream: ChannelStream::new(),
             certs: HashMap::new(),
             current_proposal: None,
-            id: nll_todo(),
+            id: 1,
             qc: None,
         };
     let consensus_event_handler = HandleEvent(Arc::new(
@@ -274,8 +274,11 @@ async fn test_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let input = Vec::new();
-    let output = HashSet::new();
+    let mut input = Vec::new();
+    let mut output = HashSet::new();
+
+    input.push(SequencingHotShotEvent::Shutdown);
+    output.insert(SequencingHotShotEvent::Shutdown);
 
     let build_fn = build_consensus_task::<
         hotshot_testing::node_types::SequencingTestTypes,
