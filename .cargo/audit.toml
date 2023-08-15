@@ -43,4 +43,11 @@ ignore = [
     # https://rustsec.org/advisories/RUSTSEC-2022-0008
     "RUSTSEC-2022-0008",
 
+    # ed25519-dalek 1.0.1
+    # Dependency of libp2p
+    # Referenced in this issue: https://github.com/libp2p/rust-libp2p/issues/4327
+    # https://rustsec.org/advisories/RUSTSEC-2022-0093
+    "RUSTSEC-2022-0093"
+
+
 ]
