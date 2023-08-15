@@ -25,13 +25,11 @@ use hotshot_types::message::GeneralConsensusMessage;
 use hotshot_types::message::Message;
 use hotshot_types::message::Proposal;
 use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::ViewSyncExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::traits::state::ConsensusTime;
@@ -42,7 +40,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument};
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 pub enum ViewSyncPhase {
@@ -61,7 +59,7 @@ pub struct ViewSyncTaskInfo {
 pub struct ViewSyncTaskError {}
 
 pub struct ViewSyncTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -69,7 +67,6 @@ pub struct ViewSyncTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -91,17 +88,19 @@ pub struct ViewSyncTaskState<
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
-    /// Represents if replica task is running,
+    /// Map of running replica tasks
     pub replica_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
-    /// Represents if relay task is running
+    /// Map of running relay tasks
     pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
     pub view_sync_timeout: Duration,
+
+    pub last_garbage_collected_view: TYPES::Time,
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -110,7 +109,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > TS for ViewSyncTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -129,7 +127,7 @@ pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
 >;
 
 pub struct ViewSyncReplicaTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -137,7 +135,6 @@ pub struct ViewSyncReplicaTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -161,7 +158,7 @@ pub struct ViewSyncReplicaTaskState<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -170,7 +167,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -189,7 +185,7 @@ pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
 >;
 
 pub struct ViewSyncRelayTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -206,7 +202,7 @@ pub struct ViewSyncRelayTaskState<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -224,7 +220,7 @@ pub type ViewSyncRelayTaskStateTypes<TYPES, I> = HSTWithEvent<
 >;
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -233,7 +229,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static + std::clone::Clone,
     > ViewSyncTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -243,12 +238,10 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
-
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
-        // TODO ED Match on &event
-        match event.clone() {
+        match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
-                let (certificate_internal, last_seen_certificate) = match message.data {
+                let (certificate_internal, last_seen_certificate) = match &message.data {
                     ViewSyncCertificate::PreCommit(certificate_internal) => {
                         (certificate_internal, ViewSyncPhase::PreCommit)
                     }
@@ -267,7 +260,7 @@ where
                 // This certificate is old, we can throw it away
                 // If next view = cert round, then that means we should already have a task running for it
                 if self.current_view > certificate_internal.round {
-                    warn!("Already in a higher view than the view sync message");
+                    debug!("Already in a higher view than the view sync message");
                     return;
                 }
 
@@ -281,8 +274,6 @@ where
                 }
 
                 // We do not have a replica task already running, so start one
-
-                // TODO ED Need to GC old entries in task map once we know we don't need them anymore
                 let mut replica_state = ViewSyncReplicaTaskState {
                     current_view: certificate_internal.round,
                     next_view: certificate_internal.round,
@@ -297,7 +288,7 @@ where
                     id: self.id,
                 };
 
-                let result = replica_state.handle_event(event).await;
+                let result = replica_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -359,8 +350,8 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    // This will occur because everyone is pulling down votes for now, will fix soon ED
-                    warn!("View sync vote sent to wrong leader");
+                    // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
+                    debug!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -380,7 +371,7 @@ where
                     id: self.id,
                 };
 
-                let result = relay_state.handle_event(event).await;
+                let result = relay_state.handle_event(event.clone()).await;
 
                 if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                     // The protocol has finished
@@ -410,29 +401,52 @@ where
 
                 self.relay_task_map
                     .insert(vote_internal.round, ViewSyncTaskInfo { event_stream_id });
-                // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                 let _view_sync_relay_task = async_spawn(async move {
                     ViewSyncRelayTaskStateTypes::build(builder).launch().await
                 });
             }
 
-            SequencingHotShotEvent::ViewChange(new_view) => {
-                // TODO ED Don't call new twice
-                if self.current_view < TYPES::Time::new(*new_view) {
-                    warn!(
+            &SequencingHotShotEvent::ViewChange(new_view) => {
+                let new_view = TYPES::Time::new(*new_view);
+                if self.current_view < new_view {
+                    debug!(
                         "Change from view {} to view {} in view sync task",
                         *self.current_view, *new_view
                     );
 
-                    self.current_view = TYPES::Time::new(*new_view);
+                    self.current_view = new_view;
                     self.next_view = self.current_view;
                     self.num_timeouts_tracked = 0;
 
-                    // Inject view info into network
-                    // Move this to consensus task probably
+                    // Garbage collect old tasks
+                    // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
+                    for i in *self.last_garbage_collected_view..*self.current_view {
+                        if let Some((_key, replica_task_info)) =
+                            self.replica_task_map.remove_entry(&TYPES::Time::new(i))
+                        {
+                            self.event_stream
+                                .direct_message(
+                                    replica_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .await;
+                        }
+                        if let Some((_key, relay_task_info)) =
+                            self.relay_task_map.remove_entry(&TYPES::Time::new(i))
+                        {
+                            self.event_stream
+                                .direct_message(
+                                    relay_task_info.event_stream_id,
+                                    SequencingHotShotEvent::Shutdown,
+                                )
+                                .await;
+                        }
+                    }
+
+                    self.last_garbage_collected_view = self.current_view - 1;
                 }
             }
-            SequencingHotShotEvent::Timeout(view_number) => {
+            &SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
@@ -442,7 +456,7 @@ where
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);
 
                 if self.num_timeouts_tracked > 2 {
-                    panic!("Too many timeouts!  This shouldn't happen");
+                    error!("Too many timeouts!  This shouldn't happen");
                 }
 
                 // TODO ED Make this a configurable variable
@@ -501,8 +515,7 @@ where
                         },
                     ));
 
-                    // TODO ED Change from default filter
-                    let filter = FilterEvent::default();
+                    let filter = FilterEvent(Arc::new(Self::filter));
                     let builder =
                         TaskBuilder::<ViewSyncReplicaTaskStateTypes<TYPES, I, A>>::new(name)
                             .register_event_stream(replica_state.event_stream.clone(), filter)
@@ -519,7 +532,6 @@ where
                         ViewSyncTaskInfo { event_stream_id },
                     );
 
-                    // TODO ED For now we will not await these futures, in the future we can await them only in the case of shutdown
                     let _view_sync_replica_task = async_spawn(async move {
                         ViewSyncReplicaTaskStateTypes::build(builder).launch().await
                     });
@@ -555,7 +567,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -564,7 +576,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > ViewSyncReplicaTaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -596,11 +607,9 @@ where
                     }
                 };
 
-                // warn!("received cert in handle_event for replica");
-
                 // Ignore certificate if it is for an older round
                 if certificate_internal.round < self.next_view {
-                    warn!("We're already in a higher round");
+                    debug!("We're already in a higher round");
 
                     return (None, self);
                 }
@@ -780,7 +789,7 @@ where
                         );
 
                         if let GeneralConsensusMessage::ViewSyncVote(vote) = message {
-                            warn!(
+                            debug!(
                                 "Sending precommit vote to start protocol for next view = {}",
                                 *vote.round()
                             );
@@ -885,7 +894,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -893,7 +902,6 @@ impl<
         >,
     > ViewSyncRelayTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -928,7 +936,7 @@ where
                     }
                 };
 
-                warn!(
+                debug!(
                     "Recved vote for next view {}, and relay {}, and phase {:?}",
                     *vote_internal.round, vote_internal.relay, phase
                 );
@@ -938,7 +946,7 @@ where
                     .exchange
                     .is_leader(vote_internal.round + vote_internal.relay)
                 {
-                    warn!("We are not the correct relay");
+                    debug!("We are not the correct relay");
                     return (None, self);
                 }
 
@@ -948,7 +956,7 @@ where
                 }
                 .commit();
 
-                warn!(
+                debug!(
                     "Accumulating view sync vote {} relay {}",
                     *vote_internal.round, vote_internal.relay
                 );

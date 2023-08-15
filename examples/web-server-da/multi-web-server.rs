@@ -1,9 +1,9 @@
-use hotshot::demos::vdemo::VDemoTypes;
 use std::sync::Arc;
 
 use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::channel::oneshot;
 use clap::Parser;
+use hotshot::demos::sdemo::SDemoTypes;
 use tracing::error;
 
 #[derive(Parser, Debug)]
@@ -24,7 +24,7 @@ async fn main() {
 
     let cdn_server = async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
-            <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            <SDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_cdn), args.cdn_port)
         .await
         {
@@ -34,7 +34,7 @@ async fn main() {
     });
     let da_server = async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
-            <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            <SDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_da), args.da_port)
         .await
         {
@@ -44,7 +44,7 @@ async fn main() {
     });
     let vs_server = async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
-            <VDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            <SDemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(Some(server_shutdown_view_sync), args.view_sync_port)
         .await
         {

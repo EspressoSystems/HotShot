@@ -12,7 +12,6 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::{GeneralConsensusMessage, MessageKind, Messages},
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
         network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
@@ -31,7 +30,7 @@ pub enum NetworkTaskKind {
 }
 
 pub struct NetworkMessageTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -42,7 +41,7 @@ pub struct NetworkMessageTaskState<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -53,7 +52,7 @@ impl<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -124,7 +123,7 @@ impl<
 }
 
 pub struct NetworkEventTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -143,7 +142,7 @@ pub struct NetworkEventTaskState<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -158,7 +157,7 @@ impl<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -181,9 +180,9 @@ impl<
         let (sender, message_kind, transmit_type, recipient) = match event {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::Proposal(proposal))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
+                    GeneralConsensusMessage::Proposal(proposal),
+                ))),
                 TransmitType::Broadcast,
                 None,
             ),
@@ -191,45 +190,43 @@ impl<
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             SequencingHotShotEvent::QuorumVoteSend(vote) => (
                 vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::Vote(vote.clone()))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
+                    GeneralConsensusMessage::Vote(vote.clone()),
+                ))),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view() + 1)),
             ),
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DAProposal(proposal))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::DAProposal(proposal),
+                ))),
                 TransmitType::Broadcast,
                 None,
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DAVote(vote.clone()))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::DAVote(vote.clone()),
+                ))),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view)),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             SequencingHotShotEvent::DACSend(certificate, sender) => (
                 sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Right(CommitteeConsensusMessage::DACertificate(certificate))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::DACertificate(certificate),
+                ))),
                 TransmitType::Broadcast,
                 None,
             ),
             SequencingHotShotEvent::ViewSyncCertificateSend(certificate_proposal, sender) => (
                 sender,
-                MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                    SequencingMessage(Left(GeneralConsensusMessage::ViewSyncCertificate(
-                        certificate_proposal,
-                    ))),
-                ),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
+                    GeneralConsensusMessage::ViewSyncCertificate(certificate_proposal),
+                ))),
                 TransmitType::Broadcast,
                 None,
             ),
@@ -237,11 +234,9 @@ impl<
                 // error!("Sending view sync vote in network task to relay with index: {:?}", vote.round() + vote.relay());
                 (
                     vote.signature_key(),
-                    MessageKind::<SequencingConsensus, TYPES, I>::from_consensus_message(
-                        SequencingMessage(Left(GeneralConsensusMessage::ViewSyncVote(
-                            vote.clone(),
-                        ))),
-                    ),
+                    MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
+                        GeneralConsensusMessage::ViewSyncVote(vote.clone()),
+                    ))),
                     TransmitType::Direct,
                     Some(membership.get_leader(vote.round() + vote.relay())),
                 )

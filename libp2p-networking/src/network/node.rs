@@ -176,7 +176,8 @@ impl NetworkNode {
                 // at some point in the future.
                 match config.node_type {
                     NetworkNodeType::Bootstrap => MeshParams {
-                        mesh_n_high: 50,
+                        mesh_n_high: 1000, // make this super high in case we end up scaling to 1k
+                        // nodes
                         mesh_n_low: 10,
                         mesh_outbound_min: 5,
                         mesh_n: 15,
@@ -225,7 +226,7 @@ impl NetworkNode {
             )
             .map_err(|s| GossipsubBuildSnafu { message: s }.build())?;
 
-            // - Build a identify network behavior needed for own
+            //   Build a identify network behavior needed for own
             //   node connection information
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
@@ -235,9 +236,16 @@ impl NetworkNode {
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
-            // FIXME do we need this?
-            // <https://github.com/EspressoSystems/HotShot/issues/344>
-            kconfig.set_parallelism(NonZeroUsize::new(1).unwrap());
+            // 8 hours by default
+            let record_republication_interval = config
+                .republication_interval
+                .unwrap_or(Duration::from_secs(28800));
+            let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
+            kconfig
+                .set_parallelism(NonZeroUsize::new(1).unwrap())
+                .set_provider_publication_interval(Some(record_republication_interval))
+                .set_publication_interval(Some(record_republication_interval))
+                .set_record_ttl(ttl);
 
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);

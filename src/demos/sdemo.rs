@@ -22,7 +22,6 @@ use hotshot_types::{
     data::{fake_commitment, random_commitment, LeafType, SequencingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::Membership,
         node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
@@ -303,7 +302,6 @@ impl TestableState for SDemoState {
 pub struct SDemoTypes;
 
 impl NodeType for SDemoTypes {
-    type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
     type SignatureKey = Ed25519Pub;
@@ -365,7 +363,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 }
 
 /// Provides a random [`SequencingLeaf`]
-pub fn random_sequencing_leaf<TYPES: NodeType<ConsensusType = SequencingConsensus>>(
+pub fn random_sequencing_leaf<TYPES: NodeType>(
     deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
     rng: &mut dyn rand::RngCore,
 ) -> SequencingLeaf<TYPES> {

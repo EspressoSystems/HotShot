@@ -26,7 +26,7 @@ use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
 use hotshot_types::{
@@ -34,7 +34,6 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -53,7 +52,7 @@ use tracing::{debug, error, instrument, warn};
 pub struct ConsensusTaskError {}
 
 pub struct DATaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -61,7 +60,6 @@ pub struct DATaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -92,10 +90,9 @@ pub struct DATaskState<
 }
 
 pub struct DAVoteCollectionTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -113,12 +110,9 @@ pub struct DAVoteCollectionTaskState<
     pub id: u64,
 }
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
-    > TS for DAVoteCollectionTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
+    for DAVoteCollectionTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -130,7 +124,7 @@ where
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
 async fn vote_handle<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 >(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
@@ -140,7 +134,6 @@ async fn vote_handle<
     DAVoteCollectionTaskState<TYPES, I>,
 )
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -150,12 +143,12 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
-            warn!("DA vote recv, collection task {:?}", vote.current_view);
+            debug!("DA vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
-                warn!("DA accumulator finished view: {:?}", state.cur_view);
+                debug!("DA accumulator finished view: {:?}", state.cur_view);
                 return (None, state);
             }
 
@@ -172,11 +165,11 @@ where
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
-                    // warn!("Not enough DA votes! ");
+                    // debug!("Not enough DA votes! ");
                     return (None, state);
                 }
                 Right(dac) => {
-                    warn!("Sending DAC! {:?}", dac.view_number);
+                    debug!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
                         .publish(SequencingHotShotEvent::DACSend(
@@ -206,7 +199,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+        TYPES: NodeType<Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -215,7 +208,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -260,7 +252,7 @@ where
                 return None;
             }
             SequencingHotShotEvent::DAProposalRecv(proposal, sender) => {
-                warn!(
+                debug!(
                     "DA proposal received for view: {:?}",
                     proposal.data.get_view_number()
                 );
@@ -312,7 +304,7 @@ where
                         // self.cur_view = view;
 
                         if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            warn!("Sending vote to the DA leader {:?}", vote.current_view);
+                            debug!("Sending vote to the DA leader {:?}", vote.current_view);
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
@@ -432,7 +424,7 @@ where
                     .contains(self.committee_exchange.public_key());
 
                 if is_da {
-                    warn!("Polling for DA proposals for view {}", *self.cur_view + 1);
+                    debug!("Polling for DA proposals for view {}", *self.cur_view + 1);
                     self.committee_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
@@ -441,7 +433,7 @@ where
                         .await;
                 }
                 if self.committee_exchange.is_leader(self.cur_view + 3) {
-                    warn!("Polling for transactions for view {}", *self.cur_view + 3);
+                    debug!("Polling for transactions for view {}", *self.cur_view + 3);
                     self.committee_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
@@ -519,7 +511,7 @@ where
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: self.cur_view + 1,
                 };
-                warn!("Sending DA proposal for view {:?}", data.view_number);
+                debug!("Sending DA proposal for view {:?}", data.view_number);
 
                 // let message = SequencingMessage::<TYPES, I>(Right(
                 //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
@@ -641,7 +633,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -650,7 +642,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

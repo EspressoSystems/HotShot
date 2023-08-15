@@ -126,7 +126,9 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .replication_factor(replication_factor)
             .node_type(NetworkNodeType::Bootstrap)
             .to_connect_addrs(HashSet::default())
-            .bound_addr(Some(addr));
+            .bound_addr(Some(addr))
+            .ttl(None)
+            .republication_interval(None);
         let node = NetworkNodeHandle::new(
             config
                 .build()

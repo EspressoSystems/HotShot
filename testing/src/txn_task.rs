@@ -12,12 +12,9 @@ use hotshot_task::{
     GeneratedStream,
 };
 use hotshot_types::message::DataMessage;
-use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::state::ConsensusTime;
 use rand::thread_rng;
 use snafu::Snafu;
@@ -34,7 +31,7 @@ use super::GlobalTestEvent;
 pub struct TxnTaskErr {}
 
 /// state of task that decides when things are completed
-pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     // TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
     /// Handles for all nodes.
     pub handles: Vec<Node<TYPES, I>>,
@@ -42,10 +39,7 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Consens
     pub next_node_idx: Option<usize>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for TxnTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for TxnTask<TYPES, I> {}
 
 /// types for task that deices when things are completed
 pub type TxnTaskTypes<TYPES, I> = HSTWithEventAndMessage<
@@ -69,13 +63,11 @@ pub enum TxnTaskDescription {
 
 impl TxnTaskDescription {
     /// build a task
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<TxnTask<TYPES, I>>
     where
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        <I as NodeImplementation<TYPES>>::Exchanges:
-            SequencingExchangesType<TYPES, Message<TYPES, I>>,
+        TYPES: NodeType,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     {
         Box::new(move |state, mut registry, test_event_stream| {

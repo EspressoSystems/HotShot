@@ -53,7 +53,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) registry: GlobalRegistry,
 
     /// Internal reference to the underlying [`HotShot`]
-    pub hotshot: SystemContext<TYPES::ConsensusType, TYPES, I>,
+    pub hotshot: SystemContext<TYPES, I>,
 
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,

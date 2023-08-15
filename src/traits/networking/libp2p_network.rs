@@ -124,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -190,6 +190,9 @@ where
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
+                        // setting to sane defaults
+                        .ttl(None)
+                        .republication_interval(None)
                         .build()
                         .unwrap()
                 } else {
@@ -207,6 +210,9 @@ where
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
+                        // setting to sane defaults
+                        .ttl(None)
+                        .republication_interval(None)
                         .build()
                         .unwrap()
                 };
@@ -744,7 +750,7 @@ impl<
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -793,7 +799,7 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 
