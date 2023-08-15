@@ -211,8 +211,6 @@ where
 pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + 'static
 {
-    /// Data used to determine the weight (voting power) of participants.
-    type StakeTable: Send + Sync;
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
@@ -220,13 +218,6 @@ pub trait Membership<TYPES: NodeType>:
     /// create an election
     /// TODO may want to move this to a testableelection trait
     fn create_election(entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>, keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
-
-    /// Returns the table from the current committed state
-    fn get_stake_table(
-        &self,
-        view_number: TYPES::Time,
-        state: &TYPES::StateType,
-    ) -> Self::StakeTable;
 
     /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (

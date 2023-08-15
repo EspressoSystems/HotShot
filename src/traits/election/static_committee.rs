@@ -98,17 +98,7 @@ where
         ElectionConfigType = StaticElectionConfig,
     >,
 {
-    /// Just use the vector of public keys for the stake table
-    type StakeTable = Vec<PUBKEY>;
 
-    /// Clone the static table
-    fn get_stake_table(
-        &self,
-        _view_number: TYPES::Time,
-        _state: &TYPES::StateType,
-    ) -> Self::StakeTable {
-        self.nodes.clone()
-    }
     /// Clone the public key and corresponding stake table for current elected committee
     fn get_committee_qc_stake_table (
         &self,
@@ -195,5 +185,5 @@ where
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.committee_nodes.clone().into_iter().collect()
     }
-    
+
 }
