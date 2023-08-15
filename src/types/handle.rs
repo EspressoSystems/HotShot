@@ -28,8 +28,11 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use std::sync::Arc;
-use tracing::error;
+
+use std::sync::{
+    Arc,
+};
+use tracing::{error};
 
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;

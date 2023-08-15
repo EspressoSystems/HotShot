@@ -12,7 +12,6 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
-use hotshot_types::data::QuorumProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
@@ -22,8 +21,8 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::state::State;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
-    data::{DAProposal, SequencingLeaf},
+    certificate::{DACertificate, QuorumCertificate, AssembledSignature},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -43,6 +42,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use bitvec::prelude::*;
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
@@ -102,16 +102,22 @@ where
         &self,
         cur_view: TYPES::Time,
         threshold: NonZeroU64,
+        total_nodes_num: usize,
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
+            sig_lists: Vec::new(),
+            signers: bitvec![0; total_nodes_num],
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -161,9 +167,8 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    YesNoSignature::Yes(map) => {
-                                        info!("Number of DA signatures in this QC: {}", map.len());
-                                    }
+                                    AssembledSignature::Yes(_signature) => {}
+                                    AssembledSignature::DA(_signature) => {}
                                     _ => unimplemented!(),
                                 };
                                 return Some(qc);
@@ -301,6 +306,7 @@ where
             .wait_for_votes(
                 self.cur_view,
                 self.committee_exchange.success_threshold(),
+                self.committee_exchange.total_nodes(),
                 block_commitment,
             )
             .await
@@ -392,7 +398,6 @@ where
             dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
         };
-
         let message =
             SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
@@ -469,14 +474,18 @@ where
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
-
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
+            sig_lists: Vec::new(),
+            signers: bitvec![0; self.quorum_exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -511,10 +520,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            YesNoSignature::Yes(map) => info!(
-                                                "Number of qurorum signatures in this QC: {}",
-                                                map.len()
-                                            ),
+                                            AssembledSignature::Yes(_signature) => {}
                                             _ => unimplemented!(),
                                         };
                                         return qc;

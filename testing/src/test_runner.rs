@@ -3,6 +3,7 @@ use super::overall_safety_task::RoundCtx;
 use super::{completion_task::CompletionTask, txn_task::TxnTask};
 use crate::test_launcher::TestLauncher;
 use hotshot::types::SystemContextHandle;
+
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
@@ -23,7 +24,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 #[allow(deprecated)]
-use rand::SeedableRng;
 use std::sync::Arc;
 use tracing::info;
 
@@ -193,6 +193,7 @@ where
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
     {
+
         let mut results = vec![];
         for _i in 0..count {
             tracing::error!("running node{}", _i);
@@ -249,7 +250,7 @@ where
         view_sync_network: I::ViewSyncCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, <TYPES::SignatureKey as SignatureKey>::StakeTableEntry, TYPES::ElectionConfigType>,
     ) -> u64
     where
         SystemContext<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
@@ -270,11 +271,14 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = I::generate_test_key(node_id);
-        let public_key = TYPES::SignatureKey::from_private(&private_key);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        // Generate key pair for certificate aggregation
+        let private_key = TYPES::SignatureKey::generated_from_seed_indexed(
             [0u8; 32],
-        ));
+            node_id,
+        ).1;
+        let public_key = TYPES::SignatureKey::from_private(&private_key);
+        let entry =  public_key.get_stake_table_entry(1u64);
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -283,6 +287,7 @@ where
         });
         let committee_election_config = I::committee_election_config_generator();
         let exchanges = I::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,
@@ -290,8 +295,8 @@ where
             ),
             (quorum_network, view_sync_network, committee_network),
             public_key.clone(),
+            entry.clone(),
             private_key.clone(),
-            ek.clone(),
         );
         let handle = SystemContext::init(
             public_key,

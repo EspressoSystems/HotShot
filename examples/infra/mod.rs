@@ -40,7 +40,7 @@ use hotshot_types::{
 use hotshot_types::{message::Message, traits::election::QuorumExchange};
 use libp2p::{
     identity::{
-        ed25519::{Keypair as EdKeypair, SecretKey},
+        bn254::{Keypair as EdKeypair, SecretKey},
         Keypair,
     },
     multiaddr::{self, Protocol},
@@ -65,6 +65,7 @@ use std::{
 };
 #[allow(deprecated)]
 use tracing::error;
+use rand_chacha::ChaCha20Rng;
 
 // ORCHESTRATOR
 
@@ -106,6 +107,12 @@ pub fn load_config_from_file<TYPES: NodeType>(
             .0
         })
         .collect();
+
+    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
+    .map(|node_id| {
+        config.config.known_nodes[node_id].get_stake_table_entry(1u64)
+    })
+    .collect();
 
     config
 }
@@ -240,12 +247,12 @@ pub trait Run<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
-        let known_nodes = config.config.known_nodes.clone();
+        let entry = pk.get_stake_table_entry(1u64);
+        let known_nodes = config.config.known_nodes.clone(); // PUBKEY
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone(); // PUBKEY + StakeValue
 
         let network = self.get_network();
 
@@ -264,14 +271,15 @@ pub trait Run<
         });
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (election_config.clone(), ()),
             //Kaley todo: add view sync network
             #[allow(deprecated)]
             (network.clone(), nll_todo(), ()),
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         let hotshot = SystemContext::init(
             pk,

@@ -111,6 +111,7 @@ where
                 }
                 match msg {
                     ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
+
                         if view_leader_key != sender {
                             continue;
                         }

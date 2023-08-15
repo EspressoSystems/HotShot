@@ -1,12 +1,15 @@
 //! Minimal compatibility over public key signatures
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use espresso_systems_common::hotshot::tag;
+use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
-
+use bitvec::prelude::*;
 #[cfg(feature = "demo")]
-pub mod ed25519;
+pub mod bn254;
+use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
+use jf_primitives::signatures::SignatureScheme;
 
 /// Type saftey wrapper for byte encoded keys
 #[tagged(tag::ENCODED_PUB_KEY)]
@@ -21,13 +24,19 @@ pub mod ed25519;
     PartialOrd,
     Ord,
 )]
-pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
+pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] 
+    pub Vec<u8>
+    // pub <BLSOverBN254CurveSignatureScheme as SignatureScheme>::VerificationKey
+);
 
 /// Type saftey wrapper for byte encoded signature
 #[derive(
     Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
 )]
-pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
+pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] 
+    pub Vec<u8>
+    // pub <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature
+);
 
 impl AsRef<[u8]> for EncodedSignature {
     fn as_ref(&self) -> &[u8] {
@@ -52,6 +61,13 @@ pub trait SignatureKey:
 {
     /// The private key type for this signature algorithm
     type PrivateKey: Send + Sync + Sized + Clone;
+    /// The type of the entry that contain both public key and stake value
+    type StakeTableEntry: Send + Sync + Sized + Clone + Debug + Hash + Eq + Serialize + for<'a> Deserialize<'a>;
+    /// The type of the quorum certificate parameters used for assembled signature
+    type QCParams: Send + Sync + Sized + Clone + Debug + Hash;
+    /// The type of the assembled qc: assembled signature + BitVec
+    type QCType: Send + Sync + Sized + Clone + Debug + Hash + PartialEq + Eq + Serialize + for<'a> Deserialize<'a>;
+    
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature
@@ -67,12 +83,20 @@ pub trait SignatureKey:
 
     /// Generate a new key pair
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
+
+    /// get the stake table entry from the public key and stake value
+    fn get_stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry;
+
+    /// get the public parameter for the assembled signature checking
+    fn get_public_parameter(stake_entries: Vec<Self::StakeTableEntry>, threshold: U256) -> Self::QCParams;
+
+    /// check the quorum certificate for the assembled signature
+    fn check(real_qc_pp: &Self::QCParams, data: &[u8], qc:  &Self::QCType) -> bool;
+
+    /// get the assembled signature and the BitVec separately from the assembled signature
+    fn get_sig_proof(signature: &Self::QCType) -> (<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature, BitVec);
+
+    /// assemble the signature from the partial signature and the indication of signers in BitVec
+    fn assemble(real_qc_pp: &Self::QCParams, signers: &BitSlice, sigs: &[<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature]) -> Self::QCType;
 }
 
-/// TODO we don't need this if we have `generated_from_seed_indexed`
-/// should use one or the other
-/// Trait for generation of keys during testing
-pub trait TestableSignatureKey: SignatureKey {
-    /// Generates a private key from the given integer seed
-    fn generate_test_key(id: u64) -> Self::PrivateKey;
-}

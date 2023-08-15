@@ -226,16 +226,18 @@ pub trait RunDA<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed,
-        ));
         let known_nodes = config.config.known_nodes.clone();
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+        let entry = pk.get_stake_table_entry(1u64);
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
         let view_sync_network = self.get_view_sync_network();
+
+        
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
@@ -253,6 +255,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
@@ -261,8 +264,8 @@ pub trait RunDA<
                 da_network.clone(),
             ),
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
 
         SystemContext::init(

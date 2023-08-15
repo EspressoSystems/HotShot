@@ -27,7 +27,7 @@ use hotshot_types::{
             TransmitType,
         },
         node_implementation::NodeType,
-        signature_key::{SignatureKey, TestableSignatureKey},
+        signature_key::SignatureKey,
     },
     vote::VoteType,
 };
@@ -123,7 +123,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
@@ -151,7 +150,10 @@ where
         let mut da_keys = BTreeSet::new();
 
         for i in 0u64..(expected_node_count as u64) {
-            let privkey = TYPES::SignatureKey::generate_test_key(i);
+            let privkey = TYPES::SignatureKey::generated_from_seed_indexed(
+                [0u8; 32],
+                i,
+            ).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             if i < da_committee_size as u64 {
                 da_keys.insert(pubkey.clone());
@@ -171,7 +173,10 @@ where
                 let addr =
                     // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
                     Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}{}", 5000 + node_id, network_id)).unwrap();
-                let privkey = TYPES::SignatureKey::generate_test_key(node_id);
+                let privkey = TYPES::SignatureKey::generated_from_seed_indexed(
+                    [0u8; 32],
+                    node_id,
+                ).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
                 let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
@@ -749,7 +754,6 @@ impl<
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
@@ -878,8 +882,6 @@ impl<
         MEMBERSHIP,
         Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     > for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network(
     ) -> Box<dyn Fn(Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self + 'static>

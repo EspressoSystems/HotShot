@@ -14,7 +14,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 
 use hotshot_types::{
-    certificate::{QuorumCertificate, YesNoSignature},
+    certificate::{QuorumCertificate},
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
@@ -22,12 +22,12 @@ use hotshot_types::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
+        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
 };
-
+use hotshot_types::certificate::AssembledSignature;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -526,7 +526,7 @@ impl NodeType for VDemoTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = VDemoBlock;
-    type SignatureKey = Ed25519Pub;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -579,7 +579,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
         // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        signatures: AssembledSignature::<TYPES>::Genesis(),
         is_genesis: rng.gen(),
     }
 }

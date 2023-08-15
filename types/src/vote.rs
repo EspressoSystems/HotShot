@@ -4,20 +4,26 @@
 //! can send, and vote accumulator that converts votes into certificates.
 
 use crate::{
-    certificate::{QuorumCertificate, YesNoSignature},
+    certificate::{QuorumCertificate, AssembledSignature},
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey,},
     },
 };
 use commit::{Commitment, Committable};
 use either::Either;
+use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use bincode::Options;
+use hotshot_utils::bincode::bincode_opts;
+use bitvec::prelude::*;
+use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
+use jf_primitives::signatures::SignatureScheme;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
@@ -33,6 +39,7 @@ pub trait VoteType<TYPES: NodeType>:
 pub struct DAVote<TYPES: NodeType> {
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
+    // signature.2 = entry including public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The block commitment being voted on.
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -54,6 +61,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
+    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The leaf commitment being voted on.
     pub leaf_commitment: Commitment<LEAF>,
@@ -75,6 +83,7 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
+    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The view this vote was cast for
     pub current_view: TYPES::Time,
@@ -264,25 +273,35 @@ type VoteMap<C, TOKEN> = HashMap<
 pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
     pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    /// Map of all da signatures accumlated so far
+    pub da_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all yes signatures accumlated so far
     pub yes_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all no signatures accumlated so far
     pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
     pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    /// Map of all view sync commit votes accumulated thus far
+    pub viewsync_commit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    /// Map of all view sync finalize votes accumulated thus far
+    pub viewsync_finalize_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     pub failure_threshold: NonZeroU64,
+    /// A list of valid signatures for certificate aggregation
+    pub sig_lists: Vec<<BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature>,
+    /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
+    pub signers: BitVec,
 }
 
-impl<TOKEN, LEAF: Committable + Serialize + Clone>
+impl<TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType>
     Accumulator<
         (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,  usize, VoteData<LEAF>, TOKEN)),
         ),
-        YesNoSignature<LEAF, TOKEN>,
+        AssembledSignature<TYPES>,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -291,13 +310,24 @@ where
         mut self,
         val: (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>, usize, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, YesNoSignature<LEAF, TOKEN>> {
-        let (commitment, (key, (sig, vote_data, token))) = val;
+    ) -> Either<Self, AssembledSignature<TYPES>> {
+        let (commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
+
+        // Desereialize the sig so that it can be assembeld into a QC
+        let origianl_sig: <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature 
+        = bincode_opts().deserialize(&sig.clone().0).expect("Deserialization on the signature shouldn't be able to fail.");
+
+        
 
         let (total_stake_casted, total_vote_map) = self
             .total_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (da_stake_casted, da_vote_map) = self
+            .da_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
 
@@ -315,6 +345,18 @@ where
             .viewsync_precommit_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_commit_stake_casted, viewsync_commit_vote_map) = self
+            .viewsync_commit_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (viewsync_finalize_stake_casted, viewsync_finalize_vote_map) = self
+            .viewsync_finalize_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
@@ -325,59 +367,90 @@ where
             return Either::Left(self);
         }
 
+        // update the active_keys and sig_lists
+        self.signers.set(node_id, true);
+        self.sig_lists.push(origianl_sig.clone());
+
         *total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
-            VoteData::DA(_)
-            | VoteData::Yes(_)
-            | VoteData::ViewSyncCommit(_)
-            | VoteData::ViewSyncFinalize(_)
-            | VoteData::Timeout(_) => {
+            VoteData::DA(_) => {
+                *da_stake_casted += u64::from(token.vote_count());
+                da_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::Yes(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
+                yes_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
             VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data.clone(), token));
+                no_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
             }
             VoteData::ViewSyncPreCommit(_) => {
                 *viewsync_precommit_stake_casted += u64::from(token.vote_count());
-                viewsync_precommit_vote_map.insert(key, (sig, vote_data.clone(), token));
+                viewsync_precommit_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::ViewSyncCommit(_) => {
+                *viewsync_commit_stake_casted += u64::from(token.vote_count());
+                viewsync_commit_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::ViewSyncFinalize(_) => {
+                *viewsync_finalize_stake_casted += u64::from(token.vote_count());
+                viewsync_finalize_vote_map.insert(key, (sig.clone(), vote_data.clone(), token));
+            }
+            VoteData::Timeout(_) => {
+                unimplemented!()
             }
         }
 
         // This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
         if *total_stake_casted >= u64::from(self.success_threshold) {
+
+            // Do assemble for QC here
+            let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                entries.clone(),
+                U256::from(self.success_threshold.get()),
+            );
+
+            let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
+                &real_qc_pp,
+                self.signers.as_bitslice(),
+                &self.sig_lists[..],
+            );
+
             if *yes_stake_casted >= u64::from(self.success_threshold) {
-                let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
-                match vote_data {
-                    VoteData::DA(_) | VoteData::Yes(_) => {
-                        return Either::Right(YesNoSignature::Yes(valid_signatures))
-                    }
-                    VoteData::ViewSyncPreCommit(_) => unimplemented!(),
-                    VoteData::ViewSyncCommit(_) => {
-                        return Either::Right(YesNoSignature::ViewSyncCommit(valid_signatures))
-                    }
-                    VoteData::ViewSyncFinalize(_) => {
-                        return Either::Right(YesNoSignature::ViewSyncFinalize(valid_signatures))
-                    }
-                    _ => unimplemented!(),
-                }
+                self.yes_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::Yes(real_qc_sig));
             } else if *no_stake_casted >= u64::from(self.failure_threshold) {
-                let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(YesNoSignature::No(valid_signatures));
+                self.total_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::No(real_qc_sig));
+            } else if *da_stake_casted >= u64::from(self.success_threshold) {
+                self.da_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::DA(real_qc_sig));
+            } else if *viewsync_commit_stake_casted >= u64::from(self.success_threshold) {
+                self.viewsync_commit_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::ViewSyncCommit(real_qc_sig));
+            } else if *viewsync_finalize_stake_casted >= u64::from(self.success_threshold) {
+                self.viewsync_finalize_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(AssembledSignature::ViewSyncFinalize(real_qc_sig));
             }
         }
-
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
-            let valid_signatures = self
-                .viewsync_precommit_vote_outcomes
-                .remove(&commitment)
-                .unwrap()
-                .1;
 
-            return Either::Right(YesNoSignature::ViewSyncPreCommit(valid_signatures));
+            let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                entries.clone(),
+                U256::from(self.success_threshold.get()),
+            );
+
+            let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
+                &real_qc_pp,
+                self.signers.as_bitslice(),
+                &self.sig_lists[..],
+            );
+
+            self.viewsync_precommit_vote_outcomes.remove(&commitment).unwrap().1;
+            return Either::Right(AssembledSignature::ViewSyncPreCommit(real_qc_sig));
         }
         Either::Left(self)
     }

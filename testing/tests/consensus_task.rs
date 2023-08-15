@@ -5,12 +5,10 @@ use async_compatibility_layer::art::async_spawn;
 use hotshot::demos::sdemo::SDemoBlock;
 use hotshot::demos::sdemo::SDemoState;
 use hotshot::demos::sdemo::SDemoTransaction;
-use hotshot::rand::SeedableRng;
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::election::static_committee::StaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::traits::election::static_committee::StaticVoteToken;
-use hotshot::traits::election::vrf::JfPubKey;
 use hotshot::traits::implementations::MemoryCommChannel;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::traits::Block;
@@ -55,7 +53,7 @@ use hotshot_types::traits::{
 use hotshot_types::vote::DAVote;
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
-use jf_primitives::signatures::BLSSignatureScheme;
+use hotshot_types::traits::signature_key::bn254::BN254Pub;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
@@ -81,7 +79,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -173,7 +171,7 @@ pub async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme>,
+        SignatureKey = BN254Pub, 
         Time = ViewNumber,
     >,
     I: TestableNodeImplementation<
@@ -222,7 +220,7 @@ where
     GeneralStaticCommittee<
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSSignatureScheme>,
+        BN254Pub,
     >: Membership<TYPES>,
 {
     let builder = TestMetadata::default_multiple_rounds();
@@ -241,10 +239,11 @@ where
         HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
 
     let known_nodes = config.known_nodes.clone();
-    let private_key = I::generate_test_key(node_id);
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+     // Get KeyPair for certificate Aggregation
+    let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = TYPES::SignatureKey::from_private(&private_key);
-    let ek =
-        jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
+    let entry = public_key.get_stake_table_entry(1u64);
     let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -259,12 +258,13 @@ where
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
     });
     let exchanges = I::Exchanges::create(
+        known_nodes_with_stake.clone(),
         known_nodes.clone(),
         (quorum_election_config, committee_election_config),
         (quorum_network, view_sync_network, committee_network),
         public_key.clone(),
+        entry.clone(),
         private_key.clone(),
-        ek.clone(),
     );
     let handle = SystemContext::init(
         public_key,

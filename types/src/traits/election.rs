@@ -5,9 +5,9 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::ViewSyncCertificate;
+use crate::certificate::{ViewSyncCertificate, AssembledSignature};
 use crate::certificate::VoteMetaData;
-use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
+use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 
@@ -20,7 +20,7 @@ use crate::traits::{
     consensus_type::sequencing_consensus::SequencingConsensus, node_implementation::ExchangesType,
     state::ConsensusTime,
 };
-use crate::vote::ViewSyncData;
+use crate::vote::{ViewSyncData};
 use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
@@ -30,16 +30,17 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::aead::KeyPair;
 use serde::Deserialize;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::Serialize;
 use snafu::Snafu;
+use core::panic;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
+use ethereum_types::U256;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -87,6 +88,47 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
+/// Make different types of VoteData committable
+impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMMITTABLE> {
+    fn commit(&self) -> Commitment<Self> {
+        match self {
+            VoteData::DA(block_commitment) => 
+                commit::RawCommitmentBuilder::new("DA Block Commit")
+                    .field("block_commitment", block_commitment.clone())
+                    .finalize(),
+            VoteData::Yes(leaf_commitment) => 
+                commit::RawCommitmentBuilder::new("Yes Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::No(leaf_commitment) =>
+                commit::RawCommitmentBuilder::new("No Vote Commit")
+                    .field("leaf_commitment", leaf_commitment.clone())
+                    .finalize(),
+            VoteData::Timeout(view_number_commitment) =>
+                commit::RawCommitmentBuilder::new("Timeout View Number Commit")
+                    .field("view_number_commitment", view_number_commitment.clone())
+                    .finalize(),
+            VoteData::ViewSyncPreCommit(commitment) =>
+                commit::RawCommitmentBuilder::new("ViewSyncPreCommit")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
+            VoteData::ViewSyncCommit(commitment) =>
+                commit::RawCommitmentBuilder::new("ViewSyncCommit")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
+            VoteData::ViewSyncFinalize(commitment) =>
+                commit::RawCommitmentBuilder::new("ViewSyncFinalize")
+                    .field("commitment", commitment.clone())
+                    .finalize(),
+        }
+    }
+
+    fn tag() -> String {
+            ("VOTE_DATA_COMMIT").to_string()
+    }
+}
+
+
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
     /// Convert vote data into bytes.
@@ -121,12 +163,12 @@ pub trait VoteToken:
 
 /// election config
 pub trait ElectionConfig:
-    Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
+    Default + Clone + serde::Serialize + for<'de> serde::Deserialize<'de> + Sync + Send + core::fmt::Debug
 {
 }
 
 /// A certificate of some property which has been signed by a quroum of nodes.
-pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, COMMITTABLE>
+pub trait SignedCertificate<TYPES: NodeType, TIME, TOKEN, COMMITTABLE>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     COMMITTABLE: Committable + Serialize + Clone,
@@ -135,7 +177,7 @@ where
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: YesNoSignature<COMMITTABLE, TOKEN>,
+        signatures: AssembledSignature<TYPES>,
         commit: Commitment<COMMITTABLE>,
         relay: Option<u64>,
     ) -> Self;
@@ -144,7 +186,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<COMMITTABLE, TOKEN>;
+    fn signatures(&self) -> AssembledSignature<TYPES>;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -165,28 +207,25 @@ where
 pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + 'static
 {
-    /// Data used to determine the weight (voting power) of participants.
-    type StakeTable: Send + Sync;
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
-    fn create_election(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
+    fn create_election(entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>, keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
 
-    /// Returns the table from the current committed state
-    fn get_stake_table(
+    /// Clone the public key and corresponding stake table for current elected committee
+    fn get_committee_qc_stake_table (
         &self,
-        view_number: TYPES::Time,
-        state: &TYPES::StateType,
-    ) -> Self::StakeTable;
+    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
     /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+
 
     /// Attempts to generate a vote token for self
     ///
@@ -205,10 +244,12 @@ pub trait Membership<TYPES: NodeType>:
     /// TODO tbd
     fn validate_vote_token(
         &self,
-        view_number: TYPES::Time,
         pub_key: TYPES::SignatureKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
+
+    /// Returns the number of total nodes in the committee
+    fn total_nodes(&self) -> usize;
 
     /// Returns the threshold for a specific `Membership` implementation
     fn success_threshold(&self) -> NonZeroU64;
@@ -228,7 +269,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// A vote on a [`Proposal`](Self::Proposal).
     type Vote: VoteType<TYPES>;
     /// A [`SignedCertificate`] attesting to a decision taken by the committee.
-    type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
+    type Certificate: SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
         + Hash
         + Eq;
     /// The committee eligible to make decisions.
@@ -240,12 +281,13 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// The network being used by this exchange.
@@ -271,6 +313,11 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         self.membership().failure_threshold()
     }
 
+    /// The total number of nodes in the committee.
+    fn total_nodes(&self) -> usize {
+        self.membership().total_nodes()
+    }
+
     /// Attempts to generate a vote token for participation at time `view_number`.
     ///
     /// # Errors
@@ -288,6 +335,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
+        
         if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
             return true;
         }
@@ -298,62 +346,51 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             return false;
         }
 
-        // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
         match qc.signatures() {
-            YesNoSignature::Yes(raw_signatures) => {
-                let yes_votes = raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        let res = self.is_valid_vote(
-                            signature.0,
-                            &signature.1 .0,
-                            signature.1 .1.clone(),
-                            qc.view_number(),
-                            Checked::Unchecked(signature.1 .2.clone()),
-                        );
-                        // TODO Is this logic correct?
-                        res && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
-                    })
-                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
-
-                // error!(
-                //     // "Yes votes are: {}",
-                //     yes_votes
-                // );
-                yes_votes >= u64::from(self.success_threshold())
+            AssembledSignature::DA(qc) => {
+                let real_commit = VoteData::DA(leaf_commitment).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &qc,
+                )
             }
-
-            YesNoSignature::No(raw_signatures) => {
-                let mut yes_votes = 0;
-                let mut no_votes = 0;
-                for signature in &raw_signatures {
-                    if self.is_valid_vote(
-                        signature.0,
-                        &signature.1 .0,
-                        signature.1 .1.clone(),
-                        qc.view_number(),
-                        Checked::Unchecked(signature.1 .2.clone()),
-                    ) {
-                        if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-                        {
-                            yes_votes += u64::from(signature.1 .2.vote_count());
-                        } else if matches!(signature.1 .1, VoteData::No(thing) if thing == leaf_commitment)
-                        {
-                            no_votes += u64::from(signature.1 .2.vote_count());
-                        }
-                    }
-                }
-
-                if no_votes > 0 {
-                    error!("Too many no votes");
-                }
-
-                no_votes >= u64::from(self.failure_threshold())
-                    && yes_votes + no_votes >= u64::from(self.success_threshold())
+            AssembledSignature::Yes(qc) => {
+                let real_commit = VoteData::Yes(leaf_commitment).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &qc,
+                )
             }
-            YesNoSignature::ViewSyncPreCommit(_)
-            | YesNoSignature::ViewSyncCommit(_)
-            | YesNoSignature::ViewSyncFinalize(_) => unimplemented!(),
+            AssembledSignature::No(qc) => {
+                let real_commit = VoteData::No(leaf_commitment).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &qc,
+                )
+            }
+            AssembledSignature::Genesis() => {
+                return true;
+            }
+            AssembledSignature::ViewSyncPreCommit(_)
+            | AssembledSignature::ViewSyncCommit(_)
+            | AssembledSignature::ViewSyncFinalize(_) => {
+                panic!("QC should not be ViewSync type here");
+            }
         }
     }
 
@@ -363,16 +400,15 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         data: VoteData<Self::Commitment>,
-        view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
+            is_valid_signature = key.validate(encoded_signature, &data.commit().as_ref());
             let valid_vote_token =
                 self.membership()
-                    .validate_vote_token(view_number, key, vote_token);
+                    .validate_vote_token(key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");
@@ -395,7 +431,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             &vota_meta.encoded_key,
             &vota_meta.encoded_signature,
             vota_meta.data.clone(),
-            vota_meta.view_number,
             // Ignoring deserialization errors below since we are getting rid of it soon
             Checked::Unchecked(vota_meta.vote_token.clone()),
         ) {
@@ -403,27 +438,37 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
             return Either::Left(accumulator);
         }
 
-        match accumulator.append((
-            vota_meta.commitment,
-            (
-                vota_meta.encoded_key.clone(),
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(&vota_meta.encoded_key) {
+            let stake_table_entry = key.get_stake_table_entry(1u64);
+            let append_node_id = self.membership().get_committee_qc_stake_table().iter().position(|x| *x == stake_table_entry.clone()).unwrap();
+
+            match accumulator.append((
+                vota_meta.commitment,
                 (
-                    vota_meta.encoded_signature.clone(),
-                    vota_meta.data,
-                    vota_meta.vote_token,
+                    vota_meta.encoded_key.clone(),
+                    (
+                        vota_meta.encoded_signature.clone(),
+                        self.membership().get_committee_qc_stake_table(),
+                        append_node_id,
+                        vota_meta.data,
+                        vota_meta.vote_token,
+                    ),
                 ),
-            ),
-        )) {
-            Either::Left(accumulator) => Either::Left(accumulator),
-            Either::Right(signatures) => {
-                Either::Right(Self::Certificate::from_signatures_and_commitment(
-                    vota_meta.view_number,
-                    signatures,
-                    vota_meta.commitment,
-                    vota_meta.relay,
-                ))
+            )) {
+                Either::Left(accumulator) => Either::Left(accumulator),
+                Either::Right(signatures) => {
+                    Either::Right(Self::Certificate::from_signatures_and_commitment(
+                        vota_meta.view_number,
+                        signatures,
+                        vota_meta.commitment,
+                        vota_meta.relay,
+                    ))
+                }
             }
+        } else {
+            Either::Left(accumulator)
         }
+        
     }
 
     /// Add a vote to the accumulating signature.  Return The certificate if the vote
@@ -492,11 +537,11 @@ pub struct CommitteeExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
+    /// Entry with public key and staking value for certificate aggregation
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// This participant's encryption key.
-    _encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(TYPES, MEMBERSHIP, M)>,
 }
@@ -513,7 +558,10 @@ impl<
         &self,
         block_commitment: &Commitment<TYPES::BlockType>,
     ) -> EncodedSignature {
-        let signature = TYPES::SignatureKey::sign(&self.private_key, block_commitment.as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            block_commitment.as_ref()
+        );
         signature
     }
     /// Sign a vote on DA proposal.
@@ -526,7 +574,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES::BlockType>::DA(block_commitment).as_bytes(),
+            &VoteData::<TYPES::BlockType>::DA(block_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -563,21 +611,22 @@ impl<
     type Commitment = TYPES::BlockType;
 
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(entries, keys, config);
         Self {
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -722,11 +771,11 @@ pub struct QuorumExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
+    /// Entry with public key and staking value for certificate aggregation
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// This participant's encryption key
-    _encryption_key: KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -767,7 +816,10 @@ impl<
         &self,
         leaf_commitment: &Commitment<LEAF>,
     ) -> EncodedSignature {
-        let signature = TYPES::SignatureKey::sign(&self.private_key, leaf_commitment.as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            leaf_commitment.as_ref()
+        );
         signature
     }
 
@@ -783,7 +835,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -799,7 +851,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<LEAF>::No(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -814,7 +866,7 @@ impl<
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes(),
+            &VoteData::<TYPES::Time>::Timeout(view_number.commit()).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -879,21 +931,22 @@ impl<
     type Commitment = LEAF;
 
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(entries, keys, config);
         Self {
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -1010,11 +1063,11 @@ pub struct ViewSyncExchange<
     membership: MEMBERSHIP,
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
+    /// Entry with public key and staking value for certificate aggregation in the stake table.
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
     /// This participant's private key.
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// This participant's encryption key.
-    _encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -1062,7 +1115,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncPreCommit(commitment).as_bytes(),
+            &VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1103,7 +1156,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncCommit(commitment).as_bytes(),
+            &VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1144,64 +1197,94 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncFinalize(commitment).as_bytes(),
+            &VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
     }
 
+    
     fn is_valid_view_sync_cert(&self, certificate: Self::Certificate, round: TYPES::Time) -> bool {
-        let (certificate_internal, threshold, data_commit) = match certificate {
+        // Sishan NOTE TODO: would be better to test this, looks like this func is never called.
+        let (certificate_internal, _threshold, vote_data) = match certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) => {
-                let commit = ViewSyncData::<TYPES> {
-                    relay: self
-                        .get_leader(round + certificate_internal.relay)
-                        .to_bytes(),
-                    round,
-                }
-                .commit();
-                (certificate_internal, self.failure_threshold(), commit)
+                let vote_data = 
+                    ViewSyncData::<TYPES> {
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
+                        round,
+                    };
+                (certificate_internal, self.failure_threshold(), vote_data)
             }
-            ViewSyncCertificate::Commit(certificate_internal)
-            | ViewSyncCertificate::Finalize(certificate_internal) => {
-                let commit = ViewSyncData::<TYPES> {
-                    relay: self
-                        .get_leader(round + certificate_internal.relay)
-                        .to_bytes(),
-                    round,
-                }
-                .commit();
-                (certificate_internal, self.success_threshold(), commit)
+            ViewSyncCertificate::Commit(certificate_internal) => {
+                let vote_data = 
+                    ViewSyncData::<TYPES> {
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
+                        round,
+                    };
+                (certificate_internal, self.success_threshold(), vote_data)
+            }
+            ViewSyncCertificate::Finalize(certificate_internal) => {
+                let vote_data = 
+                    ViewSyncData::<TYPES> {
+                        relay: self
+                            .get_leader(round + certificate_internal.relay)
+                            .to_bytes(),
+                        round,
+                    };
+                (certificate_internal, self.success_threshold(), vote_data)
             }
         };
-
-        let votes = match certificate_internal.signatures {
-            YesNoSignature::ViewSyncCommit(raw_signatures)
-            | YesNoSignature::ViewSyncPreCommit(raw_signatures)
-            | YesNoSignature::ViewSyncFinalize(raw_signatures) => raw_signatures
-                .iter()
-                .filter(|signature| {
-                    self.is_valid_vote(
-                        signature.0,
-                        &signature.1 .0,
-                        signature.1 .1.clone(),
-                        certificate_internal.round,
-                        Checked::Unchecked(signature.1 .2.clone()),
-                    ) && (
-                        matches!(signature.1 .1, VoteData::ViewSyncPreCommit(commit) if commit == data_commit)
-                        || matches!(signature.1 .1, VoteData::ViewSyncCommit(commit) if commit == data_commit)
-                        || matches!(signature.1 .1, VoteData::ViewSyncFinalize(commit) if commit == data_commit)
-                    )
-                })
-                .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
-            _ => unimplemented!(),
-        };
-
-        votes >= threshold.into()
+        match certificate_internal.signatures {
+            AssembledSignature::ViewSyncPreCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
+            }
+            AssembledSignature::ViewSyncCommit(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
+            }
+            AssembledSignature::ViewSyncFinalize(raw_signatures) => {
+                let real_commit = VoteData::ViewSyncFinalize(vote_data.commit()).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(), 
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(
+                    &real_qc_pp, 
+                    real_commit.as_ref(),
+                    &raw_signatures,
+                )
+            }
+            _ => true,
+        }
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        TYPES::SignatureKey::sign(&self.private_key, certificate.commit().as_ref())
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key, 
+            &certificate.commit().as_ref()
+        );
+        signature
     }
 }
 
@@ -1221,21 +1304,22 @@ impl<
     type Commitment = ViewSyncData<TYPES>;
 
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
         network: Self::Networking,
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(entries, keys, config);
         Self {
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }

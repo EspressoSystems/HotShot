@@ -118,17 +118,16 @@ mod test {
     use crate::traits::election::static_committee::StaticVoteToken;
 
     use super::*;
-    use hotshot_types::certificate::{QuorumCertificate, YesNoSignature};
+    use hotshot_types::certificate::{QuorumCertificate, AssembledSignature};
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
     use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
     use hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus;
     use hotshot_types::traits::node_implementation::NodeType;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    use hotshot_types::traits::signature_key::bn254::BN254Pub;
     use hotshot_types::traits::state::ConsensusTime;
     use hotshot_types::traits::Block;
-    use std::collections::BTreeMap;
     use std::fmt::Debug;
     use std::hash::Hash;
     use tracing::instrument;
@@ -153,8 +152,8 @@ mod test {
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
-        type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
+        type SignatureKey = BN254Pub;
+        type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;
@@ -173,7 +172,7 @@ mod test {
                 // block_commitment: dummy_block_commit,
                 is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: YesNoSignature::Yes(BTreeMap::new()),
+                signatures: AssembledSignature::Genesis(),
                 view_number,
             },
             DummyBlock::random(rng),

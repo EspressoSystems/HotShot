@@ -3,14 +3,13 @@ use hotshot::{
     traits::{
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::JfPubKey,
         },
         implementations::{
             Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
             WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
-    },
+    }, types::bn254::BN254Pub,
 };
 use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::election::ViewSyncExchange;
@@ -26,7 +25,6 @@ use hotshot_types::{
     },
     vote::DAVote,
 };
-use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -47,7 +45,7 @@ impl NodeType for SequencingTestTypes {
     type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
