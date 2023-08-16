@@ -40,8 +40,8 @@ impl TaskRunner /* <N> */ {
         }
     }
 
+    // `name` is for logging purposes only and may be duplicated or inconsistent.
     /// to support builder pattern
-    // pub fn add_task<HSTT: HotShotTaskTypes<Error = (dyn TaskErr + 'static)>>(&mut self, id: HotShotTaskId, name: String, builder: TaskBuilder<HSTT>) -> TaskRunner<N+1>{
     #[must_use]
     pub fn add_task(
         mut self,

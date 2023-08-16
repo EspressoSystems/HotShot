@@ -118,6 +118,32 @@ impl TestMetadata {
             ..TestMetadata::default()
         }
     }
+
+    /// Default setting with 20 nodes and 10 views of successful views.
+    pub fn default_more_nodes_less_success() -> TestMetadata {
+        TestMetadata {
+            total_nodes: 20,
+            start_nodes: 20,
+            num_bootstrap_nodes: 20,
+            // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+            // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+            // following issue.
+            // TODO: Update message broadcasting to avoid hanging
+            // <https://github.com/EspressoSystems/HotShot/issues/1567>
+            da_committee_size: 14,
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                TimeBasedCompletionTaskDescription {
+                    // Increase the duration to get the expected number of successful views.
+                    duration: Duration::new(40, 0),
+                },
+            ),
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views: 10,
+                ..Default::default()
+            },
+            ..TestMetadata::default()
+        }
+    }
 }
 
 impl Default for TestMetadata {
