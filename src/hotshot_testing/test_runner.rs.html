@@ -375,7 +375,7 @@
             test_event_stream.clone(),
         )
         .<span class="kw">await</span>;
-        task_runner = task_runner.add_task(id, <span class="string">&quot;Completion Task&quot;</span>.to_string(), task);
+        task_runner = task_runner.add_task(id, <span class="string">&quot;Test Completion Task&quot;</span>.to_string(), task);
 
         <span class="comment">// add spinning task
         </span><span class="kw">let </span>spinning_task_state = <span class="kw">crate</span>::spinning_task::SpinningTask {
@@ -388,7 +388,7 @@
             test_event_stream.clone(),
         )
         .<span class="kw">await</span>;
-        task_runner = task_runner.add_task(id, <span class="string">&quot;Completion Task&quot;</span>.to_string(), task);
+        task_runner = task_runner.add_task(id, <span class="string">&quot;Test Spinning Task&quot;</span>.to_string(), task);
 
         <span class="comment">// add safety task
         </span><span class="kw">let </span>overall_safety_task_state = OverallSafetyTask {
@@ -402,7 +402,7 @@
             test_event_stream.clone(),
         )
         .<span class="kw">await</span>;
-        task_runner = task_runner.add_task(id, <span class="string">&quot;Overall Safety Task&quot;</span>.to_string(), task);
+        task_runner = task_runner.add_task(id, <span class="string">&quot;Test Overall Safety Task&quot;</span>.to_string(), task);
 
         <span class="comment">// Start hotshot
         // Goes through all nodes, but really only needs to call this on the leader node of the first view

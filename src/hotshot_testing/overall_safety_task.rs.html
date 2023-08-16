@@ -541,6 +541,9 @@
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -562,7 +565,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
-    data::LeafType,
+    data::{DeltasType, LeafType},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
@@ -791,7 +794,7 @@
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>result_state = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>result_block = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>result_commitment = <span class="prelude-val">None</span>;
 
         <span class="kw">if </span>check_state {
             <span class="kw">for </span>(state, num_nodes) <span class="kw">in </span>states {
@@ -809,19 +812,22 @@
         }
 
         <span class="kw">if </span>check_block {
-            <span class="kw">for </span>(block, num_nodes) <span class="kw">in </span>blocks.clone() {
-                <span class="kw">if </span>num_nodes &gt;= threshold {
-                    result_block = <span class="prelude-val">Some</span>(block.clone());
-                    <span class="self">self</span>.success = <span class="bool-val">true</span>;
-                    <span class="self">self</span>.agreed_block = <span class="prelude-val">Some</span>(block);
+            <span class="comment">// Check if the block commitments are the same.
+            </span><span class="kw">let </span><span class="kw-2">mut </span>consistent_block = <span class="prelude-val">None</span>;
+            <span class="kw">for </span>(delta, <span class="kw">_</span>) <span class="kw">in </span>blocks.clone() {
+                <span class="kw">let </span>commitment = delta.block_commitment();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(consistent_commitment) = result_commitment {
+                    <span class="kw">if </span>commitment != consistent_commitment {
+                        <span class="self">self</span>.success = <span class="bool-val">false</span>;
+                        <span class="macro">error!</span>(<span class="string">&quot;Inconsistent blocks, blocks: {:?}&quot;</span>, blocks);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr::InconsistentBlocks);
+                    }
                 }
+                result_commitment = <span class="prelude-val">Some</span>(commitment);
+                consistent_block = <span class="prelude-val">Some</span>(delta);
             }
-
-            <span class="kw">if </span>result_block.is_none() {
-                <span class="self">self</span>.success = <span class="bool-val">false</span>;
-                <span class="macro">error!</span>(<span class="string">&quot;Inconsistent blocks, blocks: {:?}&quot;</span>, blocks);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr::InconsistentBlocks);
-            }
+            <span class="self">self</span>.success = <span class="bool-val">true</span>;
+            <span class="self">self</span>.agreed_block = consistent_block;
         }
         <span class="prelude-val">Ok</span>(())
     }

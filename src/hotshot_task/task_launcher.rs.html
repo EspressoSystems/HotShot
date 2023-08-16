@@ -107,8 +107,8 @@
         }
     }
 
-    <span class="doccomment">/// to support builder pattern
-    </span><span class="comment">// pub fn add_task&lt;HSTT: HotShotTaskTypes&lt;Error = (dyn TaskErr + &#39;static)&gt;&gt;(&amp;mut self, id: HotShotTaskId, name: String, builder: TaskBuilder&lt;HSTT&gt;) -&gt; TaskRunner&lt;N+1&gt;{
+    <span class="comment">// `name` is for logging purposes only and may be duplicated or inconsistent.
+    </span><span class="doccomment">/// to support builder pattern
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>add_task(
         <span class="kw-2">mut </span><span class="self">self</span>,
