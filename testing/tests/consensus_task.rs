@@ -35,7 +35,6 @@ use hotshot_testing::node_types::SequencingTestTypes;
 use hotshot_testing::node_types::{
     StaticMembership, StaticMemoryDAComm, StaticMemoryQuorumComm, StaticMemoryViewSyncComm,
 };
-use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::DAProposal;
@@ -48,6 +47,7 @@ use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConse
 use hotshot_types::traits::election::CommitteeExchange;
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::QuorumExchange;
+use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::metrics::NoMetrics;
 use hotshot_types::traits::network::CommunicationChannel;
@@ -359,7 +359,7 @@ async fn test_consensus_task() {
     let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
 
     let mut input = Vec::new();
-    let mut output = HashSet::new();
+    let mut output = HashMap::new();
 
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
@@ -379,9 +379,7 @@ async fn test_consensus_task() {
                 };
     let parent_leaf = leaf.clone();
     // every event input is seen on the event stream in the output.
-    for event in &input {
-        output.insert(event.clone());
-    }
+
     let block_commitment = <SequencingTestTypes as NodeType>::BlockType::new().commit();
     let leaf = SequencingLeaf {
         view_number: ViewNumber::new(1),
@@ -409,9 +407,13 @@ async fn test_consensus_task() {
         data: proposal,
         signature,
     };
-    output.insert(SequencingHotShotEvent::QuorumProposalSend(message, api.public_key().clone()));
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
+    output.insert(
+        SequencingHotShotEvent::QuorumProposalSend(message, api.public_key().clone()),
+        1,
+    );
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
+    output.insert(SequencingHotShotEvent::Shutdown, 1);
 
     let build_fn =
         |task_runner, event_stream| build_consensus_task(task_runner, event_stream, handle);

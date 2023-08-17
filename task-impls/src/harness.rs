@@ -13,12 +13,12 @@ use hotshot_task::{
 use futures::future::BoxFuture;
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::sync::Arc;
 use tracing::error;
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
+    expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
 }
 
 pub struct EventBundle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -48,7 +48,7 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
 
 pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
-    expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
+    expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
     build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
 ) where
     Fut: Future<Output = TaskRunner>,
@@ -93,10 +93,15 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     TestHarnessState<TYPES, I>,
 ) {
     error!("got event: {:?}", event);
-    if !state.expected_output.contains(&event) {
+    if !state.expected_output.contains_key(&event) {
         panic!("Got and unexpected event: {:?}", event);
     }
-    state.expected_output.remove(&event);
+    let mut num_expected = state.expected_output.get_mut(&event).unwrap();
+    if *num_expected == 1 {
+        state.expected_output.remove(&event);
+    } else {
+        *num_expected = *num_expected - 1;
+    }
 
     if state.expected_output.is_empty() {
         return (Some(HotShotTaskCompleted::ShutDown), state);
