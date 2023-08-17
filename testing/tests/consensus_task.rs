@@ -11,7 +11,7 @@
 // use hotshot::traits::election::static_committee::StaticElectionConfig;
 // use hotshot::traits::election::static_committee::StaticVoteToken;
 // use hotshot::traits::election::vrf::JfPubKey;
-// use hotshot::traits::implementations::MemoryCommChannel;
+// use hotshot::traits::implementations::MemoryCommChannefl;
 // use hotshot::traits::implementations::MemoryStorage;
 // use hotshot::traits::Block;
 // use hotshot::types::SignatureKey;

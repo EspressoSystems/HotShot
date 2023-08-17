@@ -74,9 +74,10 @@ pub struct SequencingWebImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticFallbackImpl;
 
-type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+pub type StaticMembership =
+    StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
-type StaticMemoryDAComm = MemoryCommChannel<
+pub type StaticMemoryDAComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     DAProposal<SequencingTestTypes>,
@@ -103,7 +104,7 @@ type StaticWebDAComm = WebCommChannel<
 type StaticFallbackComm =
     WebServerWithFallbackCommChannel<SequencingTestTypes, StaticFallbackImpl, StaticMembership>;
 
-type StaticMemoryQuorumComm = MemoryCommChannel<
+pub type StaticMemoryQuorumComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
@@ -127,7 +128,7 @@ type StaticWebQuorumComm = WebCommChannel<
     StaticMembership,
 >;
 
-type StaticMemoryViewSyncComm = MemoryCommChannel<
+pub type StaticMemoryViewSyncComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     ViewSyncCertificate<SequencingTestTypes>,
