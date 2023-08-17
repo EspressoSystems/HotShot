@@ -529,6 +529,7 @@ where
                     .await;
             }
 
+            error!("publishing view change {:?}", new_view);
             self.event_stream
                 .publish(SequencingHotShotEvent::ViewChange(new_view))
                 .await;
@@ -1195,7 +1196,7 @@ where
                     signature,
                 };
                 // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                debug!("Sending proposal for view {:?}", message.data.clone());
+                error!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(

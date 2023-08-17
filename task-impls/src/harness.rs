@@ -16,7 +16,7 @@ use snafu::Snafu;
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
-
+use tracing::error;
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashSet<SequencingHotShotEvent<TYPES, I>>,
 }
@@ -92,6 +92,7 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     std::option::Option<HotShotTaskCompleted>,
     TestHarnessState<TYPES, I>,
 ) {
+    error!("got event: {:?}", event);
     if !state.expected_output.contains(&event) {
         panic!("Got and unexpected event: {:?}", event);
     }
