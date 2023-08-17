@@ -1100,15 +1100,23 @@ where
                     })
                     .await;
                 if !self.update_view(new_view).await {
+                    error!("view not updated");
                     return;
                 }
 
-                debug!("View Change event for view {}", *new_view);
+                error!("View Change event for view {}", *new_view);
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
                 // So we don't create a QC on the first view unless we are the leader
+                // for i in 0..10 {
+                //     let view = self.cur_view + i;
+                //     if self.quorum_exchange.is_leader(view) {
+                //         error!("leader for view {:?}", view);
+                //     }
+                // }
                 if !self.quorum_exchange.is_leader(self.cur_view) {
+                    error!("not leader");
                     return;
                 }
 

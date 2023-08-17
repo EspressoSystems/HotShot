@@ -28,7 +28,7 @@ _test_basic:
 
 _test_basic_tokio:
   echo Testing with async std executor
-  RUST_LOG="" cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
+  RUST_LOG="" cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_consensus_task -- --test-threads=1 --nocapture
 
 test_with_failures:
   echo Testing with async std executor

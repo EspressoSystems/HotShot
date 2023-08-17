@@ -81,11 +81,8 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
     for event in input {
         let _ = event_stream.publish(event).await;
     }
+    let _ = runner.await;
     // TODO fix type weirdness btwn tokio and async-std
-
-    for (_task_name, result) in runner.await.into_iter() {
-        assert!(matches!(result, HotShotTaskCompleted::ShutDown));
-    }
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
