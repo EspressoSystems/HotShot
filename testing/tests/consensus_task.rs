@@ -5,16 +5,14 @@ use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation
 use async_compatibility_layer::art::async_spawn;
 use commit::Committable;
 use either::Right;
-use hotshot::demos::sdemo::SDemoBlock;
-use hotshot::demos::sdemo::SDemoState;
-use hotshot::demos::sdemo::SDemoTransaction;
+
 use hotshot::rand::SeedableRng;
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
-use hotshot::traits::election::static_committee::StaticCommittee;
+
 use hotshot::traits::election::static_committee::StaticElectionConfig;
-use hotshot::traits::election::static_committee::StaticVoteToken;
+
 use hotshot::traits::election::vrf::JfPubKey;
-use hotshot::traits::implementations::MemoryCommChannel;
+
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::traits::Block;
 use hotshot::types::SignatureKey;
@@ -44,41 +42,35 @@ use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
-use hotshot_types::traits::election::CommitteeExchange;
+
 use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::QuorumExchange;
+
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::metrics::NoMetrics;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::ChannelMaps;
+
 use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::node_implementation::QuorumCommChannel;
+
 use hotshot_types::traits::node_implementation::QuorumEx;
-use hotshot_types::traits::node_implementation::SequencingExchanges;
+
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::SequencingQuorumEx;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
 use hotshot_types::traits::{
-    election::ConsensusExchange,
-    node_implementation::{NodeImplementation, NodeType},
-    state::ConsensusTime,
+    election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
 };
-use hotshot_types::vote::DAVote;
-use hotshot_types::vote::QuorumVote;
+
 use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
 use jf_primitives::signatures::BLSSignatureScheme;
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
-use serde::{Deserialize, Serialize};
+
 use std::collections::HashMap;
-use std::collections::HashSet;
+
 use std::marker::PhantomData;
 use std::sync::Arc;
 // TODO (Keyao) `pub` was added to avoid the `function never used` warning, but we can remove it
 // once we have unit tests using this function.
-pub async fn build_consensus_task<
+async fn build_consensus_task<
     TYPES: NodeType<
         ConsensusType = SequencingConsensus,
         ElectionConfigType = StaticElectionConfig,
@@ -314,7 +306,7 @@ where
         private_key.clone(),
         ek.clone(),
     );
-    let handle = SystemContext::init(
+    SystemContext::init(
         public_key,
         private_key,
         node_id,
@@ -325,9 +317,7 @@ where
         NoMetrics::boxed(),
     )
     .await
-    .expect("Could not init hotshot");
-
-    handle
+    .expect("Could not init hotshot")
 }
 
 #[cfg(test)]
@@ -337,7 +327,6 @@ where
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_task::event_stream::{self, EventStream};
     use hotshot_task_impls::harness::run_harness;
     use hotshot_types::message::Proposal;
 

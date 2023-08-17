@@ -10,10 +10,9 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 
-use futures::future::BoxFuture;
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use tracing::error;
@@ -82,7 +81,6 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
         let _ = event_stream.publish(event).await;
     }
     let _ = runner.await;
-    // TODO fix type weirdness btwn tokio and async-std
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -96,11 +94,11 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     if !state.expected_output.contains_key(&event) {
         panic!("Got and unexpected event: {:?}", event);
     }
-    let mut num_expected = state.expected_output.get_mut(&event).unwrap();
+    let num_expected = state.expected_output.get_mut(&event).unwrap();
     if *num_expected == 1 {
         state.expected_output.remove(&event);
     } else {
-        *num_expected = *num_expected - 1;
+        *num_expected -= 1;
     }
 
     if state.expected_output.is_empty() {
