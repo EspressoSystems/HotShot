@@ -217,41 +217,6 @@ fn key_pair_for_id(
     (private_key, public_key)
 }
 
-#[cfg(test)]
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-async fn test_consensus_task() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
-
-    let handle = build_consensus_api(1).await;
-    let (private_key, public_key) = key_pair_for_id(1);
-
-    let mut input = Vec::new();
-    let mut output = HashMap::new();
-
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(SequencingHotShotEvent::Shutdown);
-
-    output.insert(
-        build_proposal_send(&handle, &private_key, &public_key).await,
-        1,
-    );
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
-    output.insert(SequencingHotShotEvent::Shutdown, 1);
-
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
-
-    run_harness(input, output, build_fn).await;
-}
-
 async fn build_vote(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
     proposal: QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
@@ -308,6 +273,41 @@ async fn build_vote(
         view,
         vote_token,
     )
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_consensus_task() {
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_consensus_api(1).await;
+    let (private_key, public_key) = key_pair_for_id(1);
+
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
+    input.push(SequencingHotShotEvent::Shutdown);
+
+    output.insert(
+        build_proposal_send(&handle, &private_key, &public_key).await,
+        1,
+    );
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
+    output.insert(SequencingHotShotEvent::Shutdown, 1);
+
+    let build_fn = |task_runner, event_stream| {
+        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
+    };
+
+    run_harness(input, output, build_fn).await;
 }
 
 #[cfg(test)]

@@ -1105,19 +1105,12 @@ where
                     return;
                 }
 
-                error!("View Change event for view {}", *new_view);
+                debug!("View Change event for view {}", *new_view);
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
                 // So we don't create a QC on the first view unless we are the leader
-                // for i in 0..10 {
-                //     let view = self.cur_view + i;
-                //     if self.quorum_exchange.is_leader(view) {
-                //         error!("leader for view {:?}", view);
-                //     }
-                // }
                 if !self.quorum_exchange.is_leader(self.cur_view) {
-                    error!("not leader");
                     return;
                 }
 
@@ -1195,8 +1188,7 @@ where
                     data: proposal,
                     signature,
                 };
-                // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
-                error!("Sending proposal for view {:?}", message.data.clone());
+                debug!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
                     .publish(SequencingHotShotEvent::QuorumProposalSend(
