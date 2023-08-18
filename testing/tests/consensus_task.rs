@@ -15,13 +15,13 @@ use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
 
-use hotshot_types::message::Proposal;
-
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
-
 use hotshot_testing::test_builder::TestMetadata;
+use hotshot_types::message::GeneralConsensusMessage;
+use hotshot_types::message::Proposal;
+use jf_primitives::signatures::BLSSignatureScheme;
 
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -41,8 +41,9 @@ use hotshot_types::traits::node_implementation::ExchangesType;
 
 use hotshot_types::traits::node_implementation::QuorumEx;
 
+use hotshot::traits::election::vrf::JfPubKey;
 use hotshot_task_impls::harness::run_harness;
-
+use hotshot_types::traits::signature_key::EncodedSignature;
 use hotshot_types::traits::{
     election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
 };
@@ -51,12 +52,13 @@ use std::collections::HashMap;
 
 use std::sync::Arc;
 
-async fn build_consensus_api() -> SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl> {
+async fn build_consensus_api(
+    node_id: u64,
+) -> SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl> {
     let builder = TestMetadata::default_multiple_rounds();
 
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
 
-    let node_id = 1;
     let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
     let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
     let committee_network =
@@ -117,17 +119,45 @@ async fn build_consensus_api() -> SystemContextHandle<SequencingTestTypes, Seque
     .expect("Could not init hotshot")
 }
 
-async fn build_proposal(
+async fn build_proposal_send(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    _block: <SequencingTestTypes as NodeType>::BlockType,
+    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+    public_key: &JfPubKey<BLSSignatureScheme>,
 ) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
+    let (proposal, signature) = build_proposal_and_signature(handle, private_key).await;
+    let message = Proposal {
+        data: proposal,
+        signature,
+    };
+    SequencingHotShotEvent::QuorumProposalSend(message, public_key.clone())
+}
+
+async fn build_proposal_recv(
+    handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
+    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+    public_key: &JfPubKey<BLSSignatureScheme>,
+) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
+    let (proposal, signature) = build_proposal_and_signature(handle, private_key).await;
+    let message = Proposal {
+        data: proposal,
+        signature,
+    };
+    SequencingHotShotEvent::QuorumProposalRecv(message, public_key.clone())
+}
+
+async fn build_proposal_and_signature(
+    handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
+    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+) -> (
+    QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    EncodedSignature,
+) {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
-
     let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
 
     let parent_view_number = &consensus.high_qc.view_number();
@@ -159,8 +189,8 @@ async fn build_proposal(
         timestamp: 0,
         proposer_id: api.public_key().to_bytes(),
     };
-    let signature = quorum_exchange
-        .sign_validating_or_commitment_proposal::<SequencingMemoryImpl>(&leaf.commit());
+    let signature =
+        <JfPubKey<BLSSignatureScheme> as SignatureKey>::sign(private_key, leaf.commit().as_ref());
     let proposal = QuorumProposal::<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>> {
         block_commitment,
         view_number: ViewNumber::new(1),
@@ -169,11 +199,22 @@ async fn build_proposal(
         proposer_id: leaf.proposer_id,
         dac: None,
     };
-    let message = Proposal {
-        data: proposal,
-        signature,
-    };
-    SequencingHotShotEvent::QuorumProposalSend(message, api.public_key().clone())
+
+    (proposal, signature)
+}
+
+fn key_pair_for_id(
+    node_id: u64,
+) -> (
+    <JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+    JfPubKey<BLSSignatureScheme>,
+) {
+    let private_key = <SequencingMemoryImpl as TestableNodeImplementation<
+        SequencingConsensus,
+        SequencingTestTypes,
+    >>::generate_test_key(node_id);
+    let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);
+    (private_key, public_key)
 }
 
 #[cfg(test)]
@@ -186,7 +227,8 @@ async fn test_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_consensus_api().await;
+    let handle = build_consensus_api(1).await;
+    let (private_key, public_key) = key_pair_for_id(1);
 
     let mut input = Vec::new();
     let mut output = HashMap::new();
@@ -196,11 +238,112 @@ async fn test_consensus_task() {
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(
-        build_proposal(&handle, <SequencingTestTypes as NodeType>::BlockType::new()).await,
+        build_proposal_send(&handle, &private_key, &public_key).await,
         1,
     );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
+    output.insert(SequencingHotShotEvent::Shutdown, 1);
+
+    let build_fn = |task_runner, event_stream| {
+        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
+    };
+
+    run_harness(input, output, build_fn).await;
+}
+
+async fn build_vote(
+    handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
+    proposal: QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    view: ViewNumber,
+) -> GeneralConsensusMessage<SequencingTestTypes, SequencingMemoryImpl> {
+    let consensus_lock = handle.get_consensus();
+    let consensus = consensus_lock.read().await;
+    let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
+        HotShotSequencingConsensusApi {
+            inner: handle.hotshot.inner.clone(),
+        };
+    let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
+    let vote_token = quorum_exchange.make_vote_token(view).unwrap().unwrap();
+
+    let justify_qc = proposal.justify_qc.clone();
+    let view = ViewNumber::new(*proposal.view_number);
+    let parent = if justify_qc.is_genesis() {
+        let Some(genesis_view) = consensus.state_map.get(&ViewNumber::new(0)) else {
+            panic!("Couldn't find genesis view in state map.");
+        };
+        let Some(leaf) = genesis_view.get_leaf_commitment() else {
+            panic!(
+                "Genesis view points to a view without a leaf"
+            );
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            panic!("Failed to find genesis leaf.");
+        };
+        leaf.clone()
+    } else {
+        consensus
+            .saved_leaves
+            .get(&justify_qc.leaf_commitment())
+            .cloned()
+            .unwrap()
+    };
+
+    let parent_commitment = parent.commit();
+
+    let leaf: SequencingLeaf<_> = SequencingLeaf {
+        view_number: view,
+        height: proposal.height,
+        justify_qc: proposal.justify_qc.clone(),
+        parent_commitment,
+        deltas: Right(proposal.block_commitment),
+        rejected: Vec::new(),
+        timestamp: 0,
+        proposer_id: quorum_exchange.get_leader(view).to_bytes(),
+    };
+
+    quorum_exchange.create_yes_message(
+        proposal.justify_qc.commit(),
+        leaf.commit(),
+        view,
+        vote_token,
+    )
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_consensus_vote() {
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_consensus_api(2).await;
+    let (private_key, public_key) = key_pair_for_id(1);
+
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    let propsal_recv = build_proposal_recv(&handle, &private_key, &public_key).await;
+
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
+    input.push(propsal_recv.clone());
+
+    input.push(SequencingHotShotEvent::Shutdown);
+
+    output.insert(propsal_recv.clone(), 1);
+    if let SequencingHotShotEvent::QuorumProposalRecv(proposal, _) = propsal_recv {
+        let proposal = proposal.data;
+        if let GeneralConsensusMessage::Vote(vote) =
+            build_vote(&handle, proposal, ViewNumber::new(1)).await
+        {
+            output.insert(SequencingHotShotEvent::QuorumVoteSend(vote), 1);
+        }
+    };
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
     let build_fn = |task_runner, event_stream| {
