@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::art::async_spawn;
@@ -43,21 +44,30 @@ use std::time::Duration;
 use tracing::{debug, error, instrument};
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
+/// Phases of view sync
 pub enum ViewSyncPhase {
+    /// No phase; before the protocol has begun
     None,
+    /// PreCommit phase
     PreCommit,
+    /// Commit phase
     Commit,
+    /// Finalize phase
     Finalize,
 }
 
 #[derive(Default)]
+/// Information about view sync sub-tasks
 pub struct ViewSyncTaskInfo {
+    /// Id of the event stream of a certain task
     event_stream_id: usize,
 }
 
 #[derive(Snafu, Debug)]
+/// Stub of a view sync error
 pub struct ViewSyncTaskError {}
 
+/// Main view sync task state
 pub struct ViewSyncTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -75,14 +85,19 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Registry to register sub tasks
     pub registry: GlobalRegistry,
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-
+    /// View HotShot is currently in
     pub current_view: TYPES::Time,
+    /// View HotShot wishes to be in
     pub next_view: TYPES::Time,
-
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// HotShot consensus API
     pub api: A,
+    /// Our node id; for logging
     pub id: u64,
 
     /// How many timeouts we've seen in a row; is reset upon a successful view change
@@ -94,8 +109,10 @@ pub struct ViewSyncTaskState<
     /// Map of running relay tasks
     pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
+    /// Timeout duration for view sync rounds
     pub view_sync_timeout: Duration,
 
+    /// Last view we garbage collected old tasks
     pub last_garbage_collected_view: TYPES::Time,
 }
 
@@ -119,6 +136,7 @@ where
 {
 }
 
+/// Types for the main view sync task
 pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -126,6 +144,7 @@ pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskState<TYPES, I, A>,
 >;
 
+/// State of a view sync replica task
 pub struct ViewSyncReplicaTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -143,17 +162,28 @@ pub struct ViewSyncReplicaTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Timeout for view sync rounds
     pub view_sync_timeout: Duration,
+    /// Current round HotShot is in
     pub current_view: TYPES::Time,
+    /// Round HotShot wishes to be in
     pub next_view: TYPES::Time,
+    /// The last seen phase of the view sync protocol
     pub phase: ViewSyncPhase,
+    /// The relay index we are currently on
     pub relay: u64,
+    /// Whether we have seen a finalized certificate
     pub finalized: bool,
+    /// Whether we have already sent a view change event for `next_view`
     pub sent_view_change_event: bool,
+    /// Our node id; for logging
     pub id: u64,
 
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// HotShot consensus API
     pub api: A,
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
@@ -177,6 +207,7 @@ where
 {
 }
 
+/// Types for view sync replica state
 pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -184,6 +215,7 @@ pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncReplicaTaskState<TYPES, I, A>,
 >;
 
+/// State of a view sync relay task
 pub struct ViewSyncRelayTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -192,12 +224,16 @@ pub struct ViewSyncRelayTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// Vote accumulator
     pub accumulator: Either<
         VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         ViewSyncCertificate<TYPES>,
     >,
+    /// Our node id; for logging
     pub id: u64,
 }
 
@@ -212,6 +248,7 @@ impl<
 {
 }
 
+/// Types used by the view sync relay task
 pub type ViewSyncRelayTaskStateTypes<TYPES, I> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -238,6 +275,7 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
+    /// Handles incoming events for the main view sync task
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
@@ -331,9 +369,9 @@ where
 
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 let vote_internal = match vote {
-                    ViewSyncVote::PreCommit(vote_internal) => vote_internal,
-                    ViewSyncVote::Commit(vote_internal) => vote_internal,
-                    ViewSyncVote::Finalize(vote_internal) => vote_internal,
+                    ViewSyncVote::PreCommit(vote_internal)
+                    | ViewSyncVote::Commit(vote_internal)
+                    | ViewSyncVote::Finalize(vote_internal) => vote_internal,
                 };
 
                 if let Some(relay_task) = self.relay_task_map.get(&vote_internal.round) {
@@ -585,7 +623,7 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
-
+    /// Handle incoming events for the view sync replica task
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -677,7 +715,7 @@ where
                 }
 
                 if certificate_internal.relay > self.relay {
-                    self.relay = certificate_internal.relay
+                    self.relay = certificate_internal.relay;
                 }
 
                 // TODO ED Assuming that nodes must have stake for the view they are voting to enter
@@ -758,17 +796,19 @@ where
 
                         return (None, self);
                     }
-                    Ok(None) => return (None, self),
-                    Err(_) => return (None, self),
+                    Ok(None) => {
+                        debug!(
+                            "We were not chosen for committee on view {}",
+                            *self.next_view
+                        );
+                        return (None, self);
+                    }
+                    Err(_) => {
+                        error!("Problem generating vote token");
+                        return (None, self);
+                    }
                 }
             }
-            SequencingHotShotEvent::ViewSyncVoteRecv(_) => {
-                // Ignore
-                return (None, self);
-            }
-
-            // The main ViewSync task should handle this
-            SequencingHotShotEvent::Timeout(_) => return (None, self),
 
             SequencingHotShotEvent::ViewSyncTrigger(view_number) => {
                 if self.next_view != TYPES::Time::new(*view_number) {
@@ -816,7 +856,11 @@ where
                         });
                         return (None, self);
                     }
-                    _ => {
+                    Ok(None) => {
+                        debug!("We were not chosen for committee on view {}", *view_number);
+                        return (None, self);
+                    }
+                    Err(_) => {
                         error!("Problem generating vote token");
                         return (None, self);
                     }
@@ -882,8 +926,7 @@ where
                             });
                             return (None, self);
                         }
-                        Ok(None) => return (None, self),
-                        Err(_) => return (None, self),
+                        Ok(None) | Err(_) => return (None, self),
                     }
                 }
             }
