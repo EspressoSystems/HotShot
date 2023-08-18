@@ -4,7 +4,6 @@ use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::election::static_committee::StaticElectionConfig;
 use hotshot::traits::election::vrf::JfPubKey;
 use hotshot::traits::implementations::MemoryStorage;
-use hotshot::traits::Block;
 use hotshot::types::SignatureKey;
 use hotshot::types::SystemContextHandle;
 use hotshot::HotShotInitializer;
@@ -98,7 +97,8 @@ where
 
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
 
-    let node_id = 1;
+    // In view 1, the node with id 2 is the next leader.
+    let node_id = 2;
     let networks = (launcher.resource_generator.channel_generator)(node_id);
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
@@ -152,7 +152,10 @@ where
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_da_task() {
-    use hotshot::tasks::add_da_task;
+    use hotshot::{
+        demos::sdemo::{SDemoBlock, SDemoNormalBlock},
+        tasks::add_da_task,
+    };
     use hotshot_task_impls::harness::run_harness;
     use hotshot_types::{message::Proposal, traits::election::CommitteeExchangeType};
 
@@ -179,22 +182,25 @@ async fn test_da_task() {
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::Shutdown);
 
-    // TODO (Keyao) The proposal isn't in the input.
-    // let block = <SequencingTestTypes as NodeType>::BlockType::new();
-    // let block_commitment = block.commit();
-    // let signature = committee_exchange.sign_da_proposal(&block_commitment);
-    // let proposal = DAProposal {
-    //     deltas: block,
-    //     view_number: ViewNumber::new(0),
-    // };
-    // let message = Proposal {
-    //     data: proposal,
-    //     signature,
-    // };
-    // output.insert(
-    //     SequencingHotShotEvent::DAProposalSend(message, api.public_key().clone()),
-    //     1,
-    // );
+    let block = SDemoBlock::Normal(SDemoNormalBlock {
+        previous_state: (),
+        transactions: Vec::new(),
+    });
+    let block_commitment = block.commit();
+    let signature = committee_exchange.sign_da_proposal(&block_commitment);
+    let proposal = DAProposal {
+        deltas: block.clone(),
+        view_number: ViewNumber::new(2),
+    };
+    let message = Proposal {
+        data: proposal,
+        signature,
+    };
+    output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
+    output.insert(
+        SequencingHotShotEvent::DAProposalSend(message, api.public_key().clone()),
+        1,
+    );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
