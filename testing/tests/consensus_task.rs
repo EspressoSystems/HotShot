@@ -158,7 +158,7 @@ async fn build_proposal_and_signature(
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
-    let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
+    let _quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
 
     let parent_view_number = &consensus.high_qc.view_number();
     let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
