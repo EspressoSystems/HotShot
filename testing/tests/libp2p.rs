@@ -4,7 +4,7 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     node_types::{SequencingLibp2pImpl, SequencingTestTypes},
     overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::{TestMetadata, TimingData},
+    test_builder::TestMetadata,
 };
 use tracing::instrument;
 
@@ -19,10 +19,6 @@ async fn libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
-        timing_data: TimingData {
-            start_delay: 12000000,
-            ..TimingData::default()
-        },
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
             ..Default::default()
