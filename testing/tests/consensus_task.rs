@@ -25,7 +25,9 @@ use hotshot_task::task::HotShotTaskTypes;
 use hotshot_task::task::{HandleEvent, HotShotTaskCompleted};
 use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task_impls::consensus::ConsensusTaskTypes;
+use hotshot_task_impls::consensus::{self, ConsensusTaskTypes};
+use hotshot_types::message::Proposal;
+
 use hotshot_task_impls::consensus::SequencingConsensusTaskState;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::SequencingMemoryImpl;
@@ -54,6 +56,7 @@ use hotshot_types::traits::node_implementation::ExchangesType;
 
 use hotshot_types::traits::node_implementation::QuorumEx;
 
+use hotshot_task_impls::harness::run_harness;
 use hotshot_types::traits::node_implementation::SequencingExchangesType;
 use hotshot_types::traits::node_implementation::SequencingQuorumEx;
 use hotshot_types::traits::node_implementation::ViewSyncEx;
@@ -320,39 +323,18 @@ where
     .expect("Could not init hotshot")
 }
 
-#[cfg(test)]
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-async fn test_consensus_task() {
-    use hotshot_task_impls::harness::run_harness;
-    use hotshot_types::message::Proposal;
-
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
-
-    let handle = build_consensus_api::<
-        hotshot_testing::node_types::SequencingTestTypes,
-        hotshot_testing::node_types::SequencingMemoryImpl,
-    >()
-    .await;
-
+async fn build_proposal(
+    handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
+    block: <SequencingTestTypes as NodeType>::BlockType,
+) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
+
     let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
-
-    let mut input = Vec::new();
-    let mut output = HashMap::new();
-
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(SequencingHotShotEvent::Shutdown);
 
     let parent_view_number = &consensus.high_qc.view_number();
     let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -367,6 +349,7 @@ async fn test_consensus_task() {
                     panic!("Failed to find high QC parent.");
                 };
     let parent_leaf = leaf.clone();
+
     // every event input is seen on the event stream in the output.
 
     let block_commitment = <SequencingTestTypes as NodeType>::BlockType::new().commit();
@@ -396,8 +379,34 @@ async fn test_consensus_task() {
         data: proposal,
         signature,
     };
+    SequencingHotShotEvent::QuorumProposalSend(message, api.public_key().clone())
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_consensus_task() {
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_consensus_api::<
+        hotshot_testing::node_types::SequencingTestTypes,
+        hotshot_testing::node_types::SequencingMemoryImpl,
+    >()
+    .await;
+
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
+    input.push(SequencingHotShotEvent::Shutdown);
+
     output.insert(
-        SequencingHotShotEvent::QuorumProposalSend(message, api.public_key().clone()),
+        build_proposal(&handle, <SequencingTestTypes as NodeType>::BlockType::new()).await,
         1,
     );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
