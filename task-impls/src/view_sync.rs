@@ -910,8 +910,8 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Handles incoming events for the view sync relay task
     #[instrument(skip_all, fields(id = self.id), name = "View Sync Relay Task", level = "error")]
-
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -920,7 +920,6 @@ where
         ViewSyncRelayTaskState<TYPES, I>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncCertificateRecv(_) => (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 if self.accumulator.is_right() {
                     return (Some(HotShotTaskCompleted::ShutDown), self);
