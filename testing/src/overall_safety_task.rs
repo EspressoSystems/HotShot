@@ -19,7 +19,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::LeafType,
+    data::{DeltasType, LeafType},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
@@ -58,10 +58,7 @@ pub enum OverallSafetyTaskErr {
 }
 
 /// Data availability task state
-pub struct OverallSafetyTask<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-> {
+pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handles
     pub handles: Vec<Node<TYPES, I>>,
     /// ctx
@@ -70,10 +67,7 @@ pub struct OverallSafetyTask<
     pub test_event_stream: ChannelStream<GlobalTestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for OverallSafetyTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for OverallSafetyTask<TYPES, I> {}
 
 /// Result of running a round of consensus
 #[derive(Debug)]
@@ -114,9 +108,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<
 
 /// smh my head I shouldn't need to implement this
 /// Rust doesn't realize I doesn't need to implement default
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
-    for RoundCtx<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
     fn default() -> Self {
         Self {
             round_results: Default::default(),
@@ -131,7 +123,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 /// that we poll when things are event driven
 /// this context will be passed around
 #[derive(Debug)]
-pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
+pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// results from previous rounds
     /// view number -> round result
     pub round_results:
@@ -142,9 +134,7 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Consen
     pub successful_views: HashSet<TYPES::Time>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-    RoundCtx<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
     /// inserts an error into the context
     pub fn insert_error_to_context(
         &mut self,
@@ -258,7 +248,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         );
 
         let mut result_state = None;
-        let mut result_block = None;
+        let mut result_commitment = None;
 
         if check_state {
             for (state, num_nodes) in states {
@@ -276,19 +266,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         }
 
         if check_block {
-            for (block, num_nodes) in blocks.clone() {
-                if num_nodes >= threshold {
-                    result_block = Some(block.clone());
-                    self.success = true;
-                    self.agreed_block = Some(block);
+            // Check if the block commitments are the same.
+            let mut consistent_block = None;
+            for (delta, _) in blocks.clone() {
+                let commitment = delta.block_commitment();
+                if let Some(consistent_commitment) = result_commitment {
+                    if commitment != consistent_commitment {
+                        self.success = false;
+                        error!("Inconsistent blocks, blocks: {:?}", blocks);
+                        return Err(OverallSafetyTaskErr::InconsistentBlocks);
+                    }
                 }
+                result_commitment = Some(commitment);
+                consistent_block = Some(delta);
             }
-
-            if result_block.is_none() {
-                self.success = false;
-                error!("Inconsistent blocks, blocks: {:?}", blocks);
-                return Err(OverallSafetyTaskErr::InconsistentBlocks);
-            }
+            self.success = true;
+            self.agreed_block = consistent_block;
         }
         Ok(())
     }
@@ -340,7 +333,7 @@ impl Default for OverallSafetyPropertiesDescription {
 
 impl OverallSafetyPropertiesDescription {
     /// build a task
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<OverallSafetyTask<TYPES, I>> {
         let Self {
@@ -437,6 +430,7 @@ impl OverallSafetyPropertiesDescription {
                                         }
                                     }
                                 }
+                                // TODO Emit this event in the consensus task once canceling the timeout task is implemented
                                 EventType::ReplicaViewTimeout { view_number } => {
                                     let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
                                         view_number,

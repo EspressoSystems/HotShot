@@ -123,7 +123,6 @@ mod test {
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
     use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
-    use hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus;
     use hotshot_types::traits::node_implementation::NodeType;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use hotshot_types::traits::state::ConsensusTime;
@@ -149,8 +148,6 @@ mod test {
     struct DummyTypes;
 
     impl NodeType for DummyTypes {
-        // TODO (da) can this be SequencingConsensus?
-        type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
         type SignatureKey = Ed25519Pub;

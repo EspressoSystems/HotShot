@@ -28,8 +28,6 @@ use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
 
-use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
-
 use hotshot_types::traits::election::Membership;
 
 use hotshot_types::traits::election::QuorumExchangeType;
@@ -50,8 +48,6 @@ use hotshot_types::traits::{
 
 use std::collections::HashMap;
 
-use std::sync::Arc;
-
 async fn build_consensus_api(
     node_id: u64,
 ) -> SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl> {
@@ -59,25 +55,25 @@ async fn build_consensus_api(
 
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
 
-    let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
-    let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
-    let committee_network =
-        (launcher.resource_generator.committee_network)(network_generator.clone());
-    let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
+    // let network_generator = Arc::new((launcher.resource_generator.network_generator)(node_id));
+    // let quorum_network = (launcher.resource_generator.quorum_network)(network_generator.clone());
+    // let committee_network =
+    //     (launcher.resource_generator.committee_network)(network_generator.clone());
+    // let view_sync_network = (launcher.resource_generator.view_sync_network)(network_generator);
+
+    let networks = (launcher.resource_generator.channel_generator)(node_id);
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
     let initializer = HotShotInitializer::<
         SequencingTestTypes,
         <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
     >::from_genesis(<SequencingMemoryImpl as TestableNodeImplementation<
-        SequencingConsensus,
         SequencingTestTypes,
     >>::block_genesis())
     .unwrap();
 
     let known_nodes = config.known_nodes.clone();
     let private_key = <SequencingMemoryImpl as TestableNodeImplementation<
-        SequencingConsensus,
         SequencingTestTypes,
     >>::generate_test_key(node_id);
     let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);
@@ -100,7 +96,7 @@ async fn build_consensus_api(
         <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Exchanges::create(
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
-            (quorum_network, view_sync_network, committee_network),
+            networks,
             public_key.clone(),
             private_key.clone(),
             ek.clone(),
@@ -210,7 +206,6 @@ fn key_pair_for_id(
     JfPubKey<BLSSignatureScheme>,
 ) {
     let private_key = <SequencingMemoryImpl as TestableNodeImplementation<
-        SequencingConsensus,
         SequencingTestTypes,
     >>::generate_test_key(node_id);
     let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);

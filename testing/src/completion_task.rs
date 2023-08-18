@@ -24,18 +24,12 @@ use super::{test_launcher::TaskGenerator, GlobalTestEvent};
 pub struct CompletionTaskErr {}
 
 /// Data availability task state
-pub struct CompletionTask<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-> {
+pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) test_event_stream: ChannelStream<GlobalTestEvent>,
     pub(crate) handles: Vec<Node<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for CompletionTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for CompletionTask<TYPES, I> {}
 
 /// Completion task types
 pub type CompletionTaskTypes<TYPES, I> = HSTWithEventAndMessage<
@@ -63,10 +57,7 @@ pub enum CompletionTaskDescription {
 
 impl CompletionTaskDescription {
     /// Build and launch a completion task.
-    pub fn build_and_launch<
-        TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-    >(
+    pub fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         match self {
@@ -77,10 +68,7 @@ impl CompletionTaskDescription {
 
 impl TimeBasedCompletionTaskDescription {
     /// create the task and launch it
-    pub fn build_and_launch<
-        TYPES: NodeType,
-        I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
-    >(
+    pub fn build_and_launch<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<CompletionTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {

@@ -5,74 +5,165 @@
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_basic() {
+    use hotshot_testing::{
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        test_builder::TestMetadata,
+    };
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata = hotshot_testing::test_builder::TestMetadata::default();
+    let metadata = TestMetadata::default();
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;
 }
 
+/// Test one node leaving the network.
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// TODO Keyao (testing harness) Remove `#[ignore]` after making the test pass. It's currently
-// hanging.
-#[ignore]
-async fn test_with_failures() {
+async fn test_with_failures_one() {
     use std::time::Duration;
 
     use hotshot_testing::{
-        completion_task::TimeBasedCompletionTaskDescription, spinning_task::SpinningTaskDescription,
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
     };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata = hotshot_testing::test_builder::TestMetadata {
-        total_nodes: 20,
-        start_nodes: 20,
-        num_bootstrap_nodes: 20,
-        da_committee_size: 20,
-        completion_task_description: hotshot_testing::completion_task::CompletionTaskDescription::TimeBasedCompletionTaskBuilder(TimeBasedCompletionTaskDescription{duration: Duration::new(120, 0)}),
-        // overall_safety_properties: OverallSafetyPropertiesDescription {
-        //     threshold_calculator: std::sync::Arc::new(|_, _| {10}),
-        //     ..Default::default()
-        // },
-        ..hotshot_testing::test_builder::TestMetadata::default()
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
+    let dead_nodes = vec![ChangeNode {
+        idx: 19,
+        updown: UpDown::Down,
+    }];
+
+    metadata.spinning_properties = SpinningTaskDescription {
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
     };
+    metadata
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
+        .launch()
+        .run_test()
+        .await;
+}
+
+/// Test f/2 nodes leaving the network.
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_with_failures_half_f() {
+    use std::time::Duration;
+
+    use hotshot_testing::{
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
+    };
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
     let dead_nodes = vec![
-        hotshot_testing::spinning_task::ChangeNode {
-            idx: 0,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+        ChangeNode {
+            idx: 17,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
-            idx: 1,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+        ChangeNode {
+            idx: 18,
+            updown: UpDown::Down,
         },
-        hotshot_testing::spinning_task::ChangeNode {
-            idx: 2,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
-        },
-        hotshot_testing::spinning_task::ChangeNode {
-            idx: 3,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
-        },
-        hotshot_testing::spinning_task::ChangeNode {
-            idx: 4,
-            updown: hotshot_testing::spinning_task::UpDown::Down,
+        ChangeNode {
+            idx: 19,
+            updown: UpDown::Down,
         },
     ];
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(std::time::Duration::new(4, 0), dead_nodes)],
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
     };
     metadata
-        .gen_launcher::<hotshot_testing::node_types::SequencingTestTypes, hotshot_testing::node_types::SequencingMemoryImpl>()
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
+        .launch()
+        .run_test()
+        .await;
+}
+
+/// Test f nodes leaving the network.
+#[cfg(test)]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+async fn test_with_failures_f() {
+    use std::time::Duration;
+
+    use hotshot_testing::{
+        node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+        test_builder::TestMetadata,
+    };
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+    let mut metadata = TestMetadata::default_more_nodes_less_success();
+    // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+    // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+    // following issue.
+    // TODO: Update message broadcasting to avoid hanging
+    // <https://github.com/EspressoSystems/HotShot/issues/1567>
+    let dead_nodes = vec![
+        ChangeNode {
+            idx: 14,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 15,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 16,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 17,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 18,
+            updown: UpDown::Down,
+        },
+        ChangeNode {
+            idx: 19,
+            updown: UpDown::Down,
+        },
+    ];
+
+    metadata.spinning_properties = SpinningTaskDescription {
+        node_changes: vec![(Duration::new(4, 0), dead_nodes)],
+    };
+    metadata
+        .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
         .run_test()
         .await;

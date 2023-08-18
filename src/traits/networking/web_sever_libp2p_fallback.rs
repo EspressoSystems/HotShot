@@ -67,15 +67,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 /// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CombinedNetworks<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
-    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
-    PhantomData<MEMBERSHIP>,
+    pub WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+    pub Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    pub PhantomData<MEMBERSHIP>,
 );
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>

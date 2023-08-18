@@ -13,15 +13,13 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     data::SequencingLeaf,
     message::{
-        ConsensusMessageType, Message, ProcessedCommitteeConsensusMessage,
-        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
+        ConsensusMessageType, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{
             CommitteeEx, CommitteeProposalType, CommitteeVote, NodeImplementation, NodeType,
-            SequencingExchangesType,
         },
         signature_key::SignatureKey,
     },
@@ -34,15 +32,13 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DAMember<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
@@ -67,15 +63,13 @@ pub struct DAMember<
 
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
     > DAMember<A, TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.

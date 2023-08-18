@@ -501,7 +501,7 @@ impl<
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
         expected_node_count: usize,
@@ -538,7 +538,7 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     type NETWORK = MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 

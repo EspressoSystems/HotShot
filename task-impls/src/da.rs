@@ -26,7 +26,7 @@ use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::Block;
 use hotshot_types::traits::State;
 use hotshot_types::{
@@ -34,7 +34,6 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
     message::SequencingMessage,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
         node_implementation::{CommitteeEx, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -53,7 +52,7 @@ use tracing::{debug, error, instrument, warn};
 pub struct ConsensusTaskError {}
 
 pub struct DATaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -61,7 +60,6 @@ pub struct DATaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -92,10 +90,9 @@ pub struct DATaskState<
 }
 
 pub struct DAVoteCollectionTaskState<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -113,12 +110,9 @@ pub struct DAVoteCollectionTaskState<
     pub id: u64,
 }
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
-    > TS for DAVoteCollectionTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
+    for DAVoteCollectionTaskState<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -130,7 +124,7 @@ where
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
 async fn vote_handle<
-    TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+    TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 >(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
@@ -140,7 +134,6 @@ async fn vote_handle<
     DAVoteCollectionTaskState<TYPES, I>,
 )
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -206,7 +199,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, Time = ViewNumber>,
+        TYPES: NodeType<Time = ViewNumber>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -215,7 +208,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -641,7 +633,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -650,7 +642,6 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for DATaskState<TYPES, I, A>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

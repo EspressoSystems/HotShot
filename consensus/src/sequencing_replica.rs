@@ -15,8 +15,7 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
-    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
-    SequencingQuorumEx,
+    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingQuorumEx,
 };
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
@@ -27,8 +26,8 @@ use hotshot_types::{
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
-        node_implementation::NodeType, signature_key::SignatureKey, Block,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        Block,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -41,15 +40,13 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
+> {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. The replica will require a write lock on this.
@@ -77,7 +74,7 @@ pub struct SequencingReplica<
 
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -85,7 +82,6 @@ impl<
         >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,

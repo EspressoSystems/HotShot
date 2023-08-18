@@ -17,7 +17,6 @@ use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
 use crate::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
-
 #[derive(Snafu, Debug)]
 pub struct SpinningTaskErr {}
 
@@ -31,16 +30,12 @@ pub type SpinningTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     SpinningTask<TYPES, I>,
 >;
 
-pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
-{
+pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) handles: Vec<Node<TYPES, I>>,
     pub(crate) changes: Vec<Vec<ChangeNode>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> TS
-    for SpinningTask<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for SpinningTask<TYPES, I> {}
 
 /// Spin the node up or down
 #[derive(Clone, Debug)]
@@ -66,7 +61,7 @@ pub struct SpinningTaskDescription {
 }
 
 impl SpinningTaskDescription {
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
         Box::new(move |state, mut registry, test_event_stream| {
@@ -125,7 +120,7 @@ impl SpinningTaskDescription {
                     },
                 ));
                 let builder = TaskBuilder::<SpinningTaskTypes<TYPES, I>>::new(
-                    "Spinning Nodes Task".to_string(),
+                    "Test Spinning Task".to_string(),
                 )
                 .register_event_stream(test_event_stream, FilterEvent::default())
                 .await
