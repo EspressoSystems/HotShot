@@ -1432,5 +1432,6 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             | SequencingHotShotEvent::ViewChange(_)
             | SequencingHotShotEvent::SendDABlockData(_)
             | SequencingHotShotEvent::Timeout(_)
+            | SequencingHotShotEvent::Shutdown,
     )
 }

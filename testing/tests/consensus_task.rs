@@ -1,48 +1,33 @@
-use async_compatibility_layer::art::async_spawn;
 use commit::Committable;
 use either::Right;
-use futures::FutureExt;
 use hotshot::traits::NodeImplementation;
 use hotshot::types::SystemContextHandle;
 use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation, SystemContext};
 
 use hotshot::rand::SeedableRng;
-use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 
 use hotshot::tasks::add_consensus_task;
-use hotshot::traits::election::static_committee::StaticElectionConfig;
-use hotshot::traits::election::vrf::JfPubKey;
-use hotshot::traits::implementations::MemoryStorage;
+
 use hotshot::traits::Block;
 use hotshot::types::SignatureKey;
 use hotshot::HotShotInitializer;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::task::FilterEvent;
-use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted};
-use hotshot_task::task_impls::TaskBuilder;
-use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task_impls::consensus::consensus_event_filter;
-use hotshot_task_impls::consensus::{self, ConsensusTaskTypes};
+
 use hotshot_types::message::Proposal;
 
-use hotshot_task_impls::consensus::SequencingConsensusTaskState;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
-use hotshot_testing::node_types::{
-    StaticMembership, StaticMemoryDAComm, StaticMemoryQuorumComm, StaticMemoryViewSyncComm,
-};
+
 use hotshot_testing::test_builder::TestMetadata;
-use hotshot_types::certificate::ViewSyncCertificate;
-use hotshot_types::data::DAProposal;
+
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::Message;
-use hotshot_types::message::SequencingMessage;
+
 use hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus;
 
 use hotshot_types::traits::election::Membership;
@@ -57,19 +42,13 @@ use hotshot_types::traits::node_implementation::ExchangesType;
 use hotshot_types::traits::node_implementation::QuorumEx;
 
 use hotshot_task_impls::harness::run_harness;
-use hotshot_types::traits::node_implementation::SequencingExchangesType;
-use hotshot_types::traits::node_implementation::SequencingQuorumEx;
-use hotshot_types::traits::node_implementation::ViewSyncEx;
+
 use hotshot_types::traits::{
     election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
 };
 
-use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
-use jf_primitives::signatures::BLSSignatureScheme;
-
 use std::collections::HashMap;
 
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 async fn build_consensus_api() -> SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl> {
@@ -140,7 +119,7 @@ async fn build_consensus_api() -> SystemContextHandle<SequencingTestTypes, Seque
 
 async fn build_proposal(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    block: <SequencingTestTypes as NodeType>::BlockType,
+    _block: <SequencingTestTypes as NodeType>::BlockType,
 ) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
