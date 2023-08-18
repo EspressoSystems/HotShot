@@ -22,13 +22,18 @@ use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 
+/// the type of network task
 #[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
+    /// quorum: the normal "everyone" committee
     Quorum,
+    /// da committee
     Committee,
+    /// view sync
     ViewSync,
 }
 
+/// the network message task state
 pub struct NetworkMessageTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -37,6 +42,7 @@ pub struct NetworkMessageTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
+    /// event stream (used for publishing)
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
@@ -122,6 +128,7 @@ impl<
     }
 }
 
+/// network event task state
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -134,9 +141,13 @@ pub struct NetworkEventTaskState<
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 > {
+    /// comm channel
     pub channel: COMMCHANNEL,
+    /// event stream
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// view number
     pub view: ViewNumber,
+    /// phantom data
     pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
 }
@@ -277,6 +288,7 @@ impl<
         None
     }
 
+    /// network filter
     pub fn filter(task_kind: NetworkTaskKind) -> FilterEvent<SequencingHotShotEvent<TYPES, I>> {
         match task_kind {
             NetworkTaskKind::Quorum => FilterEvent(Arc::new(Self::quorum_filter)),
@@ -285,6 +297,7 @@ impl<
         }
     }
 
+    /// quorum filter
     fn quorum_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -296,6 +309,7 @@ impl<
         )
     }
 
+    /// committee filter
     fn committee_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -306,6 +320,7 @@ impl<
         )
     }
 
+    /// view sync filter
     fn view_sync_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -317,9 +332,11 @@ impl<
     }
 }
 
+/// network error (no errors right now, only stub)
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
 
+/// networking message task types
 pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkTaskError,
     Either<Messages<TYPES, I>, Messages<TYPES, I>>,
@@ -328,6 +345,7 @@ pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkMessageTaskState<TYPES, I>,
 >;
 
+/// network event task types
 pub type NetworkEventTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
     NetworkTaskError,
     SequencingHotShotEvent<TYPES, I>,
