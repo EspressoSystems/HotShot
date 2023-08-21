@@ -498,8 +498,7 @@ impl<
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
         expected_node_count: usize,

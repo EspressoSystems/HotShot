@@ -60,6 +60,8 @@ impl OrchestratorClient {
 
     /// Returns the run configuration from the orchestrator
     /// Will block until the configuration is returned
+    #[allow(clippy::type_complexity)]
+
     pub async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
         node_index: u16,

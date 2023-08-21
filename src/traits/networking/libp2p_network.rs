@@ -123,8 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -750,8 +749,7 @@ impl<
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+    MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.

@@ -25,7 +25,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 #[allow(deprecated)]
-use rand::SeedableRng;
 use tracing::info;
 
 #[derive(Clone)]

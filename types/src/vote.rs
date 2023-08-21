@@ -315,6 +315,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType>
 where
     TOKEN: Clone + VoteToken,
 {
+    #![allow(clippy::too_many_lines)]
     fn append(
         mut self,
         val: (

@@ -21,9 +21,11 @@ use tracing::debug;
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// All the nodes participating
     nodes: Vec<PUBKEY>,
+    /// All the nodes participating and their stake
     nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// The nodes on the static committee
     committee_nodes: Vec<PUBKEY>,
+    /// The nodes on the static committee and their stake
     committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,

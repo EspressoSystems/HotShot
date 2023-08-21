@@ -57,7 +57,6 @@ use hotshot_types::{
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
 use std::{
@@ -208,7 +207,11 @@ pub trait RunDA<
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> Self;
 
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
@@ -425,7 +428,13 @@ pub trait RunDA<
     fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
 
     /// Returns the config for this run
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >;
 }
 
 // WEB SERVER
@@ -453,7 +462,11 @@ pub struct WebServerDARun<
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
-    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    config: NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >,
     quorum_network: StaticQuorumComm<TYPES, I, MEMBERSHIP>,
     da_network: StaticDAComm<TYPES, I, MEMBERSHIP>,
     view_sync_network: StaticViewSyncComm<TYPES, I, MEMBERSHIP>,
@@ -523,7 +536,11 @@ where
     Self: Sync,
 {
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> WebServerDARun<TYPES, NODE, MEMBERSHIP> {
         // Generate our own key
         let (pub_key, _priv_key) =
@@ -616,7 +633,13 @@ where
         self.view_sync_network.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    > {
         self.config.clone()
     }
 }

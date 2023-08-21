@@ -24,7 +24,6 @@ use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrN
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
-use core::panic;
 use derivative::Derivative;
 use either::Either;
 use ethereum_types::U256;
@@ -90,32 +89,32 @@ impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMM
     fn commit(&self) -> Commitment<Self> {
         match self {
             VoteData::DA(block_commitment) => commit::RawCommitmentBuilder::new("DA Block Commit")
-                .field("block_commitment", block_commitment.clone())
+                .field("block_commitment", *block_commitment)
                 .finalize(),
             VoteData::Yes(leaf_commitment) => commit::RawCommitmentBuilder::new("Yes Vote Commit")
-                .field("leaf_commitment", leaf_commitment.clone())
+                .field("leaf_commitment", *leaf_commitment)
                 .finalize(),
             VoteData::No(leaf_commitment) => commit::RawCommitmentBuilder::new("No Vote Commit")
-                .field("leaf_commitment", leaf_commitment.clone())
+                .field("leaf_commitment", *leaf_commitment)
                 .finalize(),
             VoteData::Timeout(view_number_commitment) => {
                 commit::RawCommitmentBuilder::new("Timeout View Number Commit")
-                    .field("view_number_commitment", view_number_commitment.clone())
+                    .field("view_number_commitment", *view_number_commitment)
                     .finalize()
             }
             VoteData::ViewSyncPreCommit(commitment) => {
                 commit::RawCommitmentBuilder::new("ViewSyncPreCommit")
-                    .field("commitment", commitment.clone())
+                    .field("commitment", *commitment)
                     .finalize()
             }
             VoteData::ViewSyncCommit(commitment) => {
                 commit::RawCommitmentBuilder::new("ViewSyncCommit")
-                    .field("commitment", commitment.clone())
+                    .field("commitment", *commitment)
                     .finalize()
             }
             VoteData::ViewSyncFinalize(commitment) => {
                 commit::RawCommitmentBuilder::new("ViewSyncFinalize")
-                    .field("commitment", commitment.clone())
+                    .field("commitment", *commitment)
                     .finalize()
             }
         }
@@ -375,13 +374,12 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
                 );
                 <TYPES::SignatureKey as SignatureKey>::check(&real_qc_pp, real_commit.as_ref(), &qc)
             }
-            AssembledSignature::Genesis() => {
-                return true;
-            }
+            AssembledSignature::Genesis() => true,
             AssembledSignature::ViewSyncPreCommit(_)
             | AssembledSignature::ViewSyncCommit(_)
             | AssembledSignature::ViewSyncFinalize(_) => {
-                panic!("QC should not be ViewSync type here");
+                error!("QC should not be ViewSync type here");
+                false
             }
         }
     }
@@ -566,7 +564,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES::BlockType>::DA(block_commitment)
+            VoteData::<TYPES::BlockType>::DA(block_commitment)
                 .commit()
                 .as_ref(),
         );
@@ -827,7 +825,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
+            VoteData::<LEAF>::Yes(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -843,7 +841,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
+            VoteData::<LEAF>::No(leaf_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -858,7 +856,7 @@ impl<
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES::Time>::Timeout(view_number.commit())
+            VoteData::<TYPES::Time>::Timeout(view_number.commit())
                 .commit()
                 .as_ref(),
         );
@@ -1110,7 +1108,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
+            VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1151,7 +1149,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncCommit(commitment).commit().as_ref(),
+            VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1192,7 +1190,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
+            VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
         (self.public_key.to_bytes(), signature)
@@ -1211,8 +1209,7 @@ impl<
                 (certificate_internal, self.failure_threshold(), vote_data)
             }
             ViewSyncCertificate::Commit(certificate_internal)
-            | ViewSyncCertificate::Finalize(certificate_internal)
-            => {
+            | ViewSyncCertificate::Finalize(certificate_internal) => {
                 let vote_data = ViewSyncData::<TYPES> {
                     relay: self
                         .get_leader(round + certificate_internal.relay)
@@ -1264,8 +1261,7 @@ impl<
     }
 
     fn sign_certificate_proposal(&self, certificate: Self::Certificate) -> EncodedSignature {
-        let signature =
-            TYPES::SignatureKey::sign(&self.private_key, certificate.commit().as_ref());
+        let signature = TYPES::SignatureKey::sign(&self.private_key, certificate.commit().as_ref());
         signature
     }
 }
