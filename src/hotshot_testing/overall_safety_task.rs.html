@@ -544,7 +544,49 @@
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::event_stream::EventStream;
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>commit::Commitment;
+<span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
@@ -565,22 +607,36 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DeltasType, LeafType},
+    data::{DeltasType, LeafBlock, LeafType},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>tracing::error;
 
 <span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node};
 <span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
 <span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
 
+<span class="doccomment">/// the status of a view
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>ViewStatus {
+    <span class="doccomment">/// success
+    </span><span class="prelude-val">Ok</span>,
+    <span class="doccomment">/// failure
+    </span>Failed,
+    <span class="doccomment">/// safety violation
+    </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr),
+    <span class="doccomment">/// in progress
+    </span>InProgress,
+}
+
 <span class="doccomment">/// possible errors
-</span><span class="attr">#[derive(Snafu, Debug)]
+</span><span class="attr">#[derive(Snafu, Debug, Clone)]
 </span><span class="kw">pub enum </span>OverallSafetyTaskErr {
+    <span class="doccomment">/// inconsistent txn nums
+    </span>InconsistentTxnsNum { map: HashMap&lt;u64, usize&gt; },
     <span class="doccomment">/// too many failed  views
     </span>TooManyFailures {
         <span class="doccomment">/// expected number of failures
@@ -626,17 +682,21 @@
     <span class="doccomment">/// Nodes that failed to commit this round
     </span><span class="kw">pub </span>failed_nodes: HashMap&lt;u64, Vec&lt;Arc&lt;HotShotError&lt;TYPES&gt;&gt;&gt;&gt;,
 
-    <span class="doccomment">/// state of the majority of the nodes
-    </span><span class="kw">pub </span>agreed_state: <span class="prelude-ty">Option</span>&lt;LEAF::MaybeState&gt;,
-
-    <span class="doccomment">/// block of the majority of the nodes
-    </span><span class="kw">pub </span>agreed_block: <span class="prelude-ty">Option</span>&lt;LEAF::DeltasType&gt;,
-
-    <span class="doccomment">/// leaf of the majority of the nodes
-    </span><span class="kw">pub </span>agreed_leaf: <span class="prelude-ty">Option</span>&lt;LEAF&gt;,
-
     <span class="doccomment">/// whether or not the round succeeded (for a custom defn of succeeded)
-    </span><span class="kw">pub </span>success: bool,
+    </span><span class="kw">pub </span>status: ViewStatus,
+
+    <span class="doccomment">/// NOTE: technically a map is not needed
+    /// left one anyway for ease of viewing
+    /// leaf -&gt; # entries decided on that leaf
+    </span><span class="kw">pub </span>leaf_map: HashMap&lt;LEAF, usize&gt;,
+
+    <span class="doccomment">/// block -&gt; # entries decided on that block
+    </span><span class="kw">pub </span>block_map: HashMap&lt;Commitment&lt;LeafBlock&lt;LEAF&gt;&gt;, usize&gt;,
+
+    <span class="doccomment">/// state -&gt; # entries decided on that state
+    </span><span class="kw">pub </span>state_map: HashMap&lt;&lt;LEAF <span class="kw">as </span>LeafType&gt;::MaybeState, usize&gt;,
+
+    <span class="kw">pub </span>num_txns_map: HashMap&lt;u64, usize&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Default <span class="kw">for </span>RoundResult&lt;TYPES, LEAF&gt; {
@@ -644,10 +704,11 @@
         <span class="self">Self </span>{
             success_nodes: Default::default(),
             failed_nodes: Default::default(),
-            agreed_leaf: Default::default(),
-            agreed_block: Default::default(),
-            agreed_state: Default::default(),
-            success: <span class="bool-val">false</span>,
+            leaf_map: Default::default(),
+            block_map: Default::default(),
+            state_map: Default::default(),
+            num_txns_map: Default::default(),
+            status: ViewStatus::InProgress,
         }
     }
 }
@@ -706,7 +767,131 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; RoundResult&lt;TYPES, LEAF&gt; {
-    <span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;LEAF, usize&gt; {
+    <span class="doccomment">/// insert into round result
+    </span><span class="kw">pub fn </span>insert_into_result(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        idx: usize,
+        result: (Vec&lt;LEAF&gt;, QuorumCertificate&lt;TYPES, LEAF&gt;),
+        maybe_block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;LEAF&gt; {
+        <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
+
+        <span class="kw">let </span>maybe_leaf: <span class="prelude-ty">Option</span>&lt;LEAF&gt; = result.<span class="number">0</span>.into_iter().last();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = maybe_leaf.clone() {
+            <span class="kw">match </span><span class="self">self</span>.leaf_map.entry(leaf.clone()) {
+                std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                    <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
+                }
+                std::collections::hash_map::Entry::Vacant(v) =&gt; {
+                    v.insert(<span class="number">1</span>);
+                }
+            }
+
+            <span class="kw">let </span>(state, block) = (leaf.get_state(), leaf.get_deltas());
+
+            <span class="kw">match </span><span class="self">self</span>.state_map.entry(state.clone()) {
+                std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                    <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
+                }
+                std::collections::hash_map::Entry::Vacant(v) =&gt; {
+                    v.insert(<span class="number">1</span>);
+                }
+            }
+            <span class="kw">match </span><span class="self">self</span>.block_map.entry(block.clone().block_commitment()) {
+                std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                    <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
+                }
+                std::collections::hash_map::Entry::Vacant(v) =&gt; {
+                    v.insert(<span class="number">1</span>);
+                }
+            }
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(num_txns) = maybe_block_size {
+                <span class="kw">match </span><span class="self">self</span>.num_txns_map.entry(num_txns) {
+                    Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                        <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
+                    }
+                    Entry::Vacant(v) =&gt; {
+                        v.insert(<span class="number">1</span>);
+                    }
+                }
+            }
+        }
+        maybe_leaf
+    }
+
+    <span class="doccomment">/// determines whether or not the round passes
+    /// also do a safety check
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>update_status(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        threshold: usize,
+        total_num_nodes: usize,
+        key: LEAF,
+        check_leaf: bool,
+        check_state: bool,
+        check_block: bool,
+        transaction_threshold: u64,
+    ) {
+        <span class="kw">let </span>num_decided = <span class="self">self</span>.success_nodes.len();
+        <span class="kw">let </span>num_failed = <span class="self">self</span>.failed_nodes.len();
+        <span class="kw">let </span>remaining_nodes = total_num_nodes - (num_decided + num_failed);
+
+        <span class="kw">if </span>check_leaf &amp;&amp; <span class="self">self</span>.leaf_map.len() != <span class="number">1 </span>{
+            <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">if </span>check_state &amp;&amp; <span class="self">self</span>.state_map.len() != <span class="number">1 </span>{
+            <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentStates);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">if </span>check_block &amp;&amp; <span class="self">self</span>.block_map.len() != <span class="number">1 </span>{
+            <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentBlocks);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">if </span>transaction_threshold &gt;= <span class="number">1 </span>{
+            <span class="kw">if </span><span class="self">self</span>.num_txns_map.len() &gt; <span class="number">1 </span>{
+                <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
+                    map: <span class="self">self</span>.num_txns_map.clone(),
+                });
+                <span class="kw">return</span>;
+            }
+            <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.num_txns_map.iter().last().unwrap().<span class="number">0 </span>&lt; transaction_threshold {
+                <span class="self">self</span>.status = ViewStatus::Failed;
+                <span class="kw">return</span>;
+            }
+        }
+
+        <span class="comment">// check for success
+        </span><span class="kw">if </span>num_decided &gt;= threshold {
+            <span class="comment">// decide on if we&#39;ve succeeded.
+            // if so, set state and return
+            // if not, return error
+            // if neither, continue through
+
+            </span><span class="kw">let </span>state_key = key.get_state();
+            <span class="kw">let </span>block_key = key.get_deltas().block_commitment();
+
+            <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.block_map.get(<span class="kw-2">&amp;</span>block_key).unwrap() == threshold
+                &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>state_key).unwrap() == threshold
+                &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.leaf_map.get(<span class="kw-2">&amp;</span>key).unwrap() == threshold
+            {
+                <span class="self">self</span>.status = ViewStatus::Ok;
+                <span class="kw">return</span>;
+            }
+        }
+
+        <span class="kw">let </span>is_success_possible = remaining_nodes + num_decided &gt;= threshold;
+        <span class="kw">if </span>!is_success_possible {
+            <span class="self">self</span>.status = ViewStatus::Failed;
+        }
+    }
+
+    <span class="doccomment">/// generate leaves
+    </span><span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;LEAF, usize&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>leaves = HashMap::&lt;LEAF, usize&gt;::new();
 
         <span class="kw">for </span>(leaf_vec, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.success_nodes.values() {
@@ -724,113 +909,6 @@
         }
         leaves
     }
-    <span class="doccomment">/// general leaf check
-    </span><span class="kw">pub fn </span>check_leaves(<span class="kw-2">&amp;mut </span><span class="self">self</span>, threshold: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), OverallSafetyTaskErr&gt; {
-        <span class="kw">let </span>leaves = <span class="self">self</span>.gen_leaves();
-
-        <span class="kw">for </span>(leaf, num) <span class="kw">in </span>leaves {
-            <span class="kw">if </span>num &gt; threshold {
-                <span class="self">self</span>.agreed_leaf = <span class="prelude-val">Some</span>(leaf);
-                <span class="self">self</span>.success = <span class="bool-val">true</span>;
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-            }
-        }
-        <span class="self">self</span>.success = <span class="bool-val">false</span>;
-        <span class="prelude-val">Err</span>(OverallSafetyTaskErr::MismatchedLeaf)
-    }
-
-    <span class="doccomment">/// sanity block and state check
-    </span><span class="kw">pub fn </span>check_blocks_and_state(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        threshold: usize,
-        check_block: bool,
-        check_state: bool,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), OverallSafetyTaskErr&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>states = HashMap::&lt;&lt;LEAF <span class="kw">as </span>LeafType&gt;::MaybeState, usize&gt;::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>blocks = HashMap::&lt;&lt;LEAF <span class="kw">as </span>LeafType&gt;::DeltasType, usize&gt;::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>num_no_progress = <span class="number">0</span>;
-        <span class="kw">for </span>(_idx, leaves) <span class="kw">in </span><span class="self">self</span>.success_nodes.clone() {
-            <span class="kw">let </span>(state, block): StateAndBlock&lt;
-                &lt;LEAF <span class="kw">as </span>LeafType&gt;::MaybeState,
-                &lt;LEAF <span class="kw">as </span>LeafType&gt;::DeltasType,
-            &gt; = leaves
-                .<span class="number">0
-                </span>.iter()
-                .cloned()
-                .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
-                .unzip();
-
-            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(most_recent_state), <span class="prelude-val">Some</span>(most_recent_block)) =
-                (state.iter().last(), block.iter().last())
-            {
-                <span class="kw">match </span>states.entry(most_recent_state.clone()) {
-                    std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                        <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
-                    }
-                    std::collections::hash_map::Entry::Vacant(v) =&gt; {
-                        v.insert(<span class="number">1</span>);
-                    }
-                }
-                <span class="kw">match </span>blocks.entry(most_recent_block.clone()) {
-                    std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                        <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
-                    }
-                    std::collections::hash_map::Entry::Vacant(v) =&gt; {
-                        v.insert(<span class="number">1</span>);
-                    }
-                }
-            } <span class="kw">else </span>{
-                num_no_progress += <span class="number">1</span>;
-            }
-        }
-        <span class="macro">error!</span>(
-            <span class="string">&quot;states for this view {:#?}\nblocks for this view {:#?}&quot;</span>,
-            states, blocks
-        );
-
-        <span class="macro">error!</span>(
-            <span class="string">&quot;Number of nodes who made zero progress: {:#?}&quot;</span>,
-            num_no_progress
-        );
-
-        <span class="kw">let </span><span class="kw-2">mut </span>result_state = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>result_commitment = <span class="prelude-val">None</span>;
-
-        <span class="kw">if </span>check_state {
-            <span class="kw">for </span>(state, num_nodes) <span class="kw">in </span>states {
-                <span class="kw">if </span>num_nodes &gt;= threshold {
-                    result_state = <span class="prelude-val">Some</span>(state.clone());
-                    <span class="self">self</span>.agreed_state = <span class="prelude-val">Some</span>(state);
-                    <span class="self">self</span>.success = <span class="bool-val">true</span>;
-                }
-            }
-
-            <span class="kw">if </span>result_state.is_none() {
-                <span class="self">self</span>.success = <span class="bool-val">false</span>;
-                <span class="kw">return </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr::InconsistentStates);
-            }
-        }
-
-        <span class="kw">if </span>check_block {
-            <span class="comment">// Check if the block commitments are the same.
-            </span><span class="kw">let </span><span class="kw-2">mut </span>consistent_block = <span class="prelude-val">None</span>;
-            <span class="kw">for </span>(delta, <span class="kw">_</span>) <span class="kw">in </span>blocks.clone() {
-                <span class="kw">let </span>commitment = delta.block_commitment();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(consistent_commitment) = result_commitment {
-                    <span class="kw">if </span>commitment != consistent_commitment {
-                        <span class="self">self</span>.success = <span class="bool-val">false</span>;
-                        <span class="macro">error!</span>(<span class="string">&quot;Inconsistent blocks, blocks: {:?}&quot;</span>, blocks);
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr::InconsistentBlocks);
-                    }
-                }
-                result_commitment = <span class="prelude-val">Some</span>(commitment);
-                consistent_block = <span class="prelude-val">Some</span>(delta);
-            }
-            <span class="self">self</span>.success = <span class="bool-val">true</span>;
-            <span class="self">self</span>.agreed_block = consistent_block;
-        }
-        <span class="prelude-val">Ok</span>(())
-    }
 }
 
 <span class="doccomment">/// cross node safety properties
@@ -844,6 +922,11 @@
     </span><span class="kw">pub </span>check_state: bool,
     <span class="doccomment">/// whether or not to check the block
     </span><span class="kw">pub </span>check_block: bool,
+    <span class="doccomment">/// whether or not to check that we have threshold amounts of transactions each block
+    /// if 0: don&#39;t check
+    /// if n &gt; 0, check that at least n transactions are decided upon if such information
+    /// is available
+    </span><span class="kw">pub </span>transaction_threshold: u64,
     <span class="doccomment">/// num of total rounds allowed to fail
     </span><span class="kw">pub </span>num_failed_views: usize,
     <span class="doccomment">/// threshold calculator. Given number of live and total nodes, provide number of successes
@@ -871,6 +954,7 @@
             check_state: <span class="bool-val">true</span>,
             check_block: <span class="bool-val">true</span>,
             num_failed_views: <span class="number">10</span>,
+            transaction_threshold: <span class="number">0</span>,
             <span class="comment">// very strict
             </span>threshold_calculator: Arc::new(|_num_live, num_total| <span class="number">2 </span>* num_total / <span class="number">3 </span>+ <span class="number">1</span>),
         }
@@ -886,25 +970,10 @@
             check_leaf,
             check_state,
             check_block,
-            <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1167&gt;
-            // We can&#39;t exactly check that the transactions all match those submitted
-            // because of a type error. We ONLY have `MaybeState` and we need `State`.
-            // unless we specialize, this won&#39;t happen.
-            // so waiting on refactor for this
-            // code is below:
-            //
-            //     ```
-            //         let next_state /* : Option&lt;_&gt; */ = {
-            //         if let Some(last_leaf) = ctx.prior_round_results.iter().last() {
-            //             if let Some(parent_state) = last_leaf.agreed_state {
-            //                 let mut block = &lt;TYPES as NodeType&gt;::StateType::next_block(Some(parent_state.clone()));
-            //             }
-            //         }
-            //     };
-            // ```
-            </span>num_failed_views: num_failed_rounds_total,
+            num_failed_views: num_failed_rounds_total,
             num_successful_views,
             threshold_calculator,
+            transaction_threshold,
         }: <span class="self">Self </span>= <span class="self">self</span>;
 
         Box::new(<span class="kw">move </span>|<span class="kw-2">mut </span>state, <span class="kw-2">mut </span>registry, test_event_stream| {
@@ -957,22 +1026,32 @@
                         <span class="kw">let </span>threshold_calculator = threshold_calculator.clone();
                         <span class="kw">async move </span>{
                             <span class="kw">let </span>(idx, Event { view_number, event }) = msg;
-                            <span class="kw">match </span>event {
+                            <span class="kw">let </span>key = <span class="kw">match </span>event {
                                 EventType::Error { error } =&gt; {
                                     state.ctx.insert_error_to_context(view_number, error);
-                                }
-                                EventType::Decide { leaf_chain, qc, .. } =&gt; {
+                                    <span class="prelude-val">None
+                                </span>}
+                                EventType::Decide {
+                                    leaf_chain,
+                                    qc,
+                                    block_size: maybe_block_size,
+                                } =&gt; {
                                     <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
                                     <span class="kw">match </span>state.ctx.round_results.entry(view_number) {
-                                        Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                                            o.get_mut().success_nodes.insert(idx <span class="kw">as </span>u64, paired_up);
-                                        }
+                                        Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; o.get_mut().insert_into_result(
+                                            idx,
+                                            paired_up,
+                                            maybe_block_size,
+                                        ),
                                         Entry::Vacant(v) =&gt; {
                                             <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
-                                            round_result
-                                                .success_nodes
-                                                .insert(idx <span class="kw">as </span>u64, paired_up);
+                                            <span class="kw">let </span>key = round_result.insert_into_result(
+                                                idx,
+                                                paired_up,
+                                                maybe_block_size,
+                                            );
                                             v.insert(round_result);
+                                            key
                                         }
                                     }
                                 }
@@ -983,66 +1062,69 @@
                                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                                     });
                                     state.ctx.insert_error_to_context(view_number, error);
-                                }
+                                    <span class="prelude-val">None
+                                </span>}
                                 <span class="kw">_ </span>=&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, state),
-                            }
+                            };
 
                             <span class="comment">// update view count
                             </span><span class="kw">let </span>threshold =
                                 (threshold_calculator)(state.handles.len(), state.handles.len());
 
                             <span class="kw">let </span>view = state.ctx.round_results.get_mut(<span class="kw-2">&amp;</span>view_number).unwrap();
-                            view.success = <span class="bool-val">true</span>;
-                            <span class="kw">if </span>view.failed_nodes.len() &gt; state.handles.len() - threshold {
-                                <span class="comment">// mark as failure
-                                </span>view.success = <span class="bool-val">false</span>;
-                                state.ctx.failed_views.insert(view_number);
-                                <span class="kw">if </span>state.ctx.failed_views.len() &gt;= num_failed_rounds_total {
-                                    state
-                                        .test_event_stream
-                                        .publish(GlobalTestEvent::ShutDown)
-                                        .<span class="kw">await</span>;
-                                    <span class="kw">return </span>(
-                                        <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                                            OverallSafetyTaskErr::TooManyFailures {
-                                                got: state.ctx.failed_views.len(),
-                                                expected: num_failed_rounds_total,
-                                            },
-                                        ))),
-                                        state,
-                                    );
-                                }
-                            }
 
-                            <span class="kw">if </span>view.success_nodes.len() &gt;= threshold {
-                                <span class="comment">// TODO check for safety violation on leaves
-                                </span><span class="kw">if </span>check_leaf {
-                                    <span class="kw">let </span>leaf_result = view.check_leaves(threshold);
-                                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = leaf_result {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
+                                view.update_status(
+                                    threshold,
+                                    state.handles.len(),
+                                    key,
+                                    check_leaf,
+                                    check_state,
+                                    check_block,
+                                    transaction_threshold,
+                                );
+                                <span class="kw">match </span>view.status.clone() {
+                                    ViewStatus::Ok =&gt; {
+                                        state.ctx.successful_views.insert(view_number);
+                                        <span class="kw">if </span>state.ctx.successful_views.len()
+                                            &gt;= <span class="self">self</span>.num_successful_views
+                                        {
+                                            state
+                                                .test_event_stream
+                                                .publish(GlobalTestEvent::ShutDown)
+                                                .<span class="kw">await</span>;
+                                            <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state);
+                                        }
+                                        <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                                    }
+                                    ViewStatus::Failed =&gt; {
+                                        state.ctx.failed_views.insert(view_number);
+                                        <span class="kw">if </span>state.ctx.failed_views.len() &gt;= <span class="self">self</span>.num_failed_views {
+                                            state
+                                                .test_event_stream
+                                                .publish(GlobalTestEvent::ShutDown)
+                                                .<span class="kw">await</span>;
+                                            <span class="kw">return </span>(
+                                                <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
+                                                    OverallSafetyTaskErr::TooManyFailures {
+                                                        got: state.ctx.failed_views.len(),
+                                                        expected: num_failed_rounds_total,
+                                                    },
+                                                ))),
+                                                state,
+                                            );
+                                        }
+                                        <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                                    }
+                                    ViewStatus::Err(e) =&gt; {
                                         <span class="kw">return </span>(
                                             <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(e))),
                                             state,
                                         );
                                     }
-                                }
-                                <span class="kw">let </span>block_state_result = view.check_blocks_and_state(
-                                    threshold,
-                                    check_block,
-                                    check_state,
-                                );
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = block_state_result {
-                                    <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(e))), state);
-                                }
-
-                                <span class="comment">// mark as success
-                                </span>view.success = <span class="bool-val">true</span>;
-                                state.ctx.successful_views.insert(view_number);
-                                <span class="kw">if </span>state.ctx.successful_views.len() &gt;= num_successful_views {
-                                    state
-                                        .test_event_stream
-                                        .publish(GlobalTestEvent::ShutDown)
-                                        .<span class="kw">await</span>;
-                                    <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state);
+                                    ViewStatus::InProgress =&gt; {
+                                        <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                                    }
                                 }
                             }
 

@@ -264,6 +264,8 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
 <span class="kw">use </span>std::num::NonZeroUsize;
@@ -351,6 +353,7 @@
                 check_state: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">15</span>,
+                transaction_threshold: <span class="number">0</span>,
                 threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
             },
             timing_data: TimingData {
@@ -374,6 +377,7 @@
                 check_state: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">8</span>,
+                transaction_threshold: <span class="number">0</span>,
                 threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
             },
             timing_data: TimingData {
