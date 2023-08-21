@@ -7,7 +7,7 @@ use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::{
     identity::{
-        ed25519::{Keypair as EdKeypair, SecretKey},
+        bn254::{Keypair as EdKeypair, SecretKey},
         Keypair,
     },
     multiaddr::{self},
@@ -55,6 +55,10 @@ pub fn load_config_from_file<TYPES: NodeType>(
             )
             .0
         })
+        .collect();
+
+    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
+        .map(|node_id| config.config.known_nodes[node_id].get_stake_table_entry(1u64))
         .collect();
 
     config
