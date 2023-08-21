@@ -85,6 +85,7 @@ impl TestMetadata {
                 check_state: true,
                 check_block: true,
                 num_failed_views: 15,
+                transaction_threshold: 0,
                 threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
             },
             timing_data: TimingData {
@@ -108,6 +109,7 @@ impl TestMetadata {
                 check_state: true,
                 check_block: true,
                 num_failed_views: 8,
+                transaction_threshold: 0,
                 threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
             },
             timing_data: TimingData {
