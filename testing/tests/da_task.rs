@@ -51,7 +51,9 @@ async fn build_da_api<
         ConsensusMessage = SequencingMessage<TYPES, I>,
         Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     >,
->() -> SystemContextHandle<TYPES, I>
+>(
+    node_id: u64,
+) -> SystemContextHandle<TYPES, I>
 where
     I::Exchanges: ExchangesType<
         TYPES,
@@ -97,8 +99,6 @@ where
 
     let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
 
-    // In view 1, the node with id 2 is the next leader.
-    let node_id = 2;
     let networks = (launcher.resource_generator.channel_generator)(node_id);
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
@@ -157,31 +157,26 @@ async fn test_da_task() {
         tasks::add_da_task,
     };
     use hotshot_task_impls::harness::run_harness;
-    use hotshot_types::{message::Proposal, traits::election::CommitteeExchangeType};
+    use hotshot_types::{
+        message::{CommitteeConsensusMessage, Proposal},
+        traits::election::CommitteeExchangeType,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
+    // Build the API for node 2.
     let handle = build_da_api::<
         hotshot_testing::node_types::SequencingTestTypes,
         hotshot_testing::node_types::SequencingMemoryImpl,
-    >()
+    >(2)
     .await;
-
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
     let committee_exchange = api.inner.exchanges.committee_exchange().clone();
-
-    // Every event input is seen on the event stream in the output.
-    let mut input = Vec::new();
-    let mut output = HashMap::new();
-
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(SequencingHotShotEvent::Shutdown);
-
+    let pub_key = api.public_key().clone();
     let block = SDemoBlock::Normal(SDemoNormalBlock {
         previous_state: (),
         transactions: Vec::new(),
@@ -196,12 +191,37 @@ async fn test_da_task() {
         data: proposal,
         signature,
     };
+
+    // Every event input is seen on the event stream in the output.
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    // In view 1, node 2 is the next leader.
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
+    input.push(SequencingHotShotEvent::DAProposalRecv(
+        message.clone(),
+        pub_key.clone(),
+    ));
+    input.push(SequencingHotShotEvent::Shutdown);
+
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
     output.insert(
-        SequencingHotShotEvent::DAProposalSend(message, api.public_key().clone()),
+        SequencingHotShotEvent::DAProposalSend(message.clone(), pub_key.clone()),
         1,
     );
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
+        let da_message =
+            committee_exchange.create_da_message(block_commitment, ViewNumber::new(2), vote_token);
+        if let CommitteeConsensusMessage::DAVote(vote) = da_message {
+            output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
+        }
+    }
+    output.insert(
+        SequencingHotShotEvent::DAProposalRecv(message, pub_key.clone()),
+        1,
+    );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
