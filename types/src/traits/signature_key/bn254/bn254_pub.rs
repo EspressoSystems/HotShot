@@ -71,16 +71,16 @@ impl SignatureKey for BN254Pub {
 
     fn sign(sk: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
         let generic_msg = GenericArray::from_slice(data);
-        let agg_signature_test_wrap = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+        let agg_signature_wrap = BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             generic_msg,
             &sk.priv_key,
             &mut rand::thread_rng(),
         );
-        match agg_signature_test_wrap {
-            Ok(agg_signature_test) => {
+        match agg_signature_wrap {
+            Ok(agg_signature) => {
                 // Convert the signature to bytes and return
-                let bytes = bincode_opts().serialize(&agg_signature_test);
+                let bytes = bincode_opts().serialize(&agg_signature);
                 match bytes {
                     Ok(bytes) => EncodedSignature(bytes),
                     Err(e) => {
