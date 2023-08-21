@@ -8,7 +8,6 @@ use super::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
 use ethereum_types::U256;
 use hotshot_primitives::qc::bit_vector::{BitVectorQC, StakeTableEntry as JFStakeTableEntry, QCParams as JFQCParams};
 use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
-use hotshot_primitives::qc::QuorumCertificate as AssembledQuorumCertificate;
 use jf_primitives::signatures::SignatureScheme;
 use blake3::traits::digest::generic_array::GenericArray;
 use typenum::U32;
