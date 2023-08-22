@@ -1,41 +1,13 @@
 use commit::Committable;
-use hotshot::rand::SeedableRng;
-use hotshot::traits::election::static_committee::GeneralStaticCommittee;
-use hotshot::traits::election::static_committee::StaticElectionConfig;
-use hotshot::traits::election::vrf::JfPubKey;
-use hotshot::traits::implementations::MemoryStorage;
-use hotshot::types::SignatureKey;
-use hotshot::types::SystemContextHandle;
-use hotshot::HotShotInitializer;
 use hotshot::HotShotSequencingConsensusApi;
-use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation, SystemContext};
 use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
-use hotshot_testing::node_types::{
-    StaticMembership, StaticMemoryDAComm, StaticMemoryQuorumComm, StaticMemoryViewSyncComm,
-};
-use hotshot_testing::test_builder::TestMetadata;
-use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::DAProposal;
-use hotshot_types::data::QuorumProposal;
-use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
-use hotshot_types::message::Message;
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::metrics::NoMetrics;
-use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::node_implementation::QuorumEx;
-use hotshot_types::traits::node_implementation::SequencingQuorumEx;
-use hotshot_types::traits::node_implementation::ViewSyncEx;
-use hotshot_types::traits::{
-    election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
-};
-use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
-use jf_primitives::signatures::BLSSignatureScheme;
+use hotshot_types::traits::{election::ConsensusExchange, state::ConsensusTime};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -49,7 +21,8 @@ async fn test_da_task() {
         demos::sdemo::{SDemoBlock, SDemoNormalBlock},
         tasks::add_da_task,
     };
-    use hotshot_task_impls::harness::{run_harness, build_api};
+    use hotshot_task_impls::harness::run_harness;
+    use hotshot_testing::system_handle::build_system_handle;
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
         traits::election::CommitteeExchangeType,
@@ -59,17 +32,13 @@ async fn test_da_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_api::<
-        hotshot_testing::node_types::SequencingTestTypes,
-        hotshot_testing::node_types::SequencingMemoryImpl,
-    >(2)
-    .await;
+    let handle = build_system_handle(2).await;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
     let committee_exchange = api.inner.exchanges.committee_exchange().clone();
-    let pub_key = api.public_key().clone();
+    let pub_key = *api.public_key();
     let block = SDemoBlock::Normal(SDemoNormalBlock {
         previous_state: (),
         transactions: Vec::new(),
@@ -94,14 +63,14 @@ async fn test_da_task() {
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::DAProposalRecv(
         message.clone(),
-        pub_key.clone(),
+        pub_key,
     ));
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
     output.insert(
-        SequencingHotShotEvent::DAProposalSend(message.clone(), pub_key.clone()),
+        SequencingHotShotEvent::DAProposalSend(message.clone(), pub_key),
         1,
     );
     if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
@@ -111,10 +80,7 @@ async fn test_da_task() {
             output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
         }
     }
-    output.insert(
-        SequencingHotShotEvent::DAProposalRecv(message, pub_key.clone()),
-        1,
-    );
+    output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 

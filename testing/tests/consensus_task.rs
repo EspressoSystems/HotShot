@@ -1,42 +1,26 @@
 use commit::Committable;
 use either::Right;
-use hotshot::traits::NodeImplementation;
-use hotshot::types::SystemContextHandle;
-use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation, SystemContext};
-
+use hotshot::certificate::QuorumCertificate;
 use hotshot::tasks::add_consensus_task;
-
 use hotshot::traits::Block;
+use hotshot::types::bn254::BN254Pub;
 use hotshot::types::SignatureKey;
-use hotshot::HotShotInitializer;
+use hotshot::types::SystemContextHandle;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
-
 use hotshot_task_impls::events::SequencingHotShotEvent;
+use hotshot_task_impls::harness::run_harness;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
-use hotshot_testing::test_builder::TestMetadata;
-use hotshot_types::message::GeneralConsensusMessage;
-use hotshot_types::message::Proposal;
-
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
-use hotshot_types::message::Message;
-
-use hotshot_types::traits::election::Membership;
-
+use hotshot_types::message::GeneralConsensusMessage;
+use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::traits::metrics::NoMetrics;
-
-use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
-
-use hotshot::types::bn254::BN254Pub;
-use hotshot_task_impls::harness::run_harness;
-use hotshot_types::traits::node_implementation::QuorumEx;
 use hotshot_types::traits::signature_key::EncodedSignature;
 use hotshot_types::traits::{
     election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
@@ -183,12 +167,12 @@ async fn build_vote(
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_task_impls::harness::build_api;
+    use hotshot_testing::system_handle::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_api(1).await;
+    let handle = build_system_handle(1).await;
     let (private_key, public_key) = key_pair_for_id(1);
 
     let mut input = Vec::new();
@@ -223,12 +207,12 @@ async fn test_consensus_task() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot_task_impls::harness::build_api;
+    use hotshot_testing::system_handle::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_api(2).await;
+    let handle = build_system_handle(2).await;
     let (private_key, public_key) = key_pair_for_id(1);
 
     let mut input = Vec::new();
