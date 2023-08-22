@@ -1224,7 +1224,7 @@ impl<
                 let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
                 let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                     self.membership().get_committee_qc_stake_table(),
-                    U256::from(self.membership().success_threshold().get()),
+                    U256::from(self.membership().failure_threshold().get()),
                 );
                 <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp,

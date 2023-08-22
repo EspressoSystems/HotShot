@@ -460,7 +460,7 @@ where
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
             let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                 entries,
-                U256::from(self.success_threshold.get()),
+                U256::from(self.failure_threshold.get()),
             );
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
