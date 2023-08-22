@@ -262,6 +262,9 @@ where
 
                 // Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
+                // `self.cur_view` should be at least 1 since there is a view change before getting
+                // the `DAProposalRecv` event. Otherewise, the view number subtraction below will
+                // cause an overflow error.
                 if view < self.cur_view - 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;

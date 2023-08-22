@@ -9,7 +9,6 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
 use std::collections::HashMap;
