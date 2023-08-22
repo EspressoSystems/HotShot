@@ -722,6 +722,30 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -781,8 +805,7 @@
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-</span><span class="kw">use </span>rand::SeedableRng;
-<span class="kw">use </span>std::fmt::Debug;
+</span><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::net::Ipv4Addr;
 <span class="kw">use </span>std::{
     <span class="comment">//collections::{BTreeSet, VecDeque},
@@ -932,7 +955,11 @@
 {
     <span class="doccomment">/// Initializes networking, returns self
     </span><span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;
+            TYPES::SignatureKey,
+            &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        &gt;,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Initializes the genesis state and HotShot instance; does not start HotShot consensus
@@ -949,12 +976,12 @@
 
         <span class="kw">let </span>config = <span class="self">self</span>.get_config();
 
-        <span class="kw">let </span>(pk, sk) =
+        <span class="comment">// Get KeyPair for certificate Aggregation
+        </span><span class="kw">let </span>(pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        <span class="kw">let </span>ek = jf_primitives::aead::KeyPair::generate(<span class="kw-2">&amp;mut </span>rand_chacha::ChaChaRng::from_seed(
-            config.seed,
-        ));
         <span class="kw">let </span>known_nodes = config.config.known_nodes.clone();
+        <span class="kw">let </span>known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+        <span class="kw">let </span>entry = pk.get_stake_table_entry(<span class="number">1u64</span>);
 
         <span class="kw">let </span>da_network = <span class="self">self</span>.get_da_network();
         <span class="kw">let </span>quorum_network = <span class="self">self</span>.get_quorum_network();
@@ -976,6 +1003,7 @@
         );
 
         <span class="kw">let </span>exchanges = NODE::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
@@ -984,8 +1012,8 @@
                 view_sync_network.clone(),
             ),
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
 
         SystemContext::init(
@@ -1148,7 +1176,13 @@
     </span><span class="kw">fn </span>get_view_sync_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VIEWSYNCNETWORK;
 
     <span class="doccomment">/// Returns the config for this run
-    </span><span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;;
+    </span><span class="kw">fn </span>get_config(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; NetworkConfig&lt;
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    &gt;;
 }
 
 <span class="comment">// WEB SERVER
@@ -1176,7 +1210,11 @@
     I: NodeImplementation&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt; {
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    config: NetworkConfig&lt;
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    &gt;,
     quorum_network: StaticQuorumComm&lt;TYPES, I, MEMBERSHIP&gt;,
     da_network: StaticDAComm&lt;TYPES, I, MEMBERSHIP&gt;,
     view_sync_network: StaticViewSyncComm&lt;TYPES, I, MEMBERSHIP&gt;,
@@ -1246,7 +1284,11 @@
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;
+            TYPES::SignatureKey,
+            &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        &gt;,
     ) -&gt; WebServerDARun&lt;TYPES, NODE, MEMBERSHIP&gt; {
         <span class="comment">// Generate our own key
         </span><span class="kw">let </span>(pub_key, _priv_key) =
@@ -1339,7 +1381,13 @@
         <span class="self">self</span>.view_sync_network.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    <span class="kw">fn </span>get_config(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; NetworkConfig&lt;
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    &gt; {
         <span class="self">self</span>.config.clone()
     }
 }

@@ -178,18 +178,29 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::vrf::JfPubKey;
-<span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+</pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
+</span><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     traits::{
         election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedSignature, SignatureKey},
+        signature_key::{bn254::BN254Pub, EncodedSignature, SignatureKey},
     },
 };
-<span class="kw">use </span>jf_primitives::signatures::BLSSignatureScheme;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::marker::PhantomData;
@@ -202,8 +213,12 @@
 </span><span class="kw">pub struct </span>GeneralStaticCommittee&lt;T, LEAF: LeafType&lt;NodeType = T&gt;, PUBKEY: SignatureKey&gt; {
     <span class="doccomment">/// All the nodes participating
     </span>nodes: Vec&lt;PUBKEY&gt;,
+    <span class="doccomment">/// All the nodes participating and their stake
+    </span>nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
     <span class="doccomment">/// The nodes on the static committee
     </span>committee_nodes: Vec&lt;PUBKEY&gt;,
+    <span class="doccomment">/// The nodes on the static committee and their stake
+    </span>committee_nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
     <span class="doccomment">/// Node type phantom
     </span>_type_phantom: PhantomData&lt;T&gt;,
     <span class="doccomment">/// Leaf phantom
@@ -211,17 +226,19 @@
 }
 
 <span class="doccomment">/// static committee using a vrf kp
-</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; = GeneralStaticCommittee&lt;T, LEAF, JfPubKey&lt;BLSSignatureScheme&gt;&gt;;
+</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; = GeneralStaticCommittee&lt;T, LEAF, BN254Pub&gt;;
 
 <span class="kw">impl</span>&lt;T, LEAF: LeafType&lt;NodeType = T&gt;, PUBKEY: SignatureKey&gt;
     GeneralStaticCommittee&lt;T, LEAF, PUBKEY&gt;
 {
     <span class="doccomment">/// Creates a new dummy elector
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(nodes: Vec&lt;PUBKEY&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(nodes: Vec&lt;PUBKEY&gt;, nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             nodes: nodes.clone(),
+            nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes: nodes,
+            committee_nodes_with_stake: nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
@@ -275,17 +292,11 @@
         ElectionConfigType = StaticElectionConfig,
     &gt;,
 {
-    <span class="doccomment">/// Just use the vector of public keys for the stake table
-    </span><span class="kw">type </span>StakeTable = Vec&lt;PUBKEY&gt;;
-
-    <span class="doccomment">/// Clone the static table
-    </span><span class="kw">fn </span>get_stake_table(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: TYPES::Time,
-        _state: <span class="kw-2">&amp;</span>TYPES::StateType,
-    ) -&gt; <span class="self">Self</span>::StakeTable {
-        <span class="self">self</span>.nodes.clone()
+    <span class="doccomment">/// Clone the public key and corresponding stake table for current elected committee
+    </span><span class="kw">fn </span>get_committee_qc_stake_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY::StakeTableEntry&gt; {
+        <span class="self">self</span>.committee_nodes_with_stake.clone()
     }
+
     <span class="doccomment">/// Index the vector of public keys with the current view number
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
         <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
@@ -305,13 +316,14 @@
         }
         <span class="kw">let </span><span class="kw-2">mut </span>message: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
         message.extend(view_number.to_le_bytes());
+        <span class="comment">// Change the length from 8 to 32 to make it consistent with other commitments, use defined constant? instead of 32.
+        </span>message.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">32 </span>- <span class="number">8</span>]);
         <span class="kw">let </span>signature = PUBKEY::sign(private_key, <span class="kw-2">&amp;</span>message);
         <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(StaticVoteToken { signature, pub_key }))
     }
 
     <span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: TYPES::Time,
         pub_key: PUBKEY,
         token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
@@ -331,16 +343,28 @@
         StaticElectionConfig { num_nodes }
     }
 
-    <span class="kw">fn </span>create_election(keys: Vec&lt;PUBKEY&gt;, config: TYPES::ElectionConfigType) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>create_election(
+        keys_qc: Vec&lt;PUBKEY::StakeTableEntry&gt;,
+        keys: Vec&lt;PUBKEY&gt;,
+        config: TYPES::ElectionConfigType,
+    ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes = keys.clone();
+        <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes_with_stake = keys_qc.clone();
         committee_nodes.truncate(config.num_nodes.try_into().unwrap());
         <span class="macro">debug!</span>(<span class="string">&quot;Election Membership Size: {}&quot;</span>, config.num_nodes);
+        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
         <span class="self">Self </span>{
+            nodes_with_stake: keys_qc,
             nodes: keys,
             committee_nodes,
+            committee_nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
         }
+    }
+
+    <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.committee_nodes.len()
     }
 
     <span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {

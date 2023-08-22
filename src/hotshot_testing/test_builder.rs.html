@@ -266,6 +266,12 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
 <span class="kw">use </span>std::num::NonZeroUsize;
@@ -466,10 +472,15 @@
 
         <span class="kw">let </span>known_nodes: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; = (<span class="number">0</span>..total_nodes)
             .map(|id| {
-                <span class="kw">let </span>priv_key = I::generate_test_key(id <span class="kw">as </span>u64);
+                <span class="kw">let </span>priv_key =
+                    TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], id <span class="kw">as </span>u64).<span class="number">1</span>;
                 TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key)
             })
             .collect();
+        <span class="kw">let </span>known_nodes_with_stake: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt; =
+            (<span class="number">0</span>..total_nodes)
+                .map(|id| known_nodes[id].get_stake_table_entry(<span class="number">1u64</span>))
+                .collect();
         <span class="comment">// let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         </span><span class="kw">let </span>config = HotShotConfig {
             <span class="comment">// TODO this doesn&#39;t exist anymore
@@ -479,6 +490,7 @@
             min_transactions,
             max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
             known_nodes,
+            known_nodes_with_stake,
             da_committee_size,
             next_view_timeout: <span class="number">500</span>,
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
@@ -505,7 +517,7 @@
         } = timing_data;
         <span class="kw">let </span>mod_config =
             <span class="comment">// TODO this should really be using the timing config struct
-            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;| {
+            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry, TYPES::ElectionConfigType&gt;| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;

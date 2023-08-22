@@ -251,6 +251,8 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -290,11 +292,11 @@
 }
 
 <span class="attr">#[derive(Default, Clone)]
-</span><span class="kw">struct </span>OrchestratorState&lt;KEY, ELECTION&gt; {
+</span><span class="kw">struct </span>OrchestratorState&lt;KEY, ENTRY, ELECTION&gt; {
     <span class="doccomment">/// Tracks the latest node index we have generated a configuration for
     </span>latest_index: u16,
     <span class="doccomment">/// The network configuration
-    </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
+    </span>config: NetworkConfig&lt;KEY, ENTRY, ELECTION&gt;,
     <span class="doccomment">/// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     </span>start: bool,
@@ -305,9 +307,9 @@
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
-    OrchestratorState&lt;KEY, ELECTION&gt;
+    OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
 {
-    <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>web_client = <span class="prelude-val">None</span>;
         <span class="kw">if </span>network_config.web_server_config.is_some() {
             <span class="kw">let </span>base_url = <span class="string">&quot;http://0.0.0.0/9000&quot;</span>.to_string().parse().unwrap();
@@ -323,18 +325,19 @@
     }
 }
 
-<span class="kw">pub trait </span>OrchestratorApi&lt;KEY, ELECTION&gt; {
+<span class="kw">pub trait </span>OrchestratorApi&lt;KEY, ENTRY, ELECTION&gt; {
     <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
     <span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ENTRY, ELECTION&gt;, ServerError&gt;;
     <span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt;;
     <span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
     <span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
 }
 
-<span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
+<span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
+    <span class="kw">for </span>OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
 <span class="kw">where
     </span>KEY: serde::Serialize + Clone + SignatureKey,
     ELECTION: serde::Serialize + Clone + Send,
@@ -395,7 +398,7 @@
     </span><span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;, ServerError&gt; {
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.is_some() {
             <span class="kw">let </span>libp2p_config = <span class="self">self</span>.config.clone().libp2p_config.unwrap();
             <span class="kw">if </span>libp2p_config.bootstrap_nodes.len()
@@ -438,11 +441,12 @@
 }
 
 <span class="doccomment">/// Sets up all API routes
-</span><span class="kw">fn </span>define_api&lt;KEY, ELECTION, State&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError&gt;, ApiError&gt;
+</span><span class="kw">fn </span>define_api&lt;KEY, ELECTION, ENTRY, State&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">&#39;static </span>+ Send + Sync + ReadState + WriteState,
-    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ELECTION&gt;,
+    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ENTRY, ELECTION&gt;,
     KEY: serde::Serialize,
+    ENTRY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
     <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
@@ -485,7 +489,7 @@
 
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY, ELECTION&gt;(
-    network_config: NetworkConfig&lt;KEY, ELECTION&gt;,
+    network_config: NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;,
     host: IpAddr,
     port: u16,
 ) -&gt; io::Result&lt;()&gt;
@@ -495,10 +499,10 @@
 {
     <span class="kw">let </span>api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">&quot;Failed to define api&quot;</span>));
 
-    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
+    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;&gt; =
         RwLock::new(OrchestratorState::new(network_config));
 
-    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
+    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
     <span class="macro">tracing::error!</span>(<span class="string">&quot;lisening on {:?}:{:?}&quot;</span>, host, port);

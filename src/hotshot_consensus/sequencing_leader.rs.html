@@ -547,6 +547,12 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -557,11 +563,11 @@
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
+<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>either::{Left, Right};
-<span class="kw">use </span>hotshot_types::data::QuorumProposal;
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
@@ -571,8 +577,8 @@
 };
 <span class="kw">use </span>hotshot_types::traits::state::State;
 <span class="kw">use </span>hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
-    data::{DAProposal, SequencingLeaf},
+    certificate::{AssembledSignature, DACertificate, QuorumCertificate},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
@@ -647,16 +653,22 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cur_view: TYPES::Time,
         threshold: NonZeroU64,
+        total_nodes_num: usize,
         block_commitment: Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
+            sig_lists: Vec::new(),
+            signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; total_nodes_num],
         };
 
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
@@ -706,9 +718,8 @@
                             }
                             Either::Right(qc) =&gt; {
                                 <span class="kw">match </span>qc.clone().signatures {
-                                    YesNoSignature::Yes(map) =&gt; {
-                                        <span class="macro">info!</span>(<span class="string">&quot;Number of DA signatures in this QC: {}&quot;</span>, map.len());
-                                    }
+                                    AssembledSignature::Yes(_signature) =&gt; {}
+                                    AssembledSignature::DA(_signature) =&gt; {}
                                     <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
                                 };
                                 <span class="kw">return </span><span class="prelude-val">Some</span>(qc);
@@ -846,6 +857,7 @@
             </span>.wait_for_votes(
                 <span class="self">self</span>.cur_view,
                 <span class="self">self</span>.committee_exchange.success_threshold(),
+                <span class="self">self</span>.committee_exchange.total_nodes(),
                 block_commitment,
             )
             .<span class="kw">await
@@ -934,7 +946,6 @@
             dac: <span class="prelude-val">Some</span>(<span class="self">self</span>.cert),
             proposer_id: leaf.proposer_id,
         };
-
         <span class="kw">let </span>message =
             SequencingMessage::&lt;TYPES, I&gt;(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
@@ -1008,14 +1019,18 @@
     </span><span class="kw">pub async fn </span>run_view(<span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>qcs = HashSet::&lt;QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;::new();
         qcs.insert(<span class="self">self</span>.generic_qc.clone());
-
         <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: <span class="self">self</span>.quorum_exchange.success_threshold(),
             failure_threshold: <span class="self">self</span>.quorum_exchange.failure_threshold(),
+            sig_lists: Vec::new(),
+            signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.quorum_exchange.total_nodes()],
         };
 
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
@@ -1050,10 +1065,7 @@
                                     }
                                     Either::Right(qc) =&gt; {
                                         <span class="kw">match </span>qc.clone().signatures {
-                                            YesNoSignature::Yes(map) =&gt; <span class="macro">info!</span>(
-                                                <span class="string">&quot;Number of qurorum signatures in this QC: {}&quot;</span>,
-                                                map.len()
-                                            ),
+                                            AssembledSignature::Yes(_signature) =&gt; {}
                                             <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
                                         };
                                         <span class="kw">return </span>qc;

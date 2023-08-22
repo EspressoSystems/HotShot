@@ -124,6 +124,16 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
@@ -131,7 +141,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
 
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 
 <span class="doccomment">/// Holds the client connection to the orchestrator
@@ -186,14 +196,24 @@
 
     <span class="doccomment">/// Returns the run configuration from the orchestrator
     /// Will block until the configuration is returned
+    </span><span class="attr">#[allow(clippy::type_complexity)]
+
     </span><span class="kw">pub async fn </span>get_config_from_orchestrator&lt;TYPES: NodeType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         node_index: u16,
-    ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    ) -&gt; NetworkConfig&lt;
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    &gt; {
         <span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;
-                    NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+                    NetworkConfig&lt;
+                        TYPES::SignatureKey,
+                        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+                        TYPES::ElectionConfigType,
+                    &gt;,
                     ClientError,
                 &gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;api/config/{node_index}&quot;</span>))

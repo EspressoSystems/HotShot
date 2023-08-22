@@ -319,13 +319,6 @@
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -349,7 +342,6 @@
         election::Membership,
         network::{CommunicationChannel, ConnectedNetwork, TransmitType},
         node_implementation::NodeType,
-        signature_key::TestableSignatureKey,
     },
     vote::VoteType,
 };
@@ -409,8 +401,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
     TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
     <span class="kw">for </span>CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;
-<span class="kw">where
-    </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
@@ -456,8 +446,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
     TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
     <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
-<span class="kw">where
-    </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
@@ -647,8 +635,6 @@
         MEMBERSHIP,
         CombinedNetworks&lt;TYPES, I, MEMBERSHIP&gt;,
     &gt; <span class="kw">for </span>WebServerWithFallbackCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
-<span class="kw">where
-    </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="kw">fn </span>generate_network() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;<span class="self">Self</span>::NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         Box::new(<span class="kw">move </span>|network| WebServerWithFallbackCommChannel::new(network))

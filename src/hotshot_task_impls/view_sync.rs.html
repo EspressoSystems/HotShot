@@ -1012,6 +1012,15 @@
 <a href="#1012" id="1012">1012</a>
 <a href="#1013" id="1013">1013</a>
 <a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
@@ -1031,6 +1040,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
 
+<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
 <span class="kw">use </span>hotshot_types::certificate::ViewSyncCertificate;
 <span class="kw">use </span>hotshot_types::data::SequencingLeaf;
@@ -1055,7 +1065,6 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>tracing::{debug, error, instrument};
-
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="kw">pub enum </span>ViewSyncPhase {
     <span class="prelude-val">None</span>,
@@ -1371,11 +1380,16 @@
 
                 <span class="kw">let </span>accumulator = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
                     no_vote_outcomes: HashMap::new(),
                     viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                     failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
+                    sig_lists: Vec::new(),
+                    signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
                 };
 
                 <span class="kw">let </span><span class="kw-2">mut </span>relay_state = ViewSyncRelayTaskState {
@@ -2006,12 +2020,16 @@
                         <span class="comment">// Reset accumulator for new certificate
                         </span>either::Left(VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                             failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
                         })
                     }
                 };

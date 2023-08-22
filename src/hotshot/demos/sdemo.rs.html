@@ -391,7 +391,7 @@
 //! production use.
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 <span class="kw">use </span>std::{
-    collections::{BTreeMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::Deref,
@@ -401,14 +401,14 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
-    certificate::{QuorumCertificate, YesNoSignature},
+    certificate::{AssembledSignature, QuorumCertificate},
     constants::genesis_proposer_id,
     data::{fake_commitment, random_commitment, LeafType, SequencingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
+        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
@@ -688,7 +688,7 @@
 <span class="kw">impl </span>NodeType <span class="kw">for </span>SDemoTypes {
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockType = SDemoBlock;
-    <span class="kw">type </span>SignatureKey = Ed25519Pub;
+    <span class="kw">type </span>SignatureKey = BN254Pub;
     <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;<span class="self">Self</span>::SignatureKey&gt;;
     <span class="kw">type </span>Transaction = SDemoTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
@@ -741,7 +741,7 @@
         <span class="comment">// block_commitment: random_commitment(rng),
         </span>leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        signatures: AssembledSignature::Genesis(),
         is_genesis: rng.gen(),
     }
 }

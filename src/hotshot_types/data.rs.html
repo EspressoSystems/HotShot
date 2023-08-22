@@ -933,28 +933,44 @@
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`&#39;s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use crate</span>::{
-    certificate::{DACertificate, QuorumCertificate, ViewSyncCertificate, YesNoSignature},
+    certificate::{AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate},
     constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,
         node_implementation::NodeType,
-        signature_key::EncodedPublicKey,
+        signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         Block, State,
     },
 };
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ensure, Snafu};
@@ -1740,30 +1756,61 @@
         .finalize()
 }
 
+<span class="doccomment">/// Serialization for the QC assembled signature
+</span><span class="kw">pub fn </span>serialize_signature&lt;TYPES: NodeType&gt;(signature: <span class="kw-2">&amp;</span>AssembledSignature&lt;TYPES&gt;) -&gt; Vec&lt;u8&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
+    <span class="kw">let </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType&gt; = <span class="kw">match </span><span class="kw-2">&amp;</span>signature {
+        AssembledSignature::DA(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;DA&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::Yes(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;Yes&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::No(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;No&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::ViewSyncPreCommit(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;ViewSyncPreCommit&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::ViewSyncCommit(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;ViewSyncCommit&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::ViewSyncFinalize(signatures) =&gt; {
+            signatures_bytes.extend(<span class="string">&quot;ViewSyncFinalize&quot;</span>.as_bytes());
+            <span class="prelude-val">Some</span>(signatures.clone())
+        }
+        AssembledSignature::Genesis() =&gt; <span class="prelude-val">None</span>,
+    };
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(sig) = signatures {
+        <span class="kw">let </span>(sig, proof) = TYPES::SignatureKey::get_sig_proof(<span class="kw-2">&amp;</span>sig);
+        <span class="kw">let </span>proof_bytes = bincode_opts()
+            .serialize(<span class="kw-2">&amp;</span>proof.as_bitslice())
+            .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
+        signatures_bytes.extend(<span class="string">&quot;bitvec proof&quot;</span>.as_bytes());
+        signatures_bytes.extend(proof_bytes.as_slice());
+        <span class="kw">let </span>sig_bytes = bincode_opts()
+            .serialize(<span class="kw-2">&amp;</span>sig)
+            .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
+        signatures_bytes.extend(<span class="string">&quot;aggregated signature&quot;</span>.as_bytes());
+        signatures_bytes.extend(sig_bytes.as_slice());
+    } <span class="kw">else </span>{
+        signatures_bytes.extend(<span class="string">&quot;genesis&quot;</span>.as_bytes());
+    }
+
+    signatures_bytes
+}
+
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; commit::Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
-        <span class="kw">let </span>signatures = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) =&gt; {
-                signatures_bytes.extend(<span class="string">&quot;Yes&quot;</span>.as_bytes());
-                signatures
-            }
-            YesNoSignature::No(signatures) =&gt; {
-                signatures_bytes.extend(<span class="string">&quot;No&quot;</span>.as_bytes());
-                signatures
-            }
-            YesNoSignature::ViewSyncPreCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
-        };
-        <span class="kw">for </span>(k, v) <span class="kw">in </span>signatures {
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>k.<span class="number">0</span>);
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>v.<span class="number">0 </span>.<span class="number">0</span>);
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>v.<span class="number">1</span>.as_bytes());
-            signatures_bytes.extend::&lt;<span class="kw-2">&amp;</span>[u8]&gt;(v.<span class="number">2</span>.commit().as_ref());
-        }
-        commit::RawCommitmentBuilder::new(<span class="string">&quot;Leaf Comm&quot;</span>)
-            .u64_field(<span class="string">&quot;view_number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
+        <span class="kw">let </span>signatures_bytes = serialize_signature(<span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures);
+
+        commit::RawCommitmentBuilder::new(<span class="string">&quot;leaf commitment&quot;</span>)
+            .u64_field(<span class="string">&quot;view number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
             .u64_field(<span class="string">&quot;height&quot;</span>, <span class="self">self</span>.height)
             .field(<span class="string">&quot;parent Leaf commitment&quot;</span>, <span class="self">self</span>.parent_commitment)
             .field(<span class="string">&quot;block commitment&quot;</span>, <span class="self">self</span>.deltas.commit())
@@ -1792,30 +1839,11 @@
             Either::Left(block) =&gt; block.commit(),
             Either::Right(commitment) =&gt; <span class="kw-2">*</span>commitment,
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
-        <span class="kw">let </span>signatures = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures {
-            YesNoSignature::Yes(signatures) =&gt; {
-                signatures_bytes.extend(<span class="string">&quot;Yes&quot;</span>.as_bytes());
 
-                signatures
-            }
-            YesNoSignature::No(signatures) =&gt; {
-                signatures_bytes.extend(<span class="string">&quot;No&quot;</span>.as_bytes());
+        <span class="kw">let </span>signatures_bytes = serialize_signature(<span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures);
 
-                signatures
-            }
-            YesNoSignature::ViewSyncPreCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
-        };
-        <span class="kw">for </span>(k, v) <span class="kw">in </span>signatures {
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>k.<span class="number">0</span>);
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>v.<span class="number">0 </span>.<span class="number">0</span>);
-            signatures_bytes.extend(<span class="kw-2">&amp;</span>v.<span class="number">1</span>.as_bytes());
-            signatures_bytes.extend::&lt;<span class="kw-2">&amp;</span>[u8]&gt;(v.<span class="number">2</span>.commit().as_ref());
-        }
-        commit::RawCommitmentBuilder::new(<span class="string">&quot;Leaf Comm&quot;</span>)
-            .u64_field(<span class="string">&quot;view_number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
+        commit::RawCommitmentBuilder::new(<span class="string">&quot;leaf commitment&quot;</span>)
+            .u64_field(<span class="string">&quot;view number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
             .u64_field(<span class="string">&quot;height&quot;</span>, <span class="self">self</span>.height)
             .field(<span class="string">&quot;parent Leaf commitment&quot;</span>, <span class="self">self</span>.parent_commitment)
             .field(<span class="string">&quot;block commitment&quot;</span>, block_commitment)

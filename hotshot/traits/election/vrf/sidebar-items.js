@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["SORTITION_PARAMETER"],"struct":["JfPubKey","VRFStakeTable"],"type":["BlsPubKey"]};
+window.SIDEBAR_ITEMS = {"constant":["SORTITION_PARAMETER"],"struct":["VRFStakeTable"]};

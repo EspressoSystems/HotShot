@@ -258,12 +258,18 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::overall_safety_task::OverallSafetyTask;
 <span class="kw">use </span><span class="kw">super</span>::overall_safety_task::RoundCtx;
 <span class="kw">use super</span>::{completion_task::CompletionTask, txn_task::TxnTask};
 <span class="kw">use </span><span class="kw">crate</span>::test_launcher::Networks;
 <span class="kw">use </span><span class="kw">crate</span>::test_launcher::TestLauncher;
 <span class="kw">use </span>hotshot::types::SystemContextHandle;
+
 <span class="kw">use </span>hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
@@ -284,8 +290,7 @@
     HotShotConfig,
 };
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>rand::SeedableRng;
-<span class="kw">use </span>tracing::info;
+</span><span class="kw">use </span>tracing::info;
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
@@ -464,7 +469,11 @@
         networks: Networks&lt;TYPES, I&gt;,
         storage: I::Storage,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
-        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: HotShotConfig&lt;
+            TYPES::SignatureKey,
+            &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        &gt;,
     ) -&gt; u64
     <span class="kw">where
         </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
@@ -479,11 +488,11 @@
         <span class="self">self</span>.next_node_id += <span class="number">1</span>;
 
         <span class="kw">let </span>known_nodes = config.known_nodes.clone();
-        <span class="kw">let </span>private_key = I::generate_test_key(node_id);
+        <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        <span class="comment">// Generate key pair for certificate aggregation
+        </span><span class="kw">let </span>private_key = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
         <span class="kw">let </span>public_key = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
-        <span class="kw">let </span>ek = jf_primitives::aead::KeyPair::generate(<span class="kw-2">&amp;mut </span>rand_chacha::ChaChaRng::from_seed(
-            [<span class="number">0u8</span>; <span class="number">32</span>],
-        ));
+        <span class="kw">let </span>entry = public_key.get_stake_table_entry(<span class="number">1u64</span>);
         <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             &lt;QuorumEx&lt;TYPES,I&gt; <span class="kw">as </span>ConsensusExchange&lt;
                 TYPES,
@@ -492,6 +501,7 @@
         });
         <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
         <span class="kw">let </span>exchanges = I::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,
@@ -499,8 +509,8 @@
             ),
             networks,
             public_key.clone(),
+            entry.clone(),
             private_key.clone(),
-            ek.clone(),
         );
         <span class="kw">let </span>handle = SystemContext::init(
             public_key,

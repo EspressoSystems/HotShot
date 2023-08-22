@@ -208,7 +208,6 @@
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -329,16 +328,15 @@
     <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::StaticVoteToken;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>hotshot_types::certificate::{QuorumCertificate, YesNoSignature};
+    <span class="kw">use </span>hotshot_types::certificate::{AssembledSignature, QuorumCertificate};
     <span class="kw">use </span>hotshot_types::constants::genesis_proposer_id;
     <span class="kw">use </span>hotshot_types::data::fake_commitment;
     <span class="kw">use </span>hotshot_types::data::{ValidatingLeaf, ViewNumber};
     <span class="kw">use </span>hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
     <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-    <span class="kw">use </span>hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    <span class="kw">use </span>hotshot_types::traits::signature_key::bn254::BN254Pub;
     <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
     <span class="kw">use </span>hotshot_types::traits::Block;
-    <span class="kw">use </span>std::collections::BTreeMap;
     <span class="kw">use </span>std::fmt::Debug;
     <span class="kw">use </span>std::hash::Hash;
     <span class="kw">use </span>tracing::instrument;
@@ -361,8 +359,8 @@
     <span class="kw">impl </span>NodeType <span class="kw">for </span>DummyTypes {
         <span class="kw">type </span>Time = ViewNumber;
         <span class="kw">type </span>BlockType = DummyBlock;
-        <span class="kw">type </span>SignatureKey = Ed25519Pub;
-        <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;Ed25519Pub&gt;;
+        <span class="kw">type </span>SignatureKey = BN254Pub;
+        <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;<span class="self">Self</span>::SignatureKey&gt;;
         <span class="kw">type </span>Transaction = &lt;DummyBlock <span class="kw">as </span>Block&gt;::Transaction;
         <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
         <span class="kw">type </span>StateType = DummyState;
@@ -381,7 +379,7 @@
                 <span class="comment">// block_commitment: dummy_block_commit,
                 </span>is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: YesNoSignature::Yes(BTreeMap::new()),
+                signatures: AssembledSignature::Genesis(),
                 view_number,
             },
             DummyBlock::random(rng),

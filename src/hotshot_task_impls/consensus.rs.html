@@ -1412,6 +1412,12 @@
 <a href="#1412" id="1412">1412</a>
 <a href="#1413" id="1413">1413</a>
 <a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
@@ -1420,6 +1426,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>either::Either;
@@ -2365,21 +2372,26 @@
 
                         <span class="kw">let </span>acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: <span class="self">self</span>.quorum_exchange.success_threshold(),
                             failure_threshold: <span class="self">self</span>.quorum_exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.quorum_exchange.total_nodes()],
                         };
+
                         <span class="comment">// Todo check if we are the leader
                         </span><span class="kw">let </span>accumulator = <span class="self">self</span>.quorum_exchange.accumulate_vote(
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                            vote.leaf_commitment,
-                            vote.vote_data.clone(),
-                            vote.vote_token.clone(),
-                            vote.current_view,
+                            <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">0</span>,
+                            <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">1</span>,
+                            vote.clone().leaf_commitment,
+                            vote.clone().vote_data.clone(),
+                            vote.clone().vote_token.clone(),
+                            vote.clone().current_view,
                             acc,
                             <span class="prelude-val">None</span>,
                         );

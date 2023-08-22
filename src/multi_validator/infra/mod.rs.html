@@ -87,6 +87,17 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
@@ -125,15 +136,22 @@
 <span class="doccomment">/// Reads a network configuration from a given filepath
 </span><span class="kw">pub fn </span>load_config_from_file&lt;TYPES: NodeType&gt;(
     config_file: String,
-) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+) -&gt; NetworkConfig&lt;
+    TYPES::SignatureKey,
+    &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+    TYPES::ElectionConfigType,
+&gt; {
     <span class="kw">let </span>config_file_as_string: String = fs::read_to_string(config_file.as_str())
         .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Could not read config file located at {config_file}&quot;</span>));
     <span class="kw">let </span>config_toml: NetworkConfigFile =
         toml::from_str::&lt;NetworkConfigFile&gt;(<span class="kw-2">&amp;</span>config_file_as_string)
             .expect(<span class="string">&quot;Unable to convert config file to TOML&quot;</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
-        config_toml.into();
+    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    &gt; = config_toml.into();
 
     <span class="comment">// Generate network&#39;s public keys
     </span>config.config.known_nodes = (<span class="number">0</span>..config.config.total_nodes.get())
@@ -144,6 +162,10 @@
             )
             .<span class="number">0
         </span>})
+        .collect();
+
+    config.config.known_nodes_with_stake = (<span class="number">0</span>..config.config.total_nodes.get())
+        .map(|node_id| config.config.known_nodes[node_id].get_stake_table_entry(<span class="number">1u64</span>))
         .collect();
 
     config

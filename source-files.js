@@ -8,7 +8,7 @@ var sourcesIndex = JSON.parse('{\
 "hotshot_task":["",[],["event_stream.rs","global_registry.rs","lib.rs","task.rs","task_impls.rs","task_launcher.rs","task_state.rs"]],\
 "hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","lib.rs","network.rs","view_sync.rs"]],\
 "hotshot_testing":["",[],["completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs"]],\
-"hotshot_types":["",[["traits",[["signature_key",[["ed25519",[],["ed25519_priv.rs","ed25519_pub.rs"]]],["ed25519.rs"]]],["block_contents.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["certificate.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","vote.rs"]],\
+"hotshot_types":["",[["traits",[["signature_key",[["bn254",[],["bn254_priv.rs","bn254_pub.rs"]]],["bn254.rs"]]],["block_contents.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["certificate.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","vote.rs"]],\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "hotshot_web_server":["",[],["config.rs","lib.rs"]],\
 "libp2p_networking":["",[["network",[["behaviours",[],["dht.rs","direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\

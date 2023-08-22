@@ -1284,6 +1284,72 @@
 <a href="#1284" id="1284">1284</a>
 <a href="#1285" id="1285">1285</a>
 <a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1291,9 +1357,9 @@
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::{NodeImplementation, NodeType};
 <span class="kw">use </span><span class="kw">super</span>::signature_key::{EncodedPublicKey, EncodedSignature};
-<span class="kw">use </span><span class="kw">crate</span>::certificate::ViewSyncCertificate;
 <span class="kw">use </span><span class="kw">crate</span>::certificate::VoteMetaData;
-<span class="kw">use </span><span class="kw">crate</span>::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
+<span class="kw">use </span><span class="kw">crate</span>::certificate::{AssembledSignature, ViewSyncCertificate};
+<span class="kw">use </span><span class="kw">crate</span>::certificate::{DACertificate, QuorumCertificate};
 <span class="kw">use </span><span class="kw">crate</span>::data::DAProposal;
 <span class="kw">use </span><span class="kw">crate</span>::data::ProposalType;
 
@@ -1312,10 +1378,10 @@
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
+<span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::aead::KeyPair;
 <span class="kw">use </span>serde::Deserialize;
-<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
+<span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::collections::BTreeSet;
 <span class="kw">use </span>std::fmt::Debug;
@@ -1370,6 +1436,47 @@
     </span>ViewSyncFinalize(Commitment&lt;COMMITTABLE&gt;),
 }
 
+<span class="doccomment">/// Make different types of `VoteData` committable
+</span><span class="kw">impl</span>&lt;COMMITTABLE: Committable + Serialize + Clone&gt; Committable <span class="kw">for </span>VoteData&lt;COMMITTABLE&gt; {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            VoteData::DA(block_commitment) =&gt; commit::RawCommitmentBuilder::new(<span class="string">&quot;DA Block Commit&quot;</span>)
+                .field(<span class="string">&quot;block_commitment&quot;</span>, <span class="kw-2">*</span>block_commitment)
+                .finalize(),
+            VoteData::Yes(leaf_commitment) =&gt; commit::RawCommitmentBuilder::new(<span class="string">&quot;Yes Vote Commit&quot;</span>)
+                .field(<span class="string">&quot;leaf_commitment&quot;</span>, <span class="kw-2">*</span>leaf_commitment)
+                .finalize(),
+            VoteData::No(leaf_commitment) =&gt; commit::RawCommitmentBuilder::new(<span class="string">&quot;No Vote Commit&quot;</span>)
+                .field(<span class="string">&quot;leaf_commitment&quot;</span>, <span class="kw-2">*</span>leaf_commitment)
+                .finalize(),
+            VoteData::Timeout(view_number_commitment) =&gt; {
+                commit::RawCommitmentBuilder::new(<span class="string">&quot;Timeout View Number Commit&quot;</span>)
+                    .field(<span class="string">&quot;view_number_commitment&quot;</span>, <span class="kw-2">*</span>view_number_commitment)
+                    .finalize()
+            }
+            VoteData::ViewSyncPreCommit(commitment) =&gt; {
+                commit::RawCommitmentBuilder::new(<span class="string">&quot;ViewSyncPreCommit&quot;</span>)
+                    .field(<span class="string">&quot;commitment&quot;</span>, <span class="kw-2">*</span>commitment)
+                    .finalize()
+            }
+            VoteData::ViewSyncCommit(commitment) =&gt; {
+                commit::RawCommitmentBuilder::new(<span class="string">&quot;ViewSyncCommit&quot;</span>)
+                    .field(<span class="string">&quot;commitment&quot;</span>, <span class="kw-2">*</span>commitment)
+                    .finalize()
+            }
+            VoteData::ViewSyncFinalize(commitment) =&gt; {
+                commit::RawCommitmentBuilder::new(<span class="string">&quot;ViewSyncFinalize&quot;</span>)
+                    .field(<span class="string">&quot;commitment&quot;</span>, <span class="kw-2">*</span>commitment)
+                    .finalize()
+            }
+        }
+    }
+
+    <span class="kw">fn </span>tag() -&gt; String {
+        (<span class="string">&quot;VOTE_DATA_COMMIT&quot;</span>).to_string()
+    }
+}
+
 <span class="kw">impl</span>&lt;COMMITTABLE: Committable + Serialize + Clone&gt; VoteData&lt;COMMITTABLE&gt; {
     <span class="attr">#[must_use]
     </span><span class="doccomment">/// Convert vote data into bytes.
@@ -1404,12 +1511,18 @@
 
 <span class="doccomment">/// election config
 </span><span class="kw">pub trait </span>ElectionConfig:
-    Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
+    Default
+    + Clone
+    + serde::Serialize
+    + <span class="kw">for</span>&lt;<span class="lifetime">&#39;de</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;
+    + Sync
+    + Send
+    + core::fmt::Debug
 {
 }
 
 <span class="doccomment">/// A certificate of some property which has been signed by a quroum of nodes.
-</span><span class="kw">pub trait </span>SignedCertificate&lt;SIGNATURE: SignatureKey, TIME, TOKEN, COMMITTABLE&gt;
+</span><span class="kw">pub trait </span>SignedCertificate&lt;TYPES: NodeType, TIME, TOKEN, COMMITTABLE&gt;
 <span class="kw">where
     </span><span class="self">Self</span>: Send + Sync + Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
     COMMITTABLE: Committable + Serialize + Clone,
@@ -1418,7 +1531,7 @@
     <span class="doccomment">/// Build a QC from the threshold signature and commitment
     </span><span class="kw">fn </span>from_signatures_and_commitment(
         view_number: TIME,
-        signatures: YesNoSignature&lt;COMMITTABLE, TOKEN&gt;,
+        signatures: AssembledSignature&lt;TYPES&gt;,
         commit: Commitment&lt;COMMITTABLE&gt;,
         relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; <span class="self">Self</span>;
@@ -1427,7 +1540,7 @@
     </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TIME;
 
     <span class="doccomment">/// Get signatures.
-    </span><span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; YesNoSignature&lt;COMMITTABLE, TOKEN&gt;;
+    </span><span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; AssembledSignature&lt;TYPES&gt;;
 
     <span class="comment">// TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -1448,22 +1561,21 @@
 </span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;:
     Clone + Debug + Eq + PartialEq + Send + Sync + <span class="lifetime">&#39;static
 </span>{
-    <span class="doccomment">/// Data used to determine the weight (voting power) of participants.
-    </span><span class="kw">type </span>StakeTable: Send + Sync;
-
     <span class="doccomment">/// generate a default election configuration
     </span><span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; TYPES::ElectionConfigType;
 
     <span class="doccomment">/// create an election
     /// TODO may want to move this to a testableelection trait
-    </span><span class="kw">fn </span>create_election(keys: Vec&lt;TYPES::SignatureKey&gt;, config: TYPES::ElectionConfigType) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">fn </span>create_election(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
+        keys: Vec&lt;TYPES::SignatureKey&gt;,
+        config: TYPES::ElectionConfigType,
+    ) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Returns the table from the current committed state
-    </span><span class="kw">fn </span>get_stake_table(
+    <span class="doccomment">/// Clone the public key and corresponding stake table for current elected committee
+    </span><span class="kw">fn </span>get_committee_qc_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
-        state: <span class="kw-2">&amp;</span>TYPES::StateType,
-    ) -&gt; <span class="self">Self</span>::StakeTable;
+    ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// The leader of the committee for view `view_number`.
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
@@ -1488,10 +1600,12 @@
     /// TODO tbd
     </span><span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
         pub_key: TYPES::SignatureKey,
         token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt;;
+
+    <span class="doccomment">/// Returns the number of total nodes in the committee
+    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
     </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
@@ -1511,7 +1625,7 @@
     <span class="doccomment">/// A vote on a [`Proposal`](Self::Proposal).
     </span><span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
     <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
-    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
+    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
         + Hash
         + Eq;
     <span class="doccomment">/// The committee eligible to make decisions.
@@ -1523,12 +1637,13 @@
 
     <span class="doccomment">/// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     </span><span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         config: TYPES::ElectionConfigType,
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// The network being used by this exchange.
@@ -1552,6 +1667,11 @@
     <span class="doccomment">/// Threshold required to know a success threshold will not be reached
     </span><span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
         <span class="self">self</span>.membership().failure_threshold()
+    }
+
+    <span class="doccomment">/// The total number of nodes in the committee.
+    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.membership().total_nodes()
     }
 
     <span class="doccomment">/// Attempts to generate a vote token for participation at time `view_number`.
@@ -1581,62 +1701,38 @@
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
-        <span class="comment">// TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
-        </span><span class="kw">match </span>qc.signatures() {
-            YesNoSignature::Yes(raw_signatures) =&gt; {
-                <span class="kw">let </span>yes_votes = raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        <span class="kw">let </span>res = <span class="self">self</span>.is_valid_vote(
-                            signature.<span class="number">0</span>,
-                            <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                            signature.<span class="number">1 </span>.<span class="number">1</span>.clone(),
-                            qc.view_number(),
-                            Checked::Unchecked(signature.<span class="number">1 </span>.<span class="number">2</span>.clone()),
-                        );
-                        <span class="comment">// TODO Is this logic correct?
-                        </span>res &amp;&amp; (<span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::Yes(commit) <span class="kw">if </span>commit == leaf_commitment) || <span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::DA(commit) <span class="kw">if </span>commit == leaf_commitment))
-                    })
-                    .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">2</span>.vote_count())));
-
-                <span class="comment">// error!(
-                //     // &quot;Yes votes are: {}&quot;,
-                //     yes_votes
-                // );
-                </span>yes_votes &gt;= u64::from(<span class="self">self</span>.success_threshold())
+        <span class="kw">match </span>qc.signatures() {
+            AssembledSignature::DA(qc) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::DA(leaf_commitment).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(<span class="kw-2">&amp;</span>real_qc_pp, real_commit.as_ref(), <span class="kw-2">&amp;</span>qc)
             }
-
-            YesNoSignature::No(raw_signatures) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>yes_votes = <span class="number">0</span>;
-                <span class="kw">let </span><span class="kw-2">mut </span>no_votes = <span class="number">0</span>;
-                <span class="kw">for </span>signature <span class="kw">in </span><span class="kw-2">&amp;</span>raw_signatures {
-                    <span class="kw">if </span><span class="self">self</span>.is_valid_vote(
-                        signature.<span class="number">0</span>,
-                        <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                        signature.<span class="number">1 </span>.<span class="number">1</span>.clone(),
-                        qc.view_number(),
-                        Checked::Unchecked(signature.<span class="number">1 </span>.<span class="number">2</span>.clone()),
-                    ) {
-                        <span class="kw">if </span><span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::Yes(thing) <span class="kw">if </span>thing == leaf_commitment)
-                        {
-                            yes_votes += u64::from(signature.<span class="number">1 </span>.<span class="number">2</span>.vote_count());
-                        } <span class="kw">else if </span><span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::No(thing) <span class="kw">if </span>thing == leaf_commitment)
-                        {
-                            no_votes += u64::from(signature.<span class="number">1 </span>.<span class="number">2</span>.vote_count());
-                        }
-                    }
-                }
-
-                <span class="kw">if </span>no_votes &gt; <span class="number">0 </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;Too many no votes&quot;</span>);
-                }
-
-                no_votes &gt;= u64::from(<span class="self">self</span>.failure_threshold())
-                    &amp;&amp; yes_votes + no_votes &gt;= u64::from(<span class="self">self</span>.success_threshold())
+            AssembledSignature::Yes(qc) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::Yes(leaf_commitment).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(<span class="kw-2">&amp;</span>real_qc_pp, real_commit.as_ref(), <span class="kw-2">&amp;</span>qc)
             }
-            YesNoSignature::ViewSyncPreCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncCommit(<span class="kw">_</span>)
-            | YesNoSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
+            AssembledSignature::No(qc) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::No(leaf_commitment).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(<span class="kw-2">&amp;</span>real_qc_pp, real_commit.as_ref(), <span class="kw-2">&amp;</span>qc)
+            }
+            AssembledSignature::Genesis() =&gt; <span class="bool-val">true</span>,
+            AssembledSignature::ViewSyncPreCommit(<span class="kw">_</span>)
+            | AssembledSignature::ViewSyncCommit(<span class="kw">_</span>)
+            | AssembledSignature::ViewSyncFinalize(<span class="kw">_</span>) =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;QC should not be ViewSync type here&quot;</span>);
+                <span class="bool-val">false
+            </span>}
         }
     }
 
@@ -1646,16 +1742,13 @@
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
         data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
-        view_number: TYPES::Time,
         vote_token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>is_valid_vote_token = <span class="bool-val">false</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>is_valid_signature = <span class="bool-val">false</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, <span class="kw-2">&amp;</span>data.as_bytes());
-            <span class="kw">let </span>valid_vote_token =
-                <span class="self">self</span>.membership()
-                    .validate_vote_token(view_number, key, vote_token);
+            is_valid_signature = key.validate(encoded_signature, data.commit().as_ref());
+            <span class="kw">let </span>valid_vote_token = <span class="self">self</span>.membership().validate_vote_token(key, vote_token);
             is_valid_vote_token = <span class="kw">match </span>valid_vote_token {
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="macro">error!</span>(<span class="string">&quot;Vote token was invalid&quot;</span>);
@@ -1678,7 +1771,6 @@
             <span class="kw-2">&amp;</span>vota_meta.encoded_key,
             <span class="kw-2">&amp;</span>vota_meta.encoded_signature,
             vota_meta.data.clone(),
-            vota_meta.view_number,
             <span class="comment">// Ignoring deserialization errors below since we are getting rid of it soon
             </span>Checked::Unchecked(vota_meta.vote_token.clone()),
         ) {
@@ -1686,26 +1778,41 @@
             <span class="kw">return </span>Either::Left(accumulator);
         }
 
-        <span class="kw">match </span>accumulator.append((
-            vota_meta.commitment,
-            (
-                vota_meta.encoded_key.clone(),
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>vota_meta.encoded_key)
+        {
+            <span class="kw">let </span>stake_table_entry = key.get_stake_table_entry(<span class="number">1u64</span>);
+            <span class="kw">let </span>append_node_id = <span class="self">self
+                </span>.membership()
+                .get_committee_qc_stake_table()
+                .iter()
+                .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
+                .unwrap();
+
+            <span class="kw">match </span>accumulator.append((
+                vota_meta.commitment,
                 (
-                    vota_meta.encoded_signature.clone(),
-                    vota_meta.data,
-                    vota_meta.vote_token,
+                    vota_meta.encoded_key.clone(),
+                    (
+                        vota_meta.encoded_signature.clone(),
+                        <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                        append_node_id,
+                        vota_meta.data,
+                        vota_meta.vote_token,
+                    ),
                 ),
-            ),
-        )) {
-            Either::Left(accumulator) =&gt; Either::Left(accumulator),
-            Either::Right(signatures) =&gt; {
-                Either::Right(<span class="self">Self</span>::Certificate::from_signatures_and_commitment(
-                    vota_meta.view_number,
-                    signatures,
-                    vota_meta.commitment,
-                    vota_meta.relay,
-                ))
+            )) {
+                Either::Left(accumulator) =&gt; Either::Left(accumulator),
+                Either::Right(signatures) =&gt; {
+                    Either::Right(<span class="self">Self</span>::Certificate::from_signatures_and_commitment(
+                        vota_meta.view_number,
+                        signatures,
+                        vota_meta.commitment,
+                        vota_meta.relay,
+                    ))
+                }
             }
+        } <span class="kw">else </span>{
+            Either::Left(accumulator)
         }
     }
 
@@ -1775,11 +1882,11 @@
     </span>membership: MEMBERSHIP,
     <span class="doccomment">/// This participant&#39;s public key.
     </span>public_key: TYPES::SignatureKey,
+    <span class="doccomment">/// Entry with public key and staking value for certificate aggregation
+    </span>entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
     <span class="doccomment">/// This participant&#39;s private key.
     </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="doccomment">/// This participant&#39;s encryption key.
-    </span>_encryption_key: jf_primitives::aead::KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(TYPES, MEMBERSHIP, M)&gt;,
 }
@@ -1809,7 +1916,9 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::&lt;TYPES::BlockType&gt;::DA(block_commitment).as_bytes(),
+            VoteData::&lt;TYPES::BlockType&gt;::DA(block_commitment)
+                .commit()
+                .as_ref(),
         );
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
@@ -1846,21 +1955,23 @@
     <span class="kw">type </span>Commitment = TYPES::BlockType;
 
     <span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         config: TYPES::ElectionConfigType,
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>membership =
-            &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
+        <span class="kw">let </span>membership = &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(
+            entries, keys, config,
+        );
         <span class="self">Self </span>{
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -2005,11 +2116,11 @@
     </span>membership: MEMBERSHIP,
     <span class="doccomment">/// This participant&#39;s public key.
     </span>public_key: TYPES::SignatureKey,
+    <span class="doccomment">/// Entry with public key and staking value for certificate aggregation
+    </span>entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
     <span class="doccomment">/// This participant&#39;s private key.
     </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="doccomment">/// This participant&#39;s encryption key
-    </span>_encryption_key: KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(LEAF, PROPOSAL, MEMBERSHIP, M)&gt;,
 }
@@ -2066,7 +2177,7 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::&lt;LEAF&gt;::Yes(leaf_commitment).as_bytes(),
+            VoteData::&lt;LEAF&gt;::Yes(leaf_commitment).commit().as_ref(),
         );
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
@@ -2082,7 +2193,7 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::&lt;LEAF&gt;::No(leaf_commitment).as_bytes(),
+            VoteData::&lt;LEAF&gt;::No(leaf_commitment).commit().as_ref(),
         );
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
@@ -2097,7 +2208,9 @@
     </span><span class="kw">fn </span>sign_timeout_vote(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::&lt;TYPES::Time&gt;::Timeout(view_number.commit()).as_bytes(),
+            VoteData::&lt;TYPES::Time&gt;::Timeout(view_number.commit())
+                .commit()
+                .as_ref(),
         );
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
@@ -2162,21 +2275,23 @@
     <span class="kw">type </span>Commitment = LEAF;
 
     <span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         config: TYPES::ElectionConfigType,
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>membership =
-            &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
+        <span class="kw">let </span>membership = &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(
+            entries, keys, config,
+        );
         <span class="self">Self </span>{
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -2293,11 +2408,11 @@
     </span>membership: MEMBERSHIP,
     <span class="doccomment">/// This participant&#39;s public key.
     </span>public_key: TYPES::SignatureKey,
+    <span class="doccomment">/// Entry with public key and staking value for certificate aggregation in the stake table.
+    </span>entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
     <span class="doccomment">/// This participant&#39;s private key.
     </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="doccomment">/// This participant&#39;s encryption key.
-    </span>_encryption_key: jf_primitives::aead::KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(PROPOSAL, MEMBERSHIP, M)&gt;,
 }
@@ -2345,7 +2460,7 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::ViewSyncPreCommit(commitment).as_bytes(),
+            VoteData::ViewSyncPreCommit(commitment).commit().as_ref(),
         );
 
         (<span class="self">self</span>.public_key.to_bytes(), signature)
@@ -2386,7 +2501,7 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::ViewSyncCommit(commitment).as_bytes(),
+            VoteData::ViewSyncCommit(commitment).commit().as_ref(),
         );
 
         (<span class="self">self</span>.public_key.to_bytes(), signature)
@@ -2427,64 +2542,79 @@
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            <span class="kw-2">&amp;</span>VoteData::ViewSyncFinalize(commitment).as_bytes(),
+            VoteData::ViewSyncFinalize(commitment).commit().as_ref(),
         );
 
         (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
 
     <span class="kw">fn </span>is_valid_view_sync_cert(<span class="kw-2">&amp;</span><span class="self">self</span>, certificate: <span class="self">Self</span>::Certificate, round: TYPES::Time) -&gt; bool {
-        <span class="kw">let </span>(certificate_internal, threshold, data_commit) = <span class="kw">match </span>certificate {
+        <span class="comment">// Sishan NOTE TODO: would be better to test this, looks like this func is never called.
+        </span><span class="kw">let </span>(certificate_internal, _threshold, vote_data) = <span class="kw">match </span>certificate.clone() {
             ViewSyncCertificate::PreCommit(certificate_internal) =&gt; {
-                <span class="kw">let </span>commit = ViewSyncData::&lt;TYPES&gt; {
+                <span class="kw">let </span>vote_data = ViewSyncData::&lt;TYPES&gt; {
                     relay: <span class="self">self
                         </span>.get_leader(round + certificate_internal.relay)
                         .to_bytes(),
                     round,
-                }
-                .commit();
-                (certificate_internal, <span class="self">self</span>.failure_threshold(), commit)
+                };
+                (certificate_internal, <span class="self">self</span>.failure_threshold(), vote_data)
             }
             ViewSyncCertificate::Commit(certificate_internal)
             | ViewSyncCertificate::Finalize(certificate_internal) =&gt; {
-                <span class="kw">let </span>commit = ViewSyncData::&lt;TYPES&gt; {
+                <span class="kw">let </span>vote_data = ViewSyncData::&lt;TYPES&gt; {
                     relay: <span class="self">self
                         </span>.get_leader(round + certificate_internal.relay)
                         .to_bytes(),
                     round,
-                }
-                .commit();
-                (certificate_internal, <span class="self">self</span>.success_threshold(), commit)
+                };
+                (certificate_internal, <span class="self">self</span>.success_threshold(), vote_data)
             }
         };
-
-        <span class="kw">let </span>votes = <span class="kw">match </span>certificate_internal.signatures {
-            YesNoSignature::ViewSyncCommit(raw_signatures)
-            | YesNoSignature::ViewSyncPreCommit(raw_signatures)
-            | YesNoSignature::ViewSyncFinalize(raw_signatures) =&gt; raw_signatures
-                .iter()
-                .filter(|signature| {
-                    <span class="self">self</span>.is_valid_vote(
-                        signature.<span class="number">0</span>,
-                        <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                        signature.<span class="number">1 </span>.<span class="number">1</span>.clone(),
-                        certificate_internal.round,
-                        Checked::Unchecked(signature.<span class="number">1 </span>.<span class="number">2</span>.clone()),
-                    ) &amp;&amp; (
-                        <span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::ViewSyncPreCommit(commit) <span class="kw">if </span>commit == data_commit)
-                        || <span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::ViewSyncCommit(commit) <span class="kw">if </span>commit == data_commit)
-                        || <span class="macro">matches!</span>(signature.<span class="number">1 </span>.<span class="number">1</span>, VoteData::ViewSyncFinalize(commit) <span class="kw">if </span>commit == data_commit)
-                    )
-                })
-                .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">2</span>.vote_count()))),
-            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
-        };
-
-        votes &gt;= threshold.into()
+        <span class="kw">match </span>certificate_internal.signatures {
+            AssembledSignature::ViewSyncPreCommit(raw_signatures) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
+                    <span class="kw-2">&amp;</span>real_qc_pp,
+                    real_commit.as_ref(),
+                    <span class="kw-2">&amp;</span>raw_signatures,
+                )
+            }
+            AssembledSignature::ViewSyncCommit(raw_signatures) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::ViewSyncCommit(vote_data.commit()).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
+                    <span class="kw-2">&amp;</span>real_qc_pp,
+                    real_commit.as_ref(),
+                    <span class="kw-2">&amp;</span>raw_signatures,
+                )
+            }
+            AssembledSignature::ViewSyncFinalize(raw_signatures) =&gt; {
+                <span class="kw">let </span>real_commit = VoteData::ViewSyncFinalize(vote_data.commit()).commit();
+                <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                );
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
+                    <span class="kw-2">&amp;</span>real_qc_pp,
+                    real_commit.as_ref(),
+                    <span class="kw-2">&amp;</span>raw_signatures,
+                )
+            }
+            <span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+        }
     }
 
     <span class="kw">fn </span>sign_certificate_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, certificate: <span class="self">Self</span>::Certificate) -&gt; EncodedSignature {
-        TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, certificate.commit().as_ref())
+        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, certificate.commit().as_ref());
+        signature
     }
 }
 
@@ -2504,21 +2634,23 @@
     <span class="kw">type </span>Commitment = ViewSyncData&lt;TYPES&gt;;
 
     <span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         config: TYPES::ElectionConfigType,
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>membership =
-            &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
+        <span class="kw">let </span>membership = &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(
+            entries, keys, config,
+        );
         <span class="self">Self </span>{
             network,
             membership,
             public_key: pk,
+            entry,
             private_key: sk,
-            _encryption_key: ek,
             _pd: PhantomData,
         }
     }

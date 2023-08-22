@@ -583,11 +583,6 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -600,7 +595,6 @@
         ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
-    signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
@@ -627,7 +621,6 @@
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-
 <span class="doccomment">/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 </span><span class="kw">type </span>ProcessedConsensusMessageType&lt;TYPES, I&gt; = &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::ConsensusMessage <span class="kw">as </span>ConsensusMessageType&lt;TYPES, I&gt;&gt;::ProcessedConsensusMessage;
 
@@ -760,6 +753,7 @@
 
     <span class="doccomment">/// Create all exchanges.
     </span><span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         configs: <span class="self">Self</span>::ElectionConfigs,
         networks: (
@@ -768,8 +762,8 @@
             &lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, MESSAGE&gt;&gt;::Networking,
         ),
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Get the quorum exchange.
@@ -850,6 +844,7 @@
     }
 
     <span class="kw">fn </span>create(
+        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         configs: <span class="self">Self</span>::ElectionConfigs,
         networks: (
@@ -858,26 +853,29 @@
             &lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, MESSAGE&gt;&gt;::Networking,
         ),
         pk: TYPES::SignatureKey,
+        entry: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>quorum_exchange = QUORUMEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.<span class="number">0</span>.clone(),
             networks.<span class="number">0</span>,
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         <span class="kw">let </span>view_sync_exchange = VIEWSYNCEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.<span class="number">0</span>,
             networks.<span class="number">2</span>,
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
-        <span class="kw">let </span>committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.<span class="number">1</span>, networks.<span class="number">1</span>, pk, sk, ek);
+        <span class="kw">let </span>committee_exchange =
+            COMMITTEEEXCHANGE::create(entries, keys, configs.<span class="number">1</span>, networks.<span class="number">1</span>, pk, entry, sk);
 
         <span class="self">Self </span>{
             quorum_exchange,
@@ -978,9 +976,6 @@
 
     <span class="doccomment">/// Return the full internal state. This is useful for debugging.
     </span><span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES, <span class="self">Self</span>::Leaf&gt;;
-
-    <span class="doccomment">/// The private key of the node `id` in a test.
-    </span><span class="kw">fn </span>generate_test_key(id: u64) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey;
 }
 
 <span class="attr">#[async_trait]
@@ -1018,7 +1013,6 @@
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
-    TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {
     <span class="kw">type </span>CommitteeElectionConfig = TYPES::ElectionConfigType;
@@ -1059,10 +1053,6 @@
     <span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES, <span class="self">Self</span>::Leaf&gt; {
         &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES, I::Leaf&gt;&gt;::get_full_state(storage).<span class="kw">await
     </span>}
-
-    <span class="kw">fn </span>generate_test_key(id: u64) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
-        &lt;TYPES::SignatureKey <span class="kw">as </span>TestableSignatureKey&gt;::generate_test_key(id)
-    }
 }
 
 <span class="doccomment">/// A proposal to append a new leaf to the log which is output by consensus.

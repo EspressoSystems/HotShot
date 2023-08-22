@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BN254Priv","BN254Pub"]};
