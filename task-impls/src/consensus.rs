@@ -1093,6 +1093,7 @@ where
                     })
                     .await;
                 if !self.update_view(new_view).await {
+                    error!("view not updated");
                     return;
                 }
 
@@ -1179,7 +1180,6 @@ where
                     data: proposal,
                     signature,
                 };
-                // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 debug!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
@@ -1414,5 +1414,6 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             | SequencingHotShotEvent::ViewChange(_)
             | SequencingHotShotEvent::SendDABlockData(_)
             | SequencingHotShotEvent::Timeout(_)
+            | SequencingHotShotEvent::Shutdown,
     )
 }
