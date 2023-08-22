@@ -2634,7 +2634,6 @@ name = "hotshot"
 version = "0.3.3"
 dependencies = [
  "ark-bls12-381 0.3.0",
- "ark-ec 0.3.0",
  "ark-ed-on-bls12-381",
  "ark-serialize 0.3.0",
  "async-compatibility-layer",

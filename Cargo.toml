@@ -137,7 +137,6 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/web-server-da/multi-web-server.rs"
 
 [dependencies]
-ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
 # TODO ED We should upgrade other ark libraries accordingly with the one below
 ark-ed-on-bls12-381 = "0.4.0"
@@ -294,5 +293,6 @@ members = [
 ]
 
 [workspace.dependencies]
+ark-ec = "0.4"
 ark-std = { version = "0.4", default-features = false }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat' } # rev = "470a833" for branch = 'hotshot-compat'
