@@ -46,7 +46,7 @@ futures = "0.3.28"
 libp2p-core = { version = "0.40.0", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
-hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives", branch = 'hotshot-compat' } # rev = "4aee90c" for 'hotshot-compat'
+hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }

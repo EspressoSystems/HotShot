@@ -2589,7 +2589,6 @@ dependencies = [
  "futures",
  "hotshot-consensus",
  "hotshot-orchestrator",
- "hotshot-primitives",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
