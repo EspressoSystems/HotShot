@@ -4,8 +4,6 @@ use hotshot::traits::NodeImplementation;
 use hotshot::types::SystemContextHandle;
 use hotshot::{certificate::QuorumCertificate, traits::TestableNodeImplementation, SystemContext};
 
-use hotshot::rand::SeedableRng;
-
 use hotshot::tasks::add_consensus_task;
 
 use hotshot::traits::Block;
@@ -21,7 +19,6 @@ use hotshot_testing::node_types::SequencingTestTypes;
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_types::message::GeneralConsensusMessage;
 use hotshot_types::message::Proposal;
-use jf_primitives::signatures::BLSSignatureScheme;
 
 use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
@@ -37,10 +34,9 @@ use hotshot_types::traits::metrics::NoMetrics;
 use hotshot_types::traits::node_implementation::CommitteeEx;
 use hotshot_types::traits::node_implementation::ExchangesType;
 
-use hotshot_types::traits::node_implementation::QuorumEx;
-
-use hotshot::traits::election::vrf::JfPubKey;
+use hotshot::types::bn254::BN254Pub;
 use hotshot_task_impls::harness::run_harness;
+use hotshot_types::traits::node_implementation::QuorumEx;
 use hotshot_types::traits::signature_key::EncodedSignature;
 use hotshot_types::traits::{
     election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
@@ -68,12 +64,9 @@ async fn build_consensus_api(
     .unwrap();
 
     let known_nodes = config.known_nodes.clone();
-    let private_key = <SequencingMemoryImpl as TestableNodeImplementation<
-        SequencingTestTypes,
-    >>::generate_test_key(node_id);
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+    let private_key = <BN254Pub as SignatureKey>::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);
-    let ek =
-        jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
     let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <QuorumEx<SequencingTestTypes, SequencingMemoryImpl> as ConsensusExchange<
             SequencingTestTypes,
@@ -89,12 +82,13 @@ async fn build_consensus_api(
     });
     let exchanges =
         <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             networks,
-            public_key.clone(),
+            public_key,
+            public_key.get_stake_table_entry(1u64),
             private_key.clone(),
-            ek.clone(),
         );
     SystemContext::init(
         public_key,
@@ -112,7 +106,7 @@ async fn build_consensus_api(
 
 async fn build_proposal(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+    private_key: &<BN254Pub as SignatureKey>::PrivateKey,
 ) -> Proposal<QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>> {
     let (proposal, signature) = build_proposal_and_signature(handle, private_key).await;
     Proposal {
@@ -123,7 +117,7 @@ async fn build_proposal(
 
 async fn build_proposal_and_signature(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
+    private_key: &<BN254Pub as SignatureKey>::PrivateKey,
 ) -> (
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     EncodedSignature,
@@ -165,8 +159,7 @@ async fn build_proposal_and_signature(
         timestamp: 0,
         proposer_id: api.public_key().to_bytes(),
     };
-    let signature =
-        <JfPubKey<BLSSignatureScheme> as SignatureKey>::sign(private_key, leaf.commit().as_ref());
+    let signature = <BN254Pub as SignatureKey>::sign(private_key, leaf.commit().as_ref());
     let proposal = QuorumProposal::<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>> {
         block_commitment,
         view_number: ViewNumber::new(1),
@@ -179,15 +172,8 @@ async fn build_proposal_and_signature(
     (proposal, signature)
 }
 
-fn key_pair_for_id(
-    node_id: u64,
-) -> (
-    <JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
-    JfPubKey<BLSSignatureScheme>,
-) {
-    let private_key = <SequencingMemoryImpl as TestableNodeImplementation<
-        SequencingTestTypes,
-    >>::generate_test_key(node_id);
+fn key_pair_for_id(node_id: u64) -> (<BN254Pub as SignatureKey>::PrivateKey, BN254Pub) {
+    let private_key = <BN254Pub as SignatureKey>::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);
     (private_key, public_key)
 }
@@ -273,7 +259,7 @@ async fn test_consensus_task() {
     output.insert(
         SequencingHotShotEvent::QuorumProposalSend(
             build_proposal(&handle, &private_key).await,
-            public_key.clone(),
+            public_key,
         ),
         1,
     );
@@ -309,7 +295,7 @@ async fn test_consensus_vote() {
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(SequencingHotShotEvent::QuorumProposalRecv(
         proposal.clone(),
-        public_key.clone(),
+        public_key,
     ));
 
     input.push(SequencingHotShotEvent::Shutdown);
