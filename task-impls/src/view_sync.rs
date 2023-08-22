@@ -18,6 +18,7 @@ use hotshot_task::{
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::network::ConsensusIntentEvent;
 
+use bitvec::prelude::*;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::certificate::ViewSyncCertificate;
 use hotshot_types::data::SequencingLeaf;
@@ -42,7 +43,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, instrument};
-
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 /// Phases of view sync
 pub enum ViewSyncPhase {
@@ -395,11 +395,16 @@ where
 
                 let accumulator = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
                     no_vote_outcomes: HashMap::new(),
                     viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: self.exchange.success_threshold(),
                     failure_threshold: self.exchange.failure_threshold(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.exchange.total_nodes()],
                 };
 
                 let mut relay_state = ViewSyncRelayTaskState {
@@ -1034,12 +1039,16 @@ where
                         // Reset accumulator for new certificate
                         either::Left(VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: self.exchange.success_threshold(),
                             failure_threshold: self.exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: bitvec![0; self.exchange.total_nodes()],
                         })
                     }
                 };

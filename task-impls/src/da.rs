@@ -4,6 +4,7 @@ use async_compatibility_layer::art::async_timeout;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_lock::RwLock;
 use bincode::config::Options;
+use bitvec::prelude::*;
 use commit::Committable;
 use either::Either;
 use either::{Left, Right};
@@ -354,19 +355,24 @@ where
                     };
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
                     yes_vote_outcomes: HashMap::new(),
                     no_vote_outcomes: HashMap::new(),
+                    viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: self.committee_exchange.success_threshold(),
                     failure_threshold: self.committee_exchange.failure_threshold(),
-                    viewsync_precommit_vote_outcomes: HashMap::new(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.committee_exchange.total_nodes()],
                 };
                 let accumulator = self.committee_exchange.accumulate_vote(
-                    &vote.signature.0,
-                    &vote.signature.1,
-                    vote.block_commitment,
-                    vote.vote_data.clone(),
-                    vote.vote_token.clone(),
-                    vote.current_view,
+                    &vote.clone().signature.0,
+                    &vote.clone().signature.1,
+                    vote.clone().block_commitment,
+                    vote.clone().vote_data.clone(),
+                    vote.clone().vote_token.clone(),
+                    vote.clone().current_view,
                     acc,
                     None,
                 );
