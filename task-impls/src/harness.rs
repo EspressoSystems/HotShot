@@ -45,6 +45,14 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
+// pub type TestHarnessMessageTaskTypes<TYPES, I> = HSTWithMessage<
+//     TestHarnessTaskError,
+//     Either<Messages<TYPES, I>, Messages<TYPES, I>>,
+//     // A combination of broadcast and direct streams.
+//     Merge<GeneratedStream<Messages<TYPES, I>>, GeneratedStream<Messages<TYPES, I>>>,
+//     TestHarnessState<TYPES, I>,
+// >;
+
 pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
@@ -67,6 +75,56 @@ pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
         .await
         .register_state(state)
         .register_event_handler(handler);
+    // if handle_messages {
+    //     let channel = exchange.network().clone();
+    //     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+    //         let network = channel.clone();
+    //         let closure = async move {
+    //             loop {
+    //                 let msgs = Messages(
+    //                     network
+    //                         .recv_msgs(TransmitType::Broadcast)
+    //                         .await
+    //                         .expect("Failed to receive broadcast messages"),
+    //                 );
+    //                 if msgs.0.is_empty() {
+    //                     async_sleep(Duration::new(0, 500)).await;
+    //                 } else {
+    //                     break msgs;
+    //                 }
+    //             }
+    //         };
+    //         Some(boxed_sync(closure))
+    //     }));
+    //     let channel = exchange.network().clone();
+    //     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
+    //         let network = channel.clone();
+    //         let closure = async move {
+    //             loop {
+    //                 let msgs = Messages(
+    //                     network
+    //                         .recv_msgs(TransmitType::Direct)
+    //                         .await
+    //                         .expect("Failed to receive direct messages"),
+    //                 );
+    //                 if msgs.0.is_empty() {
+    //                     async_sleep(Duration::new(0, 500)).await;
+    //                 } else {
+    //                     break msgs;
+    //                 }
+    //             }
+    //         };
+    //         Some(boxed_sync(closure))
+    //     }));
+    //     let message_stream = Merge::new(broadcast_stream, direct_stream);
+    //     let message_builder =
+    //     TaskBuilder::<NetworkMessageTaskTypes<_, _>>::new("test_harness_message".to_string())
+    //         .register_message_stream(message_stream)
+    //         .register_registry(&mut registry.clone())
+    //         .await
+    //         .register_state(network_state)
+    //         .register_message_handler(network_message_handler);
+    // }
 
     let id = builder.get_task_id().unwrap();
 

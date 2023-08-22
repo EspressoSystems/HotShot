@@ -215,7 +215,7 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+    // #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
 
     pub async fn handle_event(
         &mut self,
