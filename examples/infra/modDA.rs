@@ -57,7 +57,6 @@ use hotshot_types::{
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use rand::SeedableRng;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
 use std::{
@@ -208,7 +207,11 @@ pub trait RunDA<
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> Self;
 
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
@@ -225,12 +228,12 @@ pub trait RunDA<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed,
-        ));
         let known_nodes = config.config.known_nodes.clone();
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+        let entry = pk.get_stake_table_entry(1u64);
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
@@ -252,6 +255,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
@@ -260,8 +264,8 @@ pub trait RunDA<
                 view_sync_network.clone(),
             ),
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
 
         SystemContext::init(
@@ -424,7 +428,13 @@ pub trait RunDA<
     fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
 
     /// Returns the config for this run
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >;
 }
 
 // WEB SERVER
@@ -452,7 +462,11 @@ pub struct WebServerDARun<
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
-    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    config: NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >,
     quorum_network: StaticQuorumComm<TYPES, I, MEMBERSHIP>,
     da_network: StaticDAComm<TYPES, I, MEMBERSHIP>,
     view_sync_network: StaticViewSyncComm<TYPES, I, MEMBERSHIP>,
@@ -522,7 +536,11 @@ where
     Self: Sync,
 {
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> WebServerDARun<TYPES, NODE, MEMBERSHIP> {
         // Generate our own key
         let (pub_key, _priv_key) =
@@ -615,7 +633,13 @@ where
         self.view_sync_network.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    > {
         self.config.clone()
     }
 }

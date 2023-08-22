@@ -221,11 +221,14 @@ tokio = { version = "1", optional = true, features = [
 ] }
 
 tracing = "0.1.37"
+ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
+typenum = { version = "1.16.0" }
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.3", features = ["derive", "env"] }
-serde_json = "1.0.103"
+serde_json = "1.0.105"
 sha2 = { version = "0.10.7" }
 toml = "0.7.6"
 
