@@ -108,7 +108,6 @@ impl TxnTaskDescription {
                                     }
                                     Some(node) => {
                                         // use rand::seq::IteratorRandom;
-                                        // handle.submit_transaction()
                                         // we're assuming all nodes have the same leaf.
                                         // If they don't match, this is probably fine since
                                         // it should be caught by an assertion (and the txn will be rejected anyway)
@@ -118,16 +117,10 @@ impl TxnTaskDescription {
                                             &mut thread_rng(),
                                             0,
                                         );
-                                        // ED Shouldn't create this each time
-                                        let api = HotShotSequencingConsensusApi {
-                                            inner: node.handle.hotshot.inner.clone(),
-                                        };
-                                        api.send_transaction(DataMessage::SubmitTransaction(
-                                            txn.clone(),
-                                            TYPES::Time::new(0),
-                                        ))
-                                        .await
-                                        .expect("Could not send transaction");
+                                        node.handle
+                                            .submit_transaction(txn.clone())
+                                            .await
+                                            .expect("Could not send transaction");
                                         (None, state)
                                     }
                                 }
