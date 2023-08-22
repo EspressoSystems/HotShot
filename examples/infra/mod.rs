@@ -36,15 +36,22 @@ pub struct OrchestratorArgs {
 /// Reads a network configuration from a given filepath
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: String,
-) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+) -> NetworkConfig<
+    TYPES::SignatureKey,
+    <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+    TYPES::ElectionConfigType,
+> {
     let config_file_as_string: String = fs::read_to_string(config_file.as_str())
         .unwrap_or_else(|_| panic!("Could not read config file located at {config_file}"));
     let config_toml: NetworkConfigFile =
         toml::from_str::<NetworkConfigFile>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
 
-    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
-        config_toml.into();
+    let mut config: NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    > = config_toml.into();
 
     // Generate network's public keys
     config.config.known_nodes = (0..config.config.total_nodes.get())
@@ -55,6 +62,10 @@ pub fn load_config_from_file<TYPES: NodeType>(
             )
             .0
         })
+        .collect();
+
+    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
+        .map(|node_id| config.config.known_nodes[node_id].get_stake_table_entry(1u64))
         .collect();
 
     config

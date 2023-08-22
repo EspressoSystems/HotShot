@@ -21,7 +21,6 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, ConnectedNetwork, TransmitType},
         node_implementation::NodeType,
-        signature_key::TestableSignatureKey,
     },
     vote::VoteType,
 };
@@ -81,8 +80,6 @@ pub struct CombinedNetworks<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for CombinedNetworks<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -128,8 +125,6 @@ where
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -319,8 +314,6 @@ impl<
         MEMBERSHIP,
         CombinedNetworks<TYPES, I, MEMBERSHIP>,
     > for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network() -> Box<dyn Fn(Arc<Self::NETWORK>) -> Self + 'static> {
         Box::new(move |network| WebServerWithFallbackCommChannel::new(network))
