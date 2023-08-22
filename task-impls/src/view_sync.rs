@@ -456,6 +456,8 @@ where
                 if view_number < ViewNumber::new(*self.current_view) {
                     return;
                 }
+                
+
 
                 self.num_timeouts_tracked += 1;
                 error!("Num timeouts tracked is {}", self.num_timeouts_tracked);

@@ -529,11 +529,9 @@ where
                 // let next_view_timeout = hotshot.inner.config.next_view_timeout;
                 // let next_view_timeout = next_view_timeout;
                 // let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
-                // TODO(bf): get the real timeout from the config.
                 let stream = self.event_stream.clone();
                 let view_number = self.cur_view;
                 async move {
-                    // ED: Changing to 1 second to test timeout logic
                     async_sleep(Duration::from_millis(timeout)).await;
                     stream
                         .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
