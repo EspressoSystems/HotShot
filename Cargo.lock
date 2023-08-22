@@ -2568,7 +2568,6 @@ dependencies = [
 name = "hotshot"
 version = "0.3.3"
 dependencies = [
- "ark-ed-on-bls12-381",
  "ark-serialize 0.3.0",
  "async-compatibility-layer",
  "async-lock",
