@@ -2,8 +2,6 @@ use crate::test_runner::Node;
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -11,11 +9,9 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-use hotshot_types::message::DataMessage;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::state::ConsensusTime;
 use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};

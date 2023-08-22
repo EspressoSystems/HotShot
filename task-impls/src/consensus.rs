@@ -1093,7 +1093,7 @@ where
                     })
                     .await;
                 if !self.update_view(new_view).await {
-                    error!("view not updated");
+                    debug!("view not updated");
                     return;
                 }
 

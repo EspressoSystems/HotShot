@@ -38,8 +38,6 @@ pub trait VoteType<TYPES: NodeType>:
 #[serde(bound(deserialize = ""))]
 pub struct DAVote<TYPES: NodeType> {
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry including public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The block commitment being voted on.
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -60,8 +58,6 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// we should check a cache, and if that fails request the qc
     pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The leaf commitment being voted on.
     pub leaf_commitment: Commitment<LEAF>,
@@ -77,13 +73,9 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The justification qc for this view
-    // TODO ED This should be the high_qc instead, and the signature should be over it,
-    // not just over the view number
-    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
+    // The highest valid QC this node knows about
+    pub high_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The view this vote was cast for
     pub current_view: TYPES::Time,

@@ -518,7 +518,7 @@ where
                                 }
                             }
                             QuorumVote::Timeout(vote) => {
-                                qcs.insert(vote.justify_qc);
+                                qcs.insert(vote.high_qc);
                             }
                             QuorumVote::No(_) => {
                                 warn!("The next leader has received an unexpected vote!");
