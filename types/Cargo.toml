@@ -71,7 +71,7 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.164", features = ["derive"] } # change to 1.0.183 if it can't work
+serde = { version = "1.0.185", features = ["derive"] } # change to 1.0.183 if it can't work
 snafu = "0.7.4" # change to 0.7.5 if it can't work
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
 time = "0.3.23"
