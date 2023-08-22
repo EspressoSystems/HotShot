@@ -1,5 +1,8 @@
 use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 
+/// Initialized system context handle.
+pub mod system_handle;
+
 ///  builder
 pub mod test_builder;
 

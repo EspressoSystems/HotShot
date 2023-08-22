@@ -22,6 +22,10 @@ test_async_std_all:
   echo Testing with async std executor
   cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
+test_consensus:
+  echo Testing with async std executor
+  RUST_LOG="error" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
+
 test_basic:
   echo Testing with async std executor
   RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
@@ -37,6 +41,10 @@ test_basic_tokio:
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
   RUST_LOG="" ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+
+test_da_task:
+  echo Testing the DA task with async std executor
+  RUST_LOG="" ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
