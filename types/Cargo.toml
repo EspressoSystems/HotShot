@@ -59,7 +59,7 @@ bitvec = { version = "1.0.1", default-features = false, features = [
     "atomic",
     "serde",
 ] }
-blake3 = "1.4.1"
+blake3 = { workspace = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 derivative = "2.2.0"
