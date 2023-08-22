@@ -5,16 +5,14 @@ use std::sync::Arc;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
-        election::{
-            static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::JfPubKey,
-        },
+        election::static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
         implementations::{
             Libp2pCommChannel, Libp2pNetwork, MemoryCommChannel, MemoryNetwork, MemoryStorage,
             WebCommChannel, WebServerNetwork, WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
     },
+    types::bn254::BN254Pub,
 };
 use hotshot_types::traits::election::ViewSyncExchange;
 use hotshot_types::vote::QuorumVote;
@@ -35,7 +33,6 @@ use hotshot_types::{
         node_implementation::TestableExchange,
     },
 };
-use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -55,7 +52,7 @@ pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
