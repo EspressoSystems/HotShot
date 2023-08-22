@@ -103,6 +103,7 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
 pub enum AssembledSignature<TYPES: NodeType> {
+    // (enum, signature)
     /// These signatures are for a 'Yes' certificate
     Yes(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for a 'No' certificate
