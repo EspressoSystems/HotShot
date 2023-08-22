@@ -1,3 +1,12 @@
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+#![allow(clippy::module_name_repetitions)]
+
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
@@ -61,10 +70,12 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument};
 
+/// Error returned by the consensus task
 #[derive(Snafu, Debug)]
 pub struct ConsensusTaskError {}
 
-// #[derive(Debug)]
+/// The state for the consensus task.  Contains all of the information for the implementation
+/// of consensus
 pub struct SequencingConsensusTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -88,6 +99,7 @@ pub struct SequencingConsensusTaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    /// The global task registry
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
@@ -102,6 +114,7 @@ pub struct SequencingConsensusTaskState<
     /// the quorum exchange
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
 
+    /// Consensus api
     pub api: A,
 
     /// the committee exchange
@@ -134,11 +147,14 @@ pub struct SequencingConsensusTaskState<
     pub current_proposal: Option<QuorumProposal<TYPES, I::Leaf>>,
 
     // ED Should replace this with config information since we need it anyway
+    /// The node's id
     pub id: u64,
 
+    /// The most Recent QC we've formed from votes, if we've formed it.
     pub qc: Option<QuorumCertificate<TYPES, I::Leaf>>,
 }
 
+/// State for the vote collection task.  This handles the building of a QC from a votes received
 pub struct VoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -154,10 +170,14 @@ pub struct VoteCollectionTaskState<
     /// the quorum exchange
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
     #[allow(clippy::type_complexity)]
+    /// Accumulator for votes
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>>,
+    /// View which this vote collection task is collecting votes in
     pub cur_view: TYPES::Time,
+    /// The event stream shared by all tasks
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// Node id
     pub id: u64,
 }
 
@@ -253,7 +273,7 @@ where
                 return (None, state);
             }
             QuorumVote::No(_) => {
-                panic!("The next leader has received an unexpected vote!");
+                error!("The next leader has received an unexpected vote!");
             }
         },
         SequencingHotShotEvent::Shutdown => {
@@ -432,24 +452,19 @@ where
                         };
                         let message: GeneralConsensusMessage<TYPES, I>=
                         // Validate the DAC.
-                        if !self
+                        if self
                             .committee_exchange
                             .is_valid_cert(cert, proposal.block_commitment)
                         {
-                            error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert.view_number, self.cur_view );
-                            return false;
-                            // message = self.quorum_exchange.create_no_message(
-                            //     proposal.justify_qc.commit(),
-                            //     proposal.justify_qc.leaf_commitment,
-                            //     cert.view_number,
-                            //     vote_token,
-                            // );
-                        } else {
                             self.quorum_exchange.create_yes_message(
                                 proposal.justify_qc.commit(),
                                 leaf.commit(),
                                 cert.view_number,
                                 vote_token)
+                        } else {
+                            error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert.view_number, self.cur_view );
+                            return false;
+
                         };
 
                         // TODO ED Only publish event in vote if able
@@ -548,8 +563,8 @@ where
         false
     }
 
+    /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
-
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match event {
             SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
@@ -608,7 +623,6 @@ where
                             return;
                         };
                         let parent_commitment = parent.commit();
-                        let _block_commitment = proposal.data.block_commitment;
                         let leaf: SequencingLeaf<_> = SequencingLeaf {
                             view_number: view,
                             height: proposal.data.height,
@@ -896,7 +910,7 @@ where
                         }
 
                         // ED Only do this GC if we are able to vote
-                        for v in *self.cur_view..*view + 1 {
+                        for v in (*self.cur_view)..=(*view) {
                             let time = TYPES::Time::new(v);
                             self.certs.remove(&time);
                         }
@@ -1016,7 +1030,7 @@ where
                         }
                     }
                     QuorumVote::Timeout(_) | QuorumVote::No(_) => {
-                        panic!("The next leader has received an unexpected vote!");
+                        error!("The next leader has received an unexpected vote!");
                     }
                 }
             }
@@ -1107,8 +1121,6 @@ where
                     return;
                 }
 
-                // update our high qc to the qc we just formed
-                // self.high_qc = qc;
                 let consensus = self.consensus.read().await;
                 let parent_view_number = &consensus.high_qc.view_number();
                 let mut reached_decided = false;
@@ -1181,7 +1193,6 @@ where
                     data: proposal,
                     signature,
                 };
-                // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 debug!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
@@ -1201,7 +1212,7 @@ where
                 debug!(
                     "We received a timeout event in the consensus task for view {}!",
                     *view
-                )
+                );
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
@@ -1212,17 +1223,15 @@ where
         }
     }
 
+    /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
             error!("Somehow we formed a QC but are not the leader for the next view");
             return false;
         }
 
-        // update our high qc to the qc we just formed
-        // self.high_qc = qc;
         let consensus = self.consensus.read().await;
         let parent_view_number = &consensus.high_qc.view_number();
-        // error!("Parent view number is {:?}", parent_view_number);
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1240,11 +1249,11 @@ where
             return false;
         };
         if leaf_commitment != consensus.high_qc.leaf_commitment() {
-            // error!(
-            //     "They don't equal: {:?}   {:?}",
-            //     leaf_commitment,
-            //     self.high_qc.leaf_commitment()
-            // );
+            debug!(
+                "They don't equal: {:?}   {:?}",
+                leaf_commitment,
+                consensus.high_qc.leaf_commitment()
+            );
         }
         let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
             error!("Failed to find high QC of parent.");
@@ -1277,10 +1286,7 @@ where
         if block_commitment == TYPES::BlockType::new().commit() {
             debug!("Block is generic block! {:?}", self.cur_view);
         }
-        // warn!(
-        //     "leaf commitment of new qc: {:?}",
-        //     self.high_qc.leaf_commitment()
-        // );
+
         let leaf = SequencingLeaf {
             view_number: *parent_view_number + 1,
             height: parent_leaf.height + 1,
@@ -1293,7 +1299,6 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
-        // warn!("Leaf sent in proposal! {:?}", parent_leaf.commit());
 
         let signature = self
             .quorum_exchange
@@ -1313,8 +1318,6 @@ where
             signature,
         };
         debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
-
-        // warn!("Sending proposal for view {:?}", message.data.clone());
 
         self.event_stream
             .publish(SequencingHotShotEvent::QuorumProposalSend(
@@ -1352,6 +1355,7 @@ where
 {
 }
 
+/// Type allias for consensus' vote collection task
 pub type VoteCollectionTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -1359,6 +1363,7 @@ pub type VoteCollectionTypes<TYPES, I> = HSTWithEvent<
     VoteCollectionTaskState<TYPES, I>,
 >;
 
+/// Type alias for Consensus task
 pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -1366,6 +1371,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
     SequencingConsensusTaskState<TYPES, I, A>,
 >;
 
+/// Event handle for consensus
 pub async fn sequencing_consensus_handle<
     TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<
@@ -1404,6 +1410,7 @@ where
     }
 }
 
+/// Filter for consensus, returns true for event types the consensus task subscribes to.
 pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     event: &SequencingHotShotEvent<TYPES, I>,
 ) -> bool {
