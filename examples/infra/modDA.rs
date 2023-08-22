@@ -388,12 +388,7 @@ pub trait RunDA<
 
                                         debug!("Submitting txn on round {}", round);
 
-                                        let result = api
-                                            .send_transaction(DataMessage::SubmitTransaction(
-                                                txn.clone(),
-                                                TYPES::Time::new(0),
-                                            ))
-                                            .await;
+                                        let result = context.submit_transaction(txn).await;
 
                                         if result.is_err() {
                                             error! (

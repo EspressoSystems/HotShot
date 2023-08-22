@@ -1594,24 +1594,27 @@ impl<
         message: DataMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
-        self.inner
-            .exchanges
-            .committee_exchange()
-            .network()
-            .broadcast_message(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: MessageKind::from(message),
-                    _phantom: PhantomData,
-                },
-                &self
-                    .inner
-                    .exchanges
-                    .committee_exchange()
-                    .membership()
-                    .clone(),
-            )
-            .await?;
+        let api = self.clone();
+        async_spawn(async move {
+            let _result = api
+                .inner
+                .exchanges
+                .committee_exchange()
+                .network()
+                .broadcast_message(
+                    Message {
+                        sender: api.inner.public_key.clone(),
+                        kind: MessageKind::from(message),
+                        _phantom: PhantomData,
+                    },
+                    &api.inner
+                        .exchanges
+                        .committee_exchange()
+                        .membership()
+                        .clone(),
+                )
+                .await;
+        });
         Ok(())
     }
 }
