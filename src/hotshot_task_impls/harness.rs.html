@@ -102,6 +102,10 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
@@ -116,11 +120,11 @@
 
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::sync::Arc;
-
 <span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    expected_output: HashSet&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
 }
 
 <span class="kw">pub struct </span>EventBundle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
@@ -148,11 +152,15 @@
     TestHarnessState&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="kw">pub async fn </span>run_harness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+<span class="kw">pub async fn </span>run_harness&lt;TYPES, I, Fut&gt;(
     input: Vec&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    expected_output: HashSet&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    build_fn: <span class="kw">fn</span>(TaskRunner, ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;) -&gt; TaskRunner,
-) {
+    expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
+    build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;) -&gt; Fut,
+) <span class="kw">where
+    </span>TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    Fut: Future&lt;Output = TaskRunner&gt;,
+{
     <span class="kw">let </span>task_runner = TaskRunner::new();
     <span class="kw">let </span>registry = task_runner.registry.clone();
     <span class="kw">let </span>event_stream = event_stream::ChannelStream::new();
@@ -174,20 +182,15 @@
     <span class="kw">let </span>task = TestHarnessTaskTypes::build(builder).launch();
 
     <span class="kw">let </span>task_runner = task_runner.add_task(id, <span class="string">&quot;test_harness&quot;</span>.to_string(), task);
-    <span class="kw">let </span>task_runner = build_fn(task_runner, event_stream.clone());
+    <span class="kw">let </span>task_runner = build_fn(task_runner, event_stream.clone()).<span class="kw">await</span>;
 
-    <span class="kw">let </span>_runner = async_spawn(<span class="kw">async move </span>{ task_runner.launch().<span class="kw">await </span>});
+    <span class="kw">let </span>runner = async_spawn(<span class="kw">async move </span>{ task_runner.launch().<span class="kw">await </span>});
 
     <span class="kw">for </span>event <span class="kw">in </span>input {
         <span class="kw">let _ </span>= event_stream.publish(event).<span class="kw">await</span>;
     }
-    <span class="comment">// TODO fix type weirdness btwn tokio and async-std
-    </span><span class="macro">todo!</span>();
-
-    <span class="comment">// for (_task_name, result) in runner.await.into_iter() {
-    //     assert!(matches!(result, HotShotTaskCompleted::ShutDown));
-    // }
-</span>}
+    <span class="kw">let _ </span>= runner.<span class="kw">await</span>;
+}
 
 <span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     event: SequencingHotShotEvent&lt;TYPES, I&gt;,
@@ -196,10 +199,15 @@
     std::option::Option&lt;HotShotTaskCompleted&gt;,
     TestHarnessState&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">if </span>!state.expected_output.contains(<span class="kw-2">&amp;</span>event) {
+    <span class="kw">if </span>!state.expected_output.contains_key(<span class="kw-2">&amp;</span>event) {
         <span class="macro">panic!</span>(<span class="string">&quot;Got and unexpected event: {:?}&quot;</span>, event);
     }
-    state.expected_output.remove(<span class="kw-2">&amp;</span>event);
+    <span class="kw">let </span>num_expected = state.expected_output.get_mut(<span class="kw-2">&amp;</span>event).unwrap();
+    <span class="kw">if </span><span class="kw-2">*</span>num_expected == <span class="number">1 </span>{
+        state.expected_output.remove(<span class="kw-2">&amp;</span>event);
+    } <span class="kw">else </span>{
+        <span class="kw-2">*</span>num_expected -= <span class="number">1</span>;
+    }
 
     <span class="kw">if </span>state.expected_output.is_empty() {
         <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state);

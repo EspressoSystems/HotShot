@@ -653,6 +653,7 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::implementations::CombinedNetworks;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::sync::Arc;
@@ -726,9 +727,10 @@
 <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>StaticFallbackImpl;
 
-<span class="kw">type </span>StaticMembership = StaticCommittee&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;;
+<span class="kw">pub type </span>StaticMembership =
+    StaticCommittee&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;;
 
-<span class="kw">type </span>StaticMemoryDAComm = MemoryCommChannel&lt;
+<span class="kw">pub type </span>StaticMemoryDAComm = MemoryCommChannel&lt;
     SequencingTestTypes,
     SequencingMemoryImpl,
     DAProposal&lt;SequencingTestTypes&gt;,
@@ -755,7 +757,7 @@
 <span class="kw">type </span>StaticFallbackComm =
     WebServerWithFallbackCommChannel&lt;SequencingTestTypes, StaticFallbackImpl, StaticMembership&gt;;
 
-<span class="kw">type </span>StaticMemoryQuorumComm = MemoryCommChannel&lt;
+<span class="kw">pub type </span>StaticMemoryQuorumComm = MemoryCommChannel&lt;
     SequencingTestTypes,
     SequencingMemoryImpl,
     QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
@@ -779,7 +781,7 @@
     StaticMembership,
 &gt;;
 
-<span class="kw">type </span>StaticMemoryViewSyncComm = MemoryCommChannel&lt;
+<span class="kw">pub type </span>StaticMemoryViewSyncComm = MemoryCommChannel&lt;
     SequencingTestTypes,
     SequencingMemoryImpl,
     ViewSyncCertificate&lt;SequencingTestTypes&gt;,
