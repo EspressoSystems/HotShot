@@ -518,7 +518,6 @@ where
                     .await;
             }
 
-            error!("publishing view change {:?}", new_view);
             self.event_stream
                 .publish(SequencingHotShotEvent::ViewChange(new_view))
                 .await;

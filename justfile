@@ -22,7 +22,7 @@ test_async_std_all:
   echo Testing with async std executor
   cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
-_test_consensus:
+test_consensus:
   echo Testing with async std executor
   RUST_LOG="error" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 

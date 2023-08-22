@@ -15,7 +15,6 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
-use tracing::error;
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
 }
@@ -45,11 +44,13 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
-pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
+pub async fn run_harness<TYPES, I, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
     build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
 ) where
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     Fut: Future<Output = TaskRunner>,
 {
     let task_runner = TaskRunner::new();
@@ -90,7 +91,6 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     std::option::Option<HotShotTaskCompleted>,
     TestHarnessState<TYPES, I>,
 ) {
-    error!("got event: {:?}", event);
     if !state.expected_output.contains_key(&event) {
         panic!("Got and unexpected event: {:?}", event);
     }
