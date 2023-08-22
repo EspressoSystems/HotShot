@@ -2666,7 +2666,6 @@ dependencies = [
  "hotshot-utils",
  "hotshot-web-server",
  "itertools 0.11.0",
- "jf-primitives",
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
