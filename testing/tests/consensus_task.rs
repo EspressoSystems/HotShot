@@ -110,30 +110,15 @@ async fn build_consensus_api(
     .expect("Could not init hotshot")
 }
 
-async fn build_proposal_send(
+async fn build_proposal(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
     private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
-    public_key: &JfPubKey<BLSSignatureScheme>,
-) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
+) -> Proposal<QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>> {
     let (proposal, signature) = build_proposal_and_signature(handle, private_key).await;
-    let message = Proposal {
+    Proposal {
         data: proposal,
         signature,
-    };
-    SequencingHotShotEvent::QuorumProposalSend(message, public_key.clone())
-}
-
-async fn build_proposal_recv(
-    handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    private_key: &<JfPubKey<BLSSignatureScheme> as SignatureKey>::PrivateKey,
-    public_key: &JfPubKey<BLSSignatureScheme>,
-) -> SequencingHotShotEvent<SequencingTestTypes, SequencingMemoryImpl> {
-    let (proposal, signature) = build_proposal_and_signature(handle, private_key).await;
-    let message = Proposal {
-        data: proposal,
-        signature,
-    };
-    SequencingHotShotEvent::QuorumProposalRecv(message, public_key.clone())
+    }
 }
 
 async fn build_proposal_and_signature(
@@ -286,7 +271,10 @@ async fn test_consensus_task() {
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(
-        build_proposal_send(&handle, &private_key, &public_key).await,
+        SequencingHotShotEvent::QuorumProposalSend(
+            build_proposal(&handle, &private_key).await,
+            public_key.clone(),
+        ),
         1,
     );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
@@ -316,22 +304,26 @@ async fn test_consensus_vote() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    let propsal_recv = build_proposal_recv(&handle, &private_key, &public_key).await;
+    let proposal = build_proposal(&handle, &private_key).await;
 
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(propsal_recv.clone());
+    input.push(SequencingHotShotEvent::QuorumProposalRecv(
+        proposal.clone(),
+        public_key.clone(),
+    ));
 
     input.push(SequencingHotShotEvent::Shutdown);
 
-    output.insert(propsal_recv.clone(), 1);
-    if let SequencingHotShotEvent::QuorumProposalRecv(proposal, _) = propsal_recv {
-        let proposal = proposal.data;
-        if let GeneralConsensusMessage::Vote(vote) =
-            build_vote(&handle, proposal, ViewNumber::new(1)).await
-        {
-            output.insert(SequencingHotShotEvent::QuorumVoteSend(vote), 1);
-        }
-    };
+    output.insert(
+        SequencingHotShotEvent::QuorumProposalRecv(proposal.clone(), public_key),
+        1,
+    );
+    let proposal = proposal.data;
+    if let GeneralConsensusMessage::Vote(vote) =
+        build_vote(&handle, proposal, ViewNumber::new(1)).await
+    {
+        output.insert(SequencingHotShotEvent::QuorumVoteSend(vote), 1);
+    }
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
