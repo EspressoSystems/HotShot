@@ -1006,11 +1006,6 @@ where
 
                 drop(consensus);
 
-                // warn!("QC leaf commitment is {:?}", qc.leaf_commitment());
-                // self.event_stream
-                //     .publish(SequencingHotShotEvent::ViewChange(qc.view_number() + 1))
-                //     .await;
-
                 // View may have already been updated by replica if they voted for this QC
                 // TODO ED We should separate leader state from replica state, they shouldn't share the same view
                 // Leader task should only run for a specific view, and never update its current view, but instead spawn another task
@@ -1104,7 +1099,6 @@ where
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
-                // debug!("Updating self . block!");
                 self.block = block;
             }
             _ => {}
