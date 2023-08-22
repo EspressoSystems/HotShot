@@ -50,8 +50,10 @@ use std::time::Instant;
 use tracing::{debug, error, instrument, warn};
 
 #[derive(Snafu, Debug)]
+/// Error type for consensus tasks
 pub struct ConsensusTaskError {}
 
+/// Tracks state of a DA task
 pub struct DATaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -68,7 +70,9 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    /// The state's api
     pub api: A,
+    /// Global registry task for the state
     pub registry: GlobalRegistry,
 
     /// View number this view is executing in.
@@ -87,9 +91,11 @@ pub struct DATaskState<
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 
+    /// This state's ID
     pub id: u64,
 }
 
+/// Struct to maintain DA Vote Collection task state
 pub struct DAVoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -103,11 +109,15 @@ pub struct DAVoteCollectionTaskState<
 {
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+    /// the vote accumulator
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>,
     // TODO ED Make this just "view" since it is only for this task
+    /// the current view
     pub cur_view: ViewNumber,
+    /// event stream for channel events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// the id of this task state
     pub id: u64,
 }
 
@@ -199,6 +209,7 @@ where
     (None, state)
 }
 
+
 impl<
         TYPES: NodeType<Time = ViewNumber>,
         I: NodeImplementation<
@@ -216,6 +227,7 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
 
     pub async fn handle_event(
@@ -614,10 +626,10 @@ where
         let txns: Vec<TYPES::Transaction> = all_txns
             .iter()
             .filter_map(|(txn_hash, txn)| {
-                if !previous_used_txns.contains(txn_hash) {
-                    Some(txn.clone())
-                } else {
+                if previous_used_txns.contains(txn_hash) {
                     None
+                } else {
+                    Some(txn.clone())
                 }
             })
             .collect();
@@ -638,6 +650,7 @@ where
     }
 }
 
+/// task state implementation for DA Task
 impl<
         TYPES: NodeType,
         I: NodeImplementation<
@@ -657,6 +670,7 @@ where
 {
 }
 
+/// Type alias for DA Vote Collection Types
 pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -664,6 +678,7 @@ pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     DAVoteCollectionTaskState<TYPES, I>,
 >;
 
+/// Type alias for DA Task Types
 pub type DATaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
