@@ -38,113 +38,6 @@ use hotshot_types::{certificate::DACertificate, vote::ViewSyncData};
 use jf_primitives::signatures::BLSSignatureScheme;
 use std::collections::HashMap;
 
-// TODO (Keyao) This is the same as `build_consensus_api`. We should move it to a separate file.
-async fn build_da_api<
-    TYPES: NodeType<
-        ElectionConfigType = StaticElectionConfig,
-        SignatureKey = JfPubKey<BLSSignatureScheme>,
-        Time = ViewNumber,
-    >,
-    I: TestableNodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-        Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-    >,
->(
-    node_id: u64,
-) -> SystemContextHandle<TYPES, I>
-where
-    I::Exchanges: ExchangesType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        ElectionConfigs = (StaticElectionConfig, StaticElectionConfig),
-    >,
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
-        Membership = StaticMembership,
-        Networking = StaticMemoryQuorumComm,
-    >,
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = DAProposal<TYPES>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
-        Membership = StaticMembership,
-        Networking = StaticMemoryDAComm,
-    >,
-    ViewSyncEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = ViewSyncCertificate<TYPES>,
-        Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
-        Membership = StaticMembership,
-        Networking = StaticMemoryViewSyncComm,
-    >,
-    // Why do we need this?
-    GeneralStaticCommittee<
-        SequencingTestTypes,
-        SequencingLeaf<SequencingTestTypes>,
-        JfPubKey<BLSSignatureScheme>,
-    >: Membership<TYPES>,
-{
-    let builder = TestMetadata::default_multiple_rounds();
-
-    let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
-
-    let networks = (launcher.resource_generator.channel_generator)(node_id);
-    let storage = (launcher.resource_generator.storage)(node_id);
-    let config = launcher.resource_generator.config.clone();
-    let initializer =
-        HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
-
-    let known_nodes = config.known_nodes.clone();
-    let private_key = I::generate_test_key(node_id);
-    let public_key = TYPES::SignatureKey::from_private(&private_key);
-    let ek =
-        jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
-    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <QuorumEx<TYPES,I> as ConsensusExchange<
-                TYPES,
-                Message<TYPES, I>,
-            >>::Membership::default_election_config(config.total_nodes.get() as u64)
-    });
-
-    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <CommitteeEx<TYPES,I> as ConsensusExchange<
-                TYPES,
-                Message<TYPES, I>,
-            >>::Membership::default_election_config(config.total_nodes.get() as u64)
-    });
-    let exchanges = I::Exchanges::create(
-        known_nodes.clone(),
-        (quorum_election_config, committee_election_config),
-        networks,
-        public_key.clone(),
-        private_key.clone(),
-        ek.clone(),
-    );
-    SystemContext::init(
-        public_key,
-        private_key,
-        node_id,
-        config,
-        storage,
-        exchanges,
-        initializer,
-        NoMetrics::boxed(),
-    )
-    .await
-    .expect("Could not init hotshot")
-}
-
 #[cfg(test)]
 #[cfg_attr(
     feature = "tokio-executor",
@@ -156,7 +49,7 @@ async fn test_da_task() {
         demos::sdemo::{SDemoBlock, SDemoNormalBlock},
         tasks::add_da_task,
     };
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot_task_impls::harness::{run_harness, build_api};
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
         traits::election::CommitteeExchangeType,
@@ -166,7 +59,7 @@ async fn test_da_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_da_api::<
+    let handle = build_api::<
         hotshot_testing::node_types::SequencingTestTypes,
         hotshot_testing::node_types::SequencingMemoryImpl,
     >(2)

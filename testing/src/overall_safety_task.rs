@@ -1,3 +1,4 @@
+use commit::Commitment;
 use hotshot_task::event_stream::EventStream;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -19,22 +20,36 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DeltasType, LeafType},
+    data::{DeltasType, LeafBlock, LeafType},
     error::RoundTimedoutState,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
 };
 use snafu::Snafu;
-use tracing::error;
 
 use crate::{test_launcher::TaskGenerator, test_runner::Node};
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
 use super::GlobalTestEvent;
 
+/// the status of a view
+#[derive(Debug, Clone)]
+pub enum ViewStatus {
+    /// success
+    Ok,
+    /// failure
+    Failed,
+    /// safety violation
+    Err(OverallSafetyTaskErr),
+    /// in progress
+    InProgress,
+}
+
 /// possible errors
-#[derive(Snafu, Debug)]
+#[derive(Snafu, Debug, Clone)]
 pub enum OverallSafetyTaskErr {
+    /// inconsistent txn nums
+    InconsistentTxnsNum { map: HashMap<u64, usize> },
     /// too many failed  views
     TooManyFailures {
         /// expected number of failures
@@ -80,17 +95,21 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Nodes that failed to commit this round
     pub failed_nodes: HashMap<u64, Vec<Arc<HotShotError<TYPES>>>>,
 
-    /// state of the majority of the nodes
-    pub agreed_state: Option<LEAF::MaybeState>,
-
-    /// block of the majority of the nodes
-    pub agreed_block: Option<LEAF::DeltasType>,
-
-    /// leaf of the majority of the nodes
-    pub agreed_leaf: Option<LEAF>,
-
     /// whether or not the round succeeded (for a custom defn of succeeded)
-    pub success: bool,
+    pub status: ViewStatus,
+
+    /// NOTE: technically a map is not needed
+    /// left one anyway for ease of viewing
+    /// leaf -> # entries decided on that leaf
+    pub leaf_map: HashMap<LEAF, usize>,
+
+    /// block -> # entries decided on that block
+    pub block_map: HashMap<Commitment<LeafBlock<LEAF>>, usize>,
+
+    /// state -> # entries decided on that state
+    pub state_map: HashMap<<LEAF as LeafType>::MaybeState, usize>,
+
+    pub num_txns_map: HashMap<u64, usize>,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<TYPES, LEAF> {
@@ -98,10 +117,11 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<
         Self {
             success_nodes: Default::default(),
             failed_nodes: Default::default(),
-            agreed_leaf: Default::default(),
-            agreed_block: Default::default(),
-            agreed_state: Default::default(),
-            success: false,
+            leaf_map: Default::default(),
+            block_map: Default::default(),
+            state_map: Default::default(),
+            num_txns_map: Default::default(),
+            status: ViewStatus::InProgress,
         }
     }
 }
@@ -160,6 +180,130 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF> {
+    /// insert into round result
+    pub fn insert_into_result(
+        &mut self,
+        idx: usize,
+        result: (Vec<LEAF>, QuorumCertificate<TYPES, LEAF>),
+        maybe_block_size: Option<u64>,
+    ) -> Option<LEAF> {
+        self.success_nodes.insert(idx as u64, result.clone());
+
+        let maybe_leaf: Option<LEAF> = result.0.into_iter().last();
+        if let Some(leaf) = maybe_leaf.clone() {
+            match self.leaf_map.entry(leaf.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut o) => {
+                    *o.get_mut() += 1;
+                }
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    v.insert(1);
+                }
+            }
+
+            let (state, block) = (leaf.get_state(), leaf.get_deltas());
+
+            match self.state_map.entry(state.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut o) => {
+                    *o.get_mut() += 1;
+                }
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    v.insert(1);
+                }
+            }
+            match self.block_map.entry(block.clone().block_commitment()) {
+                std::collections::hash_map::Entry::Occupied(mut o) => {
+                    *o.get_mut() += 1;
+                }
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    v.insert(1);
+                }
+            }
+
+            if let Some(num_txns) = maybe_block_size {
+                match self.num_txns_map.entry(num_txns) {
+                    Entry::Occupied(mut o) => {
+                        *o.get_mut() += 1;
+                    }
+                    Entry::Vacant(v) => {
+                        v.insert(1);
+                    }
+                }
+            }
+        }
+        maybe_leaf
+    }
+
+    /// determines whether or not the round passes
+    /// also do a safety check
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_status(
+        &mut self,
+        threshold: usize,
+        total_num_nodes: usize,
+        key: LEAF,
+        check_leaf: bool,
+        check_state: bool,
+        check_block: bool,
+        transaction_threshold: u64,
+    ) {
+        let num_decided = self.success_nodes.len();
+        let num_failed = self.failed_nodes.len();
+        let remaining_nodes = total_num_nodes - (num_decided + num_failed);
+
+        if check_leaf && self.leaf_map.len() != 1 {
+            self.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
+            return;
+        }
+
+        if check_state && self.state_map.len() != 1 {
+            self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentStates);
+            return;
+        }
+
+        if check_block && self.block_map.len() != 1 {
+            self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentBlocks);
+            return;
+        }
+
+        if transaction_threshold >= 1 {
+            if self.num_txns_map.len() > 1 {
+                self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
+                    map: self.num_txns_map.clone(),
+                });
+                return;
+            }
+            if *self.num_txns_map.iter().last().unwrap().0 < transaction_threshold {
+                self.status = ViewStatus::Failed;
+                return;
+            }
+        }
+
+        // check for success
+        if num_decided >= threshold {
+            // decide on if we've succeeded.
+            // if so, set state and return
+            // if not, return error
+            // if neither, continue through
+
+            let state_key = key.get_state();
+            let block_key = key.get_deltas().block_commitment();
+
+            if *self.block_map.get(&block_key).unwrap() == threshold
+                && *self.state_map.get(&state_key).unwrap() == threshold
+                && *self.leaf_map.get(&key).unwrap() == threshold
+            {
+                self.status = ViewStatus::Ok;
+                return;
+            }
+        }
+
+        let is_success_possible = remaining_nodes + num_decided >= threshold;
+        if !is_success_possible {
+            self.status = ViewStatus::Failed;
+        }
+    }
+
+    /// generate leaves
     pub fn gen_leaves(&self) -> HashMap<LEAF, usize> {
         let mut leaves = HashMap::<LEAF, usize>::new();
 
@@ -178,113 +322,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
         }
         leaves
     }
-    /// general leaf check
-    pub fn check_leaves(&mut self, threshold: usize) -> Result<(), OverallSafetyTaskErr> {
-        let leaves = self.gen_leaves();
-
-        for (leaf, num) in leaves {
-            if num > threshold {
-                self.agreed_leaf = Some(leaf);
-                self.success = true;
-                return Ok(());
-            }
-        }
-        self.success = false;
-        Err(OverallSafetyTaskErr::MismatchedLeaf)
-    }
-
-    /// sanity block and state check
-    pub fn check_blocks_and_state(
-        &mut self,
-        threshold: usize,
-        check_block: bool,
-        check_state: bool,
-    ) -> Result<(), OverallSafetyTaskErr> {
-        let mut states = HashMap::<<LEAF as LeafType>::MaybeState, usize>::new();
-        let mut blocks = HashMap::<<LEAF as LeafType>::DeltasType, usize>::new();
-        let mut num_no_progress = 0;
-        for (_idx, leaves) in self.success_nodes.clone() {
-            let (state, block): StateAndBlock<
-                <LEAF as LeafType>::MaybeState,
-                <LEAF as LeafType>::DeltasType,
-            > = leaves
-                .0
-                .iter()
-                .cloned()
-                .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
-                .unzip();
-
-            if let (Some(most_recent_state), Some(most_recent_block)) =
-                (state.iter().last(), block.iter().last())
-            {
-                match states.entry(most_recent_state.clone()) {
-                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                        *o.get_mut() += 1;
-                    }
-                    std::collections::hash_map::Entry::Vacant(v) => {
-                        v.insert(1);
-                    }
-                }
-                match blocks.entry(most_recent_block.clone()) {
-                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                        *o.get_mut() += 1;
-                    }
-                    std::collections::hash_map::Entry::Vacant(v) => {
-                        v.insert(1);
-                    }
-                }
-            } else {
-                num_no_progress += 1;
-            }
-        }
-        error!(
-            "states for this view {:#?}\nblocks for this view {:#?}",
-            states, blocks
-        );
-
-        error!(
-            "Number of nodes who made zero progress: {:#?}",
-            num_no_progress
-        );
-
-        let mut result_state = None;
-        let mut result_commitment = None;
-
-        if check_state {
-            for (state, num_nodes) in states {
-                if num_nodes >= threshold {
-                    result_state = Some(state.clone());
-                    self.agreed_state = Some(state);
-                    self.success = true;
-                }
-            }
-
-            if result_state.is_none() {
-                self.success = false;
-                return Err(OverallSafetyTaskErr::InconsistentStates);
-            }
-        }
-
-        if check_block {
-            // Check if the block commitments are the same.
-            let mut consistent_block = None;
-            for (delta, _) in blocks.clone() {
-                let commitment = delta.block_commitment();
-                if let Some(consistent_commitment) = result_commitment {
-                    if commitment != consistent_commitment {
-                        self.success = false;
-                        error!("Inconsistent blocks, blocks: {:?}", blocks);
-                        return Err(OverallSafetyTaskErr::InconsistentBlocks);
-                    }
-                }
-                result_commitment = Some(commitment);
-                consistent_block = Some(delta);
-            }
-            self.success = true;
-            self.agreed_block = consistent_block;
-        }
-        Ok(())
-    }
 }
 
 /// cross node safety properties
@@ -298,6 +335,11 @@ pub struct OverallSafetyPropertiesDescription {
     pub check_state: bool,
     /// whether or not to check the block
     pub check_block: bool,
+    /// whether or not to check that we have threshold amounts of transactions each block
+    /// if 0: don't check
+    /// if n > 0, check that at least n transactions are decided upon if such information
+    /// is available
+    pub transaction_threshold: u64,
     /// num of total rounds allowed to fail
     pub num_failed_views: usize,
     /// threshold calculator. Given number of live and total nodes, provide number of successes
@@ -325,6 +367,7 @@ impl Default for OverallSafetyPropertiesDescription {
             check_state: true,
             check_block: true,
             num_failed_views: 10,
+            transaction_threshold: 0,
             // very strict
             threshold_calculator: Arc::new(|_num_live, num_total| 2 * num_total / 3 + 1),
         }
@@ -340,25 +383,10 @@ impl OverallSafetyPropertiesDescription {
             check_leaf,
             check_state,
             check_block,
-            // TODO <https://github.com/EspressoSystems/HotShot/issues/1167>
-            // We can't exactly check that the transactions all match those submitted
-            // because of a type error. We ONLY have `MaybeState` and we need `State`.
-            // unless we specialize, this won't happen.
-            // so waiting on refactor for this
-            // code is below:
-            //
-            //     ```
-            //         let next_state /* : Option<_> */ = {
-            //         if let Some(last_leaf) = ctx.prior_round_results.iter().last() {
-            //             if let Some(parent_state) = last_leaf.agreed_state {
-            //                 let mut block = <TYPES as NodeType>::StateType::next_block(Some(parent_state.clone()));
-            //             }
-            //         }
-            //     };
-            // ```
             num_failed_views: num_failed_rounds_total,
             num_successful_views,
             threshold_calculator,
+            transaction_threshold,
         }: Self = self;
 
         Box::new(move |mut state, mut registry, test_event_stream| {
@@ -411,22 +439,32 @@ impl OverallSafetyPropertiesDescription {
                         let threshold_calculator = threshold_calculator.clone();
                         async move {
                             let (idx, Event { view_number, event }) = msg;
-                            match event {
+                            let key = match event {
                                 EventType::Error { error } => {
                                     state.ctx.insert_error_to_context(view_number, error);
+                                    None
                                 }
-                                EventType::Decide { leaf_chain, qc, .. } => {
+                                EventType::Decide {
+                                    leaf_chain,
+                                    qc,
+                                    block_size: maybe_block_size,
+                                } => {
                                     let paired_up = (leaf_chain.to_vec(), (*qc).clone());
                                     match state.ctx.round_results.entry(view_number) {
-                                        Entry::Occupied(mut o) => {
-                                            o.get_mut().success_nodes.insert(idx as u64, paired_up);
-                                        }
+                                        Entry::Occupied(mut o) => o.get_mut().insert_into_result(
+                                            idx,
+                                            paired_up,
+                                            maybe_block_size,
+                                        ),
                                         Entry::Vacant(v) => {
                                             let mut round_result = RoundResult::default();
-                                            round_result
-                                                .success_nodes
-                                                .insert(idx as u64, paired_up);
+                                            let key = round_result.insert_into_result(
+                                                idx,
+                                                paired_up,
+                                                maybe_block_size,
+                                            );
                                             v.insert(round_result);
+                                            key
                                         }
                                     }
                                 }
@@ -437,66 +475,69 @@ impl OverallSafetyPropertiesDescription {
                                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                                     });
                                     state.ctx.insert_error_to_context(view_number, error);
+                                    None
                                 }
                                 _ => return (None, state),
-                            }
+                            };
 
                             // update view count
                             let threshold =
                                 (threshold_calculator)(state.handles.len(), state.handles.len());
 
                             let view = state.ctx.round_results.get_mut(&view_number).unwrap();
-                            view.success = true;
-                            if view.failed_nodes.len() > state.handles.len() - threshold {
-                                // mark as failure
-                                view.success = false;
-                                state.ctx.failed_views.insert(view_number);
-                                if state.ctx.failed_views.len() >= num_failed_rounds_total {
-                                    state
-                                        .test_event_stream
-                                        .publish(GlobalTestEvent::ShutDown)
-                                        .await;
-                                    return (
-                                        Some(HotShotTaskCompleted::Error(Box::new(
-                                            OverallSafetyTaskErr::TooManyFailures {
-                                                got: state.ctx.failed_views.len(),
-                                                expected: num_failed_rounds_total,
-                                            },
-                                        ))),
-                                        state,
-                                    );
-                                }
-                            }
 
-                            if view.success_nodes.len() >= threshold {
-                                // TODO check for safety violation on leaves
-                                if check_leaf {
-                                    let leaf_result = view.check_leaves(threshold);
-                                    if let Err(e) = leaf_result {
+                            if let Some(key) = key {
+                                view.update_status(
+                                    threshold,
+                                    state.handles.len(),
+                                    key,
+                                    check_leaf,
+                                    check_state,
+                                    check_block,
+                                    transaction_threshold,
+                                );
+                                match view.status.clone() {
+                                    ViewStatus::Ok => {
+                                        state.ctx.successful_views.insert(view_number);
+                                        if state.ctx.successful_views.len()
+                                            >= self.num_successful_views
+                                        {
+                                            state
+                                                .test_event_stream
+                                                .publish(GlobalTestEvent::ShutDown)
+                                                .await;
+                                            return (Some(HotShotTaskCompleted::ShutDown), state);
+                                        }
+                                        return (None, state);
+                                    }
+                                    ViewStatus::Failed => {
+                                        state.ctx.failed_views.insert(view_number);
+                                        if state.ctx.failed_views.len() >= self.num_failed_views {
+                                            state
+                                                .test_event_stream
+                                                .publish(GlobalTestEvent::ShutDown)
+                                                .await;
+                                            return (
+                                                Some(HotShotTaskCompleted::Error(Box::new(
+                                                    OverallSafetyTaskErr::TooManyFailures {
+                                                        got: state.ctx.failed_views.len(),
+                                                        expected: num_failed_rounds_total,
+                                                    },
+                                                ))),
+                                                state,
+                                            );
+                                        }
+                                        return (None, state);
+                                    }
+                                    ViewStatus::Err(e) => {
                                         return (
                                             Some(HotShotTaskCompleted::Error(Box::new(e))),
                                             state,
                                         );
                                     }
-                                }
-                                let block_state_result = view.check_blocks_and_state(
-                                    threshold,
-                                    check_block,
-                                    check_state,
-                                );
-                                if let Err(e) = block_state_result {
-                                    return (Some(HotShotTaskCompleted::Error(Box::new(e))), state);
-                                }
-
-                                // mark as success
-                                view.success = true;
-                                state.ctx.successful_views.insert(view_number);
-                                if state.ctx.successful_views.len() >= num_successful_views {
-                                    state
-                                        .test_event_stream
-                                        .publish(GlobalTestEvent::ShutDown)
-                                        .await;
-                                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                                    ViewStatus::InProgress => {
+                                        return (None, state);
+                                    }
                                 }
                             }
 

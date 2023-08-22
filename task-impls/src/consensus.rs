@@ -6,6 +6,7 @@ use async_lock::RwLockUpgradableReadGuard;
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use bincode::Options;
+use bitvec::prelude::*;
 use commit::Committable;
 use core::time::Duration;
 use either::Either;
@@ -951,21 +952,26 @@ where
 
                         let acc = VoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
                             viewsync_precommit_vote_outcomes: HashMap::new(),
-
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: self.quorum_exchange.success_threshold(),
                             failure_threshold: self.quorum_exchange.failure_threshold(),
+                            sig_lists: Vec::new(),
+                            signers: bitvec![0; self.quorum_exchange.total_nodes()],
                         };
+
                         // Todo check if we are the leader
                         let accumulator = self.quorum_exchange.accumulate_vote(
-                            &vote.signature.0,
-                            &vote.signature.1,
-                            vote.leaf_commitment,
-                            vote.vote_data.clone(),
-                            vote.vote_token.clone(),
-                            vote.current_view,
+                            &vote.clone().signature.0,
+                            &vote.clone().signature.1,
+                            vote.clone().leaf_commitment,
+                            vote.clone().vote_data.clone(),
+                            vote.clone().vote_token.clone(),
+                            vote.clone().current_view,
                             acc,
                             None,
                         );
@@ -1089,6 +1095,7 @@ where
                     })
                     .await;
                 if !self.update_view(new_view).await {
+                    error!("view not updated");
                     return;
                 }
 
@@ -1175,7 +1182,6 @@ where
                     data: proposal,
                     signature,
                 };
-                // debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, message.clone());
                 debug!("Sending proposal for view {:?}", message.data.clone());
 
                 self.event_stream
@@ -1410,5 +1416,6 @@ pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             | SequencingHotShotEvent::ViewChange(_)
             | SequencingHotShotEvent::SendDABlockData(_)
             | SequencingHotShotEvent::Timeout(_)
+            | SequencingHotShotEvent::Shutdown,
     )
 }

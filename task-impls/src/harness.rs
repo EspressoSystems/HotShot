@@ -14,8 +14,6 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
-use tracing::error;
-
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
 }
@@ -45,11 +43,13 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
-pub async fn run_harness<TYPES: NodeType, I: NodeImplementation<TYPES>, Fut>(
+pub async fn run_harness<TYPES, I, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
     build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
 ) where
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     Fut: Future<Output = TaskRunner>,
 {
     let task_runner = TaskRunner::new();
@@ -90,9 +90,8 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     std::option::Option<HotShotTaskCompleted>,
     TestHarnessState<TYPES, I>,
 ) {
-    error!("got event: {:?}", event);
     if !state.expected_output.contains_key(&event) {
-        panic!("Got an unexpected event: {:?}", event);
+        panic!("Got and unexpected event: {:?}", event);
     }
     let num_expected = state.expected_output.get_mut(&event).unwrap();
     if *num_expected == 1 {
@@ -105,4 +104,64 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         return (Some(HotShotTaskCompleted::ShutDown), state);
     }
     (None, state)
+}
+
+pub async fn build_api(
+    node_id: u64,
+) -> SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl> {
+    let builder = TestMetadata::default_multiple_rounds();
+
+    let launcher = builder.gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>();
+
+    let networks = (launcher.resource_generator.channel_generator)(node_id);
+    let storage = (launcher.resource_generator.storage)(node_id);
+    let config = launcher.resource_generator.config.clone();
+
+    let initializer = HotShotInitializer::<
+        SequencingTestTypes,
+        <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
+    >::from_genesis(<SequencingMemoryImpl as TestableNodeImplementation<
+        SequencingTestTypes,
+    >>::block_genesis())
+    .unwrap();
+
+    let known_nodes = config.known_nodes.clone();
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+    let private_key = <BN254Pub as SignatureKey>::generated_from_seed_indexed([0u8; 32], node_id).1;
+    let public_key = <SequencingTestTypes as NodeType>::SignatureKey::from_private(&private_key);
+    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <QuorumEx<SequencingTestTypes, SequencingMemoryImpl> as ConsensusExchange<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+        >>::Membership::default_election_config(config.total_nodes.get() as u64)
+    });
+
+    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <CommitteeEx<SequencingTestTypes, SequencingMemoryImpl> as ConsensusExchange<
+            SequencingTestTypes,
+            Message<SequencingTestTypes, SequencingMemoryImpl>,
+        >>::Membership::default_election_config(config.total_nodes.get() as u64)
+    });
+    let exchanges =
+        <SequencingMemoryImpl as NodeImplementation<SequencingTestTypes>>::Exchanges::create(
+            known_nodes_with_stake.clone(),
+            known_nodes.clone(),
+            (quorum_election_config, committee_election_config),
+            networks,
+            public_key,
+            public_key.get_stake_table_entry(1u64),
+            private_key.clone(),
+        );
+    SystemContext::init(
+        public_key,
+        private_key,
+        node_id,
+        config,
+        storage,
+        exchanges,
+        initializer,
+        NoMetrics::boxed(),
+    )
+    .await
+    .expect("Could not init hotshot")
 }
