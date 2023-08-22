@@ -231,13 +231,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             self.num_txns as usize - MAX_TXNS
         };
 
-        let new_index = if (index as usize) < lowest_in_memory_txs {
+        let starting_index = if (index as usize) < lowest_in_memory_txs {
             lowest_in_memory_txs
         } else {
             index as usize
         };
 
-        for idx in new_index..=self.num_txns.try_into().unwrap() {
+        for idx in starting_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
                 txns_to_return.push(txn.clone())
             }
@@ -248,7 +248,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             debug!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some((index, txns_to_return)))
+            //starting_index is the oldest index of the returned txns
+            Ok(Some((starting_index, txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?

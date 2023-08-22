@@ -169,6 +169,8 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
     Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
+    async fn poll_for_txns()
+    
     #![allow(clippy::too_many_lines)]
     /// Pull a web server.
     async fn poll_web_server(
@@ -203,10 +205,12 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
             if message_purpose == MessagePurpose::Data {
                 let possible_message = self.get_txs_from_web_server(endpoint).await;
                 match possible_message {
-                    Ok(Some((_index, deserialized_messages))) => {
-                        // This code assumes nodes can keep up with the number of transactions coming through the network
-                        // We'll address this issue during https://github.com/EspressoSystems/HotShot/issues/1496
+                    Ok(Some((index, deserialized_messages))) => {
                         let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
+                        if index > tx_index+1 {
+                            debug!("missed txns from {} to {}", tx_index+1, index-1);
+                            tx_index = index-1;
+                        }
                         for tx in &deserialized_messages {
                             tx_index += 1;
                             broadcast_poll_queue.push(tx.clone());
@@ -217,13 +221,11 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                         async_sleep(self.wait_between_polls).await;
                     }
                     Err(_e) => {
-                        // error!("error is {:?}", _e);
                         async_sleep(self.wait_between_polls).await;
                     }
                 }
             } else {
                 let possible_message = self.get_message_from_web_server(endpoint).await;
-                // error!("Polling for view {}", view_number);
 
                 match possible_message {
                     Ok(Some(deserialized_messages)) => {
