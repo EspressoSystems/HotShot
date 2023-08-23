@@ -83,7 +83,7 @@ tokio = { version = "1", optional = true, features = [
   "time",
   "tracing",
 ] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 serde = { workspace = true }
 # proc macro stuff
 quote = "1.0.32"
