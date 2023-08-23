@@ -4,7 +4,10 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, TimeoutCertificate},
+    certificate::{
+        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
+        ViewSyncCertificate,
+    },
     constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,

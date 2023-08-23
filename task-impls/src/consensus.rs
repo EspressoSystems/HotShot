@@ -887,7 +887,6 @@ where
                         if !self.vote_if_able().await {
                             // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
                             return;
-
                         }
 
                         // ED Only do this GC if we are able to vote
@@ -1065,13 +1064,13 @@ where
                 }
 
                 self.output_event_stream
-                .publish(Event {
-                    view_number: old_view_number,
-                    event: EventType::ViewFinished {
+                    .publish(Event {
                         view_number: old_view_number,
-                    },
-                })
-                .await;
+                        event: EventType::ViewFinished {
+                            view_number: old_view_number,
+                        },
+                    })
+                    .await;
 
                 debug!("View Change event for view {}", *new_view);
 
@@ -1086,10 +1085,10 @@ where
                 let qc = consensus.high_qc.clone();
                 drop(consensus);
                 // TODO ED We should only publish on view change, not just when we form a QC
-                // Normally I'd argue leader logic should be completely separate, but maybe not in this case? 
+                // Normally I'd argue leader logic should be completely separate, but maybe not in this case?
                 // TODO ED What in the last proposal does this leader need to propose?
-                // Seems like a good optimization to wait for replica side to hear proposal, so we don't get a bunch 
-                // of repeated views in testing. 
+                // Seems like a good optimization to wait for replica side to hear proposal, so we don't get a bunch
+                // of repeated views in testing.
                 if !self.publish_proposal_if_able(qc).await {
                     error!(
                         "Failed to publish proposal on view change.  View = {:?}",
@@ -1119,7 +1118,7 @@ where
 
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
-        // TODO ED This should not be qc view number + 1, how did this ever pass before?  I guess there were never timeouts? 
+        // TODO ED This should not be qc view number + 1, how did this ever pass before?  I guess there were never timeouts?
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
             error!("Somehow we formed a QC but are not the leader for the next view");
             return false;
@@ -1205,7 +1204,7 @@ where
             height: leaf.height,
             justify_qc: consensus.high_qc.clone(),
             // TODO ED Update this to be the actual TC if there is one
-            timeout_certificate: None, 
+            timeout_certificate: None,
             proposer_id: leaf.proposer_id,
             dac: None,
         };

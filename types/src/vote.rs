@@ -73,7 +73,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    // The highest valid QC this node knows about
+    /// The highest valid QC this node knows about
     pub high_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
