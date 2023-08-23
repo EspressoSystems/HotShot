@@ -191,7 +191,7 @@ rand_chacha = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
 snafu = { workspace = true }
 surf-disco = { workspace = true }
-time = "0.3.27"
+time = { workspace = true }
 toml = { version = "0.7.6", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
@@ -311,3 +311,4 @@ rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.183", features = ["derive"] }
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
+time = "0.3.27"
