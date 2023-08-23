@@ -71,7 +71,7 @@ hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
 hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
-rand = "0.8.5"
+rand = { workspace = true }
 rand_chacha = "0.3.1"
 snafu = "0.7.5"
 tokio = { version = "1", optional = true, features = [

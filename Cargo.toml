@@ -186,7 +186,7 @@ libp2p = { workspace = true, features = [
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }
 nll = { workspace = true }
-rand = "0.8.5"
+rand = { workspace = true }
 rand_chacha = "0.3.1"
 serde = { version = "1.0.183", features = ["derive", "rc"] }
 snafu = "0.7.5"
@@ -306,3 +306,4 @@ libp2p-identity = "0.2"
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
+rand = "0.8.5"
