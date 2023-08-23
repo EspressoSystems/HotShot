@@ -43,7 +43,7 @@ blake3 = { workspace = true, features = ["traits-preview"] }
 commit = { workspace = true }
 custom_debug = { workspace = true }
 derivative = "2.2"
-either = { version = "1.8.1" }
+either = { workspace = true }
 futures = "0.3.28"
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }

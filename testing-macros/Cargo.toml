@@ -57,7 +57,7 @@ async-trait = { workspace = true }
 # so non-optional for now
 blake3 = { workspace = true, features = ["traits-preview"] }
 commit = { workspace = true }
-either = { version = "1.8.1" }
+either = { workspace = true }
 futures = "0.3.28"
 hotshot = { path = "../", default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
