@@ -79,7 +79,7 @@ hotshot-task = { path = "../task", default-features = false }
 time = "0.3.27"
 commit = { workspace = true }
 jf-primitives = { workspace = true }
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true }
 hotshot-utils = { path = "../utils" }
 bincode = { workspace = true }
 bitvec = { version = "1.0.1", default-features = false, features = [

@@ -76,7 +76,7 @@ jf-primitives = { workspace = true }
 nll = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true }
 serde = { version = "1.0.164", features = [
     "derive",
 ] } # change to 1.0.183 if it can't work
