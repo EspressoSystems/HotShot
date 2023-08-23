@@ -53,7 +53,7 @@ either = { workspace = true }
 futures = { workspace = true }
 hotshot-utils = { path = "../utils" }
 libp2p-swarm-derive = { workspace = true }
-libp2p-identity = "0.2.0"
+libp2p-identity = { workspace = true }
 libp2p = { version = "0.52.2", default-features = false, features = [
     "macros",
     "autonat",
