@@ -59,7 +59,7 @@ bitvec = { version = "1.0.1", default-features = false, features = [
 ] }
 blake3 = { workspace = true }
 commit = { workspace = true }
-custom_debug = "0.5"
+custom_debug = { workspace = true }
 derivative = "2.2.0"
 digest = { version = "0.10" }
 displaydoc = { version = "0.2.3", default-features = false }
