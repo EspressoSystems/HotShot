@@ -77,9 +77,7 @@ nll = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
-serde = { version = "1.0.164", features = [
-    "derive",
-] } # change to 1.0.183 if it can't work
+serde = { workspace = true }
 snafu = "0.7.4" # change to 0.7.5 if it can't work
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
 time = "0.3.27"
