@@ -58,15 +58,8 @@
 
         CARGO_TARGET_DIR = "target_dirs/nix_rustc";
 
-        rustOverlay = final: prev: {
-          rustc = fenixStable;
-          cargo = fenixStable;
-          rust-src = fenixStable;
-        };
-
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ rustOverlay ];
         };
 
         heapstack_pkgs = import nixpkgs { inherit system; };
