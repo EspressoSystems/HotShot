@@ -73,7 +73,7 @@ hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", default-features = false }
 hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
-nll = { git = "https://github.com/EspressoSystems/nll.git" }
+nll = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = "0.8.5"
 rand_chacha = "0.3.1"

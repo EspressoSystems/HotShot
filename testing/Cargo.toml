@@ -71,7 +71,6 @@ hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
 hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
-# nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 snafu = "0.7.5"
@@ -91,7 +90,7 @@ tokio = { version = "1", optional = true, features = [
   "tracing",
 ] }
 tracing = "0.1.37"
-nll = { git = "https://github.com/EspressoSystems/nll.git" }
+nll = { workspace = true }
 serde = { version = "1.0.164", features = ["derive"] } # 1.0.183
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 bitvec = { version = "1.0.1", default-features = false, features = [
@@ -101,5 +100,4 @@ bitvec = { version = "1.0.1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nll = { git = "https://github.com/EspressoSystems/nll.git" }
 async-lock = { workspace = true }
