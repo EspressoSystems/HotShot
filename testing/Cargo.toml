@@ -58,7 +58,7 @@ async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
 blake3 = { workspace = true, features = ["traits-preview"] }
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+commit = { workspace = true }
 either = { version = "1.8.1" }
 futures = "0.3.28"
 hotshot = { path = "../", features = [

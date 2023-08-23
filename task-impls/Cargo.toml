@@ -77,7 +77,7 @@ hotshot-types = { path = "../types", default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-task = { path = "../task", default-features = false }
 time = "0.3.27"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+commit = { workspace = true }
 jf-primitives = { workspace = true }
 rand_chacha = "0.3.1"
 hotshot-utils = { path = "../utils" }

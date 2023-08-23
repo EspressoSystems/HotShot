@@ -40,7 +40,7 @@ async-trait = { workspace = true }
 # TODO ed: Delete this dependency after https://github.com/EspressoSystems/HotShot/issues/614 is finished
 bincode = { workspace = true }
 blake3 = { workspace = true, features = ["traits-preview"] }
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+commit = { workspace = true }
 custom_debug = "0.5"
 derivative = "2.2"
 either = { version = "1.8.1" }
