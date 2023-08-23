@@ -209,7 +209,6 @@ where
     (None, state)
 }
 
-
 impl<
         TYPES: NodeType<Time = ViewNumber>,
         I: NodeImplementation<
