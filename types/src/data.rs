@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate},
+    certificate::{AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, TimeoutCertificate},
     constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,
@@ -166,10 +166,14 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 
+    /// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
+    pub timeout_certificate: Option<TimeoutCertificate<TYPES>>,
+
     /// the propser id
     pub proposer_id: EncodedPublicKey,
 
     /// Data availibity certificate
+    // TODO We should be able to remove this
     pub dac: Option<DACertificate<TYPES>>,
 }
 

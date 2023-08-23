@@ -67,7 +67,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
 }
 
 /// Timeout Certificate
-#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutCertificate<TYPES: NodeType> {
     /// View that timed out
@@ -109,7 +109,7 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     pub signatures: AssembledSignature<TYPES>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
 pub enum AssembledSignature<TYPES: NodeType> {

@@ -589,6 +589,8 @@ where
                         let consensus = self.consensus.upgradable_read().await;
                         let message;
 
+                        // TODO ED Insert TC logic here
+
                         // Construct the leaf.
                         let justify_qc = proposal.data.justify_qc;
                         let parent = if justify_qc.is_genesis() {
