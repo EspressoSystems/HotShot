@@ -146,11 +146,12 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
         let inner = self.inner.read().await;
         for (uid, (filter, sender)) in &inner.subscribers {
             if filter(&event) {
+                tracing::error!("publish to {}", *uid);
                 match sender.send(event.clone()).await {
                     Ok(_) => (),
                     // error sending => stream is closed so remove it
                     Err(_) => {
-                        // error!("Channel was closed with uid {}", *uid);
+                        tracing::error!("Channel was closed with uid {}", *uid);
                         self.unsubscribe(*uid).await;
                     }
                 }

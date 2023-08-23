@@ -167,6 +167,7 @@ async fn build_vote(
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_task() {
+    use hotshot_task_impls::harness::build_harness;
     use hotshot_testing::system_handle::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -193,11 +194,15 @@ async fn test_consensus_task() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
-
-    run_harness(input, output, build_fn).await;
+    let (task_runner, event_stream) = build_harness(output).await;
+    let task_runner = add_consensus_task(
+        task_runner,
+        event_stream.clone(),
+        ChannelStream::new(),
+        handle,
+    )
+    .await;
+    run_harness(input, task_runner, event_stream).await;
 }
 
 #[cfg(test)]
@@ -207,6 +212,7 @@ async fn test_consensus_task() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_vote() {
+    use hotshot_task_impls::harness::build_harness;
     use hotshot_testing::system_handle::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -242,9 +248,13 @@ async fn test_consensus_vote() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
-
-    run_harness(input, output, build_fn).await;
+    let (task_runner, event_stream) = build_harness(output).await;
+    let task_runner = add_consensus_task(
+        task_runner,
+        event_stream.clone(),
+        ChannelStream::new(),
+        handle,
+    )
+    .await;
+    run_harness(input, task_runner, event_stream).await;
 }

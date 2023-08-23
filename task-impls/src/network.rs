@@ -101,10 +101,12 @@ impl<
                             }
                         },
                     };
+                    tracing::error!("before publishing event {:?}", event.clone());
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
                     // <https://github.com/EspressoSystems/HotShot/issues/1428>
                     self.event_stream.publish(event).await;
+                    tracing::error!("published event");
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
@@ -115,9 +117,12 @@ impl<
             };
         }
         if !transactions.is_empty() {
+            tracing::error!("before publishing txn");
             self.event_stream
                 .publish(SequencingHotShotEvent::TransactionsRecv(transactions))
                 .await;
+            tracing::error!("published txn");
+
         }
     }
 }
@@ -177,7 +182,7 @@ impl<
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (sender, message_kind, transmit_type, recipient) = match event {
+        let (sender, message_kind, transmit_type, recipient) = match event.clone() {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
@@ -197,14 +202,16 @@ impl<
                 Some(membership.get_leader(vote.current_view() + 1)),
             ),
 
-            SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
+            SequencingHotShotEvent::DAProposalSend(proposal, sender) => {
+                self.event_stream.publish(SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender.clone())).await;
+                (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::DAProposal(proposal),
                 ))),
                 TransmitType::Broadcast,
                 None,
-            ),
+            )},
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
@@ -243,7 +250,12 @@ impl<
             }
             SequencingHotShotEvent::ViewChange(view) => {
                 // only if view actually changes
+                // if self.view < view {
                 self.view = view;
+                // self.event_stream
+                // .publish(SequencingHotShotEvent::ViewChange(view))
+                // .await;
+                // }
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
@@ -301,6 +313,7 @@ impl<
             event,
             SequencingHotShotEvent::DAProposalSend(_, _)
                 | SequencingHotShotEvent::DAVoteSend(_)
+                | SequencingHotShotEvent::DACSend(_, _)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::ViewChange(_)
         )

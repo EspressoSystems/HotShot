@@ -12,7 +12,6 @@ use hotshot_task::{
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
 use std::collections::HashMap;
-use std::future::Future;
 use std::sync::Arc;
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
@@ -43,14 +42,13 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
-pub async fn run_harness<TYPES, I, Fut>(
-    input: Vec<SequencingHotShotEvent<TYPES, I>>,
+/// Build a task runner for testing harness.
+pub async fn build_harness<TYPES, I>(
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
-    build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
-) where
+) -> (TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>)
+where
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    Fut: Future<Output = TaskRunner>,
 {
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
@@ -67,70 +65,34 @@ pub async fn run_harness<TYPES, I, Fut>(
         .await
         .register_state(state)
         .register_event_handler(handler);
-    // if handle_messages {
-    //     let channel = exchange.network().clone();
-    //     let broadcast_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
-    //         let network = channel.clone();
-    //         let closure = async move {
-    //             loop {
-    //                 let msgs = Messages(
-    //                     network
-    //                         .recv_msgs(TransmitType::Broadcast)
-    //                         .await
-    //                         .expect("Failed to receive broadcast messages"),
-    //                 );
-    //                 if msgs.0.is_empty() {
-    //                     async_sleep(Duration::new(0, 500)).await;
-    //                 } else {
-    //                     break msgs;
-    //                 }
-    //             }
-    //         };
-    //         Some(boxed_sync(closure))
-    //     }));
-    //     let channel = exchange.network().clone();
-    //     let direct_stream = GeneratedStream::<Messages<TYPES, I>>::new(Arc::new(move || {
-    //         let network = channel.clone();
-    //         let closure = async move {
-    //             loop {
-    //                 let msgs = Messages(
-    //                     network
-    //                         .recv_msgs(TransmitType::Direct)
-    //                         .await
-    //                         .expect("Failed to receive direct messages"),
-    //                 );
-    //                 if msgs.0.is_empty() {
-    //                     async_sleep(Duration::new(0, 500)).await;
-    //                 } else {
-    //                     break msgs;
-    //                 }
-    //             }
-    //         };
-    //         Some(boxed_sync(closure))
-    //     }));
-    //     let message_stream = Merge::new(broadcast_stream, direct_stream);
-    //     let message_builder =
-    //     TaskBuilder::<NetworkMessageTaskTypes<_, _>>::new("test_harness_message".to_string())
-    //         .register_message_stream(message_stream)
-    //         .register_registry(&mut registry.clone())
-    //         .await
-    //         .register_state(network_state)
-    //         .register_message_handler(network_message_handler);
-    // }
 
     let id = builder.get_task_id().unwrap();
 
     let task = TestHarnessTaskTypes::build(builder).launch();
 
-    let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
-    let task_runner = build_fn(task_runner, event_stream.clone()).await;
+    (
+        task_runner.add_task(id, "test_harness".to_string(), task),
+        event_stream,
+    )
+}
 
+// Run the harness after subtasks are added.
+pub async fn run_harness<TYPES, I>(
+    input: Vec<SequencingHotShotEvent<TYPES, I>>,
+    task_runner: TaskRunner,
+    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+) where
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+{
     let runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
         let _ = event_stream.publish(event).await;
     }
+    tracing::error!("before running harness");
     let _ = runner.await;
+    tracing::error!("ran harness");
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -140,8 +102,9 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     std::option::Option<HotShotTaskCompleted>,
     TestHarnessState<TYPES, I>,
 ) {
+    tracing::error!("Got an event: {:?}", event);
     if !state.expected_output.contains_key(&event) {
-        panic!("Got and unexpected event: {:?}", event);
+        panic!("Got an unexpected event: {:?}", event);
     }
     let num_expected = state.expected_output.get_mut(&event).unwrap();
     if *num_expected == 1 {
@@ -151,6 +114,7 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
 
     if state.expected_output.is_empty() {
+        tracing::error!("shutdown harness");
         return (Some(HotShotTaskCompleted::ShutDown), state);
     }
     (None, state)

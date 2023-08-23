@@ -21,7 +21,7 @@ async fn test_da_task() {
         demos::sdemo::{SDemoBlock, SDemoNormalBlock},
         tasks::add_da_task,
     };
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot_task_impls::harness::{build_harness, run_harness};
     use hotshot_testing::system_handle::build_system_handle;
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
@@ -84,9 +84,13 @@ async fn test_da_task() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_da_task(task_runner, event_stream, committee_exchange, handle)
-    };
-
-    run_harness(input, output, build_fn).await;
+    let (task_runner, event_stream) = build_harness(output).await;
+    let task_runner = add_da_task(
+        task_runner,
+        event_stream.clone(),
+        committee_exchange,
+        handle,
+    )
+    .await;
+    run_harness(input, task_runner, event_stream).await;
 }
