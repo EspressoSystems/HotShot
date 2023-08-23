@@ -65,7 +65,7 @@ libp2p = { version = "0.52.0", default-features = false, features = [
 blake3 = { workspace = true, features = ["traits-preview"] }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
-libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
+libp2p-networking = { workspace = true }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
