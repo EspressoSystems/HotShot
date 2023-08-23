@@ -47,7 +47,7 @@ either = { workspace = true }
 futures = { workspace = true }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
-snafu = "0.7.5"
+snafu = { workspace = true }
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",

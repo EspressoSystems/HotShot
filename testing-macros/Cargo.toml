@@ -67,7 +67,7 @@ hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
 nll = { workspace = true }
 rand = { workspace = true }
-snafu = "0.7.5"
+snafu = { workspace = true }
 tokio = { version = "1", optional = true, features = [
   "fs",
   "io-util",

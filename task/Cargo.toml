@@ -28,7 +28,7 @@ either = { workspace = true }
 futures = { workspace = true }
 nll = { workspace = true }
 serde = { workspace = true }
-snafu = "0.7.5"
+snafu = { workspace = true }
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
