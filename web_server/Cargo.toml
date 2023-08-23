@@ -37,7 +37,7 @@ channel-async-std = [
 [dependencies]
 ark-bls12-381 = { workspace = true }
 async-compatibility-layer = { workspace = true }
-async-lock = "2.7"
+async-lock = { workspace = true }
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.68"
 bincode = "1.3.3"

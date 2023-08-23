@@ -102,4 +102,4 @@ bitvec = { version = "1.0.1", default-features = false, features = [
 
 [dev-dependencies]
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
-async-lock = "2.8"
+async-lock = { workspace = true }
