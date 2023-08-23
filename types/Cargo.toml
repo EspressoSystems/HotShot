@@ -65,7 +65,7 @@ digest = { workspace = true }
 displaydoc = { version = "0.2.3", default-features = false }
 ed25519-compact = { version = "2.0.4", optional = true }
 either = { workspace = true, features = ["serde"] }
-espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
+espresso-systems-common = { workspace = true }
 futures = "0.3.28"
 generic-array = "0.14.7"
 hex_fmt = "0.3.0"
