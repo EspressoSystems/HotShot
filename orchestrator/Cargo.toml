@@ -40,7 +40,7 @@ bincode = { workspace = true }
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
 futures = { workspace = true }
 libp2p-core = { version = "0.40.0", default-features = false }
-libp2p = { version = "0.52.0", default-features = false, features = [
+libp2p = { workspace = true, features = [
     "macros",
     "autonat",
     "deflate",

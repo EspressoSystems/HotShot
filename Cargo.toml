@@ -161,7 +161,7 @@ hotshot-types = { path = "./types", version = "0.1.0", default-features = false 
 hotshot-utils = { path = "./utils" }
 hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-features = false }
-libp2p = { version = "0.52.2", default-features = false, features = [
+libp2p = { workspace = true, features = [
         "macros",
         "autonat",
         "deflate",
@@ -302,6 +302,7 @@ espresso-systems-common = { git = "https://github.com/espressosystems/espresso-s
 futures = "0.3.28"
 hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives", branch = 'hotshot-compat' } # rev = "4aee90c" for 'hotshot-compat'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat' } # rev = "470a833" for branch = 'hotshot-compat'
+libp2p = { version = "0.52.2", default-features = false }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
