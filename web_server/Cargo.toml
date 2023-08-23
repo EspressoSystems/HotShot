@@ -42,7 +42,7 @@ async-std = { version = "1.12", optional = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
-futures = "0.3.28"
+futures = { workspace = true }
 libp2p-core = { version = "0.40.0", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }

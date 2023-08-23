@@ -44,7 +44,7 @@ commit = { workspace = true }
 custom_debug = { workspace = true }
 derivative = "2.2"
 either = { workspace = true }
-futures = "0.3.28"
+futures = { workspace = true }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 snafu = "0.7.5"

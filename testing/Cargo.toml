@@ -60,7 +60,7 @@ async-trait = { workspace = true }
 blake3 = { workspace = true, features = ["traits-preview"] }
 commit = { workspace = true }
 either = { workspace = true }
-futures = "0.3.28"
+futures = { workspace = true }
 hotshot = { path = "../", features = [
   "hotshot-testing",
 ], default-features = false }
