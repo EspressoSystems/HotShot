@@ -93,11 +93,7 @@ tracing = { workspace = true }
 nll = { workspace = true }
 serde = { workspace = true }
 ethereum-types = { workspace = true }
-bitvec = { version = "1.0.1", default-features = false, features = [
-  "alloc",
-  "atomic",
-  "serde",
-] }
+bitvec = { workspace = true }
 
 [dev-dependencies]
 async-lock = { workspace = true }

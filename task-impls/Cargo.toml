@@ -82,8 +82,4 @@ jf-primitives = { workspace = true }
 rand_chacha = { workspace = true }
 hotshot-utils = { path = "../utils" }
 bincode = { workspace = true }
-bitvec = { version = "1.0.1", default-features = false, features = [
-    "alloc",
-    "atomic",
-    "serde",
-] }
+bitvec = { workspace = true }

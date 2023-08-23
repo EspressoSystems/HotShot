@@ -144,6 +144,7 @@ async-std = { version = "1.12", optional = true }
 async-trait = { workspace = true }
 bimap = "0.6.3"
 bincode = { workspace = true }
+bitvec = { workspace = true }
 clap = { version = "4.3", features = ["derive", "env"], optional = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
@@ -209,11 +210,6 @@ tokio = { version = "1", optional = true, features = [
 
 tracing = { workspace = true }
 ethereum-types = { workspace = true }
-bitvec = { version = "1.0.1", default-features = false, features = [
-        "alloc",
-        "atomic",
-        "serde",
-] }
 typenum = { version = "1.16.0" }
 
 [dev-dependencies]
@@ -291,6 +287,11 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
 async-lock = "2.8"
 async-trait = "0.1.73"
 bincode = "1.3.3"
+bitvec = { version = "1.0.1", default-features = false, features = [
+        "alloc",
+        "atomic",
+        "serde",
+] }
 blake3 = "1.4"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
