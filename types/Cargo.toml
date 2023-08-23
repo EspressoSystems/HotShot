@@ -61,7 +61,7 @@ blake3 = { workspace = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
 derivative = "2.2.0"
-digest = { version = "0.10" }
+digest = { workspace = true }
 displaydoc = { version = "0.2.3", default-features = false }
 ed25519-compact = { version = "2.0.4", optional = true }
 either = { version = "1.8.1", features = ["serde"] }

@@ -2581,7 +2581,6 @@ dependencies = [
  "custom_debug",
  "dashmap",
  "derivative",
- "digest 0.10.7",
  "either",
  "embed-doc-image",
  "espresso-systems-common 0.4.1",
