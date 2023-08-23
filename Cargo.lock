@@ -2596,7 +2596,6 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
- "libp2p-swarm-derive",
  "nll",
  "num",
  "rand 0.8.5",
