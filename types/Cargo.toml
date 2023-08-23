@@ -51,7 +51,7 @@ ark-serialize = { version = "0.3", features = [
     "derive",
 ] } # TODO GG upgrade to 0.4 and inherit this dep from workspace
 ark-std = { workspace = true }
-bincode = "1.3.3"
+bincode = { workspace = true }
 bitvec = { version = "1.0.1", default-features = false, features = [
     "alloc",
     "atomic",

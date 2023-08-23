@@ -81,7 +81,7 @@ commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 jf-primitives = { workspace = true }
 rand_chacha = "0.3.1"
 hotshot-utils = { path = "../utils" }
-bincode = "1.3.3"
+bincode = { workspace = true }
 bitvec = { version = "1.0.1", default-features = false, features = [
     "alloc",
     "atomic",

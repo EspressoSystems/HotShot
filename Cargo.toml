@@ -143,7 +143,7 @@ async-lock = { workspace = true }
 async-std = { version = "1.12", optional = true }
 async-trait = { workspace = true }
 bimap = "0.6.3"
-bincode = "1.3.3"
+bincode = { workspace = true }
 blake3 = { workspace = true }
 clap = { version = "4.3", features = ["derive", "env"], optional = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
@@ -295,6 +295,7 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
 ] }
 async-lock = "2.8"
 async-trait = "0.1.73"
+bincode = "1.3.3"
 blake3 = "1.4"
 hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives", branch = 'hotshot-compat' } # rev = "4aee90c" for 'hotshot-compat'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat' } # rev = "470a833" for branch = 'hotshot-compat'
