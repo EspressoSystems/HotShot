@@ -153,6 +153,7 @@ derivative = { version = "2.2.0", optional = true }
 either = { workspace = true }
 embed-doc-image = "0.1.4"
 espresso-systems-common = { workspace = true }
+ethereum-types = { workspace = true }
 futures = { workspace = true }
 hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
@@ -209,7 +210,6 @@ tokio = { version = "1", optional = true, features = [
 ] }
 
 tracing = { workspace = true }
-ethereum-types = { workspace = true }
 typenum = { workspace = true }
 
 [dev-dependencies]
@@ -315,4 +315,4 @@ surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = 
 time = "0.3.27"
 toml = "0.7.6"
 tracing = "0.1.37"
-typenum = { version = "1.16.0" }
+typenum = "1.16.0"
