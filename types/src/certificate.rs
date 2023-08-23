@@ -66,6 +66,16 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+/// Timeout Certificate
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct TimeoutCertificate<TYPES: NodeType> {
+    /// View that timed out
+    pub view_number: TYPES::Time,
+    /// assembled signature for certificate aggregation
+    pub signatures: AssembledSignature<TYPES>,
+}
+
 /// Certificate for view sync.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
