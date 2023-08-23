@@ -23,7 +23,7 @@ default = ["demo", "docs", "doc-images"]
 demo = ["hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
 
 # Features required for binaries
-bin-orchestrator = ["toml", "clap"]
+bin-orchestrator = ["clap"]
 
 # Build the extended documentation
 docs = []
@@ -192,7 +192,6 @@ serde = { workspace = true, features = ["rc"] }
 snafu = { workspace = true }
 surf-disco = { workspace = true }
 time = { workspace = true }
-toml = { version = "0.7.6", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -222,7 +221,7 @@ typenum = { version = "1.16.0" }
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.3", features = ["derive", "env"] }
 serde_json = "1.0.105"
-toml = "0.7.6"
+toml = { workspace = true }
 
 ### Profiles
 ###
@@ -312,3 +311,4 @@ serde = { version = "1.0.183", features = ["derive"] }
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
 time = "0.3.27"
+toml = "0.7.6"

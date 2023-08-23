@@ -2906,7 +2906,7 @@ dependencies = [
  "tide",
  "tide-disco",
  "tokio",
- "toml 0.5.11",
+ "toml 0.7.6",
  "tracing",
 ]
 

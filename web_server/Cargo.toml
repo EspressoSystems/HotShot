@@ -71,7 +71,7 @@ tokio = { version = "1", optional = true, features = [
     "time",
     "tracing",
 ] }
-toml = "0.5.9"
+toml = { workspace = true }
 portpicker = "0.1"
 surf-disco = { workspace = true }
 
