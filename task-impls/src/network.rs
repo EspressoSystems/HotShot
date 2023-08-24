@@ -122,7 +122,6 @@ impl<
                 .publish(SequencingHotShotEvent::TransactionsRecv(transactions))
                 .await;
             tracing::error!("published txn");
-
         }
     }
 }
@@ -203,15 +202,16 @@ impl<
             ),
 
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => {
-                self.event_stream.publish(SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender.clone())).await;
+                // self.event_stream.publish(SequencingHotShotEvent::DAProposalRecv(proposal.clone(), sender.clone())).await;
                 (
-                sender,
-                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::DAProposal(proposal),
-                ))),
-                TransmitType::Broadcast,
-                None,
-            )},
+                    sender,
+                    MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                        CommitteeConsensusMessage::DAProposal(proposal),
+                    ))),
+                    TransmitType::Broadcast,
+                    None,
+                )
+            }
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
@@ -259,6 +259,7 @@ impl<
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
+                // self.event_stream.publish(SequencingHotShotEvent::Shutdown).await;
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             event => {

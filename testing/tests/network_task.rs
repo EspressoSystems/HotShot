@@ -4,6 +4,7 @@ use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
+use hotshot_testing::task_helpers::build_quorum_proposal;
 use hotshot_types::data::DAProposal;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ExchangesType;
@@ -25,7 +26,7 @@ async fn test_network_task() {
         harness::{build_harness, run_harness},
         network::NetworkTaskKind,
     };
-    use hotshot_testing::system_handle::build_system_handle;
+    use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
         traits::election::CommitteeExchangeType,
@@ -35,7 +36,7 @@ async fn test_network_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_system_handle(2).await;
+    let (handle, event_stream) = build_system_handle(2).await;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
@@ -44,90 +45,55 @@ async fn test_network_task() {
     let committee_exchange = api.inner.exchanges.committee_exchange().clone();
     let view_sync_excahnge = api.inner.exchanges.view_sync_exchange().clone();
     let pub_key = *api.public_key();
+    let priv_key = api.private_key();
     let block = SDemoBlock::Normal(SDemoNormalBlock {
         previous_state: (),
         transactions: Vec::new(),
     });
     let block_commitment = block.commit();
     let signature = committee_exchange.sign_da_proposal(&block_commitment);
-    let proposal = DAProposal {
-        deltas: block.clone(),
-        view_number: ViewNumber::new(2),
-    };
-    let message = Proposal {
-        data: proposal,
+    let da_proposal = Proposal {
+        data: DAProposal {
+            deltas: block.clone(),
+            view_number: ViewNumber::new(2),
+        },
         signature,
     };
+    let quorum_proposal = build_quorum_proposal(&handle, &priv_key,2).await;
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    // In view 1, node 2 is the next leader.
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::DAProposalSend(
-        message.clone(),
+        da_proposal.clone(),
         pub_key.clone(),
     ));
+    input.push(
+        SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
+    );
     input.push(SequencingHotShotEvent::Shutdown);
 
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-    // output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
+    output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
     output.insert(
-        SequencingHotShotEvent::DAProposalSend(message.clone(), pub_key),
-        1,
+        SequencingHotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
+        2
     );
-    if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
-        let da_message =
-            committee_exchange.create_da_message(block_commitment, ViewNumber::new(2), vote_token);
-        if let CommitteeConsensusMessage::DAVote(vote) = da_message {
-            output.insert(SequencingHotShotEvent::DAVoteRecv(vote), 1);
-        }
-    }
+    output.insert(SequencingHotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
     output.insert(
-        SequencingHotShotEvent::DAProposalRecv(message, pub_key),
-        1,
+        SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
+        2
     );
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
+    output.insert(
+        SequencingHotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
+        1
+    );
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let (task_runner, event_stream) = build_harness(output).await;
-    // TODO (Keyao) Why the message tasks don't seem to be necessary (and can cause hanging if there's no message sent)?
-    let task_runner =
-        add_network_message_task(task_runner, event_stream.clone(), quorum_exchange.clone()).await;
-    let task_runner = add_network_message_task(
-        task_runner,
-        event_stream.clone(),
-        committee_exchange.clone(),
-    )
-    .await;
-    let task_runner = add_network_message_task(
-        task_runner,
-        event_stream.clone(),
-        view_sync_excahnge.clone(),
-    )
-    .await;
-    let task_runner = add_network_event_task(
-        task_runner,
-        event_stream.clone(),
-        quorum_exchange,
-        NetworkTaskKind::Quorum,
-    )
-    .await;
-    let task_runner = add_network_event_task(
-        task_runner,
-        event_stream.clone(),
-        committee_exchange,
-        NetworkTaskKind::Committee,
-    )
-    .await;
-    let task_runner = add_network_event_task(
-        task_runner,
-        event_stream.clone(),
-        view_sync_excahnge,
-        NetworkTaskKind::ViewSync,
-    )
-    .await;
+    let task_runner = build_harness(output, Some(event_stream.clone())).await.0;
     run_harness(input, task_runner, event_stream).await;
 }

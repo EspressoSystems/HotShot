@@ -280,6 +280,7 @@ pub trait RunDA<
         )
         .await
         .expect("Could not init hotshot")
+        .0
     }
 
     /// Starts HotShot consensus, returns when consensus has finished

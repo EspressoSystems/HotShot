@@ -265,7 +265,7 @@ where
                 // `self.cur_view` should be at least 1 since there is a view change before getting
                 // the `DAProposalRecv` event. Otherewise, the view number subtraction below will
                 // cause an overflow error.
-                tracing::error!("view {:?} self.cur_view {:?}", view,self.cur_view);
+                tracing::error!("view {:?} self.cur_view {:?}", view, self.cur_view);
                 if view + 1 < self.cur_view {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
@@ -363,7 +363,7 @@ where
                     } else {
                         ViewNumber::new(0)
                     };
-                    tracing::error!("DA: collection_view");
+                tracing::error!("DA: collection_view");
 
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),

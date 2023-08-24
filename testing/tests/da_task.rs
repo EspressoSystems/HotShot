@@ -22,7 +22,7 @@ async fn test_da_task() {
         tasks::add_da_task,
     };
     use hotshot_task_impls::harness::{build_harness, run_harness};
-    use hotshot_testing::system_handle::build_system_handle;
+    use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
         traits::election::CommitteeExchangeType,
@@ -32,7 +32,7 @@ async fn test_da_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_system_handle(2).await;
+    let handle = build_system_handle(2).await.0;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
@@ -84,7 +84,7 @@ async fn test_da_task() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let (task_runner, event_stream) = build_harness(output).await;
+    let (task_runner, event_stream) = build_harness(output, None).await;
     let task_runner = add_da_task(
         task_runner,
         event_stream.clone(),

@@ -45,6 +45,7 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
 /// Build a task runner for testing harness.
 pub async fn build_harness<TYPES, I>(
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
+    event_stream: Option<ChannelStream<SequencingHotShotEvent<TYPES, I>>>,
 ) -> (TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>)
 where
     TYPES: NodeType,
@@ -52,14 +53,14 @@ where
 {
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
-    let event_stream = event_stream::ChannelStream::new();
+    // let event_stream = event_stream::ChannelStream::new();
     let state = TestHarnessState { expected_output };
     let handler = HandleEvent(Arc::new(move |event, state| {
         async move { handle_event(event, state) }.boxed()
     }));
     let filter = FilterEvent::default();
     let builder = TaskBuilder::<TestHarnessTaskTypes<TYPES, I>>::new("test_harness".to_string())
-        .register_event_stream(event_stream.clone(), filter)
+        .register_event_stream(event_stream.clone().unwrap().clone(), filter)
         .await
         .register_registry(&mut registry.clone())
         .await
@@ -72,7 +73,7 @@ where
 
     (
         task_runner.add_task(id, "test_harness".to_string(), task),
-        event_stream,
+        event_stream.unwrap(),
     )
 }
 

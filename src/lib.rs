@@ -403,7 +403,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<SystemContextHandle<TYPES, I>, HotShotError<TYPES>>
+    ) -> Result<
+        (
+            SystemContextHandle<TYPES, I>,
+            ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+        ),
+        HotShotError<TYPES>,
+    >
     where
         SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         SystemContext<TYPES, I>: HotShotType<TYPES, I>,
@@ -420,9 +426,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             metrics,
         )
         .await?;
-        let handle = hotshot.run_tasks().await;
+        let handle = hotshot.clone().run_tasks().await;
+        let internal_event_stream = hotshot.inner.internal_event_stream.clone();
 
-        Ok(handle)
+        Ok((handle, internal_event_stream))
     }
 
     /// Send a broadcast message.
