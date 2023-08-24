@@ -49,11 +49,4 @@ ignore = [
     # https://rustsec.org/advisories/RUSTSEC-2022-0093
     "RUSTSEC-2022-0093",
 
-    # webpki 0.22.0 and  rustls-webpki 0.100.1
-    # Dependency of libp2p, tokio, etc.
-    # Referenced in this issue: https://github.com/EspressoSystems/HotShot/issues/1610
-    # https://rustsec.org/advisories/RUSTSEC-2023-0052
-    "RUSTSEC-2023-0052",
-    "RUSTSEC-2023-0053"
-
 ]
