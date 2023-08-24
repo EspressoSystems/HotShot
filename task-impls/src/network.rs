@@ -23,6 +23,7 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 
 /// the type of network task
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
     /// quorum: the normal "everyone" committee
@@ -34,6 +35,7 @@ pub enum NetworkTaskKind {
 }
 
 /// the network message task state
+#[allow(clippy::module_name_repetitions)]
 pub struct NetworkMessageTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -88,7 +90,7 @@ impl<
                             GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
                                 SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                             }
-                            _ => {
+                            GeneralConsensusMessage::InternalTrigger(_t) => {
                                 error!("Got unexpected message type in network task!");
                                 return;
                             }
@@ -114,7 +116,7 @@ impl<
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
-                        transactions.push(transaction)
+                        transactions.push(transaction);
                     }
                 },
                 MessageKind::_Unreachable(_) => unimplemented!(),
@@ -129,6 +131,7 @@ impl<
 }
 
 /// network event task state
+#[allow(clippy::module_name_repetitions)]
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -183,6 +186,9 @@ impl<
     /// Handle the given event.
     ///
     /// Returns the completion status.
+    /// # Panics
+    /// if the recipient is None
+    /// TODO this should not panic
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -333,10 +339,12 @@ impl<
 }
 
 /// network error (no errors right now, only stub)
+#[allow(clippy::module_name_repetitions)]
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
 
 /// networking message task types
+#[allow(clippy::module_name_repetitions)]
 pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkTaskError,
     Either<Messages<TYPES, I>, Messages<TYPES, I>>,
@@ -346,6 +354,7 @@ pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
 >;
 
 /// network event task types
+#[allow(clippy::module_name_repetitions)]
 pub type NetworkEventTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
     NetworkTaskError,
     SequencingHotShotEvent<TYPES, I>,
