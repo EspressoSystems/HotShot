@@ -69,7 +69,6 @@ hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
-hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
