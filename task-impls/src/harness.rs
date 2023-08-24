@@ -53,14 +53,14 @@ where
 {
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
-    // let event_stream = event_stream::ChannelStream::new();
+    let event_stream = event_stream.unwrap_or(event_stream::ChannelStream::new());
     let state = TestHarnessState { expected_output };
     let handler = HandleEvent(Arc::new(move |event, state| {
         async move { handle_event(event, state) }.boxed()
     }));
     let filter = FilterEvent::default();
     let builder = TaskBuilder::<TestHarnessTaskTypes<TYPES, I>>::new("test_harness".to_string())
-        .register_event_stream(event_stream.clone().unwrap().clone(), filter)
+        .register_event_stream(event_stream.clone().clone(), filter)
         .await
         .register_registry(&mut registry.clone())
         .await
@@ -73,7 +73,7 @@ where
 
     (
         task_runner.add_task(id, "test_harness".to_string(), task),
-        event_stream.unwrap(),
+        event_stream,
     )
 }
 
