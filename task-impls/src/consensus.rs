@@ -586,6 +586,8 @@ where
                         let consensus = self.consensus.upgradable_read().await;
                         let message;
 
+                        // TODO ED Insert TC logic here
+
                         // Construct the leaf.
                         let justify_qc = proposal.data.justify_qc;
                         let parent = if justify_qc.is_genesis() {
@@ -866,6 +868,7 @@ where
 
                         let new_view = self.current_proposal.clone().unwrap().view_number + 1;
                         // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                         let should_propose = self.quorum_exchange.is_leader(new_view)
                             && consensus.high_qc.view_number
                                 == self.current_proposal.clone().unwrap().view_number;
@@ -881,6 +884,7 @@ where
                             self.publish_proposal_if_able(qc).await;
                         }
                         if !self.vote_if_able().await {
+                            // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
                             return;
                         }
 
@@ -1053,6 +1057,11 @@ where
                 // update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 // Publish a view change event to the application
+                if !self.update_view(new_view).await {
+                    debug!("view not updated");
+                    return;
+                }
+
                 self.output_event_stream
                     .publish(Event {
                         view_number: old_view_number,
@@ -1061,10 +1070,6 @@ where
                         },
                     })
                     .await;
-                if !self.update_view(new_view).await {
-                    error!("view not updated");
-                    return;
-                }
 
                 debug!("View Change event for view {}", *new_view);
 
@@ -1107,6 +1112,7 @@ where
 
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
+        // TODO ED This should not be qc view number + 1
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
             error!("Somehow we formed a QC but are not the leader for the next view");
             return false;
@@ -1191,6 +1197,8 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: consensus.high_qc.clone(),
+            // TODO ED Update this to be the actual TC if there is one
+            timeout_certificate: None,
             proposer_id: leaf.proposer_id,
             dac: None,
         };

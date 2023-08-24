@@ -887,7 +887,7 @@ impl<
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc: QuorumCertificate<TYPES, LEAF>,
+        high_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
@@ -896,7 +896,7 @@ impl<
     {
         let signature = self.sign_timeout_vote(current_view);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
-            justify_qc,
+            high_qc,
             signature,
             current_view,
             vote_token,
@@ -1224,7 +1224,7 @@ impl<
                 let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
                 let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                     self.membership().get_committee_qc_stake_table(),
-                    U256::from(self.membership().success_threshold().get()),
+                    U256::from(self.membership().failure_threshold().get()),
                 );
                 <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp,

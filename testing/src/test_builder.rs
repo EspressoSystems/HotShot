@@ -44,7 +44,7 @@ pub struct TestMetadata {
     pub start_nodes: usize,
     /// number of bootstrap nodes (libp2p usage only)
     pub num_bootstrap_nodes: usize,
-    /// Size of the DA committee for the test.  0 == no DA.
+    /// Size of the DA committee for the test
     pub da_committee_size: usize,
     // overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,

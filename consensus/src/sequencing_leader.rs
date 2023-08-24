@@ -388,6 +388,7 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: self.high_qc.clone(),
+            timeout_certificate: None,
             dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
         };
@@ -518,7 +519,7 @@ where
                                 }
                             }
                             QuorumVote::Timeout(vote) => {
-                                qcs.insert(vote.justify_qc);
+                                qcs.insert(vote.high_qc);
                             }
                             QuorumVote::No(_) => {
                                 warn!("The next leader has received an unexpected vote!");

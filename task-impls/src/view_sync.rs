@@ -916,7 +916,6 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id), name = "View Sync Relay Task", level = "error")]
-
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
