@@ -1,3 +1,6 @@
+//! The consensus layer for hotshot. This currently implements sequencing
+//! consensus in an event driven way
+
 #![warn(
     clippy::all,
     clippy::pedantic,
@@ -6,6 +9,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
+#![allow(clippy::module_name_repetitions)]
 
 /// the task which implements the main parts of consensus
 pub mod consensus;
@@ -21,5 +25,6 @@ pub mod network;
 
 /// Defines the types to run unit tests for a task.
 pub mod harness;
+
 /// The task which implements view synchronization
 pub mod view_sync;

@@ -1,12 +1,3 @@
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
-
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
