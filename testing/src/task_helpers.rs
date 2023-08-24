@@ -152,9 +152,11 @@ async fn build_quorum_proposal_and_signature(
 
 pub async fn build_quorum_proposal(
     handle: &SystemContextHandle<SequencingTestTypes, SequencingMemoryImpl>,
-    private_key: &<BN254Pub as SignatureKey>::PrivateKey,view:u64
+    private_key: &<BN254Pub as SignatureKey>::PrivateKey,
+    view: u64,
 ) -> Proposal<QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>> {
-    let (proposal, signature) = build_quorum_proposal_and_signature(handle, private_key,view).await;
+    let (proposal, signature) =
+        build_quorum_proposal_and_signature(handle, private_key, view).await;
     Proposal {
         data: proposal,
         signature,

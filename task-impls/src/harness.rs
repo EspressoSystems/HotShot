@@ -12,7 +12,9 @@ use hotshot_task::{
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
+
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
 }
@@ -42,14 +44,16 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
     TestHarnessState<TYPES, I>,
 >;
 
-/// Build a task runner for testing harness.
-pub async fn build_harness<TYPES, I>(
+/// `event_stream` - if given, will be used to register the task builder.
+pub async fn run_harness<TYPES, I, Fut>(
+    input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
     event_stream: Option<ChannelStream<SequencingHotShotEvent<TYPES, I>>>,
-) -> (TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>)
-where
+    build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
+) where
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
+    Fut: Future<Output = TaskRunner>,
 {
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
@@ -60,7 +64,7 @@ where
     }));
     let filter = FilterEvent::default();
     let builder = TaskBuilder::<TestHarnessTaskTypes<TYPES, I>>::new("test_harness".to_string())
-        .register_event_stream(event_stream.clone().clone(), filter)
+        .register_event_stream(event_stream.clone(), filter)
         .await
         .register_registry(&mut registry.clone())
         .await
@@ -71,29 +75,16 @@ where
 
     let task = TestHarnessTaskTypes::build(builder).launch();
 
-    (
-        task_runner.add_task(id, "test_harness".to_string(), task),
-        event_stream,
-    )
-}
+    let task_runner = task_runner.add_task(id, "test_harness".to_string(), task);
+    let task_runner = build_fn(task_runner, event_stream.clone()).await;
 
-// Run the harness after subtasks are added.
-pub async fn run_harness<TYPES, I>(
-    input: Vec<SequencingHotShotEvent<TYPES, I>>,
-    task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-) where
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-{
     let runner = async_spawn(async move { task_runner.launch().await });
 
     for event in input {
         let _ = event_stream.publish(event).await;
     }
-    tracing::error!("before running harness");
+
     let _ = runner.await;
-    tracing::error!("ran harness");
 }
 
 pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -103,7 +94,6 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     std::option::Option<HotShotTaskCompleted>,
     TestHarnessState<TYPES, I>,
 ) {
-    tracing::error!("Got an event: {:?}", event);
     if !state.expected_output.contains_key(&event) {
         panic!("Got an unexpected event: {:?}", event);
     }
@@ -115,7 +105,6 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
 
     if state.expected_output.is_empty() {
-        tracing::error!("shutdown harness");
         return (Some(HotShotTaskCompleted::ShutDown), state);
     }
     (None, state)

@@ -1,3 +1,4 @@
+use async_compatibility_layer::art::async_spawn;
 use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
@@ -22,10 +23,7 @@ async fn test_network_task() {
         demos::sdemo::{SDemoBlock, SDemoNormalBlock},
         tasks::{add_network_event_task, add_network_message_task},
     };
-    use hotshot_task_impls::{
-        harness::{build_harness, run_harness},
-        network::NetworkTaskKind,
-    };
+    use hotshot_task_impls::{harness::run_harness, network::NetworkTaskKind};
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{
         message::{CommitteeConsensusMessage, Proposal},
@@ -59,7 +57,7 @@ async fn test_network_task() {
         },
         signature,
     };
-    let quorum_proposal = build_quorum_proposal(&handle, &priv_key,2).await;
+    let quorum_proposal = build_quorum_proposal(&handle, &priv_key, 2).await;
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
@@ -71,9 +69,10 @@ async fn test_network_task() {
         da_proposal.clone(),
         pub_key.clone(),
     ));
-    input.push(
-        SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
-    );
+    input.push(SequencingHotShotEvent::QuorumProposalSend(
+        quorum_proposal.clone(),
+        pub_key,
+    ));
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
@@ -81,19 +80,22 @@ async fn test_network_task() {
     output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
     output.insert(
         SequencingHotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
-        2
+        2,
     );
-    output.insert(SequencingHotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
+    output.insert(
+        SequencingHotShotEvent::DAProposalRecv(da_proposal, pub_key),
+        1,
+    );
     output.insert(
         SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
-        2
+        2,
     );
     output.insert(
         SequencingHotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
-        1
+        1,
     );
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let task_runner = build_harness(output, Some(event_stream.clone())).await.0;
-    run_harness(input, task_runner, event_stream).await;
+    let build_fn = |task_runner, _| async { task_runner };
+    run_harness(input, output, Some(event_stream), build_fn).await;
 }

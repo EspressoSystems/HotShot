@@ -94,7 +94,7 @@ async fn build_vote(
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_task_impls::harness::build_harness;
+    use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -112,7 +112,7 @@ async fn test_consensus_task() {
 
     output.insert(
         SequencingHotShotEvent::QuorumProposalSend(
-            build_quorum_proposal(&handle, &private_key,1).await,
+            build_quorum_proposal(&handle, &private_key, 1).await,
             public_key,
         ),
         1,
@@ -121,15 +121,11 @@ async fn test_consensus_task() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let (task_runner, event_stream) = build_harness(output, None).await;
-    let task_runner = add_consensus_task(
-        task_runner,
-        event_stream.clone(),
-        ChannelStream::new(),
-        handle,
-    )
-    .await;
-    run_harness(input, task_runner, event_stream).await;
+    let build_fn = |task_runner, event_stream| {
+        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
+    };
+
+    run_harness(input, output, None, build_fn).await;
 }
 
 #[cfg(test)]
@@ -139,7 +135,7 @@ async fn test_consensus_task() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot_task_impls::harness::build_harness;
+    use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -151,7 +147,7 @@ async fn test_consensus_vote() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    let proposal = build_quorum_proposal(&handle, &private_key,1).await;
+    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
 
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(SequencingHotShotEvent::QuorumProposalRecv(
@@ -175,13 +171,9 @@ async fn test_consensus_vote() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let (task_runner, event_stream) = build_harness(output, None).await;
-    let task_runner = add_consensus_task(
-        task_runner,
-        event_stream.clone(),
-        ChannelStream::new(),
-        handle,
-    )
-    .await;
-    run_harness(input, task_runner, event_stream).await;
+    let build_fn = |task_runner, event_stream| {
+        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
+    };
+
+    run_harness(input, output, None, build_fn).await;
 }

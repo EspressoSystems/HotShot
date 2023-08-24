@@ -144,7 +144,7 @@ where
 {
     match event {
         SequencingHotShotEvent::DAVoteRecv(vote) => {
-            error!("DA vote recv, collection task {:?}", vote.current_view);
+            debug!("DA vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
             // For the case where we receive votes after we've made a certificate
@@ -166,11 +166,11 @@ where
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
-                    error!("Not enough DA votes! ");
+                    // debug!("Not enough DA votes! ");
                     return (None, state);
                 }
                 Right(dac) => {
-                    error!("Sending DAC! {:?}", dac.view_number);
+                    debug!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
                         .publish(SequencingHotShotEvent::DACSend(
@@ -216,7 +216,7 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
-    // #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
 
     pub async fn handle_event(
         &mut self,
@@ -265,13 +265,9 @@ where
                 // `self.cur_view` should be at least 1 since there is a view change before getting
                 // the `DAProposalRecv` event. Otherewise, the view number subtraction below will
                 // cause an overflow error.
-                tracing::error!("view {:?} self.cur_view {:?}", view, self.cur_view);
-                if view + 1 < self.cur_view {
+                if view < self.cur_view - 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
-                }
-                if view > self.cur_view {
-                    self.cur_view = view;
                 }
 
                 debug!(
@@ -340,7 +336,6 @@ where
                 //     self.committee_exchange.public_key()
                 // );
                 // Check if we are the leader and the vote is from the sender.
-                tracing::error!("DA: DAVoteRec");
                 let view = vote.current_view;
                 if !self.committee_exchange.is_leader(view) {
                     error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1));
@@ -350,8 +345,6 @@ where
                 let handle_event = HandleEvent(Arc::new(move |event, state| {
                     async move { vote_handle(state, event).await }.boxed()
                 }));
-                tracing::error!("DA: handle_event");
-
                 let collection_view =
                     if let Some((collection_view, collection_id, _)) = &self.vote_collector {
                         // TODO: Is this correct for consecutive leaders?
@@ -363,8 +356,6 @@ where
                     } else {
                         ViewNumber::new(0)
                     };
-                tracing::error!("DA: collection_view");
-
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
                     da_vote_outcomes: HashMap::new(),
@@ -389,7 +380,6 @@ where
                     None,
                 );
                 if view > collection_view {
-                    tracing::error!("vote collector");
                     let state = DAVoteCollectionTaskState {
                         committee_exchange: self.committee_exchange.clone(),
                         accumulator,
@@ -417,17 +407,13 @@ where
                         );
                     self.vote_collector = Some((view, id, stream_id));
                 } else if let Some((_, _, stream_id)) = self.vote_collector {
-                    tracing::error!("directo msg");
-
                     self.event_stream
                         .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
                         .await;
                 };
-                tracing::error!("DA handled event");
             }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
-                error!("DA view change to {:?}", view);
                 if *self.cur_view >= *view {
                     return None;
                 }

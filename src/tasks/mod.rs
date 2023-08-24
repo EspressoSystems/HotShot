@@ -160,14 +160,12 @@ where
         let network = channel.clone();
         let closure = async move {
             loop {
-                tracing::error!("before recv broadcast");
                 let msgs = Messages(
                     network
                         .recv_msgs(TransmitType::Broadcast)
                         .await
                         .expect("Failed to receive broadcast messages"),
                 );
-                tracing::error!("after recv broadcast");
                 if msgs.0.is_empty() {
                     async_sleep(Duration::new(0, 500)).await;
                 } else {
@@ -182,14 +180,12 @@ where
         let network = channel.clone();
         let closure = async move {
             loop {
-                tracing::error!("before recv direct");
                 let msgs = Messages(
                     network
                         .recv_msgs(TransmitType::Direct)
                         .await
                         .expect("Failed to receive direct messages"),
                 );
-                tracing::error!("before recv direct");
                 if msgs.0.is_empty() {
                     async_sleep(Duration::new(0, 500)).await;
                 } else {
