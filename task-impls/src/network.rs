@@ -259,7 +259,6 @@ impl<
                 return None;
             }
             SequencingHotShotEvent::Shutdown => {
-                // self.event_stream.publish(SequencingHotShotEvent::Shutdown).await;
                 return Some(HotShotTaskCompleted::ShutDown);
             }
             event => {

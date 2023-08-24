@@ -1104,7 +1104,10 @@ where
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
         // TODO ED This should not be qc view number + 1
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
-            error!("Somehow we formed a QC but are not the leader for the next view {:?}", qc.view_number + 1);
+            error!(
+                "Somehow we formed a QC but are not the leader for the next view {:?}",
+                qc.view_number + 1
+            );
             return false;
         }
 
