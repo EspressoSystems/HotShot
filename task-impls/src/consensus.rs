@@ -869,7 +869,6 @@ where
                         let new_view = self.current_proposal.clone().unwrap().view_number + 1;
                         // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                         // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                        // TODO ED This isn't entirely correct for timeout logic
                         let should_propose = self.quorum_exchange.is_leader(new_view)
                             && consensus.high_qc.view_number
                                 == self.current_proposal.clone().unwrap().view_number;
@@ -1084,11 +1083,6 @@ where
                 let consensus = self.consensus.read().await;
                 let qc = consensus.high_qc.clone();
                 drop(consensus);
-                // TODO ED We should only publish on view change, not just when we form a QC
-                // Normally I'd argue leader logic should be completely separate, but maybe not in this case?
-                // TODO ED What in the last proposal does this leader need to propose?
-                // Seems like a good optimization to wait for replica side to hear proposal, so we don't get a bunch
-                // of repeated views in testing.
                 if !self.publish_proposal_if_able(qc).await {
                     error!(
                         "Failed to publish proposal on view change.  View = {:?}",
@@ -1118,7 +1112,7 @@ where
 
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
-        // TODO ED This should not be qc view number + 1, how did this ever pass before?  I guess there were never timeouts?
+        // TODO ED This should not be qc view number + 1
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
             error!("Somehow we formed a QC but are not the leader for the next view");
             return false;

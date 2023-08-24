@@ -3,7 +3,6 @@ use crate::infra::{load_config_from_file, OrchestratorArgs};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
 use futures::StreamExt;
-use hotshot::HotShotSequencingConsensusApi;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
@@ -12,7 +11,6 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
-use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
@@ -20,7 +18,6 @@ use hotshot_orchestrator::{
 };
 use hotshot_task::task::FilterEvent;
 use hotshot_types::event::{Event, EventType};
-use hotshot_types::message::DataMessage;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
@@ -325,10 +322,6 @@ pub trait RunDA<
         let mut num_successful_commits = 0;
 
         let total_nodes_u64 = total_nodes.get() as u64;
-
-        let api = HotShotSequencingConsensusApi {
-            inner: context.hotshot.inner.clone(),
-        };
 
         context.hotshot.start_consensus().await;
 
