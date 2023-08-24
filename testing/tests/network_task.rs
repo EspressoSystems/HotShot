@@ -55,7 +55,6 @@ async fn test_network_task() {
     let mut output = HashMap::new();
 
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::DAProposalSend(
         da_proposal.clone(),
         pub_key,
@@ -64,27 +63,34 @@ async fn test_network_task() {
         quorum_proposal.clone(),
         pub_key,
     ));
+    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
-    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
-    output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
+    // One output from the input, the other from the DA task.
     output.insert(
         SequencingHotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
         2,
     );
+    // Only one output from the input.
+    // The consensus task will fail to send a second proposal, like the DA task does, due to the
+    // view number check in `publish_proposal_if_able` in consensus.rs, and we will see an error in
+    // logging, but that is fine for testing as long as the network task is correctly handling
+    // events.
+    output.insert(
+        SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
+        1,
+    );
+    output.insert(SequencingHotShotEvent::SendDABlockData(block), 1);
     output.insert(
         SequencingHotShotEvent::DAProposalRecv(da_proposal, pub_key),
         1,
     );
     output.insert(
-        SequencingHotShotEvent::QuorumProposalSend(quorum_proposal.clone(), pub_key),
-        2,
-    );
-    output.insert(
         SequencingHotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
         1,
     );
+    output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 2);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
     let build_fn = |task_runner, _| async { task_runner };

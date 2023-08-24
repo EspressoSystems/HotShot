@@ -37,7 +37,7 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
 
 /// Runs a test by building the task using `build_fn` and then passing it the `input` events
 /// and testing the make sure all of the `expected_output` events are seen
-/// 
+///
 /// `event_stream` - if given, will be used to register the task builder.
 ///
 /// # Panics
