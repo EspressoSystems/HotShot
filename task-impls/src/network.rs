@@ -88,7 +88,7 @@ impl<
                             GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
                                 SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                             }
-                            _ => {
+                            GeneralConsensusMessage::InternalTrigger(_) => {
                                 error!("Got unexpected message type in network task!");
                                 return;
                             }
@@ -114,7 +114,7 @@ impl<
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
-                        transactions.push(transaction)
+                        transactions.push(transaction);
                     }
                 },
                 MessageKind::_Unreachable(_) => unimplemented!(),
@@ -183,6 +183,8 @@ impl<
     /// Handle the given event.
     ///
     /// Returns the completion status.
+    /// # Panics
+    /// Panic sif a direct message event is received with no recipient
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
