@@ -324,29 +324,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
     }
 
-    /// Publishes a transaction to the network
+    /// Publishes a transaction asynchronously to the network
     ///
     /// # Errors
     ///
-    /// Will generate an error if an underlying network error occurs
+    /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
-        // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
-        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
-
-        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
-
-        // let api = self.clone();
-        // async_spawn(async move {
-        //     // let _result = self.inner.exchanges.committee_exchange().network.broadcast(message).await.is_err();
-        // });
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+        let api = self.clone();
+        // TODO We should have a function that can return a network error if there is one
+        // but first we'd need to ensure our network implementations can support that
+        // (and not hang instead)
+        async_spawn(async move {
+            let _result = api
+                .inner
+                .exchanges
+                .committee_exchange()
+                .network()
+                .broadcast_message(
+                    Message {
+                        sender: api.inner.public_key.clone(),
+                        kind: MessageKind::from(message),
+                        _phantom: PhantomData,
+                    },
+                    &api.inner
+                        .exchanges
+                        .committee_exchange()
+                        .membership()
+                        .clone(),
+                )
+                .await;
+        });
         Ok(())
     }
 
@@ -1585,24 +1601,27 @@ impl<
         message: DataMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
-        self.inner
-            .exchanges
-            .committee_exchange()
-            .network()
-            .broadcast_message(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: MessageKind::from(message),
-                    _phantom: PhantomData,
-                },
-                &self
-                    .inner
-                    .exchanges
-                    .committee_exchange()
-                    .membership()
-                    .clone(),
-            )
-            .await?;
+        let api = self.clone();
+        async_spawn(async move {
+            let _result = api
+                .inner
+                .exchanges
+                .committee_exchange()
+                .network()
+                .broadcast_message(
+                    Message {
+                        sender: api.inner.public_key.clone(),
+                        kind: MessageKind::from(message),
+                        _phantom: PhantomData,
+                    },
+                    &api.inner
+                        .exchanges
+                        .committee_exchange()
+                        .membership()
+                        .clone(),
+                )
+                .await;
+        });
         Ok(())
     }
 }

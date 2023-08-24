@@ -160,6 +160,8 @@ pub trait SequencingConsensusApi<
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a message with a transaction.
+    /// This function is deprecated in favor of `submit_transaction` in `handle.rs`
+    #[deprecated]
     async fn send_transaction(
         &self,
         message: DataMessage<TYPES>,

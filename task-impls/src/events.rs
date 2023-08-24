@@ -10,6 +10,7 @@ use hotshot_types::vote::{DAVote, QuorumVote};
 
 use crate::view_sync::ViewSyncPhase;
 
+/// All of the possible events that can be passed between Sequecning `HotShot` tasks
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Shutdown the task
@@ -59,6 +60,6 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
-    // Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
+    /// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     SendDABlockData(TYPES::BlockType),
 }

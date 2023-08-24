@@ -143,6 +143,7 @@ async fn build_quorum_proposal_and_signature(
         view_number: ViewNumber::new(view),
         height: 1,
         justify_qc: QuorumCertificate::genesis(),
+        timeout_certificate: None,
         proposer_id: leaf.proposer_id,
         dac: None,
     };

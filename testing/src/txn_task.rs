@@ -2,8 +2,6 @@ use crate::test_runner::Node;
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -11,11 +9,9 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-use hotshot_types::message::DataMessage;
 use hotshot_types::message::SequencingMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::state::ConsensusTime;
 use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};
@@ -108,7 +104,6 @@ impl TxnTaskDescription {
                                     }
                                     Some(node) => {
                                         // use rand::seq::IteratorRandom;
-                                        // handle.submit_transaction()
                                         // we're assuming all nodes have the same leaf.
                                         // If they don't match, this is probably fine since
                                         // it should be caught by an assertion (and the txn will be rejected anyway)
@@ -118,16 +113,10 @@ impl TxnTaskDescription {
                                             &mut thread_rng(),
                                             0,
                                         );
-                                        // ED Shouldn't create this each time
-                                        let api = HotShotSequencingConsensusApi {
-                                            inner: node.handle.hotshot.inner.clone(),
-                                        };
-                                        api.send_transaction(DataMessage::SubmitTransaction(
-                                            txn.clone(),
-                                            TYPES::Time::new(0),
-                                        ))
-                                        .await
-                                        .expect("Could not send transaction");
+                                        node.handle
+                                            .submit_transaction(txn.clone())
+                                            .await
+                                            .expect("Could not send transaction");
                                         (None, state)
                                     }
                                 }
