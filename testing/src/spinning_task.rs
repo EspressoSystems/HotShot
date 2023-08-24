@@ -103,8 +103,9 @@ impl SpinningTaskDescription {
                                 for ChangeNode { idx, updown } in nodes_to_change {
                                     match updown {
                                         UpDown::Up => {
-                                            // TODO... we don't need this right now anyway. We haven't
-                                            // implemented catchup
+                                            if let Some(node) = state.handles.get_mut(idx) {
+                                                node.handle.shut_down().await;
+                                            }
                                         }
                                         UpDown::Down => {
                                             if let Some(node) = state.handles.get_mut(idx) {
