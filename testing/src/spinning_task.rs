@@ -104,7 +104,7 @@ impl SpinningTaskDescription {
                                     match updown {
                                         UpDown::Up => {
                                             if let Some(node) = state.handles.get_mut(idx) {
-                                                node.handle.shut_down().await;
+                                                node.handle.hotshot.start_consensus().await;
                                             }
                                         }
                                         UpDown::Down => {

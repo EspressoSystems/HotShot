@@ -1,10 +1,10 @@
 use super::overall_safety_task::OverallSafetyTask;
 use super::overall_safety_task::RoundCtx;
 use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use crate::spinning_task::UpDown;
 use crate::test_launcher::Networks;
 use crate::test_launcher::TestLauncher;
 use hotshot::types::SystemContextHandle;
-
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
@@ -24,6 +24,8 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+use std::collections::HashSet;
+
 #[allow(deprecated)]
 use tracing::info;
 
@@ -122,6 +124,14 @@ where
             handles: nodes.clone(),
             changes: spinning_changes.into_iter().map(|(_, b)| b).collect(),
         };
+        let mut late_start_nodes = HashSet::new();
+        for changes in &spinning_task_state.changes {
+            for change in changes {
+                if matches!(change.updown, UpDown::Up) {
+                    late_start_nodes.insert(change.idx);
+                }
+            }
+        }
         let (id, task) = (launcher.spinning_task_generator)(
             spinning_task_state,
             registry.clone(),
@@ -147,7 +157,9 @@ where
         // Start hotshot
         // Goes through all nodes, but really only needs to call this on the leader node of the first view
         for node in nodes {
-            node.handle.hotshot.start_consensus().await;
+            if !late_start_nodes.contains(&node.node_id.try_into().unwrap()) {
+                node.handle.hotshot.start_consensus().await;
+            }
         }
 
         let results = task_runner.launch().await;

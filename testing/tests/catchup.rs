@@ -4,13 +4,13 @@
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
-#[ignore]
 async fn test_catchup() {
     use std::time::Duration;
 
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestMetadata, TimingData},
     };
@@ -43,7 +43,7 @@ async fn test_catchup() {
         check_leaf: true,
         ..Default::default()
     };
-    
+
     metadata
         .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
