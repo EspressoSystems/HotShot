@@ -734,24 +734,11 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::StreamExt;
-<span class="kw">use </span>hotshot::HotShotSequencingConsensusApi;
 <span class="kw">use </span>hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
@@ -760,7 +747,6 @@
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
-<span class="kw">use </span>hotshot_consensus::traits::SequencingConsensusApi;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
     client::{OrchestratorClient, ValidatorArgs},
@@ -768,7 +754,6 @@
 };
 <span class="kw">use </span>hotshot_task::task::FilterEvent;
 <span class="kw">use </span>hotshot_types::event::{Event, EventType};
-<span class="kw">use </span>hotshot_types::message::DataMessage;
 <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
@@ -1074,10 +1059,6 @@
 
         <span class="kw">let </span>total_nodes_u64 = total_nodes.get() <span class="kw">as </span>u64;
 
-        <span class="kw">let </span>api = HotShotSequencingConsensusApi {
-            inner: context.hotshot.inner.clone(),
-        };
-
         context.hotshot.start_consensus().<span class="kw">await</span>;
 
         <span class="kw">loop </span>{
@@ -1136,12 +1117,7 @@
 
                                         <span class="macro">debug!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
 
-                                        <span class="kw">let </span>result = api
-                                            .send_transaction(DataMessage::SubmitTransaction(
-                                                txn.clone(),
-                                                TYPES::Time::new(<span class="number">0</span>),
-                                            ))
-                                            .<span class="kw">await</span>;
+                                        <span class="kw">let </span>result = context.submit_transaction(txn).<span class="kw">await</span>;
 
                                         <span class="kw">if </span>result.is_err() {
                                             <span class="macro">error! </span>(

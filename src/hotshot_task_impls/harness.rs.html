@@ -105,6 +105,11 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
@@ -121,36 +126,34 @@
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
+
+<span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
+</span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// The expected events we get from the test.  Maps an event to the number of times we expect to see it
+    </span>expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
 }
-
-<span class="kw">pub struct </span>EventBundle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    Vec&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-);
-
-<span class="kw">pub enum </span>EventInputOutput&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    Input(EventBundle&lt;TYPES, I&gt;),
-    Output(EventBundle&lt;TYPES, I&gt;),
-}
-
-<span class="kw">pub struct </span>EventSequence&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    Vec&lt;EventInputOutput&lt;TYPES, I&gt;&gt;,
-);
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>TestHarnessState&lt;TYPES, I&gt; {}
 
-<span class="attr">#[derive(Snafu, Debug)]
+<span class="doccomment">/// Error emitted if the test harness task fails
+</span><span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>TestHarnessTaskError {}
 
-<span class="kw">pub type </span>TestHarnessTaskTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Type alias for the Test Harness Task
+</span><span class="kw">pub type </span>TestHarnessTaskTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
     TestHarnessTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     TestHarnessState&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="kw">pub async fn </span>run_harness&lt;TYPES, I, Fut&gt;(
+<span class="doccomment">/// Runs a test by building the task using `build_fn` and then passing it the `input` events
+/// and testing the make sure all of the `expected_output` events are seen
+///
+/// # Panics
+/// Panics if any state the test expects is not set. Panicing causes a test failure
+</span><span class="attr">#[allow(clippy::implicit_hasher)]
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, I, Fut&gt;(
     input: Vec&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
     build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;) -&gt; Fut,
@@ -190,16 +193,23 @@
     <span class="kw">let _ </span>= runner.<span class="kw">await</span>;
 }
 
-<span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+<span class="doccomment">/// Handles an event for the Test Harness Task.  If the event is expected, remove it from
+/// the `expected_output` in state.  If unexpected fail test.
+///
+///  # Panics
+/// Will panic to fail the test when it receives and unexpected event
+</span><span class="attr">#[allow(clippy::needless_pass_by_value)]
+</span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     event: SequencingHotShotEvent&lt;TYPES, I&gt;,
     <span class="kw-2">mut </span>state: TestHarnessState&lt;TYPES, I&gt;,
 ) -&gt; (
     std::option::Option&lt;HotShotTaskCompleted&gt;,
     TestHarnessState&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">if </span>!state.expected_output.contains_key(<span class="kw-2">&amp;</span>event) {
-        <span class="macro">panic!</span>(<span class="string">&quot;Got and unexpected event: {:?}&quot;</span>, event);
-    }
+    <span class="macro">assert!</span>(
+        state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),
+        <span class="string">&quot;Got and unexpected event: {event:?}&quot;</span>,
+    );
     <span class="kw">let </span>num_expected = state.expected_output.get_mut(<span class="kw-2">&amp;</span>event).unwrap();
     <span class="kw">if </span><span class="kw-2">*</span>num_expected == <span class="number">1 </span>{
         state.expected_output.remove(<span class="kw-2">&amp;</span>event);

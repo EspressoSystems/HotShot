@@ -2239,7 +2239,7 @@
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+        high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
@@ -2248,7 +2248,7 @@
     {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_timeout_vote(current_view);
         GeneralConsensusMessage::&lt;TYPES, I&gt;::Vote(QuorumVote::Timeout(TimeoutVote {
-            justify_qc,
+            high_qc,
             signature,
             current_view,
             vote_token,
@@ -2576,7 +2576,7 @@
                 <span class="kw">let </span>real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
                 <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
                     <span class="self">self</span>.membership().get_committee_qc_stake_table(),
-                    U256::from(<span class="self">self</span>.membership().success_threshold().get()),
+                    U256::from(<span class="self">self</span>.membership().failure_threshold().get()),
                 );
                 &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
                     <span class="kw-2">&amp;</span>real_qc_pp,

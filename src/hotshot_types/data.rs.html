@@ -947,13 +947,23 @@
 <a href="#947" id="947">947</a>
 <a href="#948" id="948">948</a>
 <a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`&#39;s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use crate</span>::{
-    certificate::{AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate},
+    certificate::{
+        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
+        ViewSyncCertificate,
+    },
     constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,
@@ -1115,10 +1125,14 @@
     <span class="doccomment">/// Per spec, justification
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
 
+    <span class="doccomment">/// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
+    </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
 
     <span class="doccomment">/// Data availibity certificate
+    </span><span class="comment">// TODO We should be able to remove this
     </span><span class="kw">pub </span>dac: <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt;,
 }
 

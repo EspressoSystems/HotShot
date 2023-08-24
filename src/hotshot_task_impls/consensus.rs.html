@@ -1307,17 +1307,7 @@
 <a href="#1307" id="1307">1307</a>
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
-</pre></div><pre class="rust"><code><span class="attr">#![warn(
-    clippy::all,
-    clippy::pedantic,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
-
-</span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 <span class="kw">use </span>async_lock::RwLock;
@@ -1896,7 +1886,9 @@
                         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
                         <span class="kw">let </span>message;
 
-                        <span class="comment">// Construct the leaf.
+                        <span class="comment">// TODO ED Insert TC logic here
+
+                        // Construct the leaf.
                         </span><span class="kw">let </span>justify_qc = proposal.data.justify_qc;
                         <span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis() {
                             <span class="self">self</span>.genesis_leaf().<span class="kw">await
@@ -2176,6 +2168,7 @@
 
                         <span class="kw">let </span>new_view = <span class="self">self</span>.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
                         <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don&#39;t have it, instead of having to wait for it here
+                        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                         </span><span class="kw">let </span>should_propose = <span class="self">self</span>.quorum_exchange.is_leader(new_view)
                             &amp;&amp; consensus.high_qc.view_number
                                 == <span class="self">self</span>.current_proposal.clone().unwrap().view_number;
@@ -2191,7 +2184,8 @@
                             <span class="self">self</span>.publish_proposal_if_able(qc).<span class="kw">await</span>;
                         }
                         <span class="kw">if </span>!<span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
-                            <span class="kw">return</span>;
+                            <span class="comment">// TOOD ED This means we publish the proposal without updating our own view, which doesn&#39;t seem right
+                            </span><span class="kw">return</span>;
                         }
 
                         <span class="comment">// ED Only do this GC if we are able to vote
@@ -2363,7 +2357,12 @@
                 <span class="comment">// update the view in state to the one in the message
                 // ED Update_view return a bool whether it actually updated
                 // Publish a view change event to the application
-                </span><span class="self">self</span>.output_event_stream
+                </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view).<span class="kw">await </span>{
+                    <span class="macro">debug!</span>(<span class="string">&quot;view not updated&quot;</span>);
+                    <span class="kw">return</span>;
+                }
+
+                <span class="self">self</span>.output_event_stream
                     .publish(Event {
                         view_number: old_view_number,
                         event: EventType::ViewFinished {
@@ -2371,10 +2370,6 @@
                         },
                     })
                     .<span class="kw">await</span>;
-                <span class="kw">if </span>!<span class="self">self</span>.update_view(new_view).<span class="kw">await </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;view not updated&quot;</span>);
-                    <span class="kw">return</span>;
-                }
 
                 <span class="macro">debug!</span>(<span class="string">&quot;View Change event for view {}&quot;</span>, <span class="kw-2">*</span>new_view);
 
@@ -2417,7 +2412,8 @@
 
     <span class="doccomment">/// Sends a proposal if possible from the high qc we have
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: QuorumCertificate&lt;TYPES, I::Leaf&gt;) -&gt; bool {
-        <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(qc.view_number + <span class="number">1</span>) {
+        <span class="comment">// TODO ED This should not be qc view number + 1
+        </span><span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(qc.view_number + <span class="number">1</span>) {
             <span class="macro">error!</span>(<span class="string">&quot;Somehow we formed a QC but are not the leader for the next view&quot;</span>);
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
@@ -2501,6 +2497,8 @@
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: consensus.high_qc.clone(),
+            <span class="comment">// TODO ED Update this to be the actual TC if there is one
+            </span>timeout_certificate: <span class="prelude-val">None</span>,
             proposer_id: leaf.proposer_id,
             dac: <span class="prelude-val">None</span>,
         };

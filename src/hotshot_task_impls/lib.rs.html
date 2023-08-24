@@ -14,7 +14,34 @@
 <a href="#14" id="14">14</a>
 <a href="#15" id="15">15</a>
 <a href="#16" id="16">16</a>
-</pre></div><pre class="rust"><code><span class="doccomment">/// the task which implements the main parts of consensus
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements sequencing
+//! consensus in an event driven way
+
+</span><span class="attr">#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+#![allow(clippy::module_name_repetitions)]
+
+</span><span class="doccomment">/// the task which implements the main parts of consensus
 </span><span class="kw">pub mod </span>consensus;
 
 <span class="doccomment">/// The task which implements the main parts of data availability.
@@ -28,6 +55,7 @@
 
 <span class="doccomment">/// Defines the types to run unit tests for a task.
 </span><span class="kw">pub mod </span>harness;
+
 <span class="doccomment">/// The task which implements view synchronization
 </span><span class="kw">pub mod </span>view_sync;
 </code></pre></div></section></main></body></html>

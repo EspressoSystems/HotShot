@@ -1021,7 +1021,50 @@
 <a href="#1021" id="1021">1021</a>
 <a href="#1022" id="1022">1022</a>
 <a href="#1023" id="1023">1023</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+</pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
+</span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>commit::Committable;
@@ -1066,22 +1109,31 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>tracing::{debug, error, instrument};
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
+</span><span class="doccomment">/// Phases of view sync
 </span><span class="kw">pub enum </span>ViewSyncPhase {
-    <span class="prelude-val">None</span>,
-    PreCommit,
-    Commit,
-    Finalize,
+    <span class="doccomment">/// No phase; before the protocol has begun
+    </span><span class="prelude-val">None</span>,
+    <span class="doccomment">/// PreCommit phase
+    </span>PreCommit,
+    <span class="doccomment">/// Commit phase
+    </span>Commit,
+    <span class="doccomment">/// Finalize phase
+    </span>Finalize,
 }
 
 <span class="attr">#[derive(Default)]
+</span><span class="doccomment">/// Information about view sync sub-tasks
 </span><span class="kw">pub struct </span>ViewSyncTaskInfo {
-    event_stream_id: usize,
+    <span class="doccomment">/// Id of the event stream of a certain task
+    </span>event_stream_id: usize,
 }
 
 <span class="attr">#[derive(Snafu, Debug)]
+</span><span class="doccomment">/// Stub of a view sync error
 </span><span class="kw">pub struct </span>ViewSyncTaskError {}
 
-<span class="kw">pub struct </span>ViewSyncTaskState&lt;
+<span class="doccomment">/// Main view sync task state
+</span><span class="kw">pub struct </span>ViewSyncTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -1098,15 +1150,20 @@
         Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
-    <span class="kw">pub </span>registry: GlobalRegistry,
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-
-    <span class="kw">pub </span>current_view: TYPES::Time,
-    <span class="kw">pub </span>next_view: TYPES::Time,
-
-    <span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>api: A,
-    <span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// Registry to register sub tasks
+    </span><span class="kw">pub </span>registry: GlobalRegistry,
+    <span class="doccomment">/// Event stream to publish events to
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// View HotShot is currently in
+    </span><span class="kw">pub </span>current_view: TYPES::Time,
+    <span class="doccomment">/// View HotShot wishes to be in
+    </span><span class="kw">pub </span>next_view: TYPES::Time,
+    <span class="doccomment">/// View sync exchange
+    </span><span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// HotShot consensus API
+    </span><span class="kw">pub </span>api: A,
+    <span class="doccomment">/// Our node id; for logging
+    </span><span class="kw">pub </span>id: u64,
 
     <span class="doccomment">/// How many timeouts we&#39;ve seen in a row; is reset upon a successful view change
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
@@ -1117,9 +1174,11 @@
     <span class="doccomment">/// Map of running relay tasks
     </span><span class="kw">pub </span>relay_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
 
-    <span class="kw">pub </span>view_sync_timeout: Duration,
+    <span class="doccomment">/// Timeout duration for view sync rounds
+    </span><span class="kw">pub </span>view_sync_timeout: Duration,
 
-    <span class="kw">pub </span>last_garbage_collected_view: TYPES::Time,
+    <span class="doccomment">/// Last view we garbage collected old tasks
+    </span><span class="kw">pub </span>last_garbage_collected_view: TYPES::Time,
 }
 
 <span class="kw">impl</span>&lt;
@@ -1142,14 +1201,16 @@
 {
 }
 
-<span class="kw">pub type </span>ViewSyncTaskStateTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Types for the main view sync task
+</span><span class="kw">pub type </span>ViewSyncTaskStateTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
     ViewSyncTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     ViewSyncTaskState&lt;TYPES, I, A&gt;,
 &gt;;
 
-<span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;
+<span class="doccomment">/// State of a view sync replica task
+</span><span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -1166,18 +1227,29 @@
         Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
-    <span class="kw">pub </span>view_sync_timeout: Duration,
-    <span class="kw">pub </span>current_view: TYPES::Time,
-    <span class="kw">pub </span>next_view: TYPES::Time,
-    <span class="kw">pub </span>phase: ViewSyncPhase,
-    <span class="kw">pub </span>relay: u64,
-    <span class="kw">pub </span>finalized: bool,
-    <span class="kw">pub </span>sent_view_change_event: bool,
-    <span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// Timeout for view sync rounds
+    </span><span class="kw">pub </span>view_sync_timeout: Duration,
+    <span class="doccomment">/// Current round HotShot is in
+    </span><span class="kw">pub </span>current_view: TYPES::Time,
+    <span class="doccomment">/// Round HotShot wishes to be in
+    </span><span class="kw">pub </span>next_view: TYPES::Time,
+    <span class="doccomment">/// The last seen phase of the view sync protocol
+    </span><span class="kw">pub </span>phase: ViewSyncPhase,
+    <span class="doccomment">/// The relay index we are currently on
+    </span><span class="kw">pub </span>relay: u64,
+    <span class="doccomment">/// Whether we have seen a finalized certificate
+    </span><span class="kw">pub </span>finalized: bool,
+    <span class="doccomment">/// Whether we have already sent a view change event for `next_view`
+    </span><span class="kw">pub </span>sent_view_change_event: bool,
+    <span class="doccomment">/// Our node id; for logging
+    </span><span class="kw">pub </span>id: u64,
 
-    <span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>api: A,
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// View sync exchange
+    </span><span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// HotShot consensus API
+    </span><span class="kw">pub </span>api: A,
+    <span class="doccomment">/// Event stream to publish events to
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;
@@ -1200,14 +1272,16 @@
 {
 }
 
-<span class="kw">pub type </span>ViewSyncReplicaTaskStateTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Types for view sync replica state
+</span><span class="kw">pub type </span>ViewSyncReplicaTaskStateTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
     ViewSyncTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     ViewSyncReplicaTaskState&lt;TYPES, I, A&gt;,
 &gt;;
 
-<span class="kw">pub struct </span>ViewSyncRelayTaskState&lt;
+<span class="doccomment">/// State of a view sync relay task
+</span><span class="kw">pub struct </span>ViewSyncRelayTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -1215,13 +1289,17 @@
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
 &gt; {
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>accumulator: Either&lt;
+    <span class="doccomment">/// Event stream to publish events to
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// View sync exchange
+    </span><span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// Vote accumulator
+    </span><span class="kw">pub </span>accumulator: Either&lt;
         VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;,
         ViewSyncCertificate&lt;TYPES&gt;,
     &gt;,
-    <span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// Our node id; for logging
+    </span><span class="kw">pub </span>id: u64,
 }
 
 <span class="kw">impl</span>&lt;
@@ -1235,7 +1313,8 @@
 {
 }
 
-<span class="kw">pub type </span>ViewSyncRelayTaskStateTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Types used by the view sync relay task
+</span><span class="kw">pub type </span>ViewSyncRelayTaskStateTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
     ViewSyncTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
@@ -1261,6 +1340,7 @@
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    </span><span class="doccomment">/// Handles incoming events for the main view sync task
     </span><span class="kw">pub async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SequencingHotShotEvent&lt;TYPES, I&gt;) {
         <span class="kw">match </span><span class="kw-2">&amp;</span>event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) =&gt; {
@@ -1354,9 +1434,9 @@
 
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) =&gt; {
                 <span class="kw">let </span>vote_internal = <span class="kw">match </span>vote {
-                    ViewSyncVote::PreCommit(vote_internal) =&gt; vote_internal,
-                    ViewSyncVote::Commit(vote_internal) =&gt; vote_internal,
-                    ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal,
+                    ViewSyncVote::PreCommit(vote_internal)
+                    | ViewSyncVote::Commit(vote_internal)
+                    | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal,
                 };
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>vote_internal.round) {
@@ -1613,7 +1693,7 @@
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Replica Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-
+    </span><span class="doccomment">/// Handle incoming events for the view sync replica task
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">mut </span><span class="self">self</span>,
         event: SequencingHotShotEvent&lt;TYPES, I&gt;,
@@ -1705,7 +1785,7 @@
                 }
 
                 <span class="kw">if </span>certificate_internal.relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate_internal.relay
+                    <span class="self">self</span>.relay = certificate_internal.relay;
                 }
 
                 <span class="comment">// TODO ED Assuming that nodes must have stake for the view they are voting to enter
@@ -1786,17 +1866,19 @@
 
                         <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                     }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                        <span class="macro">debug!</span>(
+                            <span class="string">&quot;We were not chosen for committee on view {}&quot;</span>,
+                            <span class="kw-2">*</span><span class="self">self</span>.next_view
+                        );
+                        <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
+                    }
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">error!</span>(<span class="string">&quot;Problem generating vote token&quot;</span>);
+                        <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
+                    }
                 }
             }
-            SequencingHotShotEvent::ViewSyncVoteRecv(<span class="kw">_</span>) =&gt; {
-                <span class="comment">// Ignore
-                </span><span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
-            }
-
-            <span class="comment">// The main ViewSync task should handle this
-            </span>SequencingHotShotEvent::Timeout(<span class="kw">_</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
 
             SequencingHotShotEvent::ViewSyncTrigger(view_number) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.next_view != TYPES::Time::new(<span class="kw-2">*</span>view_number) {
@@ -1844,7 +1926,11 @@
                         });
                         <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                     }
-                    <span class="kw">_ </span>=&gt; {
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for committee on view {}&quot;</span>, <span class="kw-2">*</span>view_number);
+                        <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
+                    }
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                         <span class="macro">error!</span>(<span class="string">&quot;Problem generating vote token&quot;</span>);
                         <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                     }
@@ -1910,8 +1996,7 @@
                             });
                             <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                         }
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
-                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>),
                     }
                 }
             }
@@ -1938,8 +2023,8 @@
         Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id), name = <span class="string">&quot;View Sync Relay Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-
+    <span class="doccomment">/// Handles incoming events for the view sync relay task
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id), name = <span class="string">&quot;View Sync Relay Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">mut </span><span class="self">self</span>,
         event: SequencingHotShotEvent&lt;TYPES, I&gt;,
@@ -1948,7 +2033,6 @@
         ViewSyncRelayTaskState&lt;TYPES, I&gt;,
     ) {
         <span class="kw">match </span>event {
-            SequencingHotShotEvent::ViewSyncCertificateRecv(<span class="kw">_</span>) =&gt; (<span class="prelude-val">None</span>, <span class="self">self</span>),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.accumulator.is_right() {
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);

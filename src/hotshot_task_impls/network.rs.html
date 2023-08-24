@@ -334,6 +334,26 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
@@ -358,14 +378,19 @@
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 <span class="kw">use </span>tracing::error;
 
-<span class="attr">#[derive(Clone, Copy, Debug)]
+<span class="doccomment">/// the type of network task
+</span><span class="attr">#[derive(Clone, Copy, Debug)]
 </span><span class="kw">pub enum </span>NetworkTaskKind {
-    Quorum,
-    Committee,
-    ViewSync,
+    <span class="doccomment">/// quorum: the normal &quot;everyone&quot; committee
+    </span>Quorum,
+    <span class="doccomment">/// da committee
+    </span>Committee,
+    <span class="doccomment">/// view sync
+    </span>ViewSync,
 }
 
-<span class="kw">pub struct </span>NetworkMessageTaskState&lt;
+<span class="doccomment">/// the network message task state
+</span><span class="kw">pub struct </span>NetworkMessageTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -373,7 +398,8 @@
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
 &gt; {
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// event stream (used for publishing)
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;
@@ -418,7 +444,7 @@
                             GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) =&gt; {
                                 SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                             }
-                            <span class="kw">_ </span>=&gt; {
+                            GeneralConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; {
                                 <span class="macro">error!</span>(<span class="string">&quot;Got unexpected message type in network task!&quot;</span>);
                                 <span class="kw">return</span>;
                             }
@@ -444,7 +470,7 @@
                 }
                 MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
-                        transactions.push(transaction)
+                        transactions.push(transaction);
                     }
                 },
                 MessageKind::_Unreachable(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
@@ -458,7 +484,8 @@
     }
 }
 
-<span class="kw">pub struct </span>NetworkEventTaskState&lt;
+<span class="doccomment">/// network event task state
+</span><span class="kw">pub struct </span>NetworkEventTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -470,10 +497,14 @@
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
 &gt; {
-    <span class="kw">pub </span>channel: COMMCHANNEL,
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>view: ViewNumber,
-    <span class="kw">pub </span>phantom: PhantomData&lt;(PROPOSAL, VOTE, MEMBERSHIP)&gt;,
+    <span class="doccomment">/// comm channel
+    </span><span class="kw">pub </span>channel: COMMCHANNEL,
+    <span class="doccomment">/// event stream
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// view number
+    </span><span class="kw">pub </span>view: ViewNumber,
+    <span class="doccomment">/// phantom data
+    </span><span class="kw">pub </span>phantom: PhantomData&lt;(PROPOSAL, VOTE, MEMBERSHIP)&gt;,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?
 </span>}
 
@@ -508,6 +539,8 @@
     <span class="doccomment">/// Handle the given event.
     ///
     /// Returns the completion status.
+    /// # Panics
+    /// Panic sif a direct message event is received with no recipient
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: SequencingHotShotEvent&lt;TYPES, I&gt;,
@@ -613,7 +646,8 @@
         <span class="prelude-val">None
     </span>}
 
-    <span class="kw">pub fn </span>filter(task_kind: NetworkTaskKind) -&gt; FilterEvent&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt; {
+    <span class="doccomment">/// network filter
+    </span><span class="kw">pub fn </span>filter(task_kind: NetworkTaskKind) -&gt; FilterEvent&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt; {
         <span class="kw">match </span>task_kind {
             NetworkTaskKind::Quorum =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::quorum_filter)),
             NetworkTaskKind::Committee =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::committee_filter)),
@@ -621,7 +655,8 @@
         }
     }
 
-    <span class="kw">fn </span>quorum_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
+    <span class="doccomment">/// quorum filter
+    </span><span class="kw">fn </span>quorum_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
         <span class="macro">matches!</span>(
             event,
             SequencingHotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
@@ -632,7 +667,8 @@
         )
     }
 
-    <span class="kw">fn </span>committee_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
+    <span class="doccomment">/// committee filter
+    </span><span class="kw">fn </span>committee_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
         <span class="macro">matches!</span>(
             event,
             SequencingHotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
@@ -642,7 +678,8 @@
         )
     }
 
-    <span class="kw">fn </span>view_sync_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
+    <span class="doccomment">/// view sync filter
+    </span><span class="kw">fn </span>view_sync_filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
         <span class="macro">matches!</span>(
             event,
             SequencingHotShotEvent::ViewSyncVoteSend(<span class="kw">_</span>)
@@ -653,10 +690,12 @@
     }
 }
 
-<span class="attr">#[derive(Snafu, Debug)]
+<span class="doccomment">/// network error (no errors right now, only stub)
+</span><span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>NetworkTaskError {}
 
-<span class="kw">pub type </span>NetworkMessageTaskTypes&lt;TYPES, I&gt; = HSTWithMessage&lt;
+<span class="doccomment">/// networking message task types
+</span><span class="kw">pub type </span>NetworkMessageTaskTypes&lt;TYPES, I&gt; = HSTWithMessage&lt;
     NetworkTaskError,
     Either&lt;Messages&lt;TYPES, I&gt;, Messages&lt;TYPES, I&gt;&gt;,
     <span class="comment">// A combination of broadcast and direct streams.
@@ -664,7 +703,8 @@
     NetworkMessageTaskState&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="kw">pub type </span>NetworkEventTaskTypes&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// network event task types
+</span><span class="kw">pub type </span>NetworkEventTaskTypes&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt; = HSTWithEvent&lt;
     NetworkTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,

@@ -469,14 +469,6 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -517,8 +509,6 @@
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>DAVote&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec&lt;u8&gt;`]
-    </span><span class="comment">// signature.2 = entry including public key for certificate aggregation
     </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
     <span class="doccomment">/// The block commitment being voted on.
     </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
@@ -539,8 +529,6 @@
     /// we should check a cache, and if that fails request the qc
     </span><span class="kw">pub </span>justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
     <span class="doccomment">/// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec&lt;u8&gt;`]
-    </span><span class="comment">// signature.2 = entry with public key for certificate aggregation
     </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
     <span class="doccomment">/// The leaf commitment being voted on.
     </span><span class="kw">pub </span>leaf_commitment: Commitment&lt;LEAF&gt;,
@@ -556,13 +544,9 @@
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>TimeoutVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// The justification qc for this view
-    </span><span class="comment">// TODO ED This should be the high_qc instead, and the signature should be over it,
-    // not just over the view number
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    <span class="doccomment">/// The highest valid QC this node knows about
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
     <span class="doccomment">/// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec&lt;u8&gt;`]
-    </span><span class="comment">// signature.2 = entry with public key for certificate aggregation
     </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
     <span class="doccomment">/// The view this vote was cast for
     </span><span class="kw">pub </span>current_view: TYPES::Time,
@@ -939,7 +923,7 @@
         <span class="kw">if </span><span class="kw-2">*</span>viewsync_precommit_stake_casted &gt;= u64::from(<span class="self">self</span>.failure_threshold) {
             <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
                 entries,
-                U256::from(<span class="self">self</span>.success_threshold.get()),
+                U256::from(<span class="self">self</span>.failure_threshold.get()),
             );
 
             <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(

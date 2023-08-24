@@ -673,6 +673,20 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
@@ -725,9 +739,11 @@
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="attr">#[derive(Snafu, Debug)]
+</span><span class="doccomment">/// Error type for consensus tasks
 </span><span class="kw">pub struct </span>ConsensusTaskError {}
 
-<span class="kw">pub struct </span>DATaskState&lt;
+<span class="doccomment">/// Tracks state of a DA task
+</span><span class="kw">pub struct </span>DATaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
@@ -743,8 +759,10 @@
         Commitment = TYPES::BlockType,
     &gt;,
 {
-    <span class="kw">pub </span>api: A,
-    <span class="kw">pub </span>registry: GlobalRegistry,
+    <span class="doccomment">/// The state&#39;s api
+    </span><span class="kw">pub </span>api: A,
+    <span class="doccomment">/// Global registry task for the state
+    </span><span class="kw">pub </span>registry: GlobalRegistry,
 
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: ViewNumber,
@@ -762,10 +780,12 @@
     <span class="doccomment">/// Global events stream to publish events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
 
-    <span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// This state&#39;s ID
+    </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">pub struct </span>DAVoteCollectionTaskState&lt;
+<span class="doccomment">/// Struct to maintain DA Vote Collection task state
+</span><span class="kw">pub struct </span>DAVoteCollectionTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt; <span class="kw">where
@@ -778,12 +798,16 @@
 {
     <span class="doccomment">/// the committee exchange
     </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>accumulator:
+    <span class="doccomment">/// the vote accumulator
+    </span><span class="kw">pub </span>accumulator:
         Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;,
     <span class="comment">// TODO ED Make this just &quot;view&quot; since it is only for this task
+    </span><span class="doccomment">/// the current view
     </span><span class="kw">pub </span>cur_view: ViewNumber,
-    <span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// event stream for channel events
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// the id of this task state
+    </span><span class="kw">pub </span>id: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt; TS
@@ -891,7 +915,8 @@
         Commitment = TYPES::BlockType,
     &gt;,
 {
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    <span class="doccomment">/// main task event handler
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1292,11 +1317,11 @@
         <span class="kw">let </span>txns: Vec&lt;TYPES::Transaction&gt; = all_txns
             .iter()
             .filter_map(|(txn_hash, txn)| {
-                <span class="kw">if </span>!previous_used_txns.contains(txn_hash) {
-                    <span class="prelude-val">Some</span>(txn.clone())
-                } <span class="kw">else </span>{
+                <span class="kw">if </span>previous_used_txns.contains(txn_hash) {
                     <span class="prelude-val">None
-                </span>}
+                </span>} <span class="kw">else </span>{
+                    <span class="prelude-val">Some</span>(txn.clone())
+                }
             })
             .collect();
         <span class="prelude-val">Some</span>(txns)
@@ -1316,7 +1341,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
+<span class="doccomment">/// task state implementation for DA Task
+</span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
@@ -1335,14 +1361,16 @@
 {
 }
 
-<span class="kw">pub type </span>DAVoteCollectionTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Type alias for DA Vote Collection Types
+</span><span class="kw">pub type </span>DAVoteCollectionTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
     ConsensusTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     DAVoteCollectionTaskState&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="kw">pub type </span>DATaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
+<span class="doccomment">/// Type alias for DA Task Types
+</span><span class="kw">pub type </span>DATaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
     ConsensusTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,

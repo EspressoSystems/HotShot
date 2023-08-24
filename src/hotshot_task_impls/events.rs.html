@@ -62,6 +62,7 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::certificate::{DACertificate, QuorumCertificate};
 <span class="kw">use </span>hotshot_types::data::{DAProposal, ViewNumber};
 <span class="kw">use </span>hotshot_types::message::Proposal;
@@ -74,7 +75,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
-<span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+<span class="doccomment">/// All of the possible events that can be passed between Sequecning `HotShot` tasks
+</span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 </span><span class="kw">pub enum </span>SequencingHotShotEvent&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Shutdown the task
     </span>Shutdown,
@@ -123,7 +125,7 @@
     </span>TransactionsRecv(Vec&lt;TYPES::Transaction&gt;),
     <span class="doccomment">/// Send transactions to the network
     </span>TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
-    <span class="comment">// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
+    <span class="doccomment">/// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     </span>SendDABlockData(TYPES::BlockType),
 }
 </code></pre></div></section></main></body></html>

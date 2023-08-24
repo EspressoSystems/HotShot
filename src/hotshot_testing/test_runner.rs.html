@@ -262,7 +262,6 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::overall_safety_task::OverallSafetyTask;
 <span class="kw">use </span><span class="kw">super</span>::overall_safety_task::RoundCtx;
 <span class="kw">use super</span>::{completion_task::CompletionTask, txn_task::TxnTask};
@@ -410,7 +409,6 @@
         task_runner = task_runner.add_task(id, <span class="string">&quot;Test Overall Safety Task&quot;</span>.to_string(), task);
 
         <span class="comment">// Start hotshot
-        // Goes through all nodes, but really only needs to call this on the leader node of the first view
         </span><span class="kw">for </span>node <span class="kw">in </span>nodes {
             node.handle.hotshot.start_consensus().<span class="kw">await</span>;
         }
