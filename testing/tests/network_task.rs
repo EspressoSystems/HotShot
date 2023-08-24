@@ -1,4 +1,3 @@
-use async_compatibility_layer::art::async_spawn;
 use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
@@ -9,7 +8,7 @@ use hotshot_testing::task_helpers::build_quorum_proposal;
 use hotshot_types::data::DAProposal;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::{election::ConsensusExchange, state::ConsensusTime};
+use hotshot_types::traits::state::ConsensusTime;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -19,16 +18,10 @@ use std::collections::HashMap;
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn test_network_task() {
-    use hotshot::{
-        demos::sdemo::{SDemoBlock, SDemoNormalBlock},
-        tasks::{add_network_event_task, add_network_message_task},
-    };
-    use hotshot_task_impls::{harness::run_harness, network::NetworkTaskKind};
+    use hotshot::demos::sdemo::{SDemoBlock, SDemoNormalBlock};
+    use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{
-        message::{CommitteeConsensusMessage, Proposal},
-        traits::election::CommitteeExchangeType,
-    };
+    use hotshot_types::{message::Proposal, traits::election::CommitteeExchangeType};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -39,9 +32,7 @@ async fn test_network_task() {
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
-    let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
     let committee_exchange = api.inner.exchanges.committee_exchange().clone();
-    let view_sync_excahnge = api.inner.exchanges.view_sync_exchange().clone();
     let pub_key = *api.public_key();
     let priv_key = api.private_key();
     let block = SDemoBlock::Normal(SDemoNormalBlock {
@@ -57,7 +48,7 @@ async fn test_network_task() {
         },
         signature,
     };
-    let quorum_proposal = build_quorum_proposal(&handle, &priv_key, 2).await;
+    let quorum_proposal = build_quorum_proposal(&handle, priv_key, 2).await;
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
@@ -67,7 +58,7 @@ async fn test_network_task() {
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::DAProposalSend(
         da_proposal.clone(),
-        pub_key.clone(),
+        pub_key,
     ));
     input.push(SequencingHotShotEvent::QuorumProposalSend(
         quorum_proposal.clone(),

@@ -1,16 +1,11 @@
 use commit::Committable;
 use either::Right;
-use hotshot::certificate::QuorumCertificate;
 use hotshot::tasks::add_consensus_task;
-use hotshot::traits::Block;
-use hotshot::types::bn254::BN254Pub;
 use hotshot::types::SignatureKey;
 use hotshot::types::SystemContextHandle;
 use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_task_impls::harness::run_harness;
 use hotshot_testing::node_types::SequencingMemoryImpl;
 use hotshot_testing::node_types::SequencingTestTypes;
 use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
@@ -18,14 +13,10 @@ use hotshot_types::data::QuorumProposal;
 use hotshot_types::data::SequencingLeaf;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::message::GeneralConsensusMessage;
-use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::signature_key::EncodedSignature;
-use hotshot_types::traits::{
-    election::ConsensusExchange, node_implementation::NodeType, state::ConsensusTime,
-};
+use hotshot_types::traits::{election::ConsensusExchange, state::ConsensusTime};
 
 use std::collections::HashMap;
 
