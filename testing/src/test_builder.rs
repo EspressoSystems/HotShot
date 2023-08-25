@@ -17,6 +17,7 @@ use crate::test_launcher::{ResourceGenerators, TestLauncher};
 use super::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
 };
+use hotshot::{HotShotType, SystemContext};
 
 /// data describing how a round should be timed.
 #[derive(Clone, Debug, Copy)]
@@ -182,6 +183,7 @@ impl TestMetadata {
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
         <I as NodeImplementation<TYPES>>::Exchanges:
             TestableExchange<TYPES, <I as NodeImplementation<TYPES>>::Leaf, Message<TYPES, I>>,
+        SystemContext<TYPES, I>: HotShotType<TYPES, I>,
     {
         let TestMetadata {
             total_nodes,

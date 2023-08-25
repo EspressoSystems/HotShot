@@ -23,11 +23,13 @@ async fn test_catchup() {
     };
     let mut metadata = TestMetadata::default();
     let catchup_nodes = vec![ChangeNode {
-        idx: 2,
+        idx: 9,
         updown: UpDown::Up,
     }];
 
     metadata.timing_data = timing_data;
+    metadata.start_nodes = 9;
+    metadata.total_nodes = 10;
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(Duration::new(1, 0), catchup_nodes)],
