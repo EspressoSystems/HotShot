@@ -142,6 +142,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.output_event_stream.subscribe(filter).await
     }
 
+    /// HACK so we can know the types when running tests...
+    /// there are two cleaner solutions:
+    /// - make the stream generic and in nodetypes or nodeimpelmentation
+    /// - type wrapper
+    /// NOTE: this is only used for sanity checks in our tests
+    pub async fn get_internal_event_stream_known_impl(
+        &mut self,
+        filter: FilterEvent<SequencingHotShotEvent<TYPES, I>>,
+    ) -> (UnboundedStream<SequencingHotShotEvent<TYPES, I>>, StreamId) {
+        self.internal_event_stream.subscribe(filter).await
+    }
+
     /// Gets the current committed state of the [`HotShot`] instance
     ///
     /// # Errors

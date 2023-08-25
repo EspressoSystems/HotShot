@@ -1,5 +1,7 @@
 use commit::Commitment;
-use hotshot_task::event_stream::EventStream;
+use either::Either;
+use hotshot_task::{event_stream::EventStream, Merge};
+use hotshot_task_impls::events::SequencingHotShotEvent;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
@@ -438,107 +440,111 @@ impl OverallSafetyPropertiesDescription {
                     move |msg, mut state| {
                         let threshold_calculator = threshold_calculator.clone();
                         async move {
-                            let (idx, Event { view_number, event }) = msg;
-                            let key = match event {
-                                EventType::Error { error } => {
-                                    state.ctx.insert_error_to_context(view_number, error);
-                                    None
-                                }
-                                EventType::Decide {
-                                    leaf_chain,
-                                    qc,
-                                    block_size: maybe_block_size,
-                                } => {
-                                    let paired_up = (leaf_chain.to_vec(), (*qc).clone());
-                                    match state.ctx.round_results.entry(view_number) {
-                                        Entry::Occupied(mut o) => o.get_mut().insert_into_result(
-                                            idx,
-                                            paired_up,
-                                            maybe_block_size,
-                                        ),
-                                        Entry::Vacant(v) => {
-                                            let mut round_result = RoundResult::default();
-                                            let key = round_result.insert_into_result(
+
+                            let (idx, maybe_event ) : (usize, Either<_, _>)= msg;
+                            if let Either::Left(Event { view_number, event }) = maybe_event {
+                                let key = match event {
+                                    EventType::Error { error } => {
+                                        state.ctx.insert_error_to_context(view_number, error);
+                                        None
+                                    }
+                                    EventType::Decide {
+                                        leaf_chain,
+                                        qc,
+                                        block_size: maybe_block_size,
+                                    } => {
+                                        let paired_up = (leaf_chain.to_vec(), (*qc).clone());
+                                        match state.ctx.round_results.entry(view_number) {
+                                            Entry::Occupied(mut o) => o.get_mut().insert_into_result(
                                                 idx,
                                                 paired_up,
                                                 maybe_block_size,
-                                            );
-                                            v.insert(round_result);
-                                            key
+                                                ),
+                                            Entry::Vacant(v) => {
+                                                let mut round_result = RoundResult::default();
+                                                let key = round_result.insert_into_result(
+                                                    idx,
+                                                    paired_up,
+                                                    maybe_block_size,
+                                                    );
+                                                v.insert(round_result);
+                                                key
+                                            }
                                         }
                                     }
-                                }
-                                // TODO Emit this event in the consensus task once canceling the timeout task is implemented
-                                EventType::ReplicaViewTimeout { view_number } => {
-                                    let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
-                                        view_number,
-                                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                                    });
-                                    state.ctx.insert_error_to_context(view_number, error);
-                                    None
-                                }
-                                _ => return (None, state),
-                            };
-
-                            // update view count
-                            let threshold =
-                                (threshold_calculator)(state.handles.len(), state.handles.len());
-
-                            let view = state.ctx.round_results.get_mut(&view_number).unwrap();
-
-                            if let Some(key) = key {
-                                view.update_status(
-                                    threshold,
-                                    state.handles.len(),
-                                    key,
-                                    check_leaf,
-                                    check_state,
-                                    check_block,
-                                    transaction_threshold,
-                                );
-                                match view.status.clone() {
-                                    ViewStatus::Ok => {
-                                        state.ctx.successful_views.insert(view_number);
-                                        if state.ctx.successful_views.len()
-                                            >= self.num_successful_views
-                                        {
-                                            state
-                                                .test_event_stream
-                                                .publish(GlobalTestEvent::ShutDown)
-                                                .await;
-                                            return (Some(HotShotTaskCompleted::ShutDown), state);
-                                        }
-                                        return (None, state);
+                                    // TODO Emit this event in the consensus task once canceling the timeout task is implemented
+                                    EventType::ReplicaViewTimeout { view_number } => {
+                                        let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
+                                            view_number,
+                                            state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                                        });
+                                        state.ctx.insert_error_to_context(view_number, error);
+                                        None
                                     }
-                                    ViewStatus::Failed => {
-                                        state.ctx.failed_views.insert(view_number);
-                                        if state.ctx.failed_views.len() >= self.num_failed_views {
-                                            state
-                                                .test_event_stream
-                                                .publish(GlobalTestEvent::ShutDown)
-                                                .await;
-                                            return (
-                                                Some(HotShotTaskCompleted::Error(Box::new(
-                                                    OverallSafetyTaskErr::TooManyFailures {
-                                                        got: state.ctx.failed_views.len(),
-                                                        expected: num_failed_rounds_total,
-                                                    },
-                                                ))),
-                                                state,
-                                            );
-                                        }
-                                        return (None, state);
-                                    }
-                                    ViewStatus::Err(e) => {
-                                        return (
-                                            Some(HotShotTaskCompleted::Error(Box::new(e))),
-                                            state,
+                                    _ => return (None, state),
+                                };
+
+                                // update view count
+                                let threshold =
+                                    (threshold_calculator)(state.handles.len(), state.handles.len());
+
+                                let view = state.ctx.round_results.get_mut(&view_number).unwrap();
+
+                                if let Some(key) = key {
+                                    view.update_status(
+                                        threshold,
+                                        state.handles.len(),
+                                        key,
+                                        check_leaf,
+                                        check_state,
+                                        check_block,
+                                        transaction_threshold,
                                         );
-                                    }
-                                    ViewStatus::InProgress => {
-                                        return (None, state);
+                                    match view.status.clone() {
+                                        ViewStatus::Ok => {
+                                            state.ctx.successful_views.insert(view_number);
+                                            if state.ctx.successful_views.len()
+                                                >= self.num_successful_views
+                                                {
+                                                    state
+                                                        .test_event_stream
+                                                        .publish(GlobalTestEvent::ShutDown)
+                                                        .await;
+                                                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                                                }
+                                            return (None, state);
+                                        }
+                                        ViewStatus::Failed => {
+                                            state.ctx.failed_views.insert(view_number);
+                                            if state.ctx.failed_views.len() >= self.num_failed_views {
+                                                state
+                                                    .test_event_stream
+                                                    .publish(GlobalTestEvent::ShutDown)
+                                                    .await;
+                                                return (
+                                                    Some(HotShotTaskCompleted::Error(Box::new(
+                                                                OverallSafetyTaskErr::TooManyFailures {
+                                                                    got: state.ctx.failed_views.len(),
+                                                                    expected: num_failed_rounds_total,
+                                                                },
+                                                                ))),
+                                                                state,
+                                                                );
+                                            }
+                                            return (None, state);
+                                        }
+                                        ViewStatus::Err(e) => {
+                                            return (
+                                                Some(HotShotTaskCompleted::Error(Box::new(e))),
+                                                state,
+                                                );
+                                        }
+                                        ViewStatus::InProgress => {
+                                            return (None, state);
+                                        }
                                     }
                                 }
+
                             }
 
                             (None, state)
@@ -549,12 +555,20 @@ impl OverallSafetyPropertiesDescription {
 
                 let mut streams = vec![];
                 for handle in &mut state.handles {
-                    streams.push(
+                    let s1 =
                         handle
                             .handle
                             .get_event_stream_known_impl(FilterEvent::default())
                             .await
-                            .0,
+                            .0;
+                    let s2 =
+                        handle
+                            .handle
+                            .get_internal_event_stream_known_impl(FilterEvent::default())
+                            .await
+                            .0;
+                    streams.push(
+                        Merge::new(s1, s2)
                     );
                 }
                 let builder = TaskBuilder::<OverallSafetyTaskTypes<TYPES, I>>::new(
@@ -581,7 +595,18 @@ pub type OverallSafetyTaskTypes<TYPES, I> = HSTWithEventAndMessage<
     OverallSafetyTaskErr,
     GlobalTestEvent,
     ChannelStream<GlobalTestEvent>,
-    (usize, Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>),
-    MergeN<UnboundedStream<Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>>,
+    (
+        usize,
+        Either<
+            Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+            SequencingHotShotEvent<TYPES, I>,
+        >,
+    ),
+    MergeN<
+        Merge<
+            UnboundedStream<Event<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
+            UnboundedStream<SequencingHotShotEvent<TYPES, I>>,
+        >,
+    >,
     OverallSafetyTask<TYPES, I>,
 >;
