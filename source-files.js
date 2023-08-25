@@ -7,7 +7,7 @@ var sourcesIndex = JSON.parse('{\
 "hotshot_stake_table":["",[["mt_based",[],["config.rs","internal.rs"]]],["lib.rs","mt_based.rs"]],\
 "hotshot_task":["",[],["event_stream.rs","global_registry.rs","lib.rs","task.rs","task_impls.rs","task_launcher.rs","task_state.rs"]],\
 "hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","lib.rs","network.rs","view_sync.rs"]],\
-"hotshot_testing":["",[],["completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","system_handle.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs"]],\
+"hotshot_testing":["",[],["completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","task_helpers.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs"]],\
 "hotshot_types":["",[["traits",[["signature_key",[["bn254",[],["bn254_priv.rs","bn254_pub.rs"]]],["bn254.rs"]]],["block_contents.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["certificate.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","vote.rs"]],\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "hotshot_web_server":["",[],["config.rs","lib.rs"]],\

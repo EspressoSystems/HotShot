@@ -353,7 +353,6 @@
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
@@ -546,7 +545,7 @@
         event: SequencingHotShotEvent&lt;TYPES, I&gt;,
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">let </span>(sender, message_kind, transmit_type, recipient) = <span class="kw">match </span>event {
+        <span class="kw">let </span>(sender, message_kind, transmit_type, recipient) = <span class="kw">match </span>event.clone() {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) =&gt; (
                 sender,
                 MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Left(
@@ -611,8 +610,7 @@
                 )
             }
             SequencingHotShotEvent::ViewChange(view) =&gt; {
-                <span class="comment">// only if view actually changes
-                </span><span class="self">self</span>.view = view;
+                <span class="self">self</span>.view = view;
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             SequencingHotShotEvent::Shutdown =&gt; {

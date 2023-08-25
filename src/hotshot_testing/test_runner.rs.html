@@ -262,6 +262,7 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::overall_safety_task::OverallSafetyTask;
 <span class="kw">use </span><span class="kw">super</span>::overall_safety_task::RoundCtx;
 <span class="kw">use super</span>::{completion_task::CompletionTask, txn_task::TxnTask};
@@ -521,7 +522,8 @@
             NoMetrics::boxed(),
         )
         .<span class="kw">await
-        </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
+        </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>)
+        .<span class="number">0</span>;
         <span class="self">self</span>.nodes.push(Node { handle, node_id });
         node_id
     }

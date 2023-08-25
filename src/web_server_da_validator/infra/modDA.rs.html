@@ -734,6 +734,7 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1013,7 +1014,8 @@
         )
         .<span class="kw">await
         </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>)
-    }
+        .<span class="number">0
+    </span>}
 
     <span class="doccomment">/// Starts HotShot consensus, returns when consensus has finished
     </span><span class="kw">async fn </span>run_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>context: SystemContextHandle&lt;TYPES, NODE&gt;) {

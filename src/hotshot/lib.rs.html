@@ -1648,6 +1648,13 @@
 <a href="#1648" id="1648">1648</a>
 <a href="#1649" id="1649">1649</a>
 <a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -2069,7 +2076,13 @@
         exchanges: I::Exchanges,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;SystemContextHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+        (
+            SystemContextHandle&lt;TYPES, I&gt;,
+            ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+        ),
+        HotShotError&lt;TYPES&gt;,
+    &gt;
     <span class="kw">where
         </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
         SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
@@ -2086,9 +2099,10 @@
             metrics,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
+        <span class="kw">let </span>handle = hotshot.clone().run_tasks().<span class="kw">await</span>;
+        <span class="kw">let </span>internal_event_stream = hotshot.inner.internal_event_stream.clone();
 
-        <span class="prelude-val">Ok</span>(handle)
+        <span class="prelude-val">Ok</span>((handle, internal_event_stream))
     }
 
     <span class="doccomment">/// Send a broadcast message.

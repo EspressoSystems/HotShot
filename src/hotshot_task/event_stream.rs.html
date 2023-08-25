@@ -268,7 +268,6 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedSender, UnboundedStream};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>std::sync::Arc;
@@ -421,8 +420,7 @@
                     <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
                     <span class="comment">// error sending =&gt; stream is closed so remove it
                     </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="comment">// error!(&quot;Channel was closed with uid {}&quot;, *uid);
-                        </span><span class="self">self</span>.unsubscribe(<span class="kw-2">*</span>uid).<span class="kw">await</span>;
+                        <span class="self">self</span>.unsubscribe(<span class="kw-2">*</span>uid).<span class="kw">await</span>;
                     }
                 }
             }
