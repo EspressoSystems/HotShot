@@ -273,6 +273,7 @@ members = [
         "task",
         "task-impls",
         "crates/hotshot-qc",
+        "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
 ]
 

@@ -2742,6 +2742,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-signature-key"
+version = "0.3.3"
+
+[[package]]
 name = "hotshot-stake-table"
 version = "0.3.3"
 dependencies = [
