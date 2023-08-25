@@ -166,18 +166,22 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>blake3::traits::digest::generic_array::GenericArray;
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>hotshot_primitives::qc::bit_vector::{
-    BitVectorQC, QCParams <span class="kw">as </span>JFQCParams, StakeTableEntry <span class="kw">as </span>JFStakeTableEntry,
+<span class="kw">use </span>hotshot_primitives::qc::{
+    bit_vector::{BitVectorQC, QCParams <span class="kw">as </span>JFQCParams, StakeTableEntry <span class="kw">as </span>JFStakeTableEntry},
+    QuorumCertificate,
 };
-<span class="kw">use </span>hotshot_primitives::qc::QuorumCertificate;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
-<span class="kw">use </span>jf_primitives::signatures::SignatureScheme;
+<span class="kw">use </span>jf_primitives::signatures::{
+    bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey},
+    SignatureScheme,
+};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{cmp::Ordering, fmt::Debug};
 <span class="kw">use </span>tracing::{debug, instrument, warn};

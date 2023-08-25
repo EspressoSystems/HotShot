@@ -432,33 +432,27 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::certificate::DACertificate;
-<span class="kw">use </span><span class="kw">crate</span>::data::DAProposal;
-<span class="kw">use </span><span class="kw">crate</span>::traits::network::ViewMessage;
-<span class="kw">use </span><span class="kw">crate</span>::traits::node_implementation::ViewSyncProposalType;
-<span class="kw">use </span><span class="kw">crate</span>::vote::{DAVote, QuorumVote};
-<span class="kw">use crate</span>::{
-    data::ProposalType,
+</span><span class="kw">use crate</span>::{
+    certificate::DACertificate,
+    data::{DAProposal, ProposalType},
     traits::{
-        network::NetworkMsg,
-        node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumProposalType},
+        network::{NetworkMsg, ViewMessage},
+        node_implementation::{
+            ExchangesType, NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+        },
         signature_key::EncodedSignature,
     },
-    vote::{ViewSyncVote, VoteType},
+    vote::{DAVote, QuorumVote, ViewSyncVote, VoteType},
 };
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
 
 <span class="doccomment">/// Incoming message
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]

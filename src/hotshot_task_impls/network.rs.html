@@ -353,6 +353,7 @@
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
@@ -361,11 +362,12 @@
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 <span class="kw">use </span>hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{GeneralConsensusMessage, MessageKind, Messages},
+    message::{
+        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
+        SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},

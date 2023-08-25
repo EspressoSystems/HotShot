@@ -1144,12 +1144,6 @@
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
-<a href="#1150" id="1150">1150</a>
-<a href="#1151" id="1151">1151</a>
-<a href="#1152" id="1152">1152</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1160,9 +1154,7 @@
 #[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">use </span>async_compatibility_layer::channel::unbounded;
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSender;
+<span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1171,19 +1163,17 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
-<span class="kw">use </span>hotshot_types::message::{Message, MessagePurpose};
-<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
+    message::{Message, MessagePurpose},
     traits::{
         election::{ElectionConfig, Membership},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkError, NetworkMsg,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
             TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
             WebServerNetworkError,
         },
-        node_implementation::NodeType,
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::VoteType,
@@ -1193,10 +1183,8 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
-<span class="kw">use </span>std::collections::hash_map::Entry;
-<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::{
-    collections::BTreeSet,
+    collections::{hash_map::Entry, BTreeSet, HashMap},
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},

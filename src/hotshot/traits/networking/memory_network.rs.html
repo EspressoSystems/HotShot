@@ -976,7 +976,6 @@
 <a href="#976" id="976">976</a>
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -994,8 +993,6 @@
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
-<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -1003,8 +1000,9 @@
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkMsg,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,

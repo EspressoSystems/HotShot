@@ -357,7 +357,6 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements both sequencing and validating
 //! consensus
 
@@ -388,13 +387,12 @@
 
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
-<span class="kw">use </span>hotshot_types::traits::metrics::Counter;
 <span class="kw">use </span>hotshot_types::{
+    certificate::QuorumCertificate,
     data::LeafType,
     error::HotShotError,
     traits::{
-        metrics::{Gauge, Histogram, Metrics},
+        metrics::{Counter, Gauge, Histogram, Metrics},
         node_implementation::NodeType,
     },
 };

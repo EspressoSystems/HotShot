@@ -63,15 +63,15 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::certificate::{DACertificate, QuorumCertificate};
-<span class="kw">use </span>hotshot_types::data::{DAProposal, ViewNumber};
-<span class="kw">use </span>hotshot_types::message::Proposal;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumProposalType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ViewSyncProposalType;
-<span class="kw">use </span>hotshot_types::vote::ViewSyncVote;
-<span class="kw">use </span>hotshot_types::vote::{DAVote, QuorumVote};
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
+    data::{DAProposal, ViewNumber},
+    message::Proposal,
+    traits::node_implementation::{
+        NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+    },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 

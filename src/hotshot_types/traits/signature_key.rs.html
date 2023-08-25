@@ -126,6 +126,7 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
@@ -136,8 +137,9 @@
 <span class="kw">use </span>tagged_base64::tagged;
 <span class="attr">#[cfg(feature = <span class="string">&quot;demo&quot;</span>)]
 </span><span class="kw">pub mod </span>bn254;
-<span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-<span class="kw">use </span>jf_primitives::signatures::SignatureScheme;
+<span class="kw">use </span>jf_primitives::signatures::{
+    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
+};
 
 <span class="doccomment">/// Type saftey wrapper for byte encoded keys
 </span><span class="attr">#[tagged(tag::ENCODED_PUB_KEY)]

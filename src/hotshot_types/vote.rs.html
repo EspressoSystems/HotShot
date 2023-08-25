@@ -469,6 +469,9 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -489,12 +492,15 @@
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-<span class="kw">use </span>jf_primitives::signatures::SignatureScheme;
+<span class="kw">use </span>jf_primitives::signatures::{
+    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
+};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::collections::{BTreeMap, HashMap};
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::num::NonZeroU64;
+<span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+    num::NonZeroU64,
+};
 
 <span class="doccomment">/// The vote sent by consensus messages.
 </span><span class="kw">pub trait </span>VoteType&lt;TYPES: NodeType&gt;:

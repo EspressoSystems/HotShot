@@ -163,42 +163,32 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::node_types::SequencingMemoryImpl;
-<span class="kw">use </span><span class="kw">crate</span>::node_types::SequencingTestTypes;
-<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestMetadata;
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    node_types::{SequencingMemoryImpl, SequencingTestTypes},
+    test_builder::TestMetadata,
+};
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Right;
-<span class="kw">use </span>hotshot::certificate::QuorumCertificate;
-<span class="kw">use </span>hotshot::traits::Block;
-<span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-<span class="kw">use </span>hotshot::types::bn254::BN254Pub;
-<span class="kw">use </span>hotshot::types::SignatureKey;
-<span class="kw">use </span>hotshot::types::SystemContextHandle;
-<span class="kw">use </span>hotshot::HotShotSequencingConsensusApi;
-<span class="kw">use </span>hotshot::{HotShotInitializer, SystemContext};
+<span class="kw">use </span>hotshot::{
+    certificate::QuorumCertificate,
+    traits::{Block, NodeImplementation, TestableNodeImplementation},
+    types::{bn254::BN254Pub, SignatureKey, SystemContextHandle},
+    HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
+};
 <span class="kw">use </span>hotshot_consensus::ConsensusSharedApi;
 <span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
 <span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
-<span class="kw">use </span>hotshot_types::data::QuorumProposal;
-<span class="kw">use </span>hotshot_types::data::SequencingLeaf;
-<span class="kw">use </span>hotshot_types::data::ViewNumber;
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::message::Proposal;
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
-<span class="kw">use </span>hotshot_types::traits::election::SignedCertificate;
-<span class="kw">use </span>hotshot_types::traits::metrics::NoMetrics;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::CommitteeEx;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ExchangesType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumEx;
-<span class="kw">use </span>hotshot_types::traits::signature_key::EncodedSignature;
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
-<span class="kw">use </span>hotshot_types::traits::{election::ConsensusExchange, node_implementation::NodeType};
+<span class="kw">use </span>hotshot_types::{
+    data::{QuorumProposal, SequencingLeaf, ViewNumber},
+    message::{Message, Proposal},
+    traits::{
+        election::{ConsensusExchange, Membership, SignedCertificate},
+        metrics::NoMetrics,
+        node_implementation::{CommitteeEx, ExchangesType, NodeType, QuorumEx},
+        signature_key::EncodedSignature,
+        state::ConsensusTime,
+    },
+};
 
 <span class="kw">pub async fn </span>build_system_handle(
     node_id: u64,
@@ -281,16 +271,14 @@
 
     <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.view_number();
     <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
-                };
+        <span class="macro">panic!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
+    };
     <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = parent_view.get_leaf_commitment() <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(
-                        <span class="string">&quot;Parent of high QC points to a view without a proposal&quot;
-                    </span>);
-                };
+        <span class="macro">panic!</span>(<span class="string">&quot;Parent of high QC points to a view without a proposal&quot;</span>);
+    };
     <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                };
+        <span class="macro">panic!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
+    };
     <span class="kw">let </span>parent_leaf = leaf.clone();
 
     <span class="comment">// every event input is seen on the event stream in the output.

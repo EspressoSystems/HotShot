@@ -609,7 +609,6 @@
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::{event_stream::EventStream, Merge};
@@ -625,10 +624,9 @@
     traits::{NodeImplementation, TestableNodeImplementation},
     HotShotError,
 };
-<span class="kw">use </span>hotshot_task::task::TS;
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };

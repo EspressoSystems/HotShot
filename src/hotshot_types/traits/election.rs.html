@@ -1350,44 +1350,54 @@
 <a href="#1350" id="1350">1350</a>
 <a href="#1351" id="1351">1351</a>
 <a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
 </span><span class="attr">#![allow(clippy::let_underscore_untyped)]
 
-</span><span class="kw">use </span><span class="kw">super</span>::node_implementation::{NodeImplementation, NodeType};
-<span class="kw">use </span><span class="kw">super</span>::signature_key::{EncodedPublicKey, EncodedSignature};
-<span class="kw">use </span><span class="kw">crate</span>::certificate::VoteMetaData;
-<span class="kw">use </span><span class="kw">crate</span>::certificate::{AssembledSignature, ViewSyncCertificate};
-<span class="kw">use </span><span class="kw">crate</span>::certificate::{DACertificate, QuorumCertificate};
-<span class="kw">use </span><span class="kw">crate</span>::data::DAProposal;
-<span class="kw">use </span><span class="kw">crate</span>::data::ProposalType;
+</span><span class="kw">use super</span>::{
+    node_implementation::{NodeImplementation, NodeType},
+    signature_key::{EncodedPublicKey, EncodedSignature},
+};
+<span class="kw">use crate</span>::{
+    certificate::{
+        AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, VoteMetaData,
+    },
+    data::{DAProposal, ProposalType},
+};
 
-<span class="kw">use </span><span class="kw">crate</span>::message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message};
-<span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncVoteInternal;
+<span class="kw">use crate</span>::{
+    message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message},
+    vote::ViewSyncVoteInternal,
+};
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::network::CommunicationChannel;
-<span class="kw">use </span><span class="kw">crate</span>::traits::network::NetworkMsg;
-<span class="kw">use </span><span class="kw">crate</span>::traits::{node_implementation::ExchangesType, state::ConsensusTime};
-<span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncData;
-<span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncVote;
-<span class="kw">use </span><span class="kw">crate</span>::vote::VoteAccumulator;
-<span class="kw">use </span><span class="kw">crate</span>::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-<span class="kw">use crate</span>::{data::LeafType, traits::signature_key::SignatureKey};
+<span class="kw">use crate</span>::{
+    data::LeafType,
+    traits::{
+        network::{CommunicationChannel, NetworkMsg},
+        node_implementation::ExchangesType,
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{
+        Accumulator, DAVote, QuorumVote, TimeoutVote, ViewSyncData, ViewSyncVote, VoteAccumulator,
+        VoteType, YesOrNoVote,
+    },
+};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>serde::Deserialize;
-<span class="kw">use </span>serde::Serialize;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::BTreeSet;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::hash::Hash;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::num::NonZeroU64;
+<span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 <span class="kw">use </span>tracing::error;
 
 <span class="doccomment">/// Error for election problems

@@ -652,31 +652,31 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::{Left, Right};
-<span class="kw">use </span>hotshot_types::data::QuorumProposal;
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingQuorumEx,
-};
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, SequencingLeaf},
+    data::{LeafType, QuorumProposal, SequencingLeaf},
     message::{
-        ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
+        ConsensusMessageType, InternalTrigger, Message, ProcessedCommitteeConsensusMessage,
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType,
+            SequencingQuorumEx,
+        },
+        signature_key::SignatureKey,
+        state::ConsensusTime,
         Block,
     },
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>std::collections::HashSet;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::ops::Bound::{Excluded, Included};
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{
+    collections::HashSet,
+    marker::PhantomData,
+    ops::Bound::{Excluded, Included},
+    sync::Arc,
+};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
 <span class="doccomment">/// This view&#39;s replica for sequencing consensus.
 </span><span class="attr">#[derive(Debug, Clone)]

@@ -350,6 +350,9 @@
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for BitVectorQC that uses BLS signature + Bit vector.
 //! See more details in HotShot paper.
 
@@ -368,9 +371,10 @@
     qc::QuorumCertificate,
     stake_table::{SnapshotVersion, StakeTableScheme},
 };
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError::ParameterError;
-<span class="kw">use </span>jf_primitives::signatures::AggregateableSignatureSchemes;
+<span class="kw">use </span>jf_primitives::{
+    errors::{PrimitivesError, PrimitivesError::ParameterError},
+    signatures::AggregateableSignatureSchemes,
+};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>typenum::U32;
 
@@ -554,8 +558,10 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>hotshot_stake_table::mt_based::StakeTable;
     <span class="kw">use </span>hotshot_types::traits::stake_table::StakeTableScheme;
-    <span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
-    <span class="kw">use </span>jf_primitives::signatures::SignatureScheme;
+    <span class="kw">use </span>jf_primitives::signatures::{
+        bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
+        SignatureScheme,
+    };
 
     <span class="macro">macro_rules! </span>test_quorum_certificate {
         (<span class="macro-nonterminal">$aggsig</span>:tt) =&gt; {

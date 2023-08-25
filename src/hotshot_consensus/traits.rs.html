@@ -167,19 +167,23 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 </span><span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
-<span class="kw">use </span>hotshot_types::message::DataMessage;
-<span class="kw">use </span>hotshot_types::message::SequencingMessage;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
-<span class="kw">use </span>hotshot_types::traits::storage::StorageError;
 <span class="kw">use </span>hotshot_types::{
+    certificate::QuorumCertificate,
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{network::NetworkError, signature_key::SignatureKey},
+    message::{DataMessage, SequencingMessage},
+    traits::{
+        network::NetworkError,
+        node_implementation::{NodeImplementation, NodeType},
+        signature_key::SignatureKey,
+        storage::StorageError,
+    },
     vote::VoteType,
 };
 

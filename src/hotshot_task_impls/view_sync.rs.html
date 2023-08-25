@@ -1050,63 +1050,37 @@
 <a href="#1050" id="1050">1050</a>
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_consensus::SequencingConsensusApi;
-<span class="kw">use </span>hotshot_task::task::HandleEvent;
-<span class="kw">use </span>hotshot_task::task::HotShotTaskCompleted;
-<span class="kw">use </span>hotshot_task::task::HotShotTaskTypes;
-<span class="kw">use </span>hotshot_task::task_impls::TaskBuilder;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TS},
-    task_impls::HSTWithEvent,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
 };
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
-<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
+<span class="kw">use </span>hotshot_types::traits::{election::Membership, network::ConsensusIntentEvent};
 
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
-<span class="kw">use </span>hotshot_types::certificate::ViewSyncCertificate;
-<span class="kw">use </span>hotshot_types::data::SequencingLeaf;
-<span class="kw">use </span>hotshot_types::data::ViewNumber;
-<span class="kw">use </span>hotshot_types::message::GeneralConsensusMessage;
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::message::Proposal;
-<span class="kw">use </span>hotshot_types::message::SequencingMessage;
-<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::election::ViewSyncExchangeType;
-<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ViewSyncEx;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
-<span class="kw">use </span>hotshot_types::vote::ViewSyncData;
-<span class="kw">use </span>hotshot_types::vote::ViewSyncVote;
-<span class="kw">use </span>hotshot_types::vote::VoteAccumulator;
+<span class="kw">use </span>hotshot_types::{
+    certificate::ViewSyncCertificate,
+    data::{SequencingLeaf, ViewNumber},
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
+    traits::{
+        election::{ConsensusExchange, ViewSyncExchangeType},
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType, ViewSyncEx},
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{ViewSyncData, ViewSyncVote, VoteAccumulator},
+};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{debug, error, instrument};
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="doccomment">/// Phases of view sync

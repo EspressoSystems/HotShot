@@ -392,7 +392,6 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions meant for usage with long running consensus tasks
 //! and testing harness
 </span><span class="attr">#![warn(
@@ -697,7 +696,7 @@
             }
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">let </span>wrapped_fut = (<span class="kw-2">*</span>projection.generator)();
-                <span class="kw">let </span><span class="prelude-val">Some</span>( <span class="kw-2">mut </span>fut )=  wrapped_fut <span class="kw">else </span>{
+                <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>fut) = wrapped_fut <span class="kw">else </span>{
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>);
                 };
                 <span class="kw">match </span>fut.as_mut().poll(cx) {
@@ -765,8 +764,7 @@
     #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::test)]
     </span><span class="kw">async fn </span>test_stream_fancy() {
         <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-        <span class="kw">use </span>std::sync::atomic::Ordering;
-        <span class="kw">use </span>std::time::Duration;
+        <span class="kw">use </span>std::{sync::atomic::Ordering, time::Duration};
 
         <span class="kw">let </span>value = Arc::&lt;std::sync::atomic::AtomicU8&gt;::default();
         <span class="kw">let </span><span class="kw-2">mut </span>stream = GeneratedStream::&lt;u32&gt; {

@@ -723,18 +723,6 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -754,29 +742,21 @@
     config::{NetworkConfig, WebServerConfig},
 };
 <span class="kw">use </span>hotshot_task::task::FilterEvent;
-<span class="kw">use </span>hotshot_types::event::{Event, EventType};
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    message::Message,
-    traits::election::{CommitteeExchange, QuorumExchange},
-};
-<span class="kw">use </span>hotshot_types::{
-    data::ViewNumber,
+    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf, ViewNumber},
+    event::{Event, EventType},
+    message::{Message, SequencingMessage},
     traits::{
-        election::{ConsensusExchange, ViewSyncExchange},
-        node_implementation::{CommitteeEx, QuorumEx},
-    },
-};
-<span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
-    message::SequencingMessage,
-    traits::{
-        election::Membership,
+        election::{
+            CommitteeExchange, ConsensusExchange, Membership, QuorumExchange, ViewSyncExchange,
+        },
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, SequencingExchanges},
-        state::{TestableBlock, TestableState},
+        node_implementation::{
+            CommitteeEx, ExchangesType, NodeType, QuorumEx, SequencingExchanges,
+        },
+        state::{ConsensusTime, TestableBlock, TestableState},
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
@@ -791,9 +771,7 @@
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-</span><span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::net::Ipv4Addr;
-<span class="kw">use </span>std::{
+</span><span class="kw">use </span>std::{
     <span class="comment">//collections::{BTreeSet, VecDeque},
     </span>collections::VecDeque,
     <span class="comment">//fs,
@@ -805,12 +783,10 @@
     //time::{Duration, Instant},
     </span>time::Instant,
 };
+<span class="kw">use </span>std::{fmt::Debug, net::Ipv4Addr};
 <span class="comment">//use surf_disco::error::ClientError;
 //use surf_disco::Client;
-</span><span class="kw">use </span>tracing::debug;
-<span class="kw">use </span>tracing::error;
-<span class="kw">use </span>tracing::info;
-<span class="kw">use </span>tracing::warn;
+</span><span class="kw">use </span>tracing::{debug, error, info, warn};
 
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator_da&lt;

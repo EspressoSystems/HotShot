@@ -257,20 +257,20 @@
 <span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::traits::election::ElectionConfig;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
-<span class="kw">use </span>std::io;
-<span class="kw">use </span>std::io::ErrorKind;
-<span class="kw">use </span>std::net::IpAddr;
-<span class="kw">use </span>std::net::SocketAddr;
-<span class="kw">use </span>tide_disco::Api;
-<span class="kw">use </span>tide_disco::App;
+<span class="kw">use </span>hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
+<span class="kw">use </span>std::{
+    io,
+    io::ErrorKind,
+    net::{IpAddr, SocketAddr},
+};
+<span class="kw">use </span>tide_disco::{Api, App};
 
 <span class="kw">use </span>surf_disco::error::ClientError;
-<span class="kw">use </span>tide_disco::api::ApiError;
-<span class="kw">use </span>tide_disco::error::ServerError;
-<span class="kw">use </span>tide_disco::method::ReadState;
-<span class="kw">use </span>tide_disco::method::WriteState;
+<span class="kw">use </span>tide_disco::{
+    api::ApiError,
+    error::ServerError,
+    method::{ReadState, WriteState},
+};
 
 <span class="kw">use </span>futures::FutureExt;
 

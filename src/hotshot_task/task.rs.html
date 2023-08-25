@@ -633,23 +633,27 @@
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
 <a href="#635" id="635">635</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::{Debug, Formatter};
-<span class="kw">use </span>std::ops::Deref;
-<span class="kw">use </span>std::pin::Pin;
-<span class="kw">use </span>std::task::{Context, Poll};
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    fmt::{Debug, Formatter},
+    ops::Deref,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_yield_now;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>futures::{future::BoxFuture, stream::Fuse, Stream};
-<span class="kw">use </span>futures::{Future, FutureExt, StreamExt};
+<span class="kw">use </span>futures::{future::BoxFuture, stream::Fuse, Future, FutureExt, Stream, StreamExt};
 <span class="kw">use </span>pin_project::pin_project;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::event_stream::{SendableStream, StreamId};
-<span class="kw">use </span><span class="kw">crate</span>::global_registry::{GlobalRegistry, HotShotTaskId};
-<span class="kw">use </span><span class="kw">crate</span>::task_impls::TaskBuilder;
-<span class="kw">use </span><span class="kw">crate</span>::task_state::TaskStatus;
-<span class="kw">use crate</span>::{event_stream::EventStream, global_registry::ShutdownFn, task_state::TaskState};
+<span class="kw">use crate</span>::{
+    event_stream::{EventStream, SendableStream, StreamId},
+    global_registry::{GlobalRegistry, HotShotTaskId, ShutdownFn},
+    task_impls::TaskBuilder,
+    task_state::{TaskState, TaskStatus},
+};
 
 <span class="doccomment">/// restrictions on types we wish to pass around.
 /// Includes messages and events

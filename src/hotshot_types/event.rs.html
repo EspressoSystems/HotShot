@@ -60,10 +60,14 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
-</span><span class="kw">use </span><span class="kw">crate</span>::certificate::QuorumCertificate;
-<span class="kw">use crate</span>::{data::LeafType, error::HotShotError, traits::node_implementation::NodeType};
+</span><span class="kw">use crate</span>::{
+    certificate::QuorumCertificate, data::LeafType, error::HotShotError,
+    traits::node_implementation::NodeType,
+};
 <span class="kw">use </span>std::sync::Arc;
 <span class="doccomment">/// A status event emitted by a `HotShot` instance
 ///

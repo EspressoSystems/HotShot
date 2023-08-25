@@ -1653,8 +1653,6 @@
 <a href="#1653" id="1653">1653</a>
 <a href="#1654" id="1654">1654</a>
 <a href="#1655" id="1655">1655</a>
-<a href="#1656" id="1656">1656</a>
-<a href="#1657" id="1657">1657</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1707,31 +1705,30 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>custom_debug::Debug;
-<span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
-<span class="kw">use </span>hotshot_task::event_stream::EventStream;
-<span class="kw">use </span>hotshot_task::task_launcher::TaskRunner;
-<span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
-<span class="kw">use </span>hotshot_task_impls::network::NetworkTaskKind;
+<span class="kw">use </span>hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    task_launcher::TaskRunner,
+};
+<span class="kw">use </span>hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
 <span class="kw">use </span>hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
     ConsensusSharedApi, DALeader, DAMember, SequencingReplica, View, ViewInner, ViewQueue,
 };
-<span class="kw">use </span>hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
-<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::{certificate::DACertificate, traits::election::Membership};
 <span class="kw">use </span>hotshot_types::{
-    certificate::ViewSyncCertificate,
-    data::{LeafType, QuorumProposal},
+    certificate::{DACertificate, ViewSyncCertificate},
+    data::{
+        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber,
+    },
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
+        election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::Metrics,
-        network::NetworkError,
+        network::{CommunicationChannel, NetworkError},
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
             ViewSyncEx,
@@ -1744,7 +1741,6 @@
     vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
-<span class="kw">use </span>hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -2897,8 +2893,8 @@
                 <span class="kw">let </span>id = hotshot.inner.id;
                 async_spawn(<span class="kw">async move </span>{
                     <span class="kw">let </span><span class="prelude-val">Some</span>((da_cert, block, parent)) = da_leader.run_view().<span class="kw">await else </span>{
-                    <span class="kw">return </span>qc;
-                };
+                        <span class="kw">return </span>qc;
+                    };
                     <span class="kw">let </span>consensus_leader = ConsensusLeader {
                         id,
                         consensus,

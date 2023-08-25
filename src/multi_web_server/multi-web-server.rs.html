@@ -53,11 +53,9 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_compatibility_layer::channel::oneshot;
+<span class="kw">use </span>async_compatibility_layer::{art::async_spawn, channel::oneshot};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
 <span class="kw">use </span>tracing::error;

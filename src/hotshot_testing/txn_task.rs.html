@@ -169,15 +169,15 @@
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-<span class="kw">use </span>hotshot_types::message::SequencingMessage;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::{
+    message::SequencingMessage,
+    traits::node_implementation::{NodeImplementation, NodeType},
+};
 <span class="kw">use </span>rand::thread_rng;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-<span class="kw">use </span><span class="kw">super</span>::test_launcher::TaskGenerator;
-<span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
+<span class="kw">use super</span>::{test_launcher::TaskGenerator, GlobalTestEvent};
 
 <span class="comment">// the obvious idea here is to pass in a &quot;stream&quot; that completes every `n` seconds
 // the stream construction can definitely be fancier but that&#39;s the baseline idea

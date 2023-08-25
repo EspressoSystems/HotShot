@@ -319,28 +319,30 @@
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
-<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
-<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::WebServerNetwork;
-<span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
+<span class="kw">use crate</span>::{
+    traits::implementations::{Libp2pNetwork, WebServerNetwork},
+    NodeImplementation,
+};
 
 <span class="kw">use </span>async_trait::async_trait;
 
 <span class="kw">use </span>futures::join;
 
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
-<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::network::TestableChannelImplementation;
-<span class="kw">use </span>hotshot_types::traits::network::TestableNetworkingImplementation;
-<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
     message::Message,
     traits::{
         election::Membership,
-        network::{CommunicationChannel, ConnectedNetwork, TransmitType},
+        network::{
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
+        },
         node_implementation::NodeType,
     },
     vote::VoteType,

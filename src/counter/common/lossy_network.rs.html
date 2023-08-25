@@ -591,12 +591,12 @@
     NETNS_PATH,
 };
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
-<span class="kw">use </span>std::process::Command;
 <span class="kw">use </span>std::{
     fs::File,
     net::{AddrParseError, Ipv4Addr},
     os::unix::{io::IntoRawFd, prelude::AsRawFd},
     path::Path,
+    process::Command,
 };
 <span class="kw">use </span>tracing::{error, info};
 

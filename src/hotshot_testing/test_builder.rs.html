@@ -272,21 +272,25 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
-<span class="kw">use </span>std::num::NonZeroUsize;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_types::message::{Message, SequencingMessage};
 
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeType, QuorumEx, TestableExchange};
-<span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
+<span class="kw">use </span>hotshot_types::{
+    traits::node_implementation::{NodeType, QuorumEx, TestableExchange},
+    ExecutionType, HotShotConfig,
+};
 
 <span class="kw">use </span><span class="kw">super</span>::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-<span class="kw">use </span><span class="kw">crate</span>::spinning_task::SpinningTaskDescription;
-<span class="kw">use </span><span class="kw">crate</span>::test_launcher::{ResourceGenerators, TestLauncher};
+<span class="kw">use crate</span>::{
+    spinning_task::SpinningTaskDescription,
+    test_launcher::{ResourceGenerators, TestLauncher},
+};
 
 <span class="kw">use super</span>::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,

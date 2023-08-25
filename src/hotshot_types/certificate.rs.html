@@ -379,26 +379,28 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides two types of cerrtificates and their accumulators.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::data::serialize_signature;
-<span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncData;
-<span class="kw">use crate</span>::{
-    data::{fake_commitment, LeafType},
+</span><span class="kw">use crate</span>::{
+    data::{fake_commitment, serialize_signature, LeafType},
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
     },
+    vote::ViewSyncData,
 };
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::fmt::{<span class="self">self</span>, Display, Formatter};
-<span class="kw">use </span>std::{fmt::Debug, ops::Deref};
+<span class="kw">use </span>std::{
+    fmt::{<span class="self">self</span>, Debug, Display, Formatter},
+    ops::Deref,
+};
 <span class="kw">use </span>tracing::debug;
 
 <span class="doccomment">/// A `DACertificate` is a threshold signature that some data is available.

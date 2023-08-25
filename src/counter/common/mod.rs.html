@@ -803,6 +803,8 @@
 <a href="#803" id="803">803</a>
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
 </span><span class="kw">pub mod </span>web;
 
@@ -817,8 +819,10 @@
 <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>async_compatibility_layer::channel::oneshot;
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::oneshot,
+};
 <span class="kw">use </span>clap::{Args, Parser};
 <span class="kw">use </span>libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -832,9 +836,9 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
-<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     str::FromStr,
     sync::Arc,
     time::{Duration, SystemTime},

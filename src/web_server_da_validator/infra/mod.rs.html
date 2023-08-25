@@ -96,15 +96,12 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
     config::{NetworkConfig, NetworkConfigFile},
 };
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>libp2p::{
     identity::{
         ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
@@ -113,8 +110,7 @@
     multiaddr::{<span class="self">self</span>},
     Multiaddr,
 };
-<span class="kw">use </span>std::{fmt::Debug, fs};
-<span class="kw">use </span>std::{net::IpAddr, str::FromStr};
+<span class="kw">use </span>std::{fmt::Debug, fs, net::IpAddr, str::FromStr};
 
 <span class="comment">// ORCHESTRATOR
 

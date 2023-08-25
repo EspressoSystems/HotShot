@@ -262,12 +262,12 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::overall_safety_task::OverallSafetyTask;
-<span class="kw">use </span><span class="kw">super</span>::overall_safety_task::RoundCtx;
-<span class="kw">use super</span>::{completion_task::CompletionTask, txn_task::TxnTask};
-<span class="kw">use </span><span class="kw">crate</span>::test_launcher::Networks;
-<span class="kw">use </span><span class="kw">crate</span>::test_launcher::TestLauncher;
+</pre></div><pre class="rust"><code><span class="kw">use super</span>::{
+    completion_task::CompletionTask,
+    overall_safety_task::{OverallSafetyTask, RoundCtx},
+    txn_task::TxnTask,
+};
+<span class="kw">use </span><span class="kw">crate</span>::test_launcher::{Networks, TestLauncher};
 <span class="kw">use </span>hotshot::types::SystemContextHandle;
 
 <span class="kw">use </span>hotshot::{
@@ -276,16 +276,14 @@
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ExchangesType;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>hotshot_types::{
     message::Message,
     traits::{
-        election::ConsensusExchange,
+        election::{ConsensusExchange, Membership},
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{NodeType, QuorumCommChannel, QuorumEx},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+        signature_key::SignatureKey,
     },
     HotShotConfig,
 };

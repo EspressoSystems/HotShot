@@ -111,25 +111,19 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>hotshot_task::{
-    event_stream::{<span class="self">self</span>, ChannelStream},
+    event_stream::{<span class="self">self</span>, ChannelStream, EventStream},
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::future::Future;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{collections::HashMap, future::Future, sync::Arc};
 
 <span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
 </span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {

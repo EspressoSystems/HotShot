@@ -1305,69 +1305,52 @@
 <a href="#1305" id="1305">1305</a>
 <a href="#1306" id="1306">1306</a>
 <a href="#1307" id="1307">1307</a>
-<a href="#1308" id="1308">1308</a>
-<a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
-<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
-<span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    async_primitives::subscribable_rwlock::ReadView,
+};
+<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
-<span class="kw">use </span>either::Either;
-<span class="kw">use </span>either::Left;
-<span class="kw">use </span>either::Right;
+<span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_consensus::utils::Terminator;
-<span class="kw">use </span>hotshot_consensus::utils::ViewInner;
-<span class="kw">use </span>hotshot_consensus::Consensus;
-<span class="kw">use </span>hotshot_consensus::SequencingConsensusApi;
-<span class="kw">use </span>hotshot_consensus::View;
-<span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
-<span class="kw">use </span>hotshot_task::event_stream::EventStream;
-<span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
-<span class="kw">use </span>hotshot_task::task::FilterEvent;
-<span class="kw">use </span>hotshot_task::task::HotShotTaskTypes;
-<span class="kw">use </span>hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TS};
-<span class="kw">use </span>hotshot_task::task_impls::HSTWithEvent;
-<span class="kw">use </span>hotshot_task::task_impls::TaskBuilder;
-<span class="kw">use </span>hotshot_types::data::LeafType;
-<span class="kw">use </span>hotshot_types::data::ProposalType;
-<span class="kw">use </span>hotshot_types::data::ViewNumber;
-<span class="kw">use </span>hotshot_types::event::{Event, EventType};
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::message::Proposal;
-<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::traits::network::ConsensusIntentEvent;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
-<span class="kw">use </span>hotshot_types::traits::Block;
-<span class="kw">use </span>hotshot_types::vote::VoteType;
+<span class="kw">use </span>hotshot_consensus::{
+    utils::{Terminator, ViewInner},
+    Consensus, SequencingConsensusApi, View,
+};
+<span class="kw">use </span>hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
+};
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, SequencingLeaf},
-    message::{GeneralConsensusMessage, SequencingMessage},
+    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber},
+    event::{Event, EventType},
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        network::{CommunicationChannel, ConsensusIntentEvent},
+        node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
+        state::ConsensusTime,
+        Block,
     },
-    vote::{QuorumVote, VoteAccumulator},
+    vote::{QuorumVote, VoteAccumulator, VoteType},
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::collections::HashSet;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument};
@@ -1663,7 +1646,10 @@
 
                         <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                         </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-                            <span class="macro">error!</span>(<span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>, justify_qc.leaf_commitment());
+                            <span class="macro">error!</span>(
+                                <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>,
+                                justify_qc.leaf_commitment()
+                            );
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         };
                         <span class="kw">let </span>parent_commitment = parent.commit();
@@ -1729,7 +1715,10 @@
 
                         <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                         </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-                            <span class="macro">error!</span>(<span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>, justify_qc.leaf_commitment());
+                            <span class="macro">error!</span>(
+                                <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>,
+                                justify_qc.leaf_commitment()
+                            );
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         };
                         <span class="kw">let </span>parent_commitment = parent.commit();
@@ -1903,7 +1892,10 @@
 
                         <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                         </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-                            <span class="macro">error!</span>(<span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>, justify_qc.leaf_commitment());
+                            <span class="macro">error!</span>(
+                                <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>,
+                                justify_qc.leaf_commitment()
+                            );
                             <span class="kw">return</span>;
                         };
                         <span class="kw">let </span>parent_commitment = parent.commit();

@@ -76,27 +76,21 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra_da::WebServerDARun;
-<span class="kw">use </span>hotshot::traits::implementations::MemoryStorage;
 <span class="kw">use </span>hotshot::{
     demos::sdemo::SDemoTypes,
-    traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
-};
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::traits::{
-    election::{CommitteeExchange, QuorumExchange},
-    node_implementation::{NodeImplementation, SequencingExchanges},
+    traits::{
+        election::static_committee::GeneralStaticCommittee,
+        implementations::{MemoryStorage, WebCommChannel},
+    },
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
     data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
-    message::SequencingMessage,
+    message::{Message, SequencingMessage},
     traits::{
-        election::ViewSyncExchange,
-        node_implementation::{ChannelMaps, NodeType},
+        election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
+        node_implementation::{ChannelMaps, NodeImplementation, NodeType, SequencingExchanges},
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
 };

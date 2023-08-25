@@ -36,6 +36,8 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -44,9 +46,11 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>types::ThisMembership;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use </span><span class="kw">crate</span>::infra_da::run_orchestrator_da;
-<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork};
+<span class="kw">use crate</span>::{
+    infra::OrchestratorArgs,
+    infra_da::run_orchestrator_da,
+    types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork},
+};
 
 <span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;

@@ -412,33 +412,29 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Message;
-<span class="kw">use </span><span class="kw">crate</span>::QuorumCertificate;
-<span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
+</span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, Message, QuorumCertificate, SystemContext};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>hotshot_consensus::Consensus;
-<span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
-<span class="kw">use </span>hotshot_task::event_stream::EventStream;
-<span class="kw">use </span>hotshot_task::event_stream::StreamId;
-<span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
-<span class="kw">use </span>hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
+<span class="kw">use </span>hotshot_task::{
+    boxed_sync,
+    event_stream::{ChannelStream, EventStream, StreamId},
+    global_registry::GlobalRegistry,
+    task::FilterEvent,
+    BoxSyncFuture,
+};
 <span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
-<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
-        election::ConsensusExchange,
-        election::SignedCertificate,
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
         node_implementation::{ExchangesType, NodeType, QuorumEx},
         state::ConsensusTime,
         storage::Storage,

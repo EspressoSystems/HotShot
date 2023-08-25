@@ -553,50 +553,48 @@
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
 <a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 </span><span class="kw">use crate</span>::{CommitmentMap, Consensus, SequencingConsensusApi};
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_timeout,
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+    channel::UnboundedReceiver,
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>commit::Commitment;
-<span class="kw">use </span>commit::Committable;
-<span class="kw">use </span>either::Either;
-<span class="kw">use </span>either::{Left, Right};
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
-<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
-<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
-};
-<span class="kw">use </span>hotshot_types::traits::state::State;
+<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>hotshot_types::{
     certificate::{AssembledSignature, DACertificate, QuorumCertificate},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
-        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        Message, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{
+            CommitteeExchangeType, ConsensusExchange, QuorumExchangeType, SignedCertificate,
+        },
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType,
+            SequencingQuorumEx,
+        },
         signature_key::SignatureKey,
+        state::State,
         Block,
     },
     vote::{QuorumVote, VoteAccumulator},
 };
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::num::NonZeroU64;
-<span class="kw">use </span>std::{collections::HashSet, sync::Arc, time::Instant};
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    num::NonZeroU64,
+    sync::Arc,
+    time::Instant,
+};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
 <span class="doccomment">/// This view&#39;s DA committee leader
 </span><span class="attr">#[derive(Debug, Clone)]
@@ -816,9 +814,9 @@
     )&gt; {
         <span class="comment">// Prepare the DA Proposal
         </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent_leaf) = <span class="self">self</span>.parent_leaf().<span class="kw">await else </span>{
-             <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
-             <span class="kw">return </span><span class="prelude-val">None</span>;
-         };
+            <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
 
         <span class="kw">let </span><span class="kw-2">mut </span>block = &lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType::next_block(<span class="prelude-val">None</span>);
         <span class="kw">let </span>txns = <span class="self">self</span>.wait_for_transactions().<span class="kw">await</span><span class="question-mark">?</span>;
