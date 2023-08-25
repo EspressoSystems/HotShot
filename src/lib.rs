@@ -50,31 +50,30 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_task_impls::network::NetworkTaskKind;
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    task_launcher::TaskRunner,
+};
+use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
     ConsensusSharedApi, DALeader, DAMember, SequencingReplica, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, traits::election::Membership};
 use hotshot_types::{
-    certificate::ViewSyncCertificate,
-    data::{LeafType, QuorumProposal},
+    certificate::{DACertificate, ViewSyncCertificate},
+    data::{
+        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber,
+    },
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
+        election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::Metrics,
-        network::NetworkError,
+        network::{CommunicationChannel, NetworkError},
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
             ViewSyncEx,
@@ -87,7 +86,6 @@ use hotshot_types::{
     vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
-use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -1240,8 +1238,8 @@ where
                 let id = hotshot.inner.id;
                 async_spawn(async move {
                     let Some((da_cert, block, parent)) = da_leader.run_view().await else {
-                    return qc;
-                };
+                        return qc;
+                    };
                     let consensus_leader = ConsensusLeader {
                         id,
                         consensus,

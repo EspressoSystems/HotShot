@@ -6,11 +6,12 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
-use hotshot_types::message::Message;
-use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
     data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{GeneralConsensusMessage, MessageKind, Messages},
+    message::{
+        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
+        SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},

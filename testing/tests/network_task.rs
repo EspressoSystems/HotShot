@@ -2,13 +2,14 @@ use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_testing::node_types::SequencingMemoryImpl;
-use hotshot_testing::node_types::SequencingTestTypes;
-use hotshot_testing::task_helpers::build_quorum_proposal;
-use hotshot_types::data::DAProposal;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::state::ConsensusTime;
+use hotshot_testing::{
+    node_types::{SequencingMemoryImpl, SequencingTestTypes},
+    task_helpers::build_quorum_proposal,
+};
+use hotshot_types::{
+    data::{DAProposal, ViewNumber},
+    traits::{node_implementation::ExchangesType, state::ConsensusTime},
+};
 use std::collections::HashMap;
 
 #[cfg(test)]

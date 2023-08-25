@@ -2,18 +2,15 @@ use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::art::async_spawn;
 
 use futures::FutureExt;
-use hotshot_task::event_stream::EventStream;
 use hotshot_task::{
-    event_stream::{self, ChannelStream},
+    event_stream::{self, ChannelStream, EventStream},
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::future::Future;
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 /// The state for the test harness task. Keeps track of which events and how many we expect to get
 pub struct TestHarnessState<TYPES: NodeType, I: NodeImplementation<TYPES>> {

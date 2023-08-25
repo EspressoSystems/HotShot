@@ -1,12 +1,12 @@
-use hotshot_types::certificate::{DACertificate, QuorumCertificate};
-use hotshot_types::data::{DAProposal, ViewNumber};
-use hotshot_types::message::Proposal;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::QuorumProposalType;
-use hotshot_types::traits::node_implementation::ViewSyncProposalType;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::vote::{DAVote, QuorumVote};
+use hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
+    data::{DAProposal, ViewNumber},
+    message::Proposal,
+    traits::node_implementation::{
+        NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+    },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
+};
 
 use crate::view_sync::ViewSyncPhase;
 

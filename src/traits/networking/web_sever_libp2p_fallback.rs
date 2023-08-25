@@ -1,25 +1,26 @@
 //! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
-use crate::traits::implementations::Libp2pNetwork;
-use crate::traits::implementations::WebServerNetwork;
-use crate::NodeImplementation;
+use crate::{
+    traits::implementations::{Libp2pNetwork, WebServerNetwork},
+    NodeImplementation,
+};
 
 use async_trait::async_trait;
 
 use futures::join;
 
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::network::TestableChannelImplementation;
-use hotshot_types::traits::network::TestableNetworkingImplementation;
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
     traits::{
         election::Membership,
-        network::{CommunicationChannel, ConnectedNetwork, TransmitType},
+        network::{
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
+        },
         node_implementation::NodeType,
     },
     vote::VoteType,

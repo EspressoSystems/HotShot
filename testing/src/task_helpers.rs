@@ -1,33 +1,29 @@
-use crate::node_types::SequencingMemoryImpl;
-use crate::node_types::SequencingTestTypes;
-use crate::test_builder::TestMetadata;
+use crate::{
+    node_types::{SequencingMemoryImpl, SequencingTestTypes},
+    test_builder::TestMetadata,
+};
 use commit::Committable;
 use either::Right;
-use hotshot::certificate::QuorumCertificate;
-use hotshot::traits::Block;
-use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot::types::bn254::BN254Pub;
-use hotshot::types::SignatureKey;
-use hotshot::types::SystemContextHandle;
-use hotshot::HotShotSequencingConsensusApi;
-use hotshot::{HotShotInitializer, SystemContext};
+use hotshot::{
+    certificate::QuorumCertificate,
+    traits::{Block, NodeImplementation, TestableNodeImplementation},
+    types::{bn254::BN254Pub, SignatureKey, SystemContextHandle},
+    HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
+};
 use hotshot_consensus::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::data::QuorumProposal;
-use hotshot_types::data::SequencingLeaf;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::message::Message;
-use hotshot_types::message::Proposal;
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::traits::metrics::NoMetrics;
-use hotshot_types::traits::node_implementation::CommitteeEx;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::node_implementation::QuorumEx;
-use hotshot_types::traits::signature_key::EncodedSignature;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::traits::{election::ConsensusExchange, node_implementation::NodeType};
+use hotshot_types::{
+    data::{QuorumProposal, SequencingLeaf, ViewNumber},
+    message::{Message, Proposal},
+    traits::{
+        election::{ConsensusExchange, Membership, SignedCertificate},
+        metrics::NoMetrics,
+        node_implementation::{CommitteeEx, ExchangesType, NodeType, QuorumEx},
+        signature_key::EncodedSignature,
+        state::ConsensusTime,
+    },
+};
 
 pub async fn build_system_handle(
     node_id: u64,
@@ -110,16 +106,14 @@ async fn build_quorum_proposal_and_signature(
 
     let parent_view_number = &consensus.high_qc.view_number();
     let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    panic!("Couldn't find high QC parent in state map.");
-                };
+        panic!("Couldn't find high QC parent in state map.");
+    };
     let Some(leaf) = parent_view.get_leaf_commitment() else {
-                    panic!(
-                        "Parent of high QC points to a view without a proposal"
-                    );
-                };
+        panic!("Parent of high QC points to a view without a proposal");
+    };
     let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-                    panic!("Failed to find high QC parent.");
-                };
+        panic!("Failed to find high QC parent.");
+    };
     let parent_leaf = leaf.clone();
 
     // every event input is seen on the event stream in the output.

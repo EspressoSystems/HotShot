@@ -1,52 +1,42 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::art::async_timeout;
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
+use async_compatibility_layer::{
+    art::{async_spawn, async_timeout},
+    async_primitives::subscribable_rwlock::ReadView,
+};
 use async_lock::RwLock;
 use bincode::config::Options;
 use bitvec::prelude::*;
 use commit::Committable;
-use either::Either;
-use either::{Left, Right};
+use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::utils::ViewInner;
-use hotshot_consensus::Consensus;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::View;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS};
-use hotshot_task::task_impls::HSTWithEvent;
-use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::data::DAProposal;
-use hotshot_types::message::Proposal;
-use hotshot_types::message::{CommitteeConsensusMessage, Message};
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::Block;
-use hotshot_types::traits::State;
+use hotshot_consensus::{utils::ViewInner, Consensus, SequencingConsensusApi, View};
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
+};
 use hotshot_types::{
     certificate::DACertificate,
-    data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::SequencingMessage,
+    data::{DAProposal, ProposalType, SequencingLeaf, ViewNumber},
+    message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        node_implementation::{CommitteeEx, NodeType},
+        election::{CommitteeExchangeType, ConsensusExchange, Membership},
+        network::{CommunicationChannel, ConsensusIntentEvent},
+        node_implementation::{CommitteeEx, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
+        Block, State,
     },
     vote::VoteAccumulator,
 };
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 use tracing::{debug, error, instrument, warn};
 
 #[derive(Snafu, Debug)]
@@ -483,7 +473,10 @@ where
                 let parent_view_number = &consensus.high_qc.view_number;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    error!("Couldn't find high QC parent in state map. Parent view {:?}", parent_view_number);
+                    error!(
+                        "Couldn't find high QC parent in state map. Parent view {:?}",
+                        parent_view_number
+                    );
                     return None;
                 };
                 let Some(leaf) = parent_view.get_leaf_commitment() else {
