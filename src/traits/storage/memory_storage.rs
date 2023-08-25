@@ -117,14 +117,14 @@ mod test {
     use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 
     use super::*;
-    use hotshot_types::{
+use hotshot_signature_key::bn254::BN254Pub;
+use hotshot_types::{
         certificate::{AssembledSignature, QuorumCertificate},
         constants::genesis_proposer_id,
         data::{fake_commitment, ValidatingLeaf, ViewNumber},
         traits::{
             block_contents::dummy::{DummyBlock, DummyState},
             node_implementation::NodeType,
-            signature_key::bn254::BN254Pub,
             state::ConsensusTime,
             Block,
         },

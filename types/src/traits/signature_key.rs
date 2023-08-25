@@ -6,8 +6,6 @@ use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
-#[cfg(feature = "demo")]
-pub mod bn254;
 use jf_primitives::signatures::{
     bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
 };

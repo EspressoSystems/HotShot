@@ -2608,6 +2608,7 @@ dependencies = [
  "futures",
  "hotshot-consensus",
  "hotshot-orchestrator",
+ "hotshot-signature-key",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -2744,6 +2745,22 @@ dependencies = [
 [[package]]
 name = "hotshot-signature-key"
 version = "0.3.3"
+dependencies = [
+ "bincode",
+ "bitvec",
+ "blake3",
+ "custom_debug",
+ "ethereum-types",
+ "hotshot-primitives",
+ "hotshot-types",
+ "hotshot-utils",
+ "jf-primitives",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "tracing",
+ "typenum",
+]
 
 [[package]]
 name = "hotshot-stake-table"
@@ -2876,7 +2893,6 @@ dependencies = [
  "futures",
  "generic-array",
  "hex_fmt",
- "hotshot-primitives",
  "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
