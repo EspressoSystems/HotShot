@@ -1148,6 +1148,9 @@ where
 
         let mut next_parent_hash = original_parent_hash;
 
+        // TODO ED Why is this here?  Shouldn't this be in the replica? 
+        // TODO ED Also should add logic to handle past proposals, but perhaps that is more of catchup's thing
+
         // Walk back until we find a decide
         if !reached_decided {
             debug!("not reached decide fro view {:?}", self.cur_view);
