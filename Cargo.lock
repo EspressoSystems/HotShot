@@ -2685,38 +2685,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-primitives"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-primitives?branch=hotshot-compat#bf859a899f2c9a8590a85e5e4e1f0216afb43a2b"
-dependencies = [
- "anyhow",
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-pallas",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "bincode",
- "bitvec",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "ethereum-types",
- "generic-array",
- "jf-primitives",
- "jf-relation",
- "jf-utils",
- "serde",
- "sha3",
- "tagged-base64 0.3.0",
- "thiserror",
- "typenum",
-]
-
-[[package]]
 name = "hotshot-qc"
 version = "0.3.3"
 dependencies = [
@@ -2751,7 +2719,7 @@ dependencies = [
  "blake3",
  "custom_debug",
  "ethereum-types",
- "hotshot-primitives",
+ "hotshot-qc",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
