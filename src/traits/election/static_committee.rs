@@ -11,8 +11,7 @@ use hotshot_types::{
 };
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
+use std::{marker::PhantomData, num::NonZeroU64};
 use tracing::debug;
 
 /// Dummy implementation of [`Membership`]

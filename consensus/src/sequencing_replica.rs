@@ -10,31 +10,31 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
-use hotshot_types::data::QuorumProposal;
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::{
-    CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingQuorumEx,
-};
-use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, SequencingLeaf},
+    data::{LeafType, QuorumProposal, SequencingLeaf},
     message::{
-        ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
+        ConsensusMessageType, InternalTrigger, Message, ProcessedCommitteeConsensusMessage,
         ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType,
+            SequencingQuorumEx,
+        },
+        signature_key::SignatureKey,
+        state::ConsensusTime,
         Block,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
-use std::collections::HashSet;
-use std::marker::PhantomData;
-use std::ops::Bound::{Excluded, Included};
-use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    marker::PhantomData,
+    ops::Bound::{Excluded, Included},
+    sync::Arc,
+};
 use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]

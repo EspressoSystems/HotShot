@@ -24,8 +24,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee member.

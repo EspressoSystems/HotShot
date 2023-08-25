@@ -13,10 +13,9 @@ use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     HotShotError,
 };
-use hotshot_task::task::TS;
 use hotshot_task::{
     event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };

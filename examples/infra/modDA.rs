@@ -17,29 +17,21 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_types::event::{Event, EventType};
-use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    message::Message,
-    traits::election::{CommitteeExchange, QuorumExchange},
-};
-use hotshot_types::{
-    data::ViewNumber,
+    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf, ViewNumber},
+    event::{Event, EventType},
+    message::{Message, SequencingMessage},
     traits::{
-        election::{ConsensusExchange, ViewSyncExchange},
-        node_implementation::{CommitteeEx, QuorumEx},
-    },
-};
-use hotshot_types::{
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
-    message::SequencingMessage,
-    traits::{
-        election::Membership,
+        election::{
+            CommitteeExchange, ConsensusExchange, Membership, QuorumExchange, ViewSyncExchange,
+        },
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, SequencingExchanges},
-        state::{TestableBlock, TestableState},
+        node_implementation::{
+            CommitteeEx, ExchangesType, NodeType, QuorumEx, SequencingExchanges,
+        },
+        state::{ConsensusTime, TestableBlock, TestableState},
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
@@ -54,8 +46,6 @@ use hotshot_types::{
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use std::fmt::Debug;
-use std::net::Ipv4Addr;
 use std::{
     //collections::{BTreeSet, VecDeque},
     collections::VecDeque,
@@ -68,12 +58,10 @@ use std::{
     //time::{Duration, Instant},
     time::Instant,
 };
+use std::{fmt::Debug, net::Ipv4Addr};
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
+use tracing::{debug, error, info, warn};
 
 /// Runs the orchestrator
 pub async fn run_orchestrator_da<

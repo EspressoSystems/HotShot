@@ -1,47 +1,34 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
 use hotshot_consensus::SequencingConsensusApi;
-use hotshot_task::task::HandleEvent;
-use hotshot_task::task::HotShotTaskCompleted;
-use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TS},
-    task_impls::HSTWithEvent,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::network::ConsensusIntentEvent;
+use hotshot_types::traits::{election::Membership, network::ConsensusIntentEvent};
 
 use bitvec::prelude::*;
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::certificate::ViewSyncCertificate;
-use hotshot_types::data::SequencingLeaf;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::message::GeneralConsensusMessage;
-use hotshot_types::message::Message;
-use hotshot_types::message::Proposal;
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::ViewSyncExchangeType;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::ViewSyncEx;
-use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::vote::ViewSyncData;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::vote::VoteAccumulator;
+use hotshot_types::{
+    certificate::ViewSyncCertificate,
+    data::{SequencingLeaf, ViewNumber},
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
+    traits::{
+        election::{ConsensusExchange, ViewSyncExchangeType},
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType, ViewSyncEx},
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{ViewSyncData, ViewSyncVote, VoteAccumulator},
+};
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tracing::{debug, error, instrument};
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 /// Phases of view sync

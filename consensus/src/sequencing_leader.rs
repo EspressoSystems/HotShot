@@ -2,45 +2,44 @@
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 use crate::{CommitmentMap, Consensus, SequencingConsensusApi};
-use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
     art::async_timeout,
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+    channel::UnboundedReceiver,
 };
 use async_lock::{Mutex, RwLock};
 use bitvec::prelude::*;
-use commit::Commitment;
-use commit::Committable;
-use either::Either;
-use either::{Left, Right};
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::CommitteeExchangeType;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
-};
-use hotshot_types::traits::state::State;
+use commit::{Commitment, Committable};
+use either::{Either, Left, Right};
 use hotshot_types::{
     certificate::{AssembledSignature, DACertificate, QuorumCertificate},
     data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
-        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        Message, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{
+            CommitteeExchangeType, ConsensusExchange, QuorumExchangeType, SignedCertificate,
+        },
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType,
+            SequencingQuorumEx,
+        },
         signature_key::SignatureKey,
+        state::State,
         Block,
     },
     vote::{QuorumVote, VoteAccumulator},
 };
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    num::NonZeroU64,
+    sync::Arc,
+    time::Instant,
+};
 use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
@@ -260,9 +259,9 @@ where
     )> {
         // Prepare the DA Proposal
         let Some(parent_leaf) = self.parent_leaf().await else {
-             warn!("Couldn't find high QC parent in state map.");
-             return None;
-         };
+            warn!("Couldn't find high QC parent in state map.");
+            return None;
+        };
 
         let mut block = <TYPES as NodeType>::StateType::next_block(None);
         let txns = self.wait_for_transactions().await?;

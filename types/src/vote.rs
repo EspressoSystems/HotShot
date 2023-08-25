@@ -18,12 +18,15 @@ use commit::{Commitment, Committable};
 use either::Either;
 use ethereum_types::U256;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-use jf_primitives::signatures::SignatureScheme;
+use jf_primitives::signatures::{
+    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
-use std::num::NonZeroU64;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+    num::NonZeroU64,
+};
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:

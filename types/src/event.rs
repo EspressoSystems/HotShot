@@ -1,7 +1,9 @@
 //! Events that a `HotShot` instance can emit
 
-use crate::certificate::QuorumCertificate;
-use crate::{data::LeafType, error::HotShotError, traits::node_implementation::NodeType};
+use crate::{
+    certificate::QuorumCertificate, data::LeafType, error::HotShotError,
+    traits::node_implementation::NodeType,
+};
 use std::sync::Arc;
 /// A status event emitted by a `HotShot` instance
 ///

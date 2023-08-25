@@ -8,8 +8,9 @@ use std::{fmt::Debug, hash::Hash};
 use tagged_base64::tagged;
 #[cfg(feature = "demo")]
 pub mod bn254;
-use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-use jf_primitives::signatures::SignatureScheme;
+use jf_primitives::signatures::{
+    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
+};
 
 /// Type saftey wrapper for byte encoded keys
 #[tagged(tag::ENCODED_PUB_KEY)]

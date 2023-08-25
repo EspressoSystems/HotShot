@@ -1,8 +1,9 @@
-use super::overall_safety_task::OverallSafetyTask;
-use super::overall_safety_task::RoundCtx;
-use super::{completion_task::CompletionTask, txn_task::TxnTask};
-use crate::test_launcher::Networks;
-use crate::test_launcher::TestLauncher;
+use super::{
+    completion_task::CompletionTask,
+    overall_safety_task::{OverallSafetyTask, RoundCtx},
+    txn_task::TxnTask,
+};
+use crate::test_launcher::{Networks, TestLauncher};
 use hotshot::types::SystemContextHandle;
 
 use hotshot::{
@@ -11,16 +12,14 @@ use hotshot::{
 use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     message::Message,
     traits::{
-        election::ConsensusExchange,
+        election::{ConsensusExchange, Membership},
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{NodeType, QuorumCommChannel, QuorumEx},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+        signature_key::SignatureKey,
     },
     HotShotConfig,
 };

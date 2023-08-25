@@ -2,20 +2,20 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
-use hotshot_types::traits::election::ElectionConfig;
-use hotshot_types::traits::signature_key::SignatureKey;
-use std::io;
-use std::io::ErrorKind;
-use std::net::IpAddr;
-use std::net::SocketAddr;
-use tide_disco::Api;
-use tide_disco::App;
+use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
+use std::{
+    io,
+    io::ErrorKind,
+    net::{IpAddr, SocketAddr},
+};
+use tide_disco::{Api, App};
 
 use surf_disco::error::ClientError;
-use tide_disco::api::ApiError;
-use tide_disco::error::ServerError;
-use tide_disco::method::ReadState;
-use tide_disco::method::WriteState;
+use tide_disco::{
+    api::ApiError,
+    error::ServerError,
+    method::{ReadState, WriteState},
+};
 
 use futures::FutureExt;
 

@@ -1,5 +1,7 @@
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+use async_compatibility_layer::{
+    art::async_spawn,
+    logging::{setup_backtrace, setup_logging},
+};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use hotshot_orchestrator::client::ValidatorArgs;

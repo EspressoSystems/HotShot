@@ -1,23 +1,24 @@
 //! Provides two types of cerrtificates and their accumulators.
 
-use crate::data::serialize_signature;
-use crate::vote::ViewSyncData;
 use crate::{
-    data::{fake_commitment, LeafType},
+    data::{fake_commitment, serialize_signature, LeafType},
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
     },
+    vote::ViewSyncData,
 };
 use bincode::Options;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display, Formatter};
-use std::{fmt::Debug, ops::Deref};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    ops::Deref,
+};
 use tracing::debug;
 
 /// A `DACertificate` is a threshold signature that some data is available.

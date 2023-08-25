@@ -104,8 +104,10 @@ pub trait Label: Send + Sync {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
 
     struct TestMetrics {
         prefix: String,

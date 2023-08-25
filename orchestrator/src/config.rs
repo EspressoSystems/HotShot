@@ -1,6 +1,9 @@
 use hotshot_types::{ExecutionType, HotShotConfig};
-use std::net::{Ipv4Addr, SocketAddr};
-use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    num::NonZeroUsize,
+    time::Duration,
+};
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,

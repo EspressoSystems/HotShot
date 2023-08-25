@@ -12,12 +12,12 @@ use rtnetlink::{
     NETNS_PATH,
 };
 use snafu::{ResultExt, Snafu};
-use std::process::Command;
 use std::{
     fs::File,
     net::{AddrParseError, Ipv4Addr},
     os::unix::{io::IntoRawFd, prelude::AsRawFd},
     path::Path,
+    process::Command,
 };
 use tracing::{error, info};
 

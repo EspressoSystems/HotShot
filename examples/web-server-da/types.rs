@@ -1,21 +1,18 @@
 use crate::infra_da::WebServerDARun;
-use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
     demos::sdemo::SDemoTypes,
-    traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
-};
-use hotshot_types::message::Message;
-use hotshot_types::traits::{
-    election::{CommitteeExchange, QuorumExchange},
-    node_implementation::{NodeImplementation, SequencingExchanges},
+    traits::{
+        election::static_committee::GeneralStaticCommittee,
+        implementations::{MemoryStorage, WebCommChannel},
+    },
 };
 use hotshot_types::{
     certificate::ViewSyncCertificate,
     data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
-    message::SequencingMessage,
+    message::{Message, SequencingMessage},
     traits::{
-        election::ViewSyncExchange,
-        node_implementation::{ChannelMaps, NodeType},
+        election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
+        node_implementation::{ChannelMaps, NodeImplementation, NodeType, SequencingExchanges},
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
 };

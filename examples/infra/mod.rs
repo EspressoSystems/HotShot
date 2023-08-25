@@ -3,8 +3,7 @@ use hotshot_orchestrator::{
     self,
     config::{NetworkConfig, NetworkConfigFile},
 };
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -13,8 +12,7 @@ use libp2p::{
     multiaddr::{self},
     Multiaddr,
 };
-use std::{fmt::Debug, fs};
-use std::{net::IpAddr, str::FromStr};
+use std::{fmt::Debug, fs, net::IpAddr, str::FromStr};
 
 // ORCHESTRATOR
 

@@ -302,7 +302,7 @@ impl<O> Stream for GeneratedStream<O> {
             }
             None => {
                 let wrapped_fut = (*projection.generator)();
-                let Some( mut fut )=  wrapped_fut else {
+                let Some(mut fut) = wrapped_fut else {
                     return Poll::Ready(None);
                 };
                 match fut.as_mut().poll(cx) {
@@ -370,8 +370,7 @@ pub mod test {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_stream_fancy() {
         use async_compatibility_layer::art::async_sleep;
-        use std::sync::atomic::Ordering;
-        use std::time::Duration;
+        use std::{sync::atomic::Ordering, time::Duration};
 
         let value = Arc::<std::sync::atomic::AtomicU8>::default();
         let mut stream = GeneratedStream::<u32> {

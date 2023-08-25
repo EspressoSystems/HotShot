@@ -12,8 +12,10 @@ use tokio_stream::StreamExt;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::channel::oneshot;
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::oneshot,
+};
 use clap::{Args, Parser};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -27,9 +29,9 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use std::fmt::Debug;
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     str::FromStr,
     sync::Arc,
     time::{Duration, SystemTime},

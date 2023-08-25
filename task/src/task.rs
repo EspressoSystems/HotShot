@@ -1,20 +1,22 @@
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::{
+    fmt::{Debug, Formatter},
+    ops::Deref,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use async_compatibility_layer::art::async_yield_now;
 use either::Either::{self, Left, Right};
-use futures::{future::BoxFuture, stream::Fuse, Stream};
-use futures::{Future, FutureExt, StreamExt};
+use futures::{future::BoxFuture, stream::Fuse, Future, FutureExt, Stream, StreamExt};
 use pin_project::pin_project;
 use std::sync::Arc;
 
-use crate::event_stream::{SendableStream, StreamId};
-use crate::global_registry::{GlobalRegistry, HotShotTaskId};
-use crate::task_impls::TaskBuilder;
-use crate::task_state::TaskStatus;
-use crate::{event_stream::EventStream, global_registry::ShutdownFn, task_state::TaskState};
+use crate::{
+    event_stream::{EventStream, SendableStream, StreamId},
+    global_registry::{GlobalRegistry, HotShotTaskId, ShutdownFn},
+    task_impls::TaskBuilder,
+    task_state::{TaskState, TaskStatus},
+};
 
 /// restrictions on types we wish to pass around.
 /// Includes messages and events

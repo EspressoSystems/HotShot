@@ -1,22 +1,25 @@
 use commit::Committable;
 use either::Right;
-use hotshot::tasks::add_consensus_task;
-use hotshot::types::SignatureKey;
-use hotshot::types::SystemContextHandle;
-use hotshot::HotShotSequencingConsensusApi;
+use hotshot::{
+    tasks::add_consensus_task,
+    types::{SignatureKey, SystemContextHandle},
+    HotShotSequencingConsensusApi,
+};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_testing::node_types::SequencingMemoryImpl;
-use hotshot_testing::node_types::SequencingTestTypes;
-use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
-use hotshot_types::data::QuorumProposal;
-use hotshot_types::data::SequencingLeaf;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::message::GeneralConsensusMessage;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::{election::ConsensusExchange, state::ConsensusTime};
+use hotshot_testing::{
+    node_types::{SequencingMemoryImpl, SequencingTestTypes},
+    task_helpers::{build_quorum_proposal, key_pair_for_id},
+};
+use hotshot_types::{
+    data::{QuorumProposal, SequencingLeaf, ViewNumber},
+    message::GeneralConsensusMessage,
+    traits::{
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        node_implementation::ExchangesType,
+        state::ConsensusTime,
+    },
+};
 
 use std::collections::HashMap;
 
@@ -41,9 +44,7 @@ async fn build_vote(
             panic!("Couldn't find genesis view in state map.");
         };
         let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            panic!(
-                "Genesis view points to a view without a leaf"
-            );
+            panic!("Genesis view points to a view without a leaf");
         };
         let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
             panic!("Failed to find genesis leaf.");

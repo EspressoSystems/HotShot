@@ -9,15 +9,15 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::{
+    message::SequencingMessage,
+    traits::node_implementation::{NodeImplementation, NodeType},
+};
 use rand::thread_rng;
 use snafu::Snafu;
 use std::{sync::Arc, time::Duration};
 
-use super::test_launcher::TaskGenerator;
-use super::GlobalTestEvent;
+use super::{test_launcher::TaskGenerator, GlobalTestEvent};
 
 // the obvious idea here is to pass in a "stream" that completes every `n` seconds
 // the stream construction can definitely be fancier but that's the baseline idea

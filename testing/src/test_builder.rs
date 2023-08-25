@@ -1,18 +1,20 @@
 use hotshot::types::SignatureKey;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
 
-use hotshot_types::traits::node_implementation::{NodeType, QuorumEx, TestableExchange};
-use hotshot_types::{ExecutionType, HotShotConfig};
+use hotshot_types::{
+    traits::node_implementation::{NodeType, QuorumEx, TestableExchange},
+    ExecutionType, HotShotConfig,
+};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use crate::spinning_task::SpinningTaskDescription;
-use crate::test_launcher::{ResourceGenerators, TestLauncher};
+use crate::{
+    spinning_task::SpinningTaskDescription,
+    test_launcher::{ResourceGenerators, TestLauncher},
+};
 
 use super::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,

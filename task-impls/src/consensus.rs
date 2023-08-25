@@ -1,62 +1,49 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
-use async_lock::RwLock;
-use async_lock::RwLockUpgradableReadGuard;
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    async_primitives::subscribable_rwlock::ReadView,
+};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use bincode::Options;
 use bitvec::prelude::*;
 use commit::Committable;
 use core::time::Duration;
-use either::Either;
-use either::Left;
-use either::Right;
+use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::utils::Terminator;
-use hotshot_consensus::utils::ViewInner;
-use hotshot_consensus::Consensus;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::View;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
-use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TS};
-use hotshot_task::task_impls::HSTWithEvent;
-use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::data::LeafType;
-use hotshot_types::data::ProposalType;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::event::{Event, EventType};
-use hotshot_types::message::Message;
-use hotshot_types::message::Proposal;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::traits::Block;
-use hotshot_types::vote::VoteType;
+use hotshot_consensus::{
+    utils::{Terminator, ViewInner},
+    Consensus, SequencingConsensusApi, View,
+};
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
+};
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, SequencingLeaf},
-    message::{GeneralConsensusMessage, SequencingMessage},
+    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber},
+    event::{Event, EventType},
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        network::{CommunicationChannel, ConsensusIntentEvent},
+        node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
+        state::ConsensusTime,
+        Block,
     },
-    vote::{QuorumVote, VoteAccumulator},
+    vote::{QuorumVote, VoteAccumulator, VoteType},
 };
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument};
@@ -352,7 +339,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return false;
                         };
                         let parent_commitment = parent.commit();
@@ -418,7 +408,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return false;
                         };
                         let parent_commitment = parent.commit();
@@ -592,7 +585,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return;
                         };
                         let parent_commitment = parent.commit();

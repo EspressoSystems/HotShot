@@ -3,39 +3,44 @@
 // Needed to avoid the non-biding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
 
-use super::node_implementation::{NodeImplementation, NodeType};
-use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::VoteMetaData;
-use crate::certificate::{AssembledSignature, ViewSyncCertificate};
-use crate::certificate::{DACertificate, QuorumCertificate};
-use crate::data::DAProposal;
-use crate::data::ProposalType;
+use super::{
+    node_implementation::{NodeImplementation, NodeType},
+    signature_key::{EncodedPublicKey, EncodedSignature},
+};
+use crate::{
+    certificate::{
+        AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, VoteMetaData,
+    },
+    data::{DAProposal, ProposalType},
+};
 
-use crate::message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message};
-use crate::vote::ViewSyncVoteInternal;
+use crate::{
+    message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message},
+    vote::ViewSyncVoteInternal,
+};
 
-use crate::traits::network::CommunicationChannel;
-use crate::traits::network::NetworkMsg;
-use crate::traits::{node_implementation::ExchangesType, state::ConsensusTime};
-use crate::vote::ViewSyncData;
-use crate::vote::ViewSyncVote;
-use crate::vote::VoteAccumulator;
-use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-use crate::{data::LeafType, traits::signature_key::SignatureKey};
+use crate::{
+    data::LeafType,
+    traits::{
+        network::{CommunicationChannel, NetworkMsg},
+        node_implementation::ExchangesType,
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{
+        Accumulator, DAVote, QuorumVote, TimeoutVote, ViewSyncData, ViewSyncVote, VoteAccumulator,
+        VoteType, YesOrNoVote,
+    },
+};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use ethereum_types::U256;
 use hotshot_utils::bincode::bincode_opts;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::collections::BTreeSet;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 use tracing::error;
 
 /// Error for election problems
