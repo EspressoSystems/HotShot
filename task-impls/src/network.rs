@@ -190,7 +190,7 @@ impl<
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (sender, message_kind, transmit_type, recipient) = match event {
+        let (sender, message_kind, transmit_type, recipient) = match event.clone() {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
@@ -255,7 +255,6 @@ impl<
                 )
             }
             SequencingHotShotEvent::ViewChange(view) => {
-                // only if view actually changes
                 self.view = view;
                 return None;
             }

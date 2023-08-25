@@ -257,7 +257,8 @@ where
             NoMetrics::boxed(),
         )
         .await
-        .expect("Could not init hotshot");
+        .expect("Could not init hotshot")
+        .0;
         self.nodes.push(Node { handle, node_id });
         node_id
     }

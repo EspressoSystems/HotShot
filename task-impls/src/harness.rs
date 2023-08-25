@@ -38,12 +38,15 @@ pub type TestHarnessTaskTypes<TYPES, I> = HSTWithEvent<
 /// Runs a test by building the task using `build_fn` and then passing it the `input` events
 /// and testing the make sure all of the `expected_output` events are seen
 ///
+/// `event_stream` - if given, will be used to register the task builder.
+///
 /// # Panics
 /// Panics if any state the test expects is not set. Panicing causes a test failure
 #[allow(clippy::implicit_hasher)]
 pub async fn run_harness<TYPES, I, Fut>(
     input: Vec<SequencingHotShotEvent<TYPES, I>>,
     expected_output: HashMap<SequencingHotShotEvent<TYPES, I>, usize>,
+    event_stream: Option<ChannelStream<SequencingHotShotEvent<TYPES, I>>>,
     build_fn: impl FnOnce(TaskRunner, ChannelStream<SequencingHotShotEvent<TYPES, I>>) -> Fut,
 ) where
     TYPES: NodeType,
@@ -52,7 +55,7 @@ pub async fn run_harness<TYPES, I, Fut>(
 {
     let task_runner = TaskRunner::new();
     let registry = task_runner.registry.clone();
-    let event_stream = event_stream::ChannelStream::new();
+    let event_stream = event_stream.unwrap_or(event_stream::ChannelStream::new());
     let state = TestHarnessState { expected_output };
     let handler = HandleEvent(Arc::new(move |event, state| {
         async move { handle_event(event, state) }.boxed()
@@ -78,6 +81,7 @@ pub async fn run_harness<TYPES, I, Fut>(
     for event in input {
         let _ = event_stream.publish(event).await;
     }
+
     let _ = runner.await;
 }
 
@@ -96,7 +100,7 @@ pub fn handle_event<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) {
     assert!(
         state.expected_output.contains_key(&event),
-        "Got and unexpected event: {event:?}",
+        "Got an unexpected event: {event:?}",
     );
     let num_expected = state.expected_output.get_mut(&event).unwrap();
     if *num_expected == 1 {
