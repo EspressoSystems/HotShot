@@ -3,12 +3,12 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Serializatio
 use bitvec::prelude::*;
 use espresso_systems_common::hotshot::tag;
 use ethereum_types::U256;
-use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, hash::Hash};
-use tagged_base64::tagged;
 use jf_primitives::signatures::{
     bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
 };
+use serde::{Deserialize, Serialize};
+use std::{fmt::Debug, hash::Hash};
+use tagged_base64::tagged;
 
 /// Type saftey wrapper for byte encoded keys
 #[tagged(tag::ENCODED_PUB_KEY)]
