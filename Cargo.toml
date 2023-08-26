@@ -20,7 +20,12 @@ repository = "https://github.com/EspressoSystems/HotShot"
 default = ["demo", "docs", "doc-images"]
 
 # Enable demo/testing logic
-demo = ["hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
+demo = [
+        "hotshot-types/demo",
+        "hotshot-signature-key/demo",
+        "libp2p/rsa",
+        "dep:derivative",
+]
 
 # Features required for binaries
 bin-orchestrator = ["clap"]
