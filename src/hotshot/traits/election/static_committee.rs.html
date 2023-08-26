@@ -189,15 +189,17 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
+<span class="kw">use </span>hotshot_signature_key::bn254::BN254Pub;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     traits::{
         election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
-        signature_key::{bn254::BN254Pub, EncodedSignature, SignatureKey},
+        signature_key::{EncodedSignature, SignatureKey},
     },
 };
 <span class="attr">#[allow(deprecated)]

@@ -400,6 +400,7 @@
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
+<span class="kw">use </span>hotshot_signature_key::bn254::BN254Pub;
 <span class="kw">use </span>hotshot_types::{
     certificate::{AssembledSignature, QuorumCertificate},
     constants::genesis_proposer_id,
@@ -408,7 +409,6 @@
         block_contents::Transaction,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
