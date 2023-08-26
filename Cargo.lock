@@ -1527,11 +1527,11 @@ dependencies = [
 
 [[package]]
 name = "crypto_kx"
-version = "0.2.0-pre"
-source = "git+https://github.com/RustCrypto/nacl-compat.git?rev=2965bc2a#2965bc2a8487d600d4032d5c5220820a0c54e20a"
+version = "0.2.0-pre.0"
+source = "git+https://github.com/RustCrypto/nacl-compat.git?rev=0720179#0720179f1e676edb607ef3bd69f7cf9c8ab8ccb5"
 dependencies = [
  "blake2",
- "curve25519-dalek 4.0.0-rc.1",
+ "curve25519-dalek 4.0.0",
  "getrandom 0.2.10",
  "rand_core 0.6.4",
  "serdect",
@@ -1618,16 +1618,29 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "4.0.0-rc.1"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d4ba9852b42210c7538b75484f9daa0655e9a3ac04f693747bb0f02cf3cfe16"
+checksum = "f711ade317dd348950a9910f81c5947e3d8907ebd2b83f76203ff1807e6a2bc2"
 dependencies = [
  "cfg-if",
+ "cpufeatures",
+ "curve25519-dalek-derive",
  "fiat-crypto",
- "packed_simd_2",
  "platforms",
+ "rustc_version 0.4.0",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83fdaf97f4804dcebfa5862639bc9ce4121e82140bec2a987ac5140294865b5b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.28",
 ]
 
 [[package]]
@@ -3368,7 +3381,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#61276c0166604e1912c1a8f4bd127c74da25482e"
+source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3388,7 +3401,6 @@ dependencies = [
  "blst",
  "chacha20poly1305 0.10.1",
  "crypto_kx",
- "curve25519-dalek 4.0.0-rc.1",
  "derivative",
  "digest 0.10.7",
  "displaydoc",
@@ -3414,7 +3426,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#61276c0166604e1912c1a8f4bd127c74da25482e"
+source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3440,7 +3452,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?branch=hotshot-compat#61276c0166604e1912c1a8f4bd127c74da25482e"
+source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3502,12 +3514,6 @@ name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
-
-[[package]]
-name = "libm"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
 
 [[package]]
 name = "libnghttp2-sys"
@@ -5006,16 +5012,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
-name = "packed_simd_2"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
-dependencies = [
- "cfg-if",
- "libm",
-]
-
-[[package]]
 name = "parity-scale-codec"
 version = "3.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6392,14 +6388,14 @@ dependencies = [
 
 [[package]]
 name = "snow"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ccba027ba85743e09d15c03296797cad56395089b832b48b5a5217880f57733"
+checksum = "0c9d1425eb528a21de2755c75af4c9b5d57f50a0d4c3b7f1828a4cd03f8ba155"
 dependencies = [
  "aes-gcm 0.9.2",
  "blake2",
  "chacha20poly1305 0.9.1",
- "curve25519-dalek 4.0.0-rc.1",
+ "curve25519-dalek 4.0.0",
  "rand_core 0.6.4",
  "ring",
  "rustc_version 0.4.0",

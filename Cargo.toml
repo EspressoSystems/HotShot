@@ -307,7 +307,9 @@ either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat' } # rev = "470a833" for branch = 'hotshot-compat'
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
 libp2p = { version = "0.52.2", default-features = false }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
