@@ -1,5 +1,5 @@
 //! Demonstration implementation of the [`SignatureKey`] trait using BN254
-use super::{EncodedPublicKey, EncodedSignature, SignatureKey};
+use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey};
 /// `BN254Priv` implementation
 mod bn254_priv;
 /// `BN254Pub` implementation

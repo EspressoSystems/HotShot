@@ -20,7 +20,12 @@ repository = "https://github.com/EspressoSystems/HotShot"
 default = ["demo", "docs", "doc-images"]
 
 # Enable demo/testing logic
-demo = ["hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
+demo = [
+        "hotshot-types/demo",
+        "hotshot-signature-key/demo",
+        "libp2p/rsa",
+        "dep:derivative",
+]
 
 # Features required for binaries
 bin-orchestrator = ["clap"]
@@ -158,6 +163,7 @@ futures = { workspace = true }
 hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
+hotshot-signature-key = { path = "./crates/hotshot-signature-key" }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
@@ -273,6 +279,7 @@ members = [
         "task",
         "task-impls",
         "crates/hotshot-qc",
+        "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
 ]
 
@@ -300,7 +307,6 @@ either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
-hotshot-primitives = { git = "https://github.com/EspressoSystems/hotshot-primitives", branch = 'hotshot-compat' } # rev = "4aee90c" for 'hotshot-compat'
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", branch = 'hotshot-compat' } # rev = "470a833" for branch = 'hotshot-compat'
 libp2p = { version = "0.52.2", default-features = false }
 libp2p-identity = "0.2"

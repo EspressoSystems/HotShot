@@ -2608,6 +2608,7 @@ dependencies = [
  "futures",
  "hotshot-consensus",
  "hotshot-orchestrator",
+ "hotshot-signature-key",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -2646,7 +2647,6 @@ dependencies = [
  "derivative",
  "either",
  "futures",
- "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
@@ -2685,38 +2685,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-primitives"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-primitives?branch=hotshot-compat#bf859a899f2c9a8590a85e5e4e1f0216afb43a2b"
-dependencies = [
- "anyhow",
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-pallas",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "bincode",
- "bitvec",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "ethereum-types",
- "generic-array",
- "jf-primitives",
- "jf-relation",
- "jf-utils",
- "serde",
- "sha3",
- "tagged-base64 0.3.0",
- "thiserror",
- "typenum",
-]
-
-[[package]]
 name = "hotshot-qc"
 version = "0.3.3"
 dependencies = [
@@ -2739,6 +2707,26 @@ dependencies = [
  "jf-relation",
  "jf-utils",
  "serde",
+ "typenum",
+]
+
+[[package]]
+name = "hotshot-signature-key"
+version = "0.3.3"
+dependencies = [
+ "bincode",
+ "bitvec",
+ "blake3",
+ "custom_debug",
+ "ethereum-types",
+ "hotshot-qc",
+ "hotshot-types",
+ "hotshot-utils",
+ "jf-primitives",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "tracing",
  "typenum",
 ]
 
@@ -2832,7 +2820,6 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-consensus",
- "hotshot-primitives",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -2874,7 +2861,6 @@ dependencies = [
  "futures",
  "generic-array",
  "hex_fmt",
- "hotshot-primitives",
  "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
@@ -2911,7 +2897,6 @@ dependencies = [
  "bincode",
  "clap",
  "futures",
- "hotshot-primitives",
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
