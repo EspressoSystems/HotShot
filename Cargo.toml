@@ -1,12 +1,3 @@
-[package]
-authors = ["Espresso Systems <hello@espressosys.com>"]
-description = "HotShot consesus module"
-edition = "2021"
-name = "hotshot"
-readme = "README.md"
-version = "0.3.3"
-rust-version = "1.65.0"
-
 [workspace.package]
 version = "0.3.3"                                         # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
@@ -16,173 +7,23 @@ homepage = "https://github.com/EspressoSystems/HotShot"
 documentation = "https://hotshot.docs.espressosys.com"
 repository = "https://github.com/EspressoSystems/HotShot"
 
-[features]
-default = ["demo", "docs", "doc-images"]
-
-# Enable demo/testing logic
-demo = [
-        "hotshot-types/demo",
-        "libp2p/rsa",
-        "dep:derivative",
-]
-
-# Features required for binaries
-bin-orchestrator = ["clap"]
-
-# Build the extended documentation
-docs = []
-doc-images = []
-hotshot-testing = []
-
-# [[example]]
-# name = "libp2p-validator"
-# required-features = ["demo", "libp2p/rsa"]
-# path = "examples/libp2p/validator.rs"
-#
-# [[example]]
-# name = "libp2p-orchestrator"
-# required-features = ["demo", "libp2p/rsa"]
-# path = "examples/libp2p/orchestrator.rs"
-#
-# [[example]]
-# name = "web-server-orchestrator"
-# required-features = ["demo", "libp2p/rsa"]
-# path = "examples/web-server/orchestrator.rs"
-#
-# [[example]]
-# name = "web-server-validator"
-# required-features = ["demo", "libp2p/rsa"]
-# path = "examples/web-server/validator.rs"
-
-[[example]]
-name = "web-server"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/web-server.rs"
-
-[[example]]
-name = "web-server-da-orchestrator"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/orchestrator.rs"
-
-[[example]]
-name = "web-server-da-validator"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/validator.rs"
-
-[[example]]
-name = "multi-validator"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/multi-validator.rs"
-
-[[example]]
-name = "multi-web-server"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/web-server-da/multi-web-server.rs"
-
-[dependencies]
-# TODO ED We should upgrade ark libraries to 0.4
-async-compatibility-layer = { workspace = true }
-async-lock = { workspace = true }
-async-trait = { workspace = true }
-bimap = "0.6.3"
-bincode = { workspace = true }
-bitvec = { workspace = true }
-clap = { version = "4.4", features = ["derive", "env"], optional = true }
-commit = { workspace = true }
-custom_debug = { workspace = true }
-dashmap = "5.5.3"
-derivative = { version = "2.2.0", optional = true }
-either = { workspace = true }
-embed-doc-image = "0.1.4"
-espresso-systems-common = { workspace = true }
-ethereum-types = { workspace = true }
-futures = { workspace = true }
-hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
-hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
-hotshot-signature-key = { path = "./crates/hotshot-signature-key" }
-hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
-hotshot-utils = { path = "./utils" }
-hotshot-task = { path = "./task", version = "0.1.0", default-features = false }
-hotshot-task-impls = { path = "./task-impls", version = "0.1.0", default-features = false }
-libp2p = { workspace = true }
-libp2p-identity = { workspace = true }
-libp2p-networking = { workspace = true }
-nll = { workspace = true }
-rand = { workspace = true }
-rand_chacha = { workspace = true }
-serde = { workspace = true, features = ["rc"] }
-snafu = { workspace = true }
-surf-disco = { workspace = true }
-time = { workspace = true }
-
-tracing = { workspace = true }
-typenum = { workspace = true }
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
-tokio = { workspace = true }
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }
-
-[dev-dependencies]
-blake3 = { workspace = true }
-clap = { version = "4.4", features = ["derive", "env"] }
-serde_json = "1.0.105"
-toml = { workspace = true }
-
-### Profiles
-###
-### Note: these only apply to example executables or tests built from within this crate. They have
-### no effect on crates that depend on this crate.
-
-## Apply some optimizations to test dependencies in debug/test builds
-
-# Generally optimize dependencies a little
-[profile.dev.package."*"]
-opt-level = 1
-
-[package.metadata.docs.rs]
-# docs.rs uses a nightly compiler, so by instructing it to use our `doc-images` feature we
-# ensure that it will render any images that we may have in inner attribute documentation.
-features = ["doc-images"]
-
-# The default release profile without LTO.
-[profile.release]
-debug = 1
-# Disable LTO to decrease the linking time.
-lto = "off"
-incremental = true
-
-# The release profile with LTO.
-# CI uses this profile. To run it locally, add `--profile=release-lto` to `cargo build` or `cargo
-# test`.
-[profile.release-lto]
-inherits = "release"
-# Enable "thin" LTO to optimize performance.
-lto = "thin"
-
-## LTO doesn't work with careful
-## explicitly specifying features in case releases features change
-[profile.careful]
-debug = 1
-inherits = "release"
-lto = "off"
-incremental = true
-
 ### Workspace
 
 # The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 members = [
-        "libp2p-networking",
-        "testing",
-        "types",
-        "utils",
+        "crates/libp2p-networking",
+        "crates/testing",
+        "crates/types",
+        "crates/utils",
         # "testing-macros",
-        "task",
-        "task-impls",
+        "crates/task",
+        "crates/task-impls",
         "crates/hotshot-qc",
         "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
+        "crates/hotshot"
 ]
 
 [workspace.dependencies]
@@ -213,7 +54,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
 libp2p-identity = "0.2"
-libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
+libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
@@ -266,3 +107,43 @@ tokio = { version = "1.32.0", features = [
   "time",
   "tracing",
 ] }
+
+### Profiles
+###
+### Note: these only apply to example executables or tests built from within this crate. They have
+### no effect on crates that depend on this crate.
+
+## Apply some optimizations to test dependencies in debug/test builds
+
+# Generally optimize dependencies a little
+[profile.dev.package."*"]
+opt-level = 1
+
+[metadata.docs.rs]
+# docs.rs uses a nightly compiler, so by instructing it to use our `doc-images` feature we
+# ensure that it will render any images that we may have in inner attribute documentation.
+features = ["doc-images"]
+
+# The default release profile without LTO.
+[profile.release]
+debug = 1
+# Disable LTO to decrease the linking time.
+lto = "off"
+incremental = true
+
+# The release profile with LTO.
+# CI uses this profile. To run it locally, add `--profile=release-lto` to `cargo build` or `cargo
+# test`.
+[profile.release-lto]
+inherits = "release"
+# Enable "thin" LTO to optimize performance.
+lto = "thin"
+
+## LTO doesn't work with careful
+## explicitly specifying features in case releases features change
+[profile.careful]
+debug = 1
+inherits = "release"
+lto = "off"
+incremental = true
+
