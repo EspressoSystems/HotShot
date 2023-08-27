@@ -1,12 +1,16 @@
 [package]
-name = "hotshot-testing-macros"
+name = "hotshot-testing"
 version = "0.1.0"
 edition = "2021"
-description = "Macros for creating hotshot tests"
+description = "Types and traits for the HotShot consesus module"
+authors = ["Espresso Systems <hello@espressosys.com>"]
 
 [features]
 default = ["demo"]
 demo = ["hotshot/demo"]
+
+# NOTE this is used to activate the slow tests we don't wish to run in CI
+slow-tests = []
 
 [dependencies]
 ark-bls12-381 = { workspace = true }
@@ -18,27 +22,26 @@ blake3 = { workspace = true, features = ["traits-preview"] }
 commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
-hotshot = { path = "../hotshot", default-features = false }
+hotshot = { path = "../hotshot", features = [
+  "hotshot-testing",
+], default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
-hotshot-testing = { path = "../testing", default-features = false }
+hotshot-utils = { path = "../utils" }
+hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
 jf-primitives = { workspace = true }
-nll = { workspace = true }
 rand = { workspace = true }
+rand_chacha = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
+nll = { workspace = true }
 serde = { workspace = true }
-# proc macro stuff
-quote = "1.0.32"
-syn = { version = "2.0.26", features = ["full", "extra-traits"] }
-proc-macro2 = "1.0.66"
-derive_builder = "0.12.0"
+ethereum-types = { workspace = true }
+bitvec = { workspace = true }
 
 [dev-dependencies]
 async-lock = { workspace = true }
-
-[lib]
-proc-macro = true
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
