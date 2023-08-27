@@ -14,13 +14,6 @@ jobs:
   lints:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    strategy:
-      matrix:
-        features:
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std,slow-tests"
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio,slow-tests"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds
@@ -44,4 +37,5 @@ jobs:
 
       - name: Clippy
         run: |
-          cargo clippy --workspace --all-targets --no-default-features --features "${{ matrix.features }}" --bins --tests --examples -- -D warnings
+          just async_std lint
+          just tokio lint

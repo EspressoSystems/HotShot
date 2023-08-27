@@ -39,14 +39,14 @@ jobs:
         run: cargo audit --ignore RUSTSEC-2021-0139
 
       - name: Check
-        run: cargo check --features=full-ci --workspace
+        run: just async_std check
 
       - name: Build all crates in workspace
-        run: cargo build --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --examples
+        run: just async_std build
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
+          just async_std test
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
