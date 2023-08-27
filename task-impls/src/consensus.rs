@@ -4,7 +4,7 @@ use async_compatibility_layer::{
     async_primitives::subscribable_rwlock::ReadView,
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use bincode::Options;
 use bitvec::prelude::*;
@@ -44,7 +44,7 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument};
 

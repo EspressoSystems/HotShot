@@ -38,16 +38,16 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::DnsConfig;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use libp2p::dns::TokioDnsConfig as DnsConfig;
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use tcp::async_io::Transport as TcpTransport;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tcp::tokio::Transport as TcpTransport;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
@@ -209,16 +209,16 @@ pub async fn gen_transport(
     let transport = async move {
         let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::Config::new().nodelay(true)));
 
-        #[cfg(feature = "async-std-executor")]
+        #[cfg(async_executor_impl = "async-std")]
         return dns_tcp
             .await
             .map_err(|e| NetworkError::TransportLaunch { source: e });
 
-        #[cfg(feature = "tokio-executor")]
+        #[cfg(async_executor_impl = "tokio")]
         return dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
 
-        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+        #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+        compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
     }
     .await?;
 

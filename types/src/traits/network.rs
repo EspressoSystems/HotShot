@@ -2,14 +2,14 @@
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
 use hotshot_task::BoxSyncFuture;
 use libp2p_networking::network::NetworkNodeHandleError;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
