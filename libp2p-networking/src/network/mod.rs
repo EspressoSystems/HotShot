@@ -37,16 +37,16 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::DnsConfig;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use libp2p::dns::TokioDnsConfig as DnsConfig;
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use quic::async_std::Transport as QuicTransport;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use quic::tokio::Transport as QuicTransport;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
@@ -209,12 +209,12 @@ pub async fn gen_transport(
     };
 
     let dns_quic = {
-        #[cfg(feature = "async-std-executor")]
+        #[cfg(async_executor_impl = "async-std")]
         {
             DnsConfig::system(quic_transport).await
         }
 
-        #[cfg(feature = "tokio-executor")]
+        #[cfg(async_executor_impl = "tokio")]
         {
             DnsConfig::system(quic_transport)
         }

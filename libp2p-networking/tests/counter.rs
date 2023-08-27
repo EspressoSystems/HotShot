@@ -14,12 +14,12 @@ use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tracing::{error, info, instrument, warn};
 
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use async_std::prelude::StreamExt;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tokio_stream::StreamExt;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 pub type CounterState = u32;
 
@@ -129,16 +129,16 @@ async fn run_request_response_increment<'a>(
         let new_state = requestee_handle.state().await;
 
         // set up state change listener
-        #[cfg(feature = "async-std-executor")]
+        #[cfg(async_executor_impl = "async-std")]
         let mut stream = requester_handle
             .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-        #[cfg(feature = "tokio-executor")]
+        #[cfg(async_executor_impl = "tokio")]
         let mut stream = Box::pin(
             requester_handle
                 .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state),
         );
-        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+        #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+        compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
         let requestee_pid = requestee_handle.peer_id();
 
@@ -190,12 +190,12 @@ async fn run_gossip_round(
         }
     }
 
-    #[cfg(feature = "async-std-executor")]
+    #[cfg(async_executor_impl = "async-std")]
     let mut merged_streams = futures::stream::select_all(futs);
-    #[cfg(feature = "tokio-executor")]
+    #[cfg(async_executor_impl = "tokio")]
     let mut merged_streams = Box::pin(futures::stream::select_all(futs));
-    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+    #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+    compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
     // make sure all are ready/listening
     for i in 0..len - 1 {

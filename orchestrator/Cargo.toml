@@ -3,64 +3,15 @@ name = "hotshot-orchestrator"
 version = "0.1.1"
 edition = "2021"
 
-[features]
-default = []
-full-ci = ["async-std-executor", "channel-async-std"]
-tokio-ci = ["tokio-executor", "channel-tokio"]
-async-std-executor = [
-    "dep:async-std",
-    "hotshot-types/async-std-executor",
-    "async-compatibility-layer/async-std-executor",
-]
-tokio-executor = [
-    "dep:tokio",
-    "hotshot-types/tokio-executor",
-    "async-compatibility-layer/tokio-executor",
-]
-profiling = ["async-compatibility-layer/profiling"]
-channel-flume = [
-    "hotshot-types/channel-flume",
-    "async-compatibility-layer/channel-flume",
-]
-channel-tokio = [
-    "hotshot-types/channel-tokio",
-    "async-compatibility-layer/channel-tokio",
-]
-channel-async-std = [
-    "hotshot-types/channel-async-std",
-    "async-compatibility-layer/channel-async-std",
-]
-
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-std = { version = "1.12", optional = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
 futures = { workspace = true }
 libp2p-core = { version = "0.40.0", default-features = false }
-libp2p = { workspace = true, features = [
-    "macros",
-    "autonat",
-    "deflate",
-    "floodsub",
-    "identify",
-    "kad",
-    "gossipsub",
-    "ping",
-    "plaintext",
-    "pnet",
-    "relay",
-    "request-response",
-    "rendezvous",
-    "secp256k1",
-    "serde",
-    "uds",
-    "wasm-ext",
-    "websocket",
-    "yamux",
-] }
+libp2p = { workspace = true }
 blake3 = { workspace = true, features = ["traits-preview"] }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
@@ -68,23 +19,13 @@ libp2p-networking = { workspace = true }
 nll = { workspace = true }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 surf-disco = { workspace = true }
-tokio = { version = "1", optional = true, features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "process",
-    "rt",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing",
-] }
 tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = "1.0.96"
 snafu = { workspace = true }
 toml = "0.5.9" # TODO GG upgrade to toml = { workspace = true }
+
+[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+tokio = { workspace = true }
+[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
+async-std = { workspace = true }

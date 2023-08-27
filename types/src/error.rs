@@ -7,12 +7,12 @@ use crate::traits::{node_implementation::NodeType, storage::StorageError};
 use snafu::Snafu;
 use std::num::NonZeroU64;
 
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// Error type for `HotShot`
 #[derive(Snafu, Debug)]

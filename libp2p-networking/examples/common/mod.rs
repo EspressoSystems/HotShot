@@ -5,12 +5,12 @@ pub mod web;
 pub mod lossy_network;
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-#[cfg(feature = "async-std-executor")]
+#[cfg(async_executor_impl = "async-std")]
 use async_std::prelude::StreamExt;
-#[cfg(feature = "tokio-executor")]
+#[cfg(async_executor_impl = "tokio")]
 use tokio_stream::StreamExt;
-#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
+compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},

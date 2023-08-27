@@ -8,41 +8,24 @@ authors = ["Espresso Systems <hello@espressosys.com>"]
 
 
 [features]
-default = []
-full-ci = ["async-std-executor", "lossy_network", "webui", "channel-async-std"]
-tokio-ci = ["tokio-executor", "lossy_network", "webui"]
+default = ["webui"]
 webui = ["tide"]
 
-# this only has effect on linux
-lossy_network = [
-    "nix",
-    "netlink-packet-route",
-    "netlink-packet-utils",
-    "netlink-packet-core",
-    "netlink-proto",
-    "netlink-sys",
-    "netlink-packet-generic",
-    "rtnetlink",
-]
-async-std-executor = [
-    "dep:async-std",
-    "async-compatibility-layer/async-std-executor",
-    "libp2p/async-std",
-]
-tokio-executor = [
-    "dep:tokio",
-    "async-compatibility-layer/tokio-executor",
-    "libp2p/tokio",
-]
-profiling = ["async-compatibility-layer/profiling"]
-channel-flume = ["async-compatibility-layer/channel-flume"]
-channel-tokio = ["async-compatibility-layer/channel-tokio"]
-channel-async-std = ["async-compatibility-layer/channel-async-std"]
+# # this only has effect on linux
+# lossy_network = [
+#     "nix",
+#     "netlink-packet-route",
+#     "netlink-packet-utils",
+#     "netlink-packet-core",
+#     "netlink-proto",
+#     "netlink-sys",
+#     "netlink-packet-generic",
+#     "rtnetlink",
+# ]
 
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-std = { version = "1.12.0", optional = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
@@ -54,55 +37,27 @@ futures = { workspace = true }
 hotshot-utils = { path = "../utils" }
 libp2p-swarm-derive = { workspace = true }
 libp2p-identity = { workspace = true }
-libp2p = { workspace = true, features = [
-    "macros",
-    "autonat",
-    "deflate",
-    "dns",
-    "floodsub",
-    "gossipsub",
-    "identify",
-    "kad",
-    "mdns",
-    "ping",
-    "plaintext",
-    "pnet",
-    "relay",
-    "request-response",
-    "rendezvous",
-    "secp256k1",
-    "serde",
-    "quic",
-    "uds",
-    "wasm-ext",
-    "websocket",
-    ] }
+libp2p-noise = { version = "0.43.0", default-features = false }
 parking_lot = "0.12.1"
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = "1.0.105"
 snafu = { workspace = true }
-tokio = { version = "1", optional = true, features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "process",
-    "rt",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing",
-] }
 tide = { version = "0.16", optional = true, default-features = false, features = [
     "h1-server",
 ] }
+# TODO do we want this as non optional??
 tokio-stream = "0.1.14"
 tracing = { workspace = true }
 void = "1.0.2"
+
+[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+libp2p = { workspace = true, features = ["tokio"] }
+tokio = { workspace = true }
+[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
+libp2p = { workspace = true, features = ["async-std"] }
+async-std = { workspace = true }
+
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies
@@ -120,6 +75,4 @@ netlink-sys = { git = "https://github.com/espressosystems/netlink.git", version 
 netlink-packet-generic = { git = "https://github.com/espressosystems/netlink.git", version = "0.2.0", optional = true }
 
 [dev-dependencies]
-#  TODO should this be here as a dev dep? at least should be optional ...
-async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.4", features = ["derive", "env"] }

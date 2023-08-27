@@ -6,49 +6,15 @@ description = "Types and traits for the HotShot consesus module"
 authors = ["Espresso Systems <hello@espressosys.com>"]
 
 [features]
-default = []
-full-ci = ["async-std-executor", "demo", "channel-async-std"]
-tokio-ci = ["tokio-executor", "demo", "channel-tokio"]
+default = ["demo"]
 demo = ["hotshot/demo"]
 
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
-profiling = ["async-compatibility-layer/profiling"]
-
-tokio-executor = [
-  "dep:tokio",
-  "hotshot/tokio-executor",
-  "hotshot-types/tokio-executor",
-  "async-compatibility-layer/tokio-executor",
-  "hotshot-task/tokio-executor",
-]
-async-std-executor = [
-  "dep:async-std",
-  "hotshot/async-std-executor",
-  "hotshot-types/async-std-executor",
-  "hotshot-task/async-std-executor",
-  "async-compatibility-layer/async-std-executor",
-]
-channel-flume = [
-  "hotshot-types/channel-flume",
-  "async-compatibility-layer/channel-flume",
-  "hotshot-task/channel-flume",
-]
-channel-tokio = [
-  "hotshot-types/channel-tokio",
-  "async-compatibility-layer/channel-tokio",
-  "hotshot-task/channel-tokio",
-]
-channel-async-std = [
-  "hotshot-types/channel-async-std",
-  "async-compatibility-layer/channel-async-std",
-  "hotshot-task/channel-async-std",
-]
 
 [dependencies]
 ark-bls12-381 = { workspace = true }
 async-compatibility-layer = { workspace = true }
-async-std = { version = "1.12.0", optional = true }
 async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
@@ -67,21 +33,6 @@ jf-primitives = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 snafu = { workspace = true }
-tokio = { version = "1", optional = true, features = [
-  "fs",
-  "io-util",
-  "io-std",
-  "macros",
-  "net",
-  "parking_lot",
-  "process",
-  "rt",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time",
-  "tracing",
-] }
 tracing = { workspace = true }
 nll = { workspace = true }
 serde = { workspace = true }
@@ -90,3 +41,8 @@ bitvec = { workspace = true }
 
 [dev-dependencies]
 async-lock = { workspace = true }
+
+[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+tokio = { workspace = true }
+[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
+async-std = { workspace = true }
