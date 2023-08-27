@@ -6,11 +6,11 @@ run_ci: lint build test
 
 @tokio target:
   echo setting executor to tokio
-  export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" ${RUST_FLAGS}'
+  export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" ${RUSTFLAGS:}'
 
 @async_std target *ARGS:
   echo setting executor to async-std
-  export RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"' && echo $RUST_FLAGS && just {{target}} {{ARGS}}
+  export RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"' && just {{target}} {{ARGS}}
 
 build:
   cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches
