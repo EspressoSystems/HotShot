@@ -1527,12 +1527,12 @@ dependencies = [
 
 [[package]]
 name = "crypto_kx"
-version = "0.2.0-pre.0"
-source = "git+https://github.com/RustCrypto/nacl-compat.git?rev=0720179#0720179f1e676edb607ef3bd69f7cf9c8ab8ccb5"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704722d1d929489c8528bb1882805700f1ba20f54325704973e786352320b1ed"
 dependencies = [
  "blake2",
  "curve25519-dalek 4.0.0",
- "getrandom 0.2.10",
  "rand_core 0.6.4",
  "serdect",
 ]
@@ -3381,7 +3381,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
+source = "git+https://github.com/EspressoSystems/jellyfish#ef404b72acc63179b56a08c99c0cc4c6604b6669"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3426,7 +3426,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
+source = "git+https://github.com/EspressoSystems/jellyfish#ef404b72acc63179b56a08c99c0cc4c6604b6669"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3452,7 +3452,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#1403e7687ae9318ff556cde335c5009ee5645da7"
+source = "git+https://github.com/EspressoSystems/jellyfish#ef404b72acc63179b56a08c99c0cc4c6604b6669"
 dependencies = [
  "ark-ec",
  "ark-ff",
