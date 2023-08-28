@@ -16,7 +16,7 @@ use bitvec::prelude::*;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{SequencingLeaf},
+    data::SequencingLeaf,
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         election::{ConsensusExchange, ViewSyncExchangeType},

@@ -62,9 +62,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
-    data::{
-        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf,
-    },
+    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,

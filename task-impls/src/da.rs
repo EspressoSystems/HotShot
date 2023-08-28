@@ -124,10 +124,7 @@ where
 }
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
-async fn vote_handle<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
->(
+async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>>(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
     event: SequencingHotShotEvent<TYPES, I>,
 ) -> (

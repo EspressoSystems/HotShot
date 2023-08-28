@@ -1,6 +1,6 @@
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal},
+    data::DAProposal,
     message::Proposal,
     traits::node_implementation::{
         NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
