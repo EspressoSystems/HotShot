@@ -10,7 +10,6 @@ use async_trait::async_trait;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
     traits::storage::{
         AtomicStoreSnafu, Storage, StorageError, StorageResult, StorageState, StorageUpdater,
         TestableStorage,
@@ -164,7 +163,7 @@ impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
     #[instrument(name = "AtomicStorage::get_qc_for_view", skip_all)]
     async fn get_qc_for_view(
         &self,
-        view: ViewNumber,
+        view: TYPES::Time,
     ) -> StorageResult<Option<QuorumCertificate<STATE>>> {
         Ok(self.inner.qcs.load_by_key_2(view).await)
     }

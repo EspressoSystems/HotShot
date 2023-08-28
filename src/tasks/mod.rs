@@ -27,7 +27,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     certificate::ViewSyncCertificate,
     constants::LOOK_AHEAD,
-    data::{ProposalType, QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{ProposalType, QuorumProposal, SequencingLeaf},
     event::Event,
     message::{Message, Messages, SequencingMessage},
     traits::{
@@ -273,7 +273,7 @@ where
     let network_state: NetworkEventTaskState<_, _, _, _, _, _> = NetworkEventTaskState {
         channel,
         event_stream: event_stream.clone(),
-        view: ViewNumber::genesis(),
+        view: TYPES::Time::genesis(),
         phantom: PhantomData,
     };
     let registry = task_runner.registry.clone();
@@ -314,7 +314,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType<>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -351,7 +351,7 @@ where
         registry: registry.clone(),
         consensus,
         timeout: handle.hotshot.inner.config.next_view_timeout,
-        cur_view: ViewNumber::new(0),
+        cur_view: TYPES::Time::new(0),
         block: TYPES::BlockType::new(),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
@@ -411,7 +411,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_da_task<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType<>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,

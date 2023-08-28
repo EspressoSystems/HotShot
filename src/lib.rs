@@ -268,7 +268,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)))
+            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(1)))
             .await;
 
         // ED This isn't ideal...

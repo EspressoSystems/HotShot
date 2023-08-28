@@ -18,7 +18,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::DACertificate,
-    data::{DAProposal, ProposalType, SequencingLeaf, ViewNumber},
+    data::{DAProposal, ProposalType, SequencingLeaf},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
@@ -66,7 +66,7 @@ pub struct DATaskState<
     pub registry: GlobalRegistry,
 
     /// View number this view is executing in.
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
 
     // pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -76,7 +76,7 @@ pub struct DATaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// The view and ID of the current vote collection task, if there is one.
-    pub vote_collector: Option<(ViewNumber, usize, usize)>,
+    pub vote_collector: Option<(TYPES::Time, usize, usize)>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -104,7 +104,7 @@ pub struct DAVoteCollectionTaskState<
         Either<VoteAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>,
     // TODO ED Make this just "view" since it is only for this task
     /// the current view
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
     /// event stream for channel events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     /// the id of this task state
@@ -125,7 +125,7 @@ where
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
 async fn vote_handle<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType<>,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 >(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
@@ -200,7 +200,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType<>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -355,7 +355,7 @@ where
                         }
                         *collection_view
                     } else {
-                        ViewNumber::new(0)
+                        TYPES::Time::new(0)
                     };
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),

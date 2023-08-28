@@ -24,7 +24,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
@@ -84,7 +84,7 @@ pub struct SequencingConsensusTaskState<
     /// View timeout from config.
     pub timeout: u64,
     /// View number this view is executing in.
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
 
     /// Current block submitted to DA
     pub block: TYPES::BlockType,
@@ -102,7 +102,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: Option<(ViewNumber, usize, usize)>,
+    pub vote_collector: Option<(TYPES::Time, usize, usize)>,
 
     /// Have we already sent a proposal for a particular view
     /// since proposal can be sent either on QCFormed event or ViewChange event
@@ -118,7 +118,7 @@ pub struct SequencingConsensusTaskState<
     pub output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// All the DA certs we've received for current and future views.
-    pub certs: HashMap<ViewNumber, DACertificate<TYPES>>,
+    pub certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -260,7 +260,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType<>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -311,7 +311,7 @@ where
     async fn vote_if_able(&self) -> bool {
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
-            if proposal.justify_qc.is_genesis() && proposal.view_number == ViewNumber::new(1) {
+            if proposal.justify_qc.is_genesis() && proposal.view_number == TYPES::Time::new(1) {
                 // warn!("Proposal is genesis!");
 
                 let view = TYPES::Time::new(*proposal.view_number);
@@ -473,7 +473,7 @@ where
     /// Must only update the view and GC if the view actually changes
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
 
-    async fn update_view(&mut self, new_view: ViewNumber) -> bool {
+    async fn update_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.cur_view < *new_view {
             debug!(
                 "Updating view from {} to {} in consensus task",
@@ -520,7 +520,7 @@ where
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
                     stream
-                        .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::Timeout(TYPES::Time::new(
                             *view_number,
                         )))
                         .await;
@@ -916,7 +916,7 @@ where
                             }
                             *collection_view
                         } else {
-                            ViewNumber::new(0)
+                            TYPES::Time::new(0)
                         };
 
                         let acc = VoteAccumulator {
@@ -1252,7 +1252,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType<>,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,

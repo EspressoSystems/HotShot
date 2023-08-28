@@ -562,7 +562,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime + Committable;
+    type Time: ConsensusTime;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.
