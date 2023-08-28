@@ -25,7 +25,6 @@ use crate::{
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,

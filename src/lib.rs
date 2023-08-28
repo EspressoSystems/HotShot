@@ -63,7 +63,7 @@ use hotshot_consensus::{
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
     data::{
-        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber,
+        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf,
     },
     error::StorageSnafu,
     message::{
@@ -661,7 +661,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

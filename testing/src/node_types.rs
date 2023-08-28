@@ -173,7 +173,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -339,7 +339,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -460,7 +460,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -634,7 +634,7 @@ impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,

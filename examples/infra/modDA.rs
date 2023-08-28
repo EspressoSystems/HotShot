@@ -19,7 +19,7 @@ use hotshot_orchestrator::{
 use hotshot_task::task::FilterEvent;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf, ViewNumber},
+    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
     event::{Event, EventType},
     message::{Message, SequencingMessage},
     traits::{
@@ -133,7 +133,7 @@ pub async fn run_orchestrator_da<
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -451,7 +451,7 @@ pub struct WebServerDARun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -623,7 +623,7 @@ where
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,

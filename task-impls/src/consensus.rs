@@ -260,7 +260,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -483,7 +483,7 @@ where
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
             // for view in *self.cur_view..*new_view - 1 {
-            //     let v = ViewNumber::new(view);
+            //     let v = TYPES::Time::new(view);
             //     self.certs.remove(&v);
             // }
             self.cur_view = new_view;
@@ -1252,7 +1252,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType<>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
