@@ -9,7 +9,8 @@ use super::{
 };
 use crate::{
     certificate::{
-        AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, VoteMetaData,
+        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
+        ViewSyncCertificate, VoteMetaData,
     },
     data::{DAProposal, ProposalType},
 };
@@ -750,6 +751,11 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> GeneralConsensusMessage<TYPES, I>
     where
         I::Exchanges: ExchangesType<TYPES, I::Leaf, Message<TYPES, I>>;
+
+    fn is_valid_timeout_certificate(
+        &self,
+        timeout_certificate: TimeoutCertificate<TYPES>,
+    ) -> bool;
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -907,6 +913,14 @@ impl<
             vote_token,
             vote_data: VoteData::Timeout(current_view.commit()),
         }))
+    }
+
+    /// Verify a timeout certificate
+    fn is_valid_timeout_certificate (
+        &self,
+        timeout_certificate: TimeoutCertificate<TYPES>,
+    ) -> bool {
+        false
     }
 }
 

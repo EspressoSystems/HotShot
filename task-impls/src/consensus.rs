@@ -546,7 +546,10 @@ where
                 // Do nothing if this proposal is from the past
                 // TODO This logic may change once catchup is added
                 if proposal_view < self.cur_view {
-                    error!("Proposal's view is too low. Proposal's view is {}; our local view is {}", *proposal_view, *self.cur_view);
+                    error!(
+                        "Proposal's view is too low. Proposal's view is {}; our local view is {}",
+                        *proposal_view, *self.cur_view
+                    );
                     return;
                 }
 
@@ -556,23 +559,32 @@ where
                     return;
                 }
 
-                let justify_qc = proposal.data.justify_qc.clone(); 
+                let justify_qc = proposal.data.justify_qc.clone();
                 // Checking against the commitment sent with the QC; this may not match the leaf_commitment we have in storage for this view
-                // TODO ED Deal with the above case ^ 
-                if !self.quorum_exchange.is_valid_cert(&justify_qc, justify_qc.leaf_commitment) {
-                    error!("Proposal had invalid justify QC"); 
-                    return; 
+                // That is fine for updating the view number, but we'll need to recover the actual leaf before we can decide or vote
+                if !self
+                    .quorum_exchange
+                    .is_valid_cert(&justify_qc, justify_qc.leaf_commitment)
+                {
+                    error!("Proposal had invalid justify QC");
+                    return;
                 }
 
-                
-
-
+                // If the justify_qc is not for the immediately preceding view we need to check the Timeout Certificate
+                if justify_qc.view_number < proposal_view - 1 {
+                    if let Some(timeout_certificate) = proposal.data.timeout_certificate {
+                        if !self
+                            .quorum_exchange
+                            .is_valid_timeout_certificate(timeout_certificate)
+                        {
+                        }
+                    }
+                }
 
                 // TODO ED Should set this only after we've confirmed it is a valid proposal
                 // self.current_proposal = Some(proposal.data.clone());
 
                 // let vote_token = self.quorum_exchange.make_vote_token(view);
-
 
                 // // TODO: do some of this logic without the vote token check, only do that when voting.
                 // match vote_token {
