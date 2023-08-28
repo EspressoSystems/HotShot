@@ -573,18 +573,24 @@ where
                 // Only need to check if we can enter the proposal view if we aren't already in it
                 // We may already be in proposal_view due to view sync
                 if self.cur_view < proposal_view {
-                    // If the justify_qc is not for the immediately preceding view we need to check the Timeout Certificate
+                    // If the justify_qc is not for the immediately preceding view we need to check the Timeout Certificate before updating our local view number
                     if justify_qc.view_number < proposal_view - 1 {
                         if let Some(timeout_certificate) = proposal.data.timeout_certificate {
                             if self
                                 .quorum_exchange
                                 .is_valid_timeout_certificate(timeout_certificate)
                             {
-                                todo!()
+                                self.update_view(proposal_view).await;
+                            } else {
+                                return;
                             }
-                        } 
+                        } else {
+                            return;
+                        }
+                    // If the justify_qc is for the immediately preceding view, we can go ahead an update our local view number
+                    } else {
+                        self.update_view(proposal_view).await;
                     }
-                    return;
                 }
 
                 // TODO ED Should set this only after we've confirmed it is a valid proposal
