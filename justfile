@@ -34,6 +34,10 @@ test_web_server:
   echo Testing with async std executor
   cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
+test_timeout:
+  echo Testing timeout logic with async std executor
+  cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
+
 test_success_tokio:
   echo Testing with tokio executor
   cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
