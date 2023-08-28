@@ -555,7 +555,7 @@ where
 
                 let expected_view_leader_key = self.quorum_exchange.get_leader(proposal_view);
                 if expected_view_leader_key != sender {
-                    error!("Expected leader key does not match proposal's sender");
+                    error!("Expected leader key does not match proposal's sender key");
                     return;
                 }
 
@@ -566,7 +566,7 @@ where
                     .quorum_exchange
                     .is_valid_cert(&justify_qc, justify_qc.leaf_commitment)
                 {
-                    error!("Proposal had invalid justify QC");
+                    error!("Proposal has invalid justify QC");
                     return;
                 }
 
@@ -575,16 +575,19 @@ where
                 if self.cur_view < proposal_view {
                     // If the justify_qc is not for the immediately preceding view we need to check the Timeout Certificate before updating our local view number
                     if justify_qc.view_number < proposal_view - 1 {
-                        if let Some(timeout_certificate) = proposal.data.timeout_certificate {
+                        if let Some(timeout_certificate) = proposal.data.clone().timeout_certificate
+                        {
                             if self
                                 .quorum_exchange
                                 .is_valid_timeout_certificate(timeout_certificate)
                             {
                                 self.update_view(proposal_view).await;
                             } else {
+                                error!("Proposal has invalid timeout certificate");
                                 return;
                             }
                         } else {
+                            error!("Proposal did not have a timeout certificate but needed one");
                             return;
                         }
                     // If the justify_qc is for the immediately preceding view, we can go ahead an update our local view number
@@ -593,154 +596,124 @@ where
                     }
                 }
 
-                // TODO ED Should set this only after we've confirmed it is a valid proposal
-                // self.current_proposal = Some(proposal.data.clone());
+                // Verify proposal and vote if we are able
+                let consensus = self.consensus.upgradable_read().await;
+                let parent = if justify_qc.is_genesis() {
+                    self.genesis_leaf().await
+                } else {
+                    consensus
+                        .saved_leaves
+                        .get(&justify_qc.leaf_commitment())
+                        .cloned()
+                };
+                let Some(parent) = parent else {
+                    error!(
+                        "Proposal's parent missing from storage with commitment: {:?}",
+                        justify_qc.leaf_commitment()
+                    );
+                    // TODO ED We shouldn't actually return here, but should try to fetch the parent leaf and then vote
+                    return;
+                };
 
-                // let vote_token = self.quorum_exchange.make_vote_token(view);
+                let parent_commitment = parent.commit();
 
-                // // TODO: do some of this logic without the vote token check, only do that when voting.
-                // match vote_token {
-                //     Err(e) => {
-                //         error!("Failed to generate vote token for {:?} {:?}", view, e);
-                //     }
-                //     Ok(None) => {
-                //         debug!("We were not chosen for consensus committee on {:?}", view);
-                //     }
-                //     Ok(Some(vote_token)) => {
-                //         debug!("We were chosen for consensus committee on {:?}", view);
-                //         let consensus = self.consensus.upgradable_read().await;
-                //         let message;
+                let leaf: SequencingLeaf<_> = SequencingLeaf {
+                    view_number: proposal_view,
+                    height: proposal.data.height,
+                    justify_qc: justify_qc.clone(),
+                    parent_commitment,
+                    deltas: Right(proposal.data.block_commitment),
+                    rejected: Vec::new(),
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: sender.to_bytes(),
+                };
+                let justify_qc_commitment = justify_qc.commit();
+                let leaf_commitment = leaf.commit();
+                let message: GeneralConsensusMessage<TYPES, I>;
 
-                //         // TODO ED Insert TC logic here
+                // Validate the `height`.
+                if leaf.height != parent.height + 1 {
+                    error!(
+                        "Incorrect height in proposal (expected {}, got {})",
+                        parent.height + 1,
+                        leaf.height
+                    );
+                    return;
+                }
 
-                //         // Construct the leaf.
-                //         let justify_qc = proposal.data.justify_qc;
-                //         let parent = if justify_qc.is_genesis() {
-                //             self.genesis_leaf().await
-                //         } else {
-                //             consensus
-                //                 .saved_leaves
-                //                 .get(&justify_qc.leaf_commitment())
-                //                 .cloned()
-                //         };
+                // Validate the proposal's signature
+                if !expected_view_leader_key.validate(&proposal.signature, leaf_commitment.as_ref())
+                {
+                    error!(?proposal.signature, "Invalid proposal signature");
+                }
 
-                //         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                //         let Some(parent) = parent else {
-                //             error!(
-                //                 "Proposal's parent missing from storage with commitment: {:?}",
-                //                 justify_qc.leaf_commitment()
-                //             );
-                //             return;
-                //         };
-                //         let parent_commitment = parent.commit();
-                //         let leaf: SequencingLeaf<_> = SequencingLeaf {
-                //             view_number: view,
-                //             height: proposal.data.height,
-                //             justify_qc: justify_qc.clone(),
-                //             parent_commitment,
-                //             deltas: Right(proposal.data.block_commitment),
-                //             rejected: Vec::new(),
-                //             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                //             proposer_id: sender.to_bytes(),
-                //         };
-                //         let justify_qc_commitment = justify_qc.commit();
-                //         let leaf_commitment = leaf.commit();
+                // Liveness check.
+                let liveness_check = justify_qc.view_number > consensus.locked_view;
 
-                //         // Validate the `justify_qc`.
-                //         if !self
-                //             .quorum_exchange
-                //             .is_valid_cert(&justify_qc, parent_commitment)
-                //         {
-                //             error!("Invalid justify_qc in proposal!. parent commitment is {:?} justify qc is {:?}", parent_commitment, justify_qc.clone());
+                // Safety check.
+                // Check if proposal extends from the locked leaf.
+                let outcome = consensus.visit_leaf_ancestors(
+                    justify_qc.view_number,
+                    Terminator::Inclusive(consensus.locked_view),
+                    false,
+                    |leaf| {
+                        // if leaf view no == locked view no then we're done, report success by
+                        // returning true
+                        leaf.view_number != consensus.locked_view
+                    },
+                );
+                let safety_check = outcome.is_ok();
+                // TODO ED Do we still need this?
+                // if let Err(e) = outcome {
+                //     self.api.send_view_error(proposal_view, Arc::new(e)).await;
+                // }
 
-                //             message = self.quorum_exchange.create_no_message::<I>(
-                //                 justify_qc_commitment,
-                //                 leaf_commitment,
-                //                 view,
-                //                 vote_token,
-                //             );
-                //         }
-                //         // Validate the `height`.
-                //         else if leaf.height != parent.height + 1 {
-                //             error!(
-                //                 "Incorrect height in proposal (expected {}, got {})",
-                //                 parent.height + 1,
-                //                 leaf.height
-                //             );
-                //             message = self.quorum_exchange.create_no_message(
-                //                 justify_qc_commitment,
-                //                 leaf_commitment,
-                //                 view,
-                //                 vote_token,
-                //             );
-                //         }
-                //         // Validate the signature.
-                //         else if !view_leader_key
-                //             .validate(&proposal.signature, leaf_commitment.as_ref())
-                //         {
-                //             error!(?proposal.signature, "Could not verify proposal.");
-                //             message = self.quorum_exchange.create_no_message(
-                //                 justify_qc_commitment,
-                //                 leaf_commitment,
-                //                 view,
-                //                 vote_token,
-                //             );
-                //         }
-                //         // Create a positive vote if either liveness or safety check
-                //         // passes.
-                //         else {
-                //             // Liveness check.
-                //             let liveness_check = justify_qc.view_number > consensus.locked_view;
+                // Skip if both saftey and liveness checks fail.
+                if !safety_check && !liveness_check {
+                    error!("Failed safety check and liveness check");
+                } else {
+                    // Generate a message with yes vote.
+                    let vote_token = self.quorum_exchange.make_vote_token(proposal_view);
 
-                //             // Safety check.
-                //             // Check if proposal extends from the locked leaf.
-                //             let outcome = consensus.visit_leaf_ancestors(
-                //                 justify_qc.view_number,
-                //                 Terminator::Inclusive(consensus.locked_view),
-                //                 false,
-                //                 |leaf| {
-                //                     // if leaf view no == locked view no then we're done, report success by
-                //                     // returning true
-                //                     leaf.view_number != consensus.locked_view
-                //                 },
-                //             );
-                //             let safety_check = outcome.is_ok();
-                //             if let Err(e) = outcome {
-                //                 self.api.send_view_error(view, Arc::new(e)).await;
-                //             }
+                    match vote_token {
+                        Err(e) => {
+                            error!(
+                                "Failed to generate vote token for {:?} {:?}",
+                                proposal_view, e
+                            );
+                        }
+                        Ok(None) => {
+                            debug!(
+                                "We were not chosen for consensus committee on {:?}",
+                                proposal_view
+                            );
+                        }
+                        Ok(Some(vote_token)) => {
+                            // Only set this once we're sure we've seen a valid proposal
+                            self.current_proposal = Some(proposal.data.clone());
+                            // TODO ED Make a variable that tracks whether we send a yes or no message
+                            message = self.quorum_exchange.create_yes_message(
+                                justify_qc_commitment,
+                                leaf_commitment,
+                                proposal_view,
+                                vote_token,
+                            );
+                        }
+                    }
+                }
 
-                //             // Skip if both saftey and liveness checks fail.
-                //             if !safety_check && !liveness_check {
-                //                 error!("Failed safety check and liveness check");
-                //                 message = self.quorum_exchange.create_no_message(
-                //                     justify_qc_commitment,
-                //                     leaf_commitment,
-                //                     view,
-                //                     vote_token,
-                //                 );
-                //             } else {
-                //                 // Generate a message with yes vote.
-                //                 message = self.quorum_exchange.create_yes_message(
-                //                     justify_qc_commitment,
-                //                     leaf_commitment,
-                //                     view,
-                //                     vote_token,
-                //                 );
-                //             }
-                //         }
-
-                //         let high_qc = leaf.justify_qc.clone();
-                //         let mut new_anchor_view = consensus.last_decided_view;
-                //         let mut new_locked_view = consensus.locked_view;
-                //         let mut last_view_number_visited = view;
-                //         let mut new_commit_reached: bool = false;
-                //         let mut new_decide_reached = false;
-                //         let mut new_decide_qc = None;
-                //         let mut leaf_views = Vec::new();
-                //         let mut included_txns = HashSet::new();
-                //         let old_anchor_view = consensus.last_decided_view;
-                //         let parent_view = leaf.justify_qc.view_number;
-                //         let mut current_chain_length = 0usize;
+                let high_qc = leaf.justify_qc.clone();
+                let mut new_anchor_view = consensus.last_decided_view;
+                let mut new_locked_view = consensus.locked_view;
+                let mut last_view_number_visited = proposal_view;
+                let mut new_commit_reached: bool = false;
+                let mut new_decide_reached = false;
+                let mut new_decide_qc: Option<QuorumCertificate<TYPES, I::Leaf>>  = None;
+                let mut leaf_views: Vec<I::Leaf> = Vec::new();
+                // let mut included_txns: HashSet<_> = HashSet::new();
+                let old_anchor_view = consensus.last_decided_view;
+                let parent_view = leaf.justify_qc.view_number;
+                let mut current_chain_length = 0usize;
                 //         if parent_view + 1 == view {
                 //             current_chain_length += 1;
                 //             if let Err(e) = consensus.visit_leaf_ancestors(
