@@ -35,14 +35,19 @@ jobs:
         name: Enable Rust Caching
 
       - name: Check
-        run: cargo check --features=full-ci --workspace
+        run: |
+          cargo check --features=full-ci --workspace
+          cargo check --features=tokio-ci --workspace
 
       - name: Build all crates in workspace
-        run: cargo build --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --examples
+        run: |
+          cargo build --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --examples
+          cargo build --verbose --profile=release-lto --features=tokio-ci --lib --bins --tests --benches --workspace --examples
 
       - name: Unit and integration tests for all crates in workspace
         run: |
           cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
+          cargo test --verbose --profile=release-lto --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
