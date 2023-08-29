@@ -1062,7 +1062,6 @@ where
                     })
                     .await;
                 if !self.update_view(new_view).await {
-                    error!("view not updated");
                     return;
                 }
 
@@ -1199,7 +1198,7 @@ where
             data: proposal,
             signature,
         };
-        debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+        error!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
 
         self.event_stream
             .publish(SequencingHotShotEvent::QuorumProposalSend(

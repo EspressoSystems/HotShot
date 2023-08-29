@@ -112,6 +112,7 @@ impl SpinningTaskDescription {
                                             if let Some(node) =
                                                 state.late_start.remove(&idx.try_into().unwrap())
                                             {
+                                                tracing::error!("Spinning up node late");
                                                 node.run_tasks().await;
                                             }
                                         }
