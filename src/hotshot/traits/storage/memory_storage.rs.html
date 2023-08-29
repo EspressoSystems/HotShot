@@ -371,7 +371,7 @@
     <span class="attr">#[instrument(skip(rng))]
     </span><span class="kw">fn </span>random_stored_view(
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-        view_number: ViewNumber,
+        view_number: &lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; StoredView&lt;DummyTypes, ValidatingLeaf&lt;DummyTypes&gt;&gt; {
         <span class="comment">// TODO is it okay to be using genesis here?
         </span><span class="kw">let </span>_dummy_block_commit = fake_commitment::&lt;DummyBlock&gt;();
@@ -379,7 +379,7 @@
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 <span class="comment">// block_commitment: dummy_block_commit,
-                </span>is_genesis: view_number == ViewNumber::genesis(),
+                </span>is_genesis: view_number == &lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: AssembledSignature::Genesis(),
                 view_number,
@@ -402,7 +402,7 @@
     </span><span class="kw">async fn </span>memory_storage() {
         <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
         <span class="kw">let </span>storage = MemoryStorage::construct_tmp_storage().unwrap();
-        <span class="kw">let </span>genesis = random_stored_view(<span class="kw-2">&amp;mut </span>rng, ViewNumber::genesis());
+        <span class="kw">let </span>genesis = random_stored_view(<span class="kw-2">&amp;mut </span>rng, &lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time::genesis());
         storage
             .append_single_view(genesis.clone())
             .<span class="kw">await

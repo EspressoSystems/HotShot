@@ -744,7 +744,7 @@
 <span class="kw">use </span>hotshot_task::task::FilterEvent;
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf, ViewNumber},
+    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
     event::{Event, EventType},
     message::{Message, SequencingMessage},
     traits::{
@@ -858,7 +858,7 @@
 <span class="doccomment">/// Defines the behavior of a &quot;run&quot; of the network with a given configuration
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>RunDA&lt;
-    TYPES: NodeType&lt;Time = ViewNumber&gt;,
+    TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;
             TYPES,
@@ -1176,7 +1176,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;Time = ViewNumber&gt;,
+        TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
         NODE: NodeImplementation&lt;
             TYPES,
@@ -1348,7 +1348,7 @@
 
 <span class="doccomment">/// Main entry point for validators
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
-    TYPES: NodeType&lt;Time = ViewNumber&gt;,
+    TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;
             TYPES,

@@ -1068,7 +1068,7 @@
 <span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{SequencingLeaf, ViewNumber},
+    data::SequencingLeaf,
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         election::{ConsensusExchange, ViewSyncExchangeType},
@@ -1530,7 +1530,7 @@
             }
             <span class="kw-2">&amp;</span>SequencingHotShotEvent::Timeout(view_number) =&gt; {
                 <span class="comment">// This is an old timeout and we can ignore it
-                </span><span class="kw">if </span>view_number &lt; ViewNumber::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
+                </span><span class="kw">if </span>view_number &lt; TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
                     <span class="kw">return</span>;
                 }
 
@@ -1621,7 +1621,7 @@
                     <span class="comment">// If this is the first timeout we&#39;ve seen advance to the next view
                     </span><span class="self">self</span>.current_view += <span class="number">1</span>;
                     <span class="self">self</span>.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             <span class="kw-2">*</span><span class="self">self</span>.current_view,
                         )))
                         .<span class="kw">await</span>;
@@ -1734,7 +1734,7 @@
                 </span><span class="kw">if </span><span class="self">self</span>.phase &gt;= ViewSyncPhase::Commit &amp;&amp; !<span class="self">self</span>.sent_view_change_event {
                     <span class="macro">error!</span>(<span class="string">&quot;VIEW SYNC UPDATING VIEW TO {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.next_view);
                     <span class="self">self</span>.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             <span class="kw-2">*</span><span class="self">self</span>.next_view,
                         )))
                         .<span class="kw">await</span>;
@@ -1830,7 +1830,7 @@
                                 async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
+                                        TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
                                         <span class="self">self</span>.relay,
                                         phase,
                                     ))
@@ -1891,7 +1891,7 @@
                                 async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
+                                        TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
                                         <span class="self">self</span>.relay,
                                         ViewSyncPhase::None,
                                     ))
@@ -1961,7 +1961,7 @@
                                     async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                            ViewNumber::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
+                                            TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
                                             <span class="self">self</span>.relay,
                                             last_seen_certificate,
                                         ))

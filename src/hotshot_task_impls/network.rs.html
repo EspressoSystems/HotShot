@@ -363,7 +363,7 @@
     GeneratedStream, Merge,
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{ProposalType, SequencingLeaf, ViewNumber},
+    data::{ProposalType, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
         SequencingMessage,
@@ -503,7 +503,7 @@
     <span class="doccomment">/// event stream
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// view number
-    </span><span class="kw">pub </span>view: ViewNumber,
+    </span><span class="kw">pub </span>view: TYPES::Time,
     <span class="doccomment">/// phantom data
     </span><span class="kw">pub </span>phantom: PhantomData&lt;(PROPOSAL, VOTE, MEMBERSHIP)&gt;,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?

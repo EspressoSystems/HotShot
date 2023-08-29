@@ -677,9 +677,6 @@
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_timeout},
@@ -700,7 +697,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::DACertificate,
-    data::{DAProposal, ProposalType, SequencingLeaf, ViewNumber},
+    data::{DAProposal, ProposalType, SequencingLeaf},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
@@ -748,7 +745,7 @@
     </span><span class="kw">pub </span>registry: GlobalRegistry,
 
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: ViewNumber,
+    </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
     <span class="comment">// pub transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
     </span><span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
@@ -758,7 +755,7 @@
     </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
-    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(ViewNumber, usize, usize)&gt;,
+    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
 
     <span class="doccomment">/// Global events stream to publish events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
@@ -786,7 +783,7 @@
         Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;,
     <span class="comment">// TODO ED Make this just &quot;view&quot; since it is only for this task
     </span><span class="doccomment">/// the current view
-    </span><span class="kw">pub </span>cur_view: ViewNumber,
+    </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// event stream for channel events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// the id of this task state
@@ -806,10 +803,7 @@
 }
 
 <span class="attr">#[instrument(skip_all, fields(id = state.id, view = <span class="kw-2">*</span>state.cur_view), name = <span class="string">&quot;DA Vote Collection Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-</span><span class="kw">async fn </span>vote_handle&lt;
-    TYPES: NodeType&lt;Time = ViewNumber&gt;,
-    I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
-&gt;(
+</span><span class="kw">async fn </span>vote_handle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt;(
     <span class="kw-2">mut </span>state: DAVoteCollectionTaskState&lt;TYPES, I&gt;,
     event: SequencingHotShotEvent&lt;TYPES, I&gt;,
 ) -&gt; (
@@ -882,7 +876,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;Time = ViewNumber&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1037,7 +1031,7 @@
                         }
                         <span class="kw-2">*</span>collection_view
                     } <span class="kw">else </span>{
-                        ViewNumber::new(<span class="number">0</span>)
+                        TYPES::Time::new(<span class="number">0</span>)
                     };
                 <span class="kw">let </span>acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),

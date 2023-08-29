@@ -198,6 +198,7 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the global state that blocks modify
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
@@ -286,7 +287,8 @@
     + ops::Add&lt;u64, Output = <span class="self">Self</span>&gt;
     + Sub&lt;u64, Output = <span class="self">Self</span>&gt;
     + <span class="lifetime">&#39;static
-</span>{
+    </span>+ Committable
+{
     <span class="doccomment">/// Create a new instance of this time unit at time number 0
     </span><span class="attr">#[must_use]
     </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{

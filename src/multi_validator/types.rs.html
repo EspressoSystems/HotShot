@@ -86,7 +86,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{Message, SequencingMessage},
     traits::{
         election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
@@ -145,7 +145,7 @@
     <span class="kw">type </span>ConsensusMessage = SequencingMessage&lt;SDemoTypes, <span class="self">Self</span>&gt;;
 
     <span class="kw">fn </span>new_channel_maps(
-        start_view: ViewNumber,
+        start_view: &lt;SDemoTypes <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; (
         ChannelMaps&lt;SDemoTypes, <span class="self">Self</span>&gt;,
         <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;SDemoTypes, <span class="self">Self</span>&gt;&gt;,

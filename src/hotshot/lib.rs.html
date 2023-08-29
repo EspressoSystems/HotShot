@@ -1651,8 +1651,6 @@
 <a href="#1651" id="1651">1651</a>
 <a href="#1652" id="1652">1652</a>
 <a href="#1653" id="1653">1653</a>
-<a href="#1654" id="1654">1654</a>
-<a href="#1655" id="1655">1655</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1717,9 +1715,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
-    data::{
-        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber,
-    },
+    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -1923,7 +1919,7 @@
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(<span class="number">1</span>)))
+            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(<span class="number">1</span>)))
             .<span class="kw">await</span>;
 
         <span class="comment">// ED This isn&#39;t ideal...
@@ -2316,7 +2312,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;Time = ViewNumber&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,

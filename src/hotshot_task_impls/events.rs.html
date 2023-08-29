@@ -65,7 +65,7 @@
 <a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal, ViewNumber},
+    data::DAProposal,
     message::Proposal,
     traits::node_implementation::{
         NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
@@ -103,9 +103,9 @@
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DACSend(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
-    </span>ViewChange(ViewNumber),
+    </span>ViewChange(TYPES::Time),
     <span class="doccomment">/// Timeout for the view sync protocol; emitted by a replica in the view sync task
-    </span>ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
+    </span>ViewSyncTimeout(TYPES::Time, u64, ViewSyncPhase),
     <span class="doccomment">/// Send a view sync vote to the network; emitted by a replica in the view sync task
     </span>ViewSyncVoteSend(ViewSyncVote&lt;TYPES&gt;),
     <span class="doccomment">/// Send a view sync certificate to the network; emitted by a relay in the view sync task
@@ -118,9 +118,9 @@
     <span class="doccomment">/// Receive a view sync certificate from the network; received by a replica in the view sync task
     </span>ViewSyncCertificateRecv(Proposal&lt;ViewSyncProposalType&lt;TYPES, I&gt;&gt;),
     <span class="doccomment">/// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
-    </span>ViewSyncTrigger(ViewNumber),
+    </span>ViewSyncTrigger(TYPES::Time),
     <span class="doccomment">/// A consensus view has timed out; emitted by a replica in the consensus task; received by the view sync task; internal event only
-    </span>Timeout(ViewNumber),
+    </span>Timeout(TYPES::Time),
     <span class="doccomment">/// Receive transactions from the network
     </span>TransactionsRecv(Vec&lt;TYPES::Transaction&gt;),
     <span class="doccomment">/// Send transactions to the network

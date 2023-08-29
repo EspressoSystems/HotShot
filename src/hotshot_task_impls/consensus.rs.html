@@ -1331,7 +1331,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
@@ -1391,7 +1391,7 @@
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: ViewNumber,
+    </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
     <span class="doccomment">/// Current block submitted to DA
     </span><span class="kw">pub </span>block: TYPES::BlockType,
@@ -1409,7 +1409,7 @@
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 
     <span class="doccomment">/// Current Vote collection task, with it&#39;s view.
-    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(ViewNumber, usize, usize)&gt;,
+    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
 
     <span class="doccomment">/// Have we already sent a proposal for a particular view
     /// since proposal can be sent either on QCFormed event or ViewChange event
@@ -1425,7 +1425,7 @@
     </span><span class="kw">pub </span>output_event_stream: ChannelStream&lt;Event&lt;TYPES, I::Leaf&gt;&gt;,
 
     <span class="doccomment">/// All the DA certs we&#39;ve received for current and future views.
-    </span><span class="kw">pub </span>certs: HashMap&lt;ViewNumber, DACertificate&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>certs: HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -1567,7 +1567,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;Time = ViewNumber&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1618,7 +1618,7 @@
     </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_proposal {
             <span class="comment">// ED Need to account for the genesis DA cert
-            </span><span class="kw">if </span>proposal.justify_qc.is_genesis() &amp;&amp; proposal.view_number == ViewNumber::new(<span class="number">1</span>) {
+            </span><span class="kw">if </span>proposal.justify_qc.is_genesis() &amp;&amp; proposal.view_number == TYPES::Time::new(<span class="number">1</span>) {
                 <span class="comment">// warn!(&quot;Proposal is genesis!&quot;);
 
                 </span><span class="kw">let </span>view = TYPES::Time::new(<span class="kw-2">*</span>proposal.view_number);
@@ -1780,7 +1780,7 @@
     <span class="doccomment">/// Must only update the view and GC if the view actually changes
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus update view&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
-    </span><span class="kw">async fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: ViewNumber) -&gt; bool {
+    </span><span class="kw">async fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::Time) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &lt; <span class="kw-2">*</span>new_view {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;Updating view from {} to {} in consensus task&quot;</span>,
@@ -1790,7 +1790,7 @@
             <span class="comment">// Remove old certs, we won&#39;t vote on past views
             // TODO ED Put back in once we fix other errors
             // for view in *self.cur_view..*new_view - 1 {
-            //     let v = ViewNumber::new(view);
+            //     let v = TYPES::Time::new(view);
             //     self.certs.remove(&amp;v);
             // }
             </span><span class="self">self</span>.cur_view = new_view;
@@ -1827,7 +1827,7 @@
                 <span class="kw">async move </span>{
                     async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
                     stream
-                        .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::Timeout(TYPES::Time::new(
                             <span class="kw-2">*</span>view_number,
                         )))
                         .<span class="kw">await</span>;
@@ -2223,7 +2223,7 @@
                             }
                             <span class="kw-2">*</span>collection_view
                         } <span class="kw">else </span>{
-                            ViewNumber::new(<span class="number">0</span>)
+                            TYPES::Time::new(<span class="number">0</span>)
                         };
 
                         <span class="kw">let </span>acc = VoteAccumulator {
@@ -2559,7 +2559,7 @@
 
 <span class="doccomment">/// Event handle for consensus
 </span><span class="kw">pub async fn </span>sequencing_consensus_handle&lt;
-    TYPES: NodeType&lt;Time = ViewNumber&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
