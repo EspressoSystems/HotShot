@@ -7,7 +7,7 @@ use hotshot_task::{
     GeneratedStream, Merge,
 };
 use hotshot_types::{
-    data::{ProposalType, SequencingLeaf, ViewNumber},
+    data::{ProposalType, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
         SequencingMessage,
@@ -147,7 +147,7 @@ pub struct NetworkEventTaskState<
     /// event stream
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
     /// view number
-    pub view: ViewNumber,
+    pub view: TYPES::Time,
     /// phantom data
     pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?

@@ -62,9 +62,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
-    data::{
-        DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf, ViewNumber,
-    },
+    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -268,7 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)))
+            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(1)))
             .await;
 
         // ED This isn't ideal...
@@ -661,7 +659,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

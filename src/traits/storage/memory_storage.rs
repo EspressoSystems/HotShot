@@ -160,7 +160,7 @@ mod test {
     #[instrument(skip(rng))]
     fn random_stored_view(
         rng: &mut dyn rand::RngCore,
-        view_number: ViewNumber,
+        view_number: <DummyTypes as NodeType>::Time,
     ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
         // TODO is it okay to be using genesis here?
         let _dummy_block_commit = fake_commitment::<DummyBlock>();
@@ -168,7 +168,7 @@ mod test {
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 // block_commitment: dummy_block_commit,
-                is_genesis: view_number == ViewNumber::genesis(),
+                is_genesis: view_number == <DummyTypes as NodeType>::Time::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: AssembledSignature::Genesis(),
                 view_number,
@@ -191,7 +191,7 @@ mod test {
     async fn memory_storage() {
         let mut rng = rand::thread_rng();
         let storage = MemoryStorage::construct_tmp_storage().unwrap();
-        let genesis = random_stored_view(&mut rng, ViewNumber::genesis());
+        let genesis = random_stored_view(&mut rng, <DummyTypes as NodeType>::Time::genesis());
         storage
             .append_single_view(genesis.clone())
             .await

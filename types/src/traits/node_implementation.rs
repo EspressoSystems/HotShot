@@ -25,7 +25,6 @@ use crate::{
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -562,7 +561,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime + Committable;
+    type Time: ConsensusTime;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.

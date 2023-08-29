@@ -16,7 +16,7 @@ use bitvec::prelude::*;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{SequencingLeaf, ViewNumber},
+    data::SequencingLeaf,
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         election::{ConsensusExchange, ViewSyncExchangeType},
@@ -478,7 +478,7 @@ where
             }
             &SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
-                if view_number < ViewNumber::new(*self.current_view) {
+                if view_number < TYPES::Time::new(*self.current_view) {
                     return;
                 }
 
@@ -569,7 +569,7 @@ where
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view += 1;
                     self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             *self.current_view,
                         )))
                         .await;
@@ -682,7 +682,7 @@ where
                 if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
                     error!("VIEW SYNC UPDATING VIEW TO {}", *self.next_view);
                     self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             *self.next_view,
                         )))
                         .await;
@@ -778,7 +778,7 @@ where
                                 async_sleep(self.view_sync_timeout).await;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(*self.next_view),
+                                        TYPES::Time::new(*self.next_view),
                                         self.relay,
                                         phase,
                                     ))
@@ -839,7 +839,7 @@ where
                                 async_sleep(self.view_sync_timeout).await;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(*self.next_view),
+                                        TYPES::Time::new(*self.next_view),
                                         self.relay,
                                         ViewSyncPhase::None,
                                     ))
@@ -909,7 +909,7 @@ where
                                     async_sleep(self.view_sync_timeout).await;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                            ViewNumber::new(*self.next_view),
+                                            TYPES::Time::new(*self.next_view),
                                             self.relay,
                                             last_seen_certificate,
                                         ))
