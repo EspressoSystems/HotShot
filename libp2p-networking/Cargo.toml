@@ -79,7 +79,7 @@ libp2p = { workspace = true, features = [
     "websocket",
     "yamux",
 ] }
-libp2p-noise = { version = "0.43.0", default-features = false }
+libp2p-noise = { version = "0.43.1", default-features = false }
 parking_lot = "0.12.1"
 rand = { workspace = true }
 serde = { workspace = true }
