@@ -1,71 +1,49 @@
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
-
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
-use async_lock::RwLock;
-use async_lock::RwLockUpgradableReadGuard;
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    async_primitives::subscribable_rwlock::ReadView,
+};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(feature = "async-std-executor")]
 use async_std::task::JoinHandle;
 use bincode::Options;
 use bitvec::prelude::*;
 use commit::Committable;
 use core::time::Duration;
-use either::Either;
-use either::Left;
-use either::Right;
+use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::utils::Terminator;
-use hotshot_consensus::utils::ViewInner;
-use hotshot_consensus::Consensus;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::View;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
-use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, TS};
-use hotshot_task::task_impls::HSTWithEvent;
-use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::data::LeafType;
-use hotshot_types::data::ProposalType;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::event::{Event, EventType};
-use hotshot_types::message::Message;
-use hotshot_types::message::Proposal;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::traits::Block;
-use hotshot_types::vote::VoteType;
+use hotshot_consensus::{
+    utils::{Terminator, ViewInner},
+    Consensus, SequencingConsensusApi, View,
+};
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
+};
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{QuorumProposal, SequencingLeaf},
-    message::{GeneralConsensusMessage, SequencingMessage},
+    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
+    event::{Event, EventType},
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        network::{CommunicationChannel, ConsensusIntentEvent},
+        node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
+        state::ConsensusTime,
+        Block,
     },
-    vote::{QuorumVote, VoteAccumulator},
+    vote::{QuorumVote, VoteAccumulator, VoteType},
 };
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 #[cfg(feature = "tokio-executor")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument};
@@ -106,7 +84,7 @@ pub struct SequencingConsensusTaskState<
     /// View timeout from config.
     pub timeout: u64,
     /// View number this view is executing in.
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
 
     /// Current block submitted to DA
     pub block: TYPES::BlockType,
@@ -124,7 +102,7 @@ pub struct SequencingConsensusTaskState<
     pub _pd: PhantomData<I>,
 
     /// Current Vote collection task, with it's view.
-    pub vote_collector: Option<(ViewNumber, usize, usize)>,
+    pub vote_collector: Option<(TYPES::Time, usize, usize)>,
 
     /// Have we already sent a proposal for a particular view
     /// since proposal can be sent either on QCFormed event or ViewChange event
@@ -140,7 +118,7 @@ pub struct SequencingConsensusTaskState<
     pub output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// All the DA certs we've received for current and future views.
-    pub certs: HashMap<ViewNumber, DACertificate<TYPES>>,
+    pub certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -282,7 +260,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -333,7 +311,7 @@ where
     async fn vote_if_able(&self) -> bool {
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
-            if proposal.justify_qc.is_genesis() && proposal.view_number == ViewNumber::new(1) {
+            if proposal.justify_qc.is_genesis() && proposal.view_number == TYPES::Time::new(1) {
                 // warn!("Proposal is genesis!");
 
                 let view = TYPES::Time::new(*proposal.view_number);
@@ -361,7 +339,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return false;
                         };
                         let parent_commitment = parent.commit();
@@ -427,7 +408,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return false;
                         };
                         let parent_commitment = parent.commit();
@@ -489,7 +473,7 @@ where
     /// Must only update the view and GC if the view actually changes
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
 
-    async fn update_view(&mut self, new_view: ViewNumber) -> bool {
+    async fn update_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.cur_view < *new_view {
             debug!(
                 "Updating view from {} to {} in consensus task",
@@ -499,7 +483,7 @@ where
             // Remove old certs, we won't vote on past views
             // TODO ED Put back in once we fix other errors
             // for view in *self.cur_view..*new_view - 1 {
-            //     let v = ViewNumber::new(view);
+            //     let v = TYPES::Time::new(view);
             //     self.certs.remove(&v);
             // }
             self.cur_view = new_view;
@@ -536,7 +520,7 @@ where
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
                     stream
-                        .publish(SequencingHotShotEvent::Timeout(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::Timeout(TYPES::Time::new(
                             *view_number,
                         )))
                         .await;
@@ -586,6 +570,8 @@ where
                         let consensus = self.consensus.upgradable_read().await;
                         let message;
 
+                        // TODO ED Insert TC logic here
+
                         // Construct the leaf.
                         let justify_qc = proposal.data.justify_qc;
                         let parent = if justify_qc.is_genesis() {
@@ -599,7 +585,10 @@ where
 
                         // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                         let Some(parent) = parent else {
-                            error!("Proposal's parent missing from storage with commitment: {:?}", justify_qc.leaf_commitment());
+                            error!(
+                                "Proposal's parent missing from storage with commitment: {:?}",
+                                justify_qc.leaf_commitment()
+                            );
                             return;
                         };
                         let parent_commitment = parent.commit();
@@ -866,6 +855,7 @@ where
 
                         let new_view = self.current_proposal.clone().unwrap().view_number + 1;
                         // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                         let should_propose = self.quorum_exchange.is_leader(new_view)
                             && consensus.high_qc.view_number
                                 == self.current_proposal.clone().unwrap().view_number;
@@ -881,6 +871,7 @@ where
                             self.publish_proposal_if_able(qc).await;
                         }
                         if !self.vote_if_able().await {
+                            // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
                             return;
                         }
 
@@ -925,7 +916,7 @@ where
                             }
                             *collection_view
                         } else {
-                            ViewNumber::new(0)
+                            TYPES::Time::new(0)
                         };
 
                         let acc = VoteAccumulator {
@@ -1051,8 +1042,12 @@ where
                 let old_view_number = self.cur_view;
 
                 // update the view in state to the one in the message
-                // ED Update_view return a bool whether it actually updated
                 // Publish a view change event to the application
+                if !self.update_view(new_view).await {
+                    debug!("view not updated");
+                    return;
+                }
+
                 self.output_event_stream
                     .publish(Event {
                         view_number: old_view_number,
@@ -1061,11 +1056,8 @@ where
                         },
                     })
                     .await;
-                if !self.update_view(new_view).await {
-                    return;
-                }
 
-                debug!("View Change event for view {}", *new_view);
+                debug!("View changed to {}", *new_view);
 
                 // ED Need to update the view here?  What does otherwise?
                 // self.update_view(qc.view_number + 1).await;
@@ -1106,8 +1098,12 @@ where
 
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
+        // TODO ED This should not be qc view number + 1
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
-            error!("Somehow we formed a QC but are not the leader for the next view");
+            error!(
+                "Somehow we formed a QC but are not the leader for the next view {:?}",
+                qc.view_number + 1
+            );
             return false;
         }
 
@@ -1190,6 +1186,8 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: consensus.high_qc.clone(),
+            // TODO ED Update this to be the actual TC if there is one
+            timeout_certificate: None,
             proposer_id: leaf.proposer_id,
             dac: None,
         };
@@ -1254,7 +1252,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,

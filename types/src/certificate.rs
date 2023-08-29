@@ -1,23 +1,24 @@
 //! Provides two types of cerrtificates and their accumulators.
 
-use crate::data::serialize_signature;
-use crate::vote::ViewSyncData;
 use crate::{
-    data::{fake_commitment, LeafType},
+    data::{fake_commitment, serialize_signature, LeafType},
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
     },
+    vote::ViewSyncData,
 };
 use bincode::Options;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use hotshot_utils::bincode::bincode_opts;
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display, Formatter};
-use std::{fmt::Debug, ops::Deref};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    ops::Deref,
+};
 use tracing::debug;
 
 /// A `DACertificate` is a threshold signature that some data is available.
@@ -66,6 +67,16 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertif
     }
 }
 
+/// Timeout Certificate
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct TimeoutCertificate<TYPES: NodeType> {
+    /// View that timed out
+    pub view_number: TYPES::Time,
+    /// assembled signature for certificate aggregation
+    pub signatures: AssembledSignature<TYPES>,
+}
+
 /// Certificate for view sync.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -99,10 +110,11 @@ pub struct ViewSyncCertificateInternal<TYPES: NodeType> {
     pub signatures: AssembledSignature<TYPES>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a signatures is for a 'Yes' or 'No' or 'DA' or 'Genesis' certificate
 pub enum AssembledSignature<TYPES: NodeType> {
+    // (enum, signature)
     /// These signatures are for a 'Yes' certificate
     Yes(<TYPES::SignatureKey as SignatureKey>::QCType),
     /// These signatures are for a 'No' certificate

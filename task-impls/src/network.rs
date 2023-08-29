@@ -6,11 +6,12 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, HSTWithMessage},
     GeneratedStream, Merge,
 };
-use hotshot_types::message::Message;
-use hotshot_types::message::{CommitteeConsensusMessage, SequencingMessage};
 use hotshot_types::{
-    data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::{GeneralConsensusMessage, MessageKind, Messages},
+    data::{ProposalType, SequencingLeaf},
+    message::{
+        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
+        SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{CommunicationChannel, TransmitType},
@@ -22,13 +23,18 @@ use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 
+/// the type of network task
 #[derive(Clone, Copy, Debug)]
 pub enum NetworkTaskKind {
+    /// quorum: the normal "everyone" committee
     Quorum,
+    /// da committee
     Committee,
+    /// view sync
     ViewSync,
 }
 
+/// the network message task state
 pub struct NetworkMessageTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -37,6 +43,7 @@ pub struct NetworkMessageTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
+    /// event stream (used for publishing)
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
@@ -82,7 +89,7 @@ impl<
                             GeneralConsensusMessage::ViewSyncCertificate(view_sync_message) => {
                                 SequencingHotShotEvent::ViewSyncCertificateRecv(view_sync_message)
                             }
-                            _ => {
+                            GeneralConsensusMessage::InternalTrigger(_) => {
                                 error!("Got unexpected message type in network task!");
                                 return;
                             }
@@ -108,7 +115,7 @@ impl<
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
-                        transactions.push(transaction)
+                        transactions.push(transaction);
                     }
                 },
                 MessageKind::_Unreachable(_) => unimplemented!(),
@@ -122,6 +129,7 @@ impl<
     }
 }
 
+/// network event task state
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -134,9 +142,13 @@ pub struct NetworkEventTaskState<
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>,
 > {
+    /// comm channel
     pub channel: COMMCHANNEL,
+    /// event stream
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    pub view: ViewNumber,
+    /// view number
+    pub view: TYPES::Time,
+    /// phantom data
     pub phantom: PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
 }
@@ -172,12 +184,14 @@ impl<
     /// Handle the given event.
     ///
     /// Returns the completion status.
+    /// # Panics
+    /// Panic sif a direct message event is received with no recipient
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Option<HotShotTaskCompleted> {
-        let (sender, message_kind, transmit_type, recipient) = match event {
+        let (sender, message_kind, transmit_type, recipient) = match event.clone() {
             SequencingHotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
@@ -242,7 +256,6 @@ impl<
                 )
             }
             SequencingHotShotEvent::ViewChange(view) => {
-                // only if view actually changes
                 self.view = view;
                 return None;
             }
@@ -277,6 +290,7 @@ impl<
         None
     }
 
+    /// network filter
     pub fn filter(task_kind: NetworkTaskKind) -> FilterEvent<SequencingHotShotEvent<TYPES, I>> {
         match task_kind {
             NetworkTaskKind::Quorum => FilterEvent(Arc::new(Self::quorum_filter)),
@@ -285,6 +299,7 @@ impl<
         }
     }
 
+    /// quorum filter
     fn quorum_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -296,6 +311,7 @@ impl<
         )
     }
 
+    /// committee filter
     fn committee_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -306,6 +322,7 @@ impl<
         )
     }
 
+    /// view sync filter
     fn view_sync_filter(event: &SequencingHotShotEvent<TYPES, I>) -> bool {
         matches!(
             event,
@@ -317,9 +334,11 @@ impl<
     }
 }
 
+/// network error (no errors right now, only stub)
 #[derive(Snafu, Debug)]
 pub struct NetworkTaskError {}
 
+/// networking message task types
 pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkTaskError,
     Either<Messages<TYPES, I>, Messages<TYPES, I>>,
@@ -328,6 +347,7 @@ pub type NetworkMessageTaskTypes<TYPES, I> = HSTWithMessage<
     NetworkMessageTaskState<TYPES, I>,
 >;
 
+/// network event task types
 pub type NetworkEventTaskTypes<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL> = HSTWithEvent<
     NetworkTaskError,
     SequencingHotShotEvent<TYPES, I>,

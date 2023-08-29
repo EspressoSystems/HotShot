@@ -22,33 +22,41 @@ test_async_std_all:
   echo Testing with async std executor
   cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
-test_consensus:
-  echo Testing with async std executor
-  RUST_LOG="error" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
-
 test_catchup:
     echo Testing with async std executor
     RUST_LOG="error" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
 
 test_basic:
+  echo Running the basic tests, including the test for success, the test for nodes leaving the network, and unit tests for network, consensus and DA tasks, with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_success test_with_failures test_network test_consensus test_da -- --test-threads=1 --nocapture
+
+test_success:
   echo Testing with async std executor
-  RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
+  cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing with async std executor
-  RUST_LOG="" cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
+  cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
-test_basic_tokio:
+test_success_tokio:
   echo Testing with tokio executor
-  RUST_LOG="" cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_basic -- --test-threads=1 --nocapture
+  cargo test  --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
-  RUST_LOG="" ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+
+test_network_task:
+  echo Testing the DA task with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
+
+test_consensus_task:
+  echo Testing with async std executor
+  cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task with async std executor
-  RUST_LOG="" ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 

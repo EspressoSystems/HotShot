@@ -67,7 +67,6 @@ generic-array = "0.14.7"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", default-features = false }
-hotshot-primitives = { workspace = true }
 jf-primitives = { workspace = true }
 nll = { workspace = true }
 libp2p-networking = { workspace = true }

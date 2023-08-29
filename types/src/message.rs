@@ -3,25 +3,22 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::certificate::DACertificate;
-use crate::data::DAProposal;
-use crate::traits::network::ViewMessage;
-use crate::traits::node_implementation::ViewSyncProposalType;
-use crate::vote::{DAVote, QuorumVote};
 use crate::{
-    data::ProposalType,
+    certificate::DACertificate,
+    data::{DAProposal, ProposalType},
     traits::{
-        network::NetworkMsg,
-        node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumProposalType},
+        network::{NetworkMsg, ViewMessage},
+        node_implementation::{
+            ExchangesType, NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+        },
         signature_key::EncodedSignature,
     },
-    vote::{ViewSyncVote, VoteType},
+    vote::{DAVote, QuorumVote, ViewSyncVote, VoteType},
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative)]

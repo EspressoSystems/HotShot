@@ -1,63 +1,60 @@
+#![allow(clippy::module_name_repetitions)]
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
 use hotshot_consensus::SequencingConsensusApi;
-use hotshot_task::task::HandleEvent;
-use hotshot_task::task::HotShotTaskCompleted;
-use hotshot_task::task::HotShotTaskTypes;
-use hotshot_task::task_impls::TaskBuilder;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, TS},
-    task_impls::HSTWithEvent,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::network::ConsensusIntentEvent;
+use hotshot_types::traits::{election::Membership, network::ConsensusIntentEvent};
 
 use bitvec::prelude::*;
 use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_types::certificate::ViewSyncCertificate;
-use hotshot_types::data::SequencingLeaf;
-use hotshot_types::data::ViewNumber;
-use hotshot_types::message::GeneralConsensusMessage;
-use hotshot_types::message::Message;
-use hotshot_types::message::Proposal;
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::ViewSyncExchangeType;
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::ViewSyncEx;
-use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::vote::ViewSyncData;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::vote::VoteAccumulator;
+use hotshot_types::{
+    certificate::ViewSyncCertificate,
+    data::SequencingLeaf,
+    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
+    traits::{
+        election::{ConsensusExchange, ViewSyncExchangeType},
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType, ViewSyncEx},
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{ViewSyncData, ViewSyncVote, VoteAccumulator},
+};
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tracing::{debug, error, instrument};
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
+/// Phases of view sync
 pub enum ViewSyncPhase {
+    /// No phase; before the protocol has begun
     None,
+    /// PreCommit phase
     PreCommit,
+    /// Commit phase
     Commit,
+    /// Finalize phase
     Finalize,
 }
 
 #[derive(Default)]
+/// Information about view sync sub-tasks
 pub struct ViewSyncTaskInfo {
+    /// Id of the event stream of a certain task
     event_stream_id: usize,
 }
 
 #[derive(Snafu, Debug)]
+/// Stub of a view sync error
 pub struct ViewSyncTaskError {}
 
+/// Main view sync task state
 pub struct ViewSyncTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -75,14 +72,19 @@ pub struct ViewSyncTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Registry to register sub tasks
     pub registry: GlobalRegistry,
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-
+    /// View HotShot is currently in
     pub current_view: TYPES::Time,
+    /// View HotShot wishes to be in
     pub next_view: TYPES::Time,
-
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// HotShot consensus API
     pub api: A,
+    /// Our node id; for logging
     pub id: u64,
 
     /// How many timeouts we've seen in a row; is reset upon a successful view change
@@ -94,8 +96,10 @@ pub struct ViewSyncTaskState<
     /// Map of running relay tasks
     pub relay_task_map: HashMap<TYPES::Time, ViewSyncTaskInfo>,
 
+    /// Timeout duration for view sync rounds
     pub view_sync_timeout: Duration,
 
+    /// Last view we garbage collected old tasks
     pub last_garbage_collected_view: TYPES::Time,
 }
 
@@ -119,6 +123,7 @@ where
 {
 }
 
+/// Types for the main view sync task
 pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -126,6 +131,7 @@ pub type ViewSyncTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskState<TYPES, I, A>,
 >;
 
+/// State of a view sync replica task
 pub struct ViewSyncReplicaTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -143,17 +149,28 @@ pub struct ViewSyncReplicaTaskState<
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Timeout for view sync rounds
     pub view_sync_timeout: Duration,
+    /// Current round HotShot is in
     pub current_view: TYPES::Time,
+    /// Round HotShot wishes to be in
     pub next_view: TYPES::Time,
+    /// The last seen phase of the view sync protocol
     pub phase: ViewSyncPhase,
+    /// The relay index we are currently on
     pub relay: u64,
+    /// Whether we have seen a finalized certificate
     pub finalized: bool,
+    /// Whether we have already sent a view change event for `next_view`
     pub sent_view_change_event: bool,
+    /// Our node id; for logging
     pub id: u64,
 
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// HotShot consensus API
     pub api: A,
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 }
 
@@ -177,6 +194,7 @@ where
 {
 }
 
+/// Types for view sync replica state
 pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -184,6 +202,7 @@ pub type ViewSyncReplicaTaskStateTypes<TYPES, I, A> = HSTWithEvent<
     ViewSyncReplicaTaskState<TYPES, I, A>,
 >;
 
+/// State of a view sync relay task
 pub struct ViewSyncRelayTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -192,12 +211,16 @@ pub struct ViewSyncRelayTaskState<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > {
+    /// Event stream to publish events to
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// View sync exchange
     pub exchange: Arc<ViewSyncEx<TYPES, I>>,
+    /// Vote accumulator
     pub accumulator: Either<
         VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
         ViewSyncCertificate<TYPES>,
     >,
+    /// Our node id; for logging
     pub id: u64,
 }
 
@@ -212,6 +235,7 @@ impl<
 {
 }
 
+/// Types used by the view sync relay task
 pub type ViewSyncRelayTaskStateTypes<TYPES, I> = HSTWithEvent<
     ViewSyncTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -238,6 +262,7 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
+    /// Handles incoming events for the main view sync task
     pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
         match &event {
             SequencingHotShotEvent::ViewSyncCertificateRecv(message) => {
@@ -331,9 +356,9 @@ where
 
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 let vote_internal = match vote {
-                    ViewSyncVote::PreCommit(vote_internal) => vote_internal,
-                    ViewSyncVote::Commit(vote_internal) => vote_internal,
-                    ViewSyncVote::Finalize(vote_internal) => vote_internal,
+                    ViewSyncVote::PreCommit(vote_internal)
+                    | ViewSyncVote::Commit(vote_internal)
+                    | ViewSyncVote::Finalize(vote_internal) => vote_internal,
                 };
 
                 if let Some(relay_task) = self.relay_task_map.get(&vote_internal.round) {
@@ -453,7 +478,7 @@ where
             }
             &SequencingHotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
-                if view_number < ViewNumber::new(*self.current_view) {
+                if view_number < TYPES::Time::new(*self.current_view) {
                     return;
                 }
 
@@ -544,7 +569,7 @@ where
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view += 1;
                     self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             *self.current_view,
                         )))
                         .await;
@@ -590,7 +615,7 @@ where
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
-
+    /// Handle incoming events for the view sync replica task
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -657,7 +682,7 @@ where
                 if self.phase >= ViewSyncPhase::Commit && !self.sent_view_change_event {
                     error!("VIEW SYNC UPDATING VIEW TO {}", *self.next_view);
                     self.event_stream
-                        .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(
+                        .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(
                             *self.next_view,
                         )))
                         .await;
@@ -682,7 +707,7 @@ where
                 }
 
                 if certificate_internal.relay > self.relay {
-                    self.relay = certificate_internal.relay
+                    self.relay = certificate_internal.relay;
                 }
 
                 // TODO ED Assuming that nodes must have stake for the view they are voting to enter
@@ -753,7 +778,7 @@ where
                                 async_sleep(self.view_sync_timeout).await;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(*self.next_view),
+                                        TYPES::Time::new(*self.next_view),
                                         self.relay,
                                         phase,
                                     ))
@@ -763,17 +788,19 @@ where
 
                         return (None, self);
                     }
-                    Ok(None) => return (None, self),
-                    Err(_) => return (None, self),
+                    Ok(None) => {
+                        debug!(
+                            "We were not chosen for committee on view {}",
+                            *self.next_view
+                        );
+                        return (None, self);
+                    }
+                    Err(_) => {
+                        error!("Problem generating vote token");
+                        return (None, self);
+                    }
                 }
             }
-            SequencingHotShotEvent::ViewSyncVoteRecv(_) => {
-                // Ignore
-                return (None, self);
-            }
-
-            // The main ViewSync task should handle this
-            SequencingHotShotEvent::Timeout(_) => return (None, self),
 
             SequencingHotShotEvent::ViewSyncTrigger(view_number) => {
                 if self.next_view != TYPES::Time::new(*view_number) {
@@ -812,7 +839,7 @@ where
                                 async_sleep(self.view_sync_timeout).await;
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                        ViewNumber::new(*self.next_view),
+                                        TYPES::Time::new(*self.next_view),
                                         self.relay,
                                         ViewSyncPhase::None,
                                     ))
@@ -821,7 +848,11 @@ where
                         });
                         return (None, self);
                     }
-                    _ => {
+                    Ok(None) => {
+                        debug!("We were not chosen for committee on view {}", *view_number);
+                        return (None, self);
+                    }
+                    Err(_) => {
                         error!("Problem generating vote token");
                         return (None, self);
                     }
@@ -878,7 +909,7 @@ where
                                     async_sleep(self.view_sync_timeout).await;
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
-                                            ViewNumber::new(*self.next_view),
+                                            TYPES::Time::new(*self.next_view),
                                             self.relay,
                                             last_seen_certificate,
                                         ))
@@ -887,8 +918,7 @@ where
                             });
                             return (None, self);
                         }
-                        Ok(None) => return (None, self),
-                        Err(_) => return (None, self),
+                        Ok(None) | Err(_) => return (None, self),
                     }
                 }
             }
@@ -915,8 +945,8 @@ where
         Commitment = ViewSyncData<TYPES>,
     >,
 {
+    /// Handles incoming events for the view sync relay task
     #[instrument(skip_all, fields(id = self.id), name = "View Sync Relay Task", level = "error")]
-
     pub async fn handle_event(
         mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -925,7 +955,6 @@ where
         ViewSyncRelayTaskState<TYPES, I>,
     ) {
         match event {
-            SequencingHotShotEvent::ViewSyncCertificateRecv(_) => (None, self),
             SequencingHotShotEvent::ViewSyncVoteRecv(vote) => {
                 if self.accumulator.is_right() {
                     return (Some(HotShotTaskCompleted::ShutDown), self);

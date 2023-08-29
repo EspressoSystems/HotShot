@@ -16,6 +16,7 @@ use std::{
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
+use hotshot_signature_key::bn254::BN254Pub;
 use hotshot_types::{
     certificate::{AssembledSignature, QuorumCertificate},
     constants::genesis_proposer_id,
@@ -24,7 +25,6 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::bn254::BN254Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },

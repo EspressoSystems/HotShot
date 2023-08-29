@@ -1,8 +1,8 @@
 //! Abstraction over on-disk storage of node state
 
 use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
-use crate::certificate::QuorumCertificate;
 use crate::{
+    certificate::QuorumCertificate,
     data::LeafType,
     traits::{election::SignedCertificate, Block},
 };

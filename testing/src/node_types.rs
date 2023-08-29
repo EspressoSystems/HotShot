@@ -1,6 +1,5 @@
 use hotshot::traits::implementations::CombinedNetworks;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
@@ -14,24 +13,16 @@ use hotshot::{
     },
     types::bn254::BN254Pub,
 };
-use hotshot_types::traits::election::ViewSyncExchange;
-use hotshot_types::vote::QuorumVote;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::{certificate::ViewSyncCertificate, data::QuorumProposal};
 use hotshot_types::{
-    data::{DAProposal, SequencingLeaf, ViewNumber},
-    traits::{
-        election::{CommitteeExchange, QuorumExchange},
-        node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
-    },
-    vote::DAVote,
-};
-use hotshot_types::{
+    certificate::ViewSyncCertificate,
+    data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, SequencingMessage},
     traits::{
+        election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
         network::{TestableChannelImplementation, TestableNetworkingImplementation},
-        node_implementation::TestableExchange,
+        node_implementation::{ChannelMaps, NodeType, SequencingExchanges, TestableExchange},
     },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
 };
 use serde::{Deserialize, Serialize};
 
@@ -182,7 +173,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -348,7 +339,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -469,7 +460,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -643,7 +634,7 @@ impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,

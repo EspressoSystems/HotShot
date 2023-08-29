@@ -1,9 +1,11 @@
 use async_lock::RwLock;
 use either::Either;
 use futures::{future::BoxFuture, FutureExt};
-use std::collections::{BTreeMap, BTreeSet};
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
+    sync::Arc,
+};
 
 use crate::task_state::{TaskState, TaskStatus};
 

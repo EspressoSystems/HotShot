@@ -1,9 +1,9 @@
 use async_compatibility_layer::channel::{unbounded, UnboundedSender, UnboundedStream};
 use async_lock::RwLock;
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -150,7 +150,6 @@ impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
                     Ok(_) => (),
                     // error sending => stream is closed so remove it
                     Err(_) => {
-                        // error!("Channel was closed with uid {}", *uid);
                         self.unsubscribe(*uid).await;
                     }
                 }

@@ -12,46 +12,47 @@ use ark_std::{
 use bitvec::prelude::*;
 use ethereum_types::U256;
 use generic_array::GenericArray;
-use hotshot_types::traits::{
-    qc::QuorumCertificate,
-    stake_table::{SnapshotVersion, StakeTableScheme},
-};
-use jf_primitives::{
-    errors::{PrimitivesError, PrimitivesError::ParameterError},
-    signatures::AggregateableSignatureSchemes,
-};
+use hotshot_types::traits::qc::QuorumCertificate;
+use jf_primitives::errors::PrimitivesError;
+use jf_primitives::errors::PrimitivesError::ParameterError;
+use jf_primitives::signatures::AggregateableSignatureSchemes;
 use serde::{Deserialize, Serialize};
 use typenum::U32;
 
 /// An implementation of QC using BLS signature and a bit-vector.
-pub struct BitVectorQC<A: AggregateableSignatureSchemes, ST: StakeTableScheme>(
+#[derive(Serialize, Deserialize)]
+pub struct BitVectorQC<A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a>>(
     PhantomData<A>,
-    PhantomData<ST>,
 );
 
+/// Stake table entry
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]
+pub struct StakeTableEntry<V> {
+    /// Stake table key
+    pub stake_key: V,
+    /// Stake table value
+    pub stake_amount: U256,
+}
+
 /// Public parameters of [`BitVectorQC`]
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct QCParams<A: AggregateableSignatureSchemes, ST: StakeTableScheme> {
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash)]
+pub struct QCParams<V, P> {
     /// the stake table (snapshot) this QC is verified against
-    pub stake_table: ST,
+    pub stake_entries: Vec<StakeTableEntry<V>>,
     /// threshold for the accumulated "weight" of votes to form a QC
     pub threshold: U256,
     /// public parameter for the aggregated signature scheme
-    pub agg_sig_pp: A::PublicParameter,
+    pub agg_sig_pp: P,
 }
 
-impl<A, ST> QuorumCertificate<A> for BitVectorQC<A, ST>
+impl<A> QuorumCertificate<A> for BitVectorQC<A>
 where
-    A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a> + PartialEq,
-    ST: StakeTableScheme<Key = A::VerificationKey, Amount = U256>
-        + Serialize
-        + for<'a> Deserialize<'a>
-        + PartialEq,
+    A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a>,
 {
-    type QCProverParams = QCParams<A, ST>;
+    type QCProverParams = QCParams<A::VerificationKey, A::PublicParameter>;
 
     // TODO: later with SNARKs we'll use a smaller verifier parameter
-    type QCVerifierParams = QCParams<A, ST>;
+    type QCVerifierParams = QCParams<A::VerificationKey, A::PublicParameter>;
 
     type QC = (A::Signature, BitVec);
     type MessageLength = U32;
@@ -71,28 +72,25 @@ where
         signers: &BitSlice,
         sigs: &[A::Signature],
     ) -> Result<Self::QC, PrimitivesError> {
-        let st_len = qc_pp.stake_table.len(SnapshotVersion::LastEpochStart)?;
-        if signers.len() != st_len {
+        if signers.len() != qc_pp.stake_entries.len() {
             return Err(ParameterError(format!(
                 "bit vector len {} != the number of stake entries {}",
                 signers.len(),
-                st_len,
+                qc_pp.stake_entries.len(),
             )));
         }
-        let total_weight: U256 = qc_pp
-            .stake_table
-            .try_iter(SnapshotVersion::LastEpochStart)?
-            .zip(signers.iter())
-            .fold(
-                U256::zero(),
-                |acc, (entry, b)| {
+        let total_weight: U256 =
+            qc_pp
+                .stake_entries
+                .iter()
+                .zip(signers.iter())
+                .fold(U256::zero(), |acc, (entry, b)| {
                     if *b {
-                        acc + entry.1
+                        acc + entry.stake_amount
                     } else {
                         acc
                     }
-                },
-            );
+                });
         if total_weight < qc_pp.threshold {
             return Err(ParameterError(format!(
                 "total_weight {} less than threshold {}",
@@ -100,13 +98,9 @@ where
             )));
         }
         let mut ver_keys = vec![];
-        for (entry, b) in qc_pp
-            .stake_table
-            .try_iter(SnapshotVersion::LastEpochStart)?
-            .zip(signers.iter())
-        {
+        for (entry, b) in qc_pp.stake_entries.iter().zip(signers.iter()) {
             if *b {
-                ver_keys.push(entry.0.clone());
+                ver_keys.push(entry.stake_key.clone());
             }
         }
         if ver_keys.len() != sigs.len() {
@@ -127,28 +121,25 @@ where
         qc: &Self::QC,
     ) -> Result<Self::QuorumSize, PrimitivesError> {
         let (sig, signers) = qc;
-        let st_len = qc_vp.stake_table.len(SnapshotVersion::LastEpochStart)?;
-        if signers.len() != st_len {
+        if signers.len() != qc_vp.stake_entries.len() {
             return Err(ParameterError(format!(
                 "signers bit vector len {} != the number of stake entries {}",
                 signers.len(),
-                st_len,
+                qc_vp.stake_entries.len(),
             )));
         }
-        let total_weight: U256 = qc_vp
-            .stake_table
-            .try_iter(SnapshotVersion::LastEpochStart)?
-            .zip(signers.iter())
-            .fold(
-                U256::zero(),
-                |acc, (entry, b)| {
+        let total_weight: U256 =
+            qc_vp
+                .stake_entries
+                .iter()
+                .zip(signers.iter())
+                .fold(U256::zero(), |acc, (entry, b)| {
                     if *b {
-                        acc + entry.1
+                        acc + entry.stake_amount
                     } else {
                         acc
                     }
-                },
-            );
+                });
         if total_weight < qc_vp.threshold {
             return Err(ParameterError(format!(
                 "total_weight {} less than threshold {}",
@@ -156,13 +147,9 @@ where
             )));
         }
         let mut ver_keys = vec![];
-        for (entry, b) in qc_vp
-            .stake_table
-            .try_iter(SnapshotVersion::LastEpochStart)?
-            .zip(signers.iter())
-        {
+        for (entry, b) in qc_vp.stake_entries.iter().zip(signers.iter()) {
             if *b {
-                ver_keys.push(entry.0.clone());
+                ver_keys.push(entry.stake_key.clone());
             }
         }
         A::multi_sig_verify(&qc_vp.agg_sig_pp, &ver_keys[..], message, sig)?;
@@ -176,23 +163,22 @@ where
         qc: &Self::QC,
     ) -> Result<Vec<<A>::VerificationKey>, PrimitivesError> {
         let (_sig, signers) = qc;
-        let st_len = qc_vp.stake_table.len(SnapshotVersion::LastEpochStart)?;
-        if signers.len() != st_len {
+        if signers.len() != qc_vp.stake_entries.len() {
             return Err(ParameterError(format!(
                 "signers bit vector len {} != the number of stake entries {}",
                 signers.len(),
-                st_len,
+                qc_vp.stake_entries.len(),
             )));
         }
 
         Self::check(qc_vp, message, qc)?;
 
         let signer_pks: Vec<_> = qc_vp
-            .stake_table
-            .try_iter(SnapshotVersion::LastEpochStart)?
+            .stake_entries
+            .iter()
             .zip(signers.iter())
             .filter(|(_, b)| **b)
-            .map(|(pk, _)| pk.0)
+            .map(|(pk, _)| pk.stake_key.clone())
             .collect();
         Ok(signer_pks)
     }
@@ -201,52 +187,49 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hotshot_stake_table::mt_based::StakeTable;
-    use hotshot_types::traits::stake_table::StakeTableScheme;
-    use jf_primitives::signatures::{
-        bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
-        SignatureScheme,
-    };
+    use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
+    use jf_primitives::signatures::SignatureScheme;
 
     macro_rules! test_quorum_certificate {
         ($aggsig:tt) => {
-            type ST = StakeTable<<$aggsig as SignatureScheme>::VerificationKey>;
             let mut rng = jf_utils::test_rng();
-
             let agg_sig_pp = $aggsig::param_gen(Some(&mut rng)).unwrap();
             let key_pair1 = KeyPair::generate(&mut rng);
             let key_pair2 = KeyPair::generate(&mut rng);
             let key_pair3 = KeyPair::generate(&mut rng);
-
-            let mut st = ST::new(3);
-            st.register(key_pair1.ver_key(), U256::from(3u8)).unwrap();
-            st.register(key_pair2.ver_key(), U256::from(5u8)).unwrap();
-            st.register(key_pair3.ver_key(), U256::from(7u8)).unwrap();
-            st.advance();
-            st.advance();
-
+            let entry1 = StakeTableEntry {
+                stake_key: key_pair1.ver_key(),
+                stake_amount: U256::from(3u8),
+            };
+            let entry2 = StakeTableEntry {
+                stake_key: key_pair2.ver_key(),
+                stake_amount: U256::from(5u8),
+            };
+            let entry3 = StakeTableEntry {
+                stake_key: key_pair3.ver_key(),
+                stake_amount: U256::from(7u8),
+            };
             let qc_pp = QCParams {
-                stake_table: st,
+                stake_entries: vec![entry1, entry2, entry3],
                 threshold: U256::from(10u8),
                 agg_sig_pp,
             };
-
             let msg = [72u8; 32];
-            let sig1 = BitVectorQC::<$aggsig, ST>::sign(
+            let sig1 = BitVectorQC::<$aggsig>::sign(
                 &agg_sig_pp,
                 &msg.into(),
                 key_pair1.sign_key_ref(),
                 &mut rng,
             )
             .unwrap();
-            let sig2 = BitVectorQC::<$aggsig, ST>::sign(
+            let sig2 = BitVectorQC::<$aggsig>::sign(
                 &agg_sig_pp,
                 &msg.into(),
                 key_pair2.sign_key_ref(),
                 &mut rng,
             )
             .unwrap();
-            let sig3 = BitVectorQC::<$aggsig, ST>::sign(
+            let sig3 = BitVectorQC::<$aggsig>::sign(
                 &agg_sig_pp,
                 &msg.into(),
                 key_pair3.sign_key_ref(),
@@ -256,15 +239,15 @@ mod tests {
 
             // happy path
             let signers = bitvec![0, 1, 1];
-            let qc = BitVectorQC::<$aggsig, ST>::assemble(
+            let qc = BitVectorQC::<$aggsig>::assemble(
                 &qc_pp,
                 signers.as_bitslice(),
                 &[sig2.clone(), sig3.clone()],
             )
             .unwrap();
-            assert!(BitVectorQC::<$aggsig, ST>::check(&qc_pp, &msg.into(), &qc).is_ok());
+            assert!(BitVectorQC::<$aggsig>::check(&qc_pp, &msg.into(), &qc).is_ok());
             assert_eq!(
-                BitVectorQC::<$aggsig, ST>::trace(&qc_pp, &msg.into(), &qc).unwrap(),
+                BitVectorQC::<$aggsig>::trace(&qc_pp, &msg.into(), &qc).unwrap(),
                 vec![key_pair2.ver_key(), key_pair3.ver_key()],
             );
 
@@ -274,34 +257,14 @@ mod tests {
                 bincode::deserialize(&bincode::serialize(&qc).unwrap()).unwrap()
             );
 
-            // (alex) since deserialized stake table's leaf would contain normalized projective
-            // points with Z=1, which differs from the original projective representation.
-            // We compare individual fields for equivalence instead.
-            let de_qc_pp: QCParams<$aggsig, ST> =
-                bincode::deserialize(&bincode::serialize(&qc_pp).unwrap()).unwrap();
             assert_eq!(
-                qc_pp.stake_table.commitment(SnapshotVersion::Head).unwrap(),
-                de_qc_pp
-                    .stake_table
-                    .commitment(SnapshotVersion::Head)
-                    .unwrap(),
+                qc_pp,
+                bincode::deserialize(&bincode::serialize(&qc_pp).unwrap()).unwrap()
             );
-            assert_eq!(
-                qc_pp
-                    .stake_table
-                    .commitment(SnapshotVersion::LastEpochStart)
-                    .unwrap(),
-                de_qc_pp
-                    .stake_table
-                    .commitment(SnapshotVersion::LastEpochStart)
-                    .unwrap(),
-            );
-            assert_eq!(qc_pp.threshold, de_qc_pp.threshold);
-            assert_eq!(qc_pp.agg_sig_pp, de_qc_pp.agg_sig_pp);
 
             // bad paths
             // number of signatures unmatch
-            assert!(BitVectorQC::<$aggsig, ST>::assemble(
+            assert!(BitVectorQC::<$aggsig>::assemble(
                 &qc_pp,
                 signers.as_bitslice(),
                 &[sig2.clone()]
@@ -309,7 +272,7 @@ mod tests {
             .is_err());
             // total weight under threshold
             let active_bad = bitvec![1, 1, 0];
-            assert!(BitVectorQC::<$aggsig, ST>::assemble(
+            assert!(BitVectorQC::<$aggsig>::assemble(
                 &qc_pp,
                 active_bad.as_bitslice(),
                 &[sig1.clone(), sig2.clone()]
@@ -317,35 +280,33 @@ mod tests {
             .is_err());
             // wrong bool vector length
             let active_bad_2 = bitvec![0, 1, 1, 0];
-            assert!(BitVectorQC::<$aggsig, ST>::assemble(
+            assert!(BitVectorQC::<$aggsig>::assemble(
                 &qc_pp,
                 active_bad_2.as_bitslice(),
                 &[sig2, sig3],
             )
             .is_err());
 
-            assert!(BitVectorQC::<$aggsig, ST>::check(
+            assert!(BitVectorQC::<$aggsig>::check(
                 &qc_pp,
                 &msg.into(),
                 &(qc.0.clone(), active_bad)
             )
             .is_err());
-            assert!(BitVectorQC::<$aggsig, ST>::check(
+            assert!(BitVectorQC::<$aggsig>::check(
                 &qc_pp,
                 &msg.into(),
                 &(qc.0.clone(), active_bad_2)
             )
             .is_err());
             let bad_msg = [70u8; 32];
-            assert!(BitVectorQC::<$aggsig, ST>::check(&qc_pp, &bad_msg.into(), &qc).is_err());
+            assert!(BitVectorQC::<$aggsig>::check(&qc_pp, &bad_msg.into(), &qc).is_err());
 
             let bad_sig = &sig1;
-            assert!(BitVectorQC::<$aggsig, ST>::check(
-                &qc_pp,
-                &msg.into(),
-                &(bad_sig.clone(), qc.1)
-            )
-            .is_err());
+            assert!(
+                BitVectorQC::<$aggsig>::check(&qc_pp, &msg.into(), &(bad_sig.clone(), qc.1))
+                    .is_err()
+            );
         };
     }
     #[test]

@@ -18,12 +18,15 @@ use commit::{Commitment, Committable};
 use either::Either;
 use ethereum_types::U256;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-use jf_primitives::signatures::SignatureScheme;
+use jf_primitives::signatures::{
+    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
-use std::num::NonZeroU64;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+    num::NonZeroU64,
+};
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
@@ -38,8 +41,6 @@ pub trait VoteType<TYPES: NodeType>:
 #[serde(bound(deserialize = ""))]
 pub struct DAVote<TYPES: NodeType> {
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry including public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The block commitment being voted on.
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -60,8 +61,6 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// we should check a cache, and if that fails request the qc
     pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The leaf commitment being voted on.
     pub leaf_commitment: Commitment<LEAF>,
@@ -77,13 +76,9 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The justification qc for this view
-    // TODO ED This should be the high_qc instead, and the signature should be over it,
-    // not just over the view number
-    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
+    /// The highest valid QC this node knows about
+    pub high_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
-    // signature.2 = entry with public key for certificate aggregation
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The view this vote was cast for
     pub current_view: TYPES::Time,
@@ -460,7 +455,7 @@ where
         if *viewsync_precommit_stake_casted >= u64::from(self.failure_threshold) {
             let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                 entries,
-                U256::from(self.success_threshold.get()),
+                U256::from(self.failure_threshold.get()),
             );
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(

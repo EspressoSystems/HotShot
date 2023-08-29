@@ -1,18 +1,18 @@
 // use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
+use hotshot_signature_key::bn254::BN254Pub;
 use hotshot_types::{
     data::LeafType,
     traits::{
         election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
-        signature_key::{bn254::BN254Pub, EncodedSignature, SignatureKey},
+        signature_key::{EncodedSignature, SignatureKey},
     },
 };
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
+use std::{marker::PhantomData, num::NonZeroU64};
 use tracing::debug;
 
 /// Dummy implementation of [`Membership`]

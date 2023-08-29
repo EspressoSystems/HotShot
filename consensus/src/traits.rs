@@ -1,16 +1,18 @@
 //! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 use async_trait::async_trait;
-use hotshot_types::certificate::QuorumCertificate;
-use hotshot_types::message::DataMessage;
-use hotshot_types::message::SequencingMessage;
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
-use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{network::NetworkError, signature_key::SignatureKey},
+    message::{DataMessage, SequencingMessage},
+    traits::{
+        network::NetworkError,
+        node_implementation::{NodeImplementation, NodeType},
+        signature_key::SignatureKey,
+        storage::StorageError,
+    },
     vote::VoteType,
 };
 
@@ -160,6 +162,8 @@ pub trait SequencingConsensusApi<
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a message with a transaction.
+    /// This function is deprecated in favor of `submit_transaction` in `handle.rs`
+    #[deprecated]
     async fn send_transaction(
         &self,
         message: DataMessage<TYPES>,

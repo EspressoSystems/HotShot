@@ -13,8 +13,6 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -22,9 +20,9 @@ use hotshot_types::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, TestableChannelImplementation, TestableNetworkingImplementation,
-            TransmitType,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
+            NetworkError, NetworkMsg, TestableChannelImplementation,
+            TestableNetworkingImplementation, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,

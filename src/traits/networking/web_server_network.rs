@@ -8,9 +8,7 @@
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use async_compatibility_layer::channel::unbounded;
-use async_compatibility_layer::channel::UnboundedReceiver;
-use async_compatibility_layer::channel::UnboundedSender;
+use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -19,19 +17,17 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::message::{Message, MessagePurpose};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
+    message::{Message, MessagePurpose},
     traits::{
         election::{ElectionConfig, Membership},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkError, NetworkMsg,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
             TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
             WebServerNetworkError,
         },
-        node_implementation::NodeType,
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::VoteType,
@@ -41,10 +37,8 @@ use rand::random;
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::{
-    collections::BTreeSet,
+    collections::{hash_map::Entry, BTreeSet, HashMap},
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},

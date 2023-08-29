@@ -236,14 +236,10 @@ pub mod test {
     use async_compatibility_layer::channel::{unbounded, UnboundedStream};
     use snafu::Snafu;
 
-    use crate::event_stream;
-    use crate::event_stream::ChannelStream;
-    use crate::task::TS;
+    use crate::{event_stream, event_stream::ChannelStream, task::TS};
 
     use super::{HSTWithEvent, HSTWithEventAndMessage, HSTWithMessage};
-    use crate::event_stream::EventStream;
-    use crate::task::HotShotTaskTypes;
-    use crate::task_impls::TaskBuilder;
+    use crate::{event_stream::EventStream, task::HotShotTaskTypes, task_impls::TaskBuilder};
     use async_compatibility_layer::art::async_spawn;
     use futures::FutureExt;
     use std::sync::Arc;

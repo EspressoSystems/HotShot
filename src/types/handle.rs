@@ -1,28 +1,26 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-use crate::Message;
-use crate::QuorumCertificate;
-use crate::{traits::NodeImplementation, types::Event, SystemContext};
+use crate::{traits::NodeImplementation, types::Event, Message, QuorumCertificate, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
 use futures::Stream;
 use hotshot_consensus::Consensus;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::event_stream::StreamId;
-use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::{boxed_sync, task::FilterEvent, BoxSyncFuture};
+use hotshot_task::{
+    boxed_sync,
+    event_stream::{ChannelStream, EventStream, StreamId},
+    global_registry::GlobalRegistry,
+    task::FilterEvent,
+    BoxSyncFuture,
+};
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
     error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
     traits::{
-        election::ConsensusExchange,
-        election::SignedCertificate,
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
         node_implementation::{ExchangesType, NodeType, QuorumEx},
         state::ConsensusTime,
         storage::Storage,
@@ -142,6 +140,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.output_event_stream.subscribe(filter).await
     }
 
+    /// HACK so we can know the types when running tests...
+    /// there are two cleaner solutions:
+    /// - make the stream generic and in nodetypes or nodeimpelmentation
+    /// - type wrapper
+    /// NOTE: this is only used for sanity checks in our tests
+    pub async fn get_internal_event_stream_known_impl(
+        &mut self,
+        filter: FilterEvent<SequencingHotShotEvent<TYPES, I>>,
+    ) -> (UnboundedStream<SequencingHotShotEvent<TYPES, I>>, StreamId) {
+        self.internal_event_stream.subscribe(filter).await
+    }
+
     /// Gets the current committed state of the [`HotShot`] instance
     ///
     /// # Errors
@@ -167,10 +177,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
     /// [`SystemContext`] instance.
-    ///
-    /// For now this function is deprecated.  Use `send_transaction` instead
-    /// This function will be updated with <https://github.com/EspressoSystems/HotShot/issues/1526>
-    #[deprecated]
     pub async fn submit_transaction(
         &self,
         tx: TYPES::Transaction,

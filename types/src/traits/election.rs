@@ -3,39 +3,44 @@
 // Needed to avoid the non-biding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
 
-use super::node_implementation::{NodeImplementation, NodeType};
-use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::VoteMetaData;
-use crate::certificate::{AssembledSignature, ViewSyncCertificate};
-use crate::certificate::{DACertificate, QuorumCertificate};
-use crate::data::DAProposal;
-use crate::data::ProposalType;
+use super::{
+    node_implementation::{NodeImplementation, NodeType},
+    signature_key::{EncodedPublicKey, EncodedSignature},
+};
+use crate::{
+    certificate::{
+        AssembledSignature, DACertificate, QuorumCertificate, ViewSyncCertificate, VoteMetaData,
+    },
+    data::{DAProposal, ProposalType},
+};
 
-use crate::message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message};
-use crate::vote::ViewSyncVoteInternal;
+use crate::{
+    message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message},
+    vote::ViewSyncVoteInternal,
+};
 
-use crate::traits::network::CommunicationChannel;
-use crate::traits::network::NetworkMsg;
-use crate::traits::{node_implementation::ExchangesType, state::ConsensusTime};
-use crate::vote::ViewSyncData;
-use crate::vote::ViewSyncVote;
-use crate::vote::VoteAccumulator;
-use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-use crate::{data::LeafType, traits::signature_key::SignatureKey};
+use crate::{
+    data::LeafType,
+    traits::{
+        network::{CommunicationChannel, NetworkMsg},
+        node_implementation::ExchangesType,
+        signature_key::SignatureKey,
+        state::ConsensusTime,
+    },
+    vote::{
+        Accumulator, DAVote, QuorumVote, TimeoutVote, ViewSyncData, ViewSyncVote, VoteAccumulator,
+        VoteType, YesOrNoVote,
+    },
+};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use ethereum_types::U256;
 use hotshot_utils::bincode::bincode_opts;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::collections::BTreeSet;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash, marker::PhantomData, num::NonZeroU64};
 use tracing::error;
 
 /// Error for election problems
@@ -887,7 +892,7 @@ impl<
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc: QuorumCertificate<TYPES, LEAF>,
+        high_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
@@ -896,7 +901,7 @@ impl<
     {
         let signature = self.sign_timeout_vote(current_view);
         GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
-            justify_qc,
+            high_qc,
             signature,
             current_view,
             vote_token,
@@ -1224,7 +1229,7 @@ impl<
                 let real_commit = VoteData::ViewSyncPreCommit(vote_data.commit()).commit();
                 let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                     self.membership().get_committee_qc_stake_table(),
-                    U256::from(self.membership().success_threshold().get()),
+                    U256::from(self.membership().failure_threshold().get()),
                 );
                 <TYPES::SignatureKey as SignatureKey>::check(
                     &real_qc_pp,

@@ -1,9 +1,10 @@
-use super::overall_safety_task::OverallSafetyTask;
-use super::overall_safety_task::RoundCtx;
-use super::{completion_task::CompletionTask, txn_task::TxnTask};
+use super::{
+    completion_task::CompletionTask,
+    overall_safety_task::{OverallSafetyTask, RoundCtx},
+    txn_task::TxnTask,
+};
 use crate::spinning_task::UpDown;
-use crate::test_launcher::Networks;
-use crate::test_launcher::TestLauncher;
+use crate::test_launcher::{Networks, TestLauncher};
 use hotshot::types::SystemContextHandle;
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
@@ -11,16 +12,14 @@ use hotshot::{
 use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     message::Message,
     traits::{
-        election::ConsensusExchange,
+        election::{ConsensusExchange, Membership},
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{NodeType, QuorumCommChannel, QuorumEx},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+        signature_key::SignatureKey,
     },
     HotShotConfig,
 };
@@ -169,7 +168,6 @@ where
         task_runner = task_runner.add_task(id, "Test Overall Safety Task".to_string(), task);
 
         // Start hotshot
-        // Goes through all nodes, but really only needs to call this on the leader node of the first view
         for node in nodes {
             if !late_start_nodes.contains(&node.node_id.try_into().unwrap()) {
                 node.handle.hotshot.start_consensus().await;

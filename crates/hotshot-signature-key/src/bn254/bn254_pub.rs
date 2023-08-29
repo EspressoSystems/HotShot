@@ -3,13 +3,15 @@ use bincode::Options;
 use bitvec::prelude::*;
 use blake3::traits::digest::generic_array::GenericArray;
 use ethereum_types::U256;
-use hotshot_primitives::qc::bit_vector::{
+use hotshot_qc::bit_vector_old::{
     BitVectorQC, QCParams as JFQCParams, StakeTableEntry as JFStakeTableEntry,
 };
-use hotshot_primitives::qc::QuorumCertificate;
+use hotshot_types::traits::qc::QuorumCertificate;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey};
-use jf_primitives::signatures::SignatureScheme;
+use jf_primitives::signatures::{
+    bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey},
+    SignatureScheme,
+};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Debug};
 use tracing::{debug, instrument, warn};

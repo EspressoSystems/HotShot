@@ -1,57 +1,49 @@
 use crate::events::SequencingHotShotEvent;
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::art::async_timeout;
-use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
+use async_compatibility_layer::{
+    art::{async_spawn, async_timeout},
+    async_primitives::subscribable_rwlock::ReadView,
+};
 use async_lock::RwLock;
 use bincode::config::Options;
 use bitvec::prelude::*;
 use commit::Committable;
-use either::Either;
-use either::{Left, Right};
+use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::utils::ViewInner;
-use hotshot_consensus::Consensus;
-use hotshot_consensus::SequencingConsensusApi;
-use hotshot_consensus::View;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::global_registry::GlobalRegistry;
-use hotshot_task::task::FilterEvent;
-use hotshot_task::task::{HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS};
-use hotshot_task::task_impls::HSTWithEvent;
-use hotshot_task::task_impls::TaskBuilder;
-use hotshot_types::data::DAProposal;
-use hotshot_types::message::Proposal;
-use hotshot_types::message::{CommitteeConsensusMessage, Message};
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::Block;
-use hotshot_types::traits::State;
+use hotshot_consensus::{utils::ViewInner, Consensus, SequencingConsensusApi, View};
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    global_registry::GlobalRegistry,
+    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
+    task_impls::{HSTWithEvent, TaskBuilder},
+};
 use hotshot_types::{
     certificate::DACertificate,
-    data::{ProposalType, SequencingLeaf, ViewNumber},
-    message::SequencingMessage,
+    data::{DAProposal, ProposalType, SequencingLeaf},
+    message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        node_implementation::{CommitteeEx, NodeType},
+        election::{CommitteeExchangeType, ConsensusExchange, Membership},
+        network::{CommunicationChannel, ConsensusIntentEvent},
+        node_implementation::{CommitteeEx, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
+        Block, State,
     },
     vote::VoteAccumulator,
 };
 use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 use tracing::{debug, error, instrument, warn};
 
 #[derive(Snafu, Debug)]
+/// Error type for consensus tasks
 pub struct ConsensusTaskError {}
 
+/// Tracks state of a DA task
 pub struct DATaskState<
     TYPES: NodeType,
     I: NodeImplementation<
@@ -68,11 +60,13 @@ pub struct DATaskState<
         Commitment = TYPES::BlockType,
     >,
 {
+    /// The state's api
     pub api: A,
+    /// Global registry task for the state
     pub registry: GlobalRegistry,
 
     /// View number this view is executing in.
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
 
     // pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -82,14 +76,16 @@ pub struct DATaskState<
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
 
     /// The view and ID of the current vote collection task, if there is one.
-    pub vote_collector: Option<(ViewNumber, usize, usize)>,
+    pub vote_collector: Option<(TYPES::Time, usize, usize)>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
 
+    /// This state's ID
     pub id: u64,
 }
 
+/// Struct to maintain DA Vote Collection task state
 pub struct DAVoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
@@ -103,11 +99,15 @@ pub struct DAVoteCollectionTaskState<
 {
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+    /// the vote accumulator
     pub accumulator:
         Either<VoteAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>,
     // TODO ED Make this just "view" since it is only for this task
-    pub cur_view: ViewNumber,
+    /// the current view
+    pub cur_view: TYPES::Time,
+    /// event stream for channel events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    /// the id of this task state
     pub id: u64,
 }
 
@@ -124,10 +124,7 @@ where
 }
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
-async fn vote_handle<
-    TYPES: NodeType<Time = ViewNumber>,
-    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
->(
+async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>>(
     mut state: DAVoteCollectionTaskState<TYPES, I>,
     event: SequencingHotShotEvent<TYPES, I>,
 ) -> (
@@ -200,7 +197,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -216,6 +213,7 @@ where
         Commitment = TYPES::BlockType,
     >,
 {
+    /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
 
     pub async fn handle_event(
@@ -354,7 +352,7 @@ where
                         }
                         *collection_view
                     } else {
-                        ViewNumber::new(0)
+                        TYPES::Time::new(0)
                     };
                 let acc = VoteAccumulator {
                     total_vote_outcomes: HashMap::new(),
@@ -472,7 +470,10 @@ where
                 let parent_view_number = &consensus.high_qc.view_number;
 
                 let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
-                    error!("Couldn't find high QC parent in state map. Parent view {:?}", parent_view_number);
+                    error!(
+                        "Couldn't find high QC parent in state map. Parent view {:?}",
+                        parent_view_number
+                    );
                     return None;
                 };
                 let Some(leaf) = parent_view.get_leaf_commitment() else {
@@ -617,10 +618,10 @@ where
         let txns: Vec<TYPES::Transaction> = all_txns
             .iter()
             .filter_map(|(txn_hash, txn)| {
-                if !previous_used_txns.contains(txn_hash) {
-                    Some(txn.clone())
-                } else {
+                if previous_used_txns.contains(txn_hash) {
                     None
+                } else {
+                    Some(txn.clone())
                 }
             })
             .collect();
@@ -641,6 +642,7 @@ where
     }
 }
 
+/// task state implementation for DA Task
 impl<
         TYPES: NodeType,
         I: NodeImplementation<
@@ -660,6 +662,7 @@ where
 {
 }
 
+/// Type alias for DA Vote Collection Types
 pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
@@ -667,6 +670,7 @@ pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     DAVoteCollectionTaskState<TYPES, I>,
 >;
 
+/// Type alias for DA Task Types
 pub type DATaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,

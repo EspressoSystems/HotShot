@@ -15,8 +15,6 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -24,8 +22,9 @@ use hotshot_types::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkMsg,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,

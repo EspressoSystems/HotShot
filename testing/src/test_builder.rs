@@ -1,18 +1,20 @@
 use hotshot::types::SignatureKey;
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::message::{Message, SequencingMessage};
 
-use hotshot_types::traits::node_implementation::{NodeType, QuorumEx, TestableExchange};
-use hotshot_types::{ExecutionType, HotShotConfig};
+use hotshot_types::{
+    traits::node_implementation::{NodeType, QuorumEx, TestableExchange},
+    ExecutionType, HotShotConfig,
+};
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use crate::spinning_task::SpinningTaskDescription;
-use crate::test_launcher::{ResourceGenerators, TestLauncher};
+use crate::{
+    spinning_task::SpinningTaskDescription,
+    test_launcher::{ResourceGenerators, TestLauncher},
+};
 
 use super::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
@@ -45,7 +47,7 @@ pub struct TestMetadata {
     pub start_nodes: usize,
     /// number of bootstrap nodes (libp2p usage only)
     pub num_bootstrap_nodes: usize,
-    /// Size of the DA committee for the test.  0 == no DA.
+    /// Size of the DA committee for the test
     pub da_committee_size: usize,
     // overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,

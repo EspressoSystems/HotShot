@@ -14,25 +14,22 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use crate::traits::election::Membership;
-use crate::{data::TestableLeaf, message::Message};
 use crate::{
-    data::{LeafType, SequencingLeaf},
-    message::{ConsensusMessageType, SequencingMessage},
+    data::{LeafType, SequencingLeaf, TestableLeaf},
+    message::{ConsensusMessageType, Message, SequencingMessage},
     traits::{
-        network::TestableChannelImplementation, signature_key::SignatureKey, storage::Storage,
-        Block,
+        election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
+        storage::Storage, Block,
     },
 };
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use commit::Committable;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
+    hash::Hash,
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -564,7 +561,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime + Committable;
+    type Time: ConsensusTime;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.
