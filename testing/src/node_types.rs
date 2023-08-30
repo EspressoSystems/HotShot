@@ -415,7 +415,6 @@ impl
             Message<SequencingTestTypes, SequencingWebImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
             _,
-            _,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
             Message<SequencingTestTypes, SequencingWebImpl>,
@@ -429,7 +428,6 @@ impl
         let network_da_generator = Arc::new(<WebServerNetwork<
             Message<SequencingTestTypes, SequencingWebImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
-            <SequencingTestTypes as NodeType>::ElectionConfigType,
             SequencingTestTypes,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
@@ -544,7 +542,6 @@ impl
             Message<SequencingTestTypes, StaticFallbackImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
             _,
-            _,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
             Message<SequencingTestTypes, StaticFallbackImpl>,
@@ -558,7 +555,6 @@ impl
         let ws_da_generator = Arc::new(<WebServerNetwork<
             Message<SequencingTestTypes, StaticFallbackImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
-            <SequencingTestTypes as NodeType>::ElectionConfigType,
             SequencingTestTypes,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,

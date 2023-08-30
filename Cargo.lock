@@ -526,7 +526,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.27",
+ "time 0.3.28",
 ]
 
 [[package]]
@@ -1787,9 +1787,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.5.1"
+version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edd72493923899c6f10c641bdbdeddc7183d6396641d99c1a0d1597f37f92e28"
+checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
 dependencies = [
  "cfg-if",
  "hashbrown 0.14.0",
@@ -2712,7 +2712,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "surf-disco",
- "time 0.3.27",
+ "time 0.3.28",
  "tokio",
  "toml 0.7.6",
  "tracing",
@@ -2860,7 +2860,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "serde",
  "snafu",
- "time 0.3.27",
+ "time 0.3.28",
  "tokio",
  "tracing",
 ]
@@ -2933,7 +2933,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64 0.2.4",
- "time 0.3.27",
+ "time 0.3.28",
  "tokio",
  "tracing",
  "typenum",
@@ -5746,7 +5746,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.27",
+ "time 0.3.28",
  "yasna",
 ]
 
@@ -6275,7 +6275,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 2.3.3",
- "time 0.3.27",
+ "time 0.3.28",
 ]
 
 [[package]]
@@ -6292,7 +6292,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 3.3.0",
- "time 0.3.27",
+ "time 0.3.28",
 ]
 
 [[package]]
@@ -7222,15 +7222,15 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.27"
+version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb39ee79a6d8de55f48f2293a830e040392f1c5f16e336bdd1788cd0aadce07"
+checksum = "17f6bb557fd245c28e6411aa56b6403c689ad95061f50e4be16c274e70a17e48"
 dependencies = [
  "deranged",
  "itoa 1.0.9",
  "serde",
  "time-core",
- "time-macros 0.2.13",
+ "time-macros 0.2.14",
 ]
 
 [[package]]
@@ -7251,9 +7251,9 @@ dependencies = [
 
 [[package]]
 name = "time-macros"
-version = "0.2.13"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "733d258752e9303d392b94b75230d07b0b9c489350c69b851fc6c065fde3e8f9"
+checksum = "1a942f44339478ef67935ab2bbaec2fb0322496cf3cbe84b261e06ac3814c572"
 dependencies = [
  "time-core",
 ]
@@ -8247,7 +8247,7 @@ dependencies = [
  "oid-registry",
  "rusticata-macros",
  "thiserror",
- "time 0.3.27",
+ "time 0.3.28",
 ]
 
 [[package]]
@@ -8280,7 +8280,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
- "time 0.3.27",
+ "time 0.3.28",
 ]
 
 [[package]]
