@@ -249,7 +249,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if !txns_to_return.is_empty() {
             debug!("Returning this many txs {}", txns_to_return.len());
             //starting_index is the oldest index of the returned txns
-            Ok(Some((starting_index, txns_to_return)))
+            Ok(Some((starting_index as u64, txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
