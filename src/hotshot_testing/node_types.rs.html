@@ -641,10 +641,6 @@
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::implementations::CombinedNetworks;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
@@ -1062,7 +1058,6 @@
             Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
             &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
             <span class="kw">_</span>,
-            <span class="kw">_</span>,
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;
             SequencingTestTypes,
             Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
@@ -1076,7 +1071,6 @@
         <span class="kw">let </span>network_da_generator = Arc::new(&lt;WebServerNetwork&lt;
             Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
             &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-            &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
             SequencingTestTypes,
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;
             SequencingTestTypes,
@@ -1191,7 +1185,6 @@
             Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
             &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
             <span class="kw">_</span>,
-            <span class="kw">_</span>,
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;
             SequencingTestTypes,
             Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
@@ -1205,7 +1198,6 @@
         <span class="kw">let </span>ws_da_generator = Arc::new(&lt;WebServerNetwork&lt;
             Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
             &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-            &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
             SequencingTestTypes,
         &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;
             SequencingTestTypes,
