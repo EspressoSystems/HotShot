@@ -21,7 +21,7 @@ use hotshot_types::{
     data::ProposalType,
     message::{Message, MessagePurpose},
     traits::{
-        election::{ElectionConfig, Membership},
+        election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
             TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
@@ -57,7 +57,7 @@ pub struct WebCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>>,
+    Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>>,
     PhantomData<(MEMBERSHIP, I, PROPOSAL, VOTE)>,
 );
 
@@ -72,14 +72,7 @@ impl<
     /// Create new communication channel
     #[must_use]
     pub fn new(
-        network: Arc<
-            WebServerNetwork<
-                Message<TYPES, I>,
-                TYPES::SignatureKey,
-                TYPES::ElectionConfigType,
-                TYPES,
-            >,
-        >,
+        network: Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>>,
     ) -> Self {
         Self(network, PhantomData)
     }
@@ -87,21 +80,14 @@ impl<
 
 /// The web server network state
 #[derive(Clone, Debug)]
-pub struct WebServerNetwork<
-    M: NetworkMsg,
-    KEY: SignatureKey,
-    ELECTIONCONFIG: ElectionConfig,
-    TYPES: NodeType,
-> {
+pub struct WebServerNetwork<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES>>,
+    inner: Arc<Inner<M, KEY, TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
-    WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES>
-{
+impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> WebServerNetwork<M, KEY, TYPES> {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
@@ -121,9 +107,9 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
+struct Inner<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> {
     /// Phantom data for generic types
-    phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
+    phantom: PhantomData<(KEY, TYPES::ElectionConfigType)>,
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for broadcasted messages
@@ -160,9 +146,7 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
     txn_task_map: Arc<RwLock<HashMap<u64, UnboundedSender<ConsensusIntentEvent>>>>,
 }
 
-impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
-    Inner<M, KEY, ELECTIONCONFIG, TYPES>
-{
+impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
     #![allow(clippy::too_many_lines)]
     /// Pull a web server.
     async fn poll_web_server(
@@ -461,9 +445,8 @@ impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 impl<
         M: NetworkMsg + 'static + ViewMessage<TYPES>,
         K: SignatureKey + 'static,
-        E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-    > WebServerNetwork<M, K, E, TYPES>
+    > WebServerNetwork<M, K, TYPES>
 {
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
@@ -549,12 +532,11 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
-    type NETWORK =
-        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>;
+    type NETWORK = WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -564,7 +546,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <WebServerNetwork<_, _, _, _,> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _,> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
@@ -580,7 +562,7 @@ impl<
         Self: 'b,
     {
         let closure = async move {
-            <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
+            <WebServerNetwork<_, _, _> as ConnectedNetwork<
                 Message<TYPES, I>,
                 TYPES::SignatureKey,
             >>::shut_down(&self.0)
@@ -622,7 +604,7 @@ impl<
         Self: 'b,
     {
         let closure = async move {
-            <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
+            <WebServerNetwork<_, _, _> as ConnectedNetwork<
                 Message<TYPES, I>,
                 TYPES::SignatureKey,
             >>::recv_msgs(&self.0, transmit_type)
@@ -638,7 +620,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
-        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, event)
@@ -650,9 +632,8 @@ impl<
 impl<
         M: NetworkMsg + 'static + ViewMessage<TYPES>,
         K: SignatureKey + 'static,
-        E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES>
+    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, TYPES>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -1028,7 +1009,7 @@ impl<
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
+    for WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>
 {
     fn generator(
         expected_node_count: usize,
@@ -1095,7 +1076,6 @@ impl<
         let generator = <WebServerNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
             TYPES,
         > as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
@@ -1125,20 +1105,11 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+        WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>,
     > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     fn generate_network() -> Box<
-        dyn Fn(
-                Arc<
-                    WebServerNetwork<
-                        Message<TYPES, I>,
-                        TYPES::SignatureKey,
-                        TYPES::ElectionConfigType,
-                        TYPES,
-                    >,
-                >,
-            ) -> Self
+        dyn Fn(Arc<WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>>) -> Self
             + 'static,
     > {
         Box::new(move |network| WebCommChannel::new(network))
