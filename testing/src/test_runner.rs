@@ -6,9 +6,7 @@ use super::{
 use crate::test_launcher::{Networks, TestLauncher};
 use hotshot::types::SystemContextHandle;
 
-use hotshot::{
-    traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext,
-};
+use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext};
 use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };

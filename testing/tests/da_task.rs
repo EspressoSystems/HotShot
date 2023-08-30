@@ -1,11 +1,11 @@
 use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::{SequencingMemoryImpl, SequencingTestTypes};
 use hotshot_types::{
     data::{DAProposal, ViewNumber},
     traits::{
+        consensus_api::ConsensusSharedApi,
         election::ConsensusExchange, node_implementation::ExchangesType, state::ConsensusTime,
     },
 };

@@ -42,7 +42,7 @@ use crate::{
     types::{Event, SystemContextHandle},
 };
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local},
+    art::{async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
@@ -56,10 +56,6 @@ use hotshot_task::{
 };
 use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
-use hotshot_consensus::{
-    BlockStore, Consensus, ConsensusMetrics,
-    ConsensusSharedApi, View, ViewInner, ViewQueue,
-};
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
     data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
@@ -68,7 +64,12 @@ use hotshot_types::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
+    consensus::{
+        BlockStore, Consensus, ConsensusMetrics,
+        View, ViewInner, ViewQueue,
+    },
     traits::{
+        consensus_api::{ConsensusSharedApi, SequencingConsensusApi},
         election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::Metrics,
         network::{CommunicationChannel, NetworkError},
@@ -1106,7 +1107,7 @@ struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPE
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    hotshot_consensus::ConsensusSharedApi<TYPES, I::Leaf, I>
+    ConsensusSharedApi<TYPES, I::Leaf, I>
     for HotShotValidatingConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -1177,7 +1178,7 @@ pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    hotshot_consensus::ConsensusSharedApi<TYPES, I::Leaf, I>
+    ConsensusSharedApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -1243,7 +1244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > hotshot_consensus::SequencingConsensusApi<TYPES, I::Leaf, I>
+    > SequencingConsensusApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
 {
     async fn send_direct_message<

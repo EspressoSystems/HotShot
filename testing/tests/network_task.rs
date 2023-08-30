@@ -1,6 +1,5 @@
 use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
-use hotshot_consensus::traits::ConsensusSharedApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
@@ -8,7 +7,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{DAProposal, ViewNumber},
-    traits::{node_implementation::ExchangesType, state::ConsensusTime},
+    traits::{consensus_api::ConsensusSharedApi, node_implementation::ExchangesType, state::ConsensusTime},
 };
 use std::collections::HashMap;
 

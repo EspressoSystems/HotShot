@@ -9,7 +9,6 @@ use bitvec::prelude::*;
 use commit::Committable;
 use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::{utils::ViewInner, Consensus, SequencingConsensusApi, View};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -20,7 +19,9 @@ use hotshot_types::{
     certificate::DACertificate,
     data::{DAProposal, ProposalType, SequencingLeaf},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
+    consensus::{Consensus, View},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType},
@@ -28,6 +29,7 @@ use hotshot_types::{
         state::ConsensusTime,
         Block, State,
     },
+    utils::ViewInner,
     vote::VoteAccumulator,
 };
 use hotshot_utils::bincode::bincode_opts;

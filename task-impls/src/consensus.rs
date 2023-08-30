@@ -12,10 +12,6 @@ use commit::Committable;
 use core::time::Duration;
 use either::{Either, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::{
-    utils::{Terminator, ViewInner},
-    Consensus, SequencingConsensusApi, View,
-};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -24,10 +20,12 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
+    consensus::{Consensus, View},
     data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
@@ -35,6 +33,7 @@ use hotshot_types::{
         state::ConsensusTime,
         Block,
     },
+    utils::{Terminator, ViewInner},
     vote::{QuorumVote, VoteAccumulator, VoteType},
 };
 use hotshot_utils::bincode::bincode_opts;
