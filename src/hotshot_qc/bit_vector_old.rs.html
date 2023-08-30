@@ -314,6 +314,9 @@
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for BitVectorQC that uses BLS signature + Bit vector.
 //! See more details in HotShot paper.
 
@@ -329,9 +332,10 @@
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>generic_array::GenericArray;
 <span class="kw">use </span>hotshot_types::traits::qc::QuorumCertificate;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError::ParameterError;
-<span class="kw">use </span>jf_primitives::signatures::AggregateableSignatureSchemes;
+<span class="kw">use </span>jf_primitives::{
+    errors::{PrimitivesError, PrimitivesError::ParameterError},
+    signatures::AggregateableSignatureSchemes,
+};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>typenum::U32;
 
@@ -503,8 +507,10 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair};
-    <span class="kw">use </span>jf_primitives::signatures::SignatureScheme;
+    <span class="kw">use </span>jf_primitives::signatures::{
+        bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
+        SignatureScheme,
+    };
 
     <span class="macro">macro_rules! </span>test_quorum_certificate {
         (<span class="macro-nonterminal">$aggsig</span>:tt) =&gt; {
