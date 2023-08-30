@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::channel::oneshot;
+use async_compatibility_layer::{art::async_spawn, channel::oneshot};
 use clap::Parser;
 use hotshot::demos::sdemo::SDemoTypes;
 use tracing::error;

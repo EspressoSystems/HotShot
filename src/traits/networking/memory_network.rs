@@ -15,8 +15,6 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::{Message, MessageKind},
@@ -24,11 +22,12 @@ use hotshot_types::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkMsg,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
         },
         node_implementation::NodeType,
-        signature_key::{SignatureKey, TestableSignatureKey},
+        signature_key::SignatureKey,
     },
     vote::VoteType,
 };
@@ -293,8 +292,6 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         _expected_node_count: usize,
@@ -305,7 +302,7 @@ where
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let master: Arc<_> = MasterMap::new();
         Box::new(move |node_id| {
-            let privkey = TYPES::SignatureKey::generate_test_key(node_id);
+            let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), None)
         })
@@ -500,7 +497,6 @@ impl<
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
@@ -617,8 +613,6 @@ impl<
         MEMBERSHIP,
         MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     > for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network(
     ) -> Box<dyn Fn(Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self + 'static>

@@ -50,31 +50,28 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use custom_debug::Debug;
-use hotshot_task::event_stream::ChannelStream;
-use hotshot_task::event_stream::EventStream;
-use hotshot_task::task_launcher::TaskRunner;
-use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_task_impls::network::NetworkTaskKind;
+use hotshot_task::{
+    event_stream::{ChannelStream, EventStream},
+    task_launcher::TaskRunner,
+};
+use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
 use hotshot_consensus::{
     BlockStore, Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
     ConsensusSharedApi, DALeader, DAMember, SequencingReplica, View, ViewInner, ViewQueue,
 };
-use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf, ViewNumber};
-use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, traits::election::Membership};
 use hotshot_types::{
-    certificate::ViewSyncCertificate,
-    data::{LeafType, QuorumProposal},
+    certificate::{DACertificate, ViewSyncCertificate},
+    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
+        election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::Metrics,
-        network::NetworkError,
+        network::{CommunicationChannel, NetworkError},
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
             ViewSyncEx,
@@ -87,7 +84,6 @@ use hotshot_types::{
     vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
-use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -119,7 +115,11 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    config: HotShotConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >,
 
     /// Networking interface for this hotshot instance
     // networking: I::Networking,
@@ -179,7 +179,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
         storage: I::Storage,
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
@@ -262,7 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)))
+            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(1)))
             .await;
 
         // ED This isn't ideal...
@@ -316,29 +320,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
     }
 
-    /// Publishes a transaction to the network
+    /// Publishes a transaction asynchronously to the network
     ///
     /// # Errors
     ///
-    /// Will generate an error if an underlying network error occurs
+    /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
-        // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
         // TODO place a view number here that makes sense
         // we haven't worked out how this will work yet
-        // let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
-
-        // self.inner.exchanges.committee_exchange().network.broadcast(message).await;
-
-        // let api = self.clone();
-        // async_spawn(async move {
-        //     // let _result = self.inner.exchanges.committee_exchange().network.broadcast(message).await.is_err();
-        // });
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
+        let api = self.clone();
+        // TODO We should have a function that can return a network error if there is one
+        // but first we'd need to ensure our network implementations can support that
+        // (and not hang instead)
+        async_spawn(async move {
+            let _result = api
+                .inner
+                .exchanges
+                .committee_exchange()
+                .network()
+                .broadcast_message(
+                    Message {
+                        sender: api.inner.public_key.clone(),
+                        kind: MessageKind::from(message),
+                        _phantom: PhantomData,
+                    },
+                    &api.inner
+                        .exchanges
+                        .committee_exchange()
+                        .membership()
+                        .clone(),
+                )
+                .await;
+        });
         Ok(())
     }
 
@@ -386,12 +406,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
         storage: I::Storage,
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<SystemContextHandle<TYPES, I>, HotShotError<TYPES>>
+    ) -> Result<
+        (
+            SystemContextHandle<TYPES, I>,
+            ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+        ),
+        HotShotError<TYPES>,
+    >
     where
         SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         SystemContext<TYPES, I>: HotShotType<TYPES, I>,
@@ -408,9 +438,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             metrics,
         )
         .await?;
-        let handle = hotshot.run_tasks().await;
+        let handle = hotshot.clone().run_tasks().await;
+        let internal_event_stream = hotshot.inner.internal_event_stream.clone();
 
-        Ok(handle)
+        Ok((handle, internal_event_stream))
     }
 
     /// Send a broadcast message.
@@ -628,7 +659,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -1205,8 +1236,8 @@ where
                 let id = hotshot.inner.id;
                 async_spawn(async move {
                     let Some((da_cert, block, parent)) = da_leader.run_view().await else {
-                    return qc;
-                };
+                        return qc;
+                    };
                     let consensus_leader = ConsensusLeader {
                         id,
                         consensus,
@@ -1566,24 +1597,27 @@ impl<
         message: DataMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
-        self.inner
-            .exchanges
-            .committee_exchange()
-            .network()
-            .broadcast_message(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: MessageKind::from(message),
-                    _phantom: PhantomData,
-                },
-                &self
-                    .inner
-                    .exchanges
-                    .committee_exchange()
-                    .membership()
-                    .clone(),
-            )
-            .await?;
+        let api = self.clone();
+        async_spawn(async move {
+            let _result = api
+                .inner
+                .exchanges
+                .committee_exchange()
+                .network()
+                .broadcast_message(
+                    Message {
+                        sender: api.inner.public_key.clone(),
+                        kind: MessageKind::from(message),
+                        _phantom: PhantomData,
+                    },
+                    &api.inner
+                        .exchanges
+                        .committee_exchange()
+                        .membership()
+                        .clone(),
+                )
+                .await;
+        });
         Ok(())
     }
 }

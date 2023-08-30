@@ -1,30 +1,29 @@
-use super::overall_safety_task::OverallSafetyTask;
-use super::overall_safety_task::RoundCtx;
-use super::{completion_task::CompletionTask, txn_task::TxnTask};
-use crate::test_launcher::Networks;
-use crate::test_launcher::TestLauncher;
+use super::{
+    completion_task::CompletionTask,
+    overall_safety_task::{OverallSafetyTask, RoundCtx},
+    txn_task::TxnTask,
+};
+use crate::test_launcher::{Networks, TestLauncher};
 use hotshot::types::SystemContextHandle;
+
 use hotshot::{
     traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
 };
 use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
-use hotshot_types::traits::election::Membership;
-use hotshot_types::traits::node_implementation::ExchangesType;
-use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     message::Message,
     traits::{
-        election::ConsensusExchange,
+        election::{ConsensusExchange, Membership},
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{NodeType, QuorumCommChannel, QuorumEx},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
+        signature_key::SignatureKey,
     },
     HotShotConfig,
 };
 #[allow(deprecated)]
-use rand::SeedableRng;
 use tracing::info;
 
 #[derive(Clone)]
@@ -145,7 +144,6 @@ where
         task_runner = task_runner.add_task(id, "Test Overall Safety Task".to_string(), task);
 
         // Start hotshot
-        // Goes through all nodes, but really only needs to call this on the leader node of the first view
         for node in nodes {
             node.handle.hotshot.start_consensus().await;
         }
@@ -204,7 +202,11 @@ where
         networks: Networks<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> u64
     where
         SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
@@ -219,11 +221,11 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = I::generate_test_key(node_id);
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        // Generate key pair for certificate aggregation
+        let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
         let public_key = TYPES::SignatureKey::from_private(&private_key);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
-        ));
+        let entry = public_key.get_stake_table_entry(1u64);
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
             <QuorumEx<TYPES,I> as ConsensusExchange<
                 TYPES,
@@ -232,6 +234,7 @@ where
         });
         let committee_election_config = I::committee_election_config_generator();
         let exchanges = I::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (
                 quorum_election_config,
@@ -239,8 +242,8 @@ where
             ),
             networks,
             public_key.clone(),
+            entry.clone(),
             private_key.clone(),
-            ek.clone(),
         );
         let handle = SystemContext::init(
             public_key,
@@ -253,7 +256,8 @@ where
             NoMetrics::boxed(),
         )
         .await
-        .expect("Could not init hotshot");
+        .expect("Could not init hotshot")
+        .0;
         self.nodes.push(Node { handle, node_id });
         node_id
     }

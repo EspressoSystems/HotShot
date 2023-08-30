@@ -12,7 +12,7 @@ use hotshot_types::traits::{
     node_implementation::{ChannelMaps, NodeImplementation, ValidatingExchanges},
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{ValidatingLeaf, ValidatingProposal},
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
@@ -49,7 +49,7 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <VDemoTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<VDemoTypes, Self>,
         Option<ChannelMaps<VDemoTypes, Self>>,

@@ -3,7 +3,6 @@ use crate::infra::{load_config_from_file, OrchestratorArgs};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
 use futures::StreamExt;
-use hotshot::HotShotSequencingConsensusApi;
 use hotshot::{
     traits::{
         implementations::{MemoryStorage, WebCommChannel, WebServerNetwork},
@@ -12,37 +11,27 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, SystemContext, ViewRunner,
 };
-use hotshot_consensus::traits::SequencingConsensusApi;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_types::event::{Event, EventType};
-use hotshot_types::message::DataMessage;
-use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    message::Message,
-    traits::election::{CommitteeExchange, QuorumExchange},
-};
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{
-        election::{ConsensusExchange, ViewSyncExchange},
-        node_implementation::{CommitteeEx, QuorumEx},
-    },
-};
-use hotshot_types::{
     data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
-    message::SequencingMessage,
+    event::{Event, EventType},
+    message::{Message, SequencingMessage},
     traits::{
-        election::Membership,
+        election::{
+            CommitteeExchange, ConsensusExchange, Membership, QuorumExchange, ViewSyncExchange,
+        },
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, SequencingExchanges},
-        state::{TestableBlock, TestableState},
+        node_implementation::{
+            CommitteeEx, ExchangesType, NodeType, QuorumEx, SequencingExchanges,
+        },
+        state::{ConsensusTime, TestableBlock, TestableState},
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
@@ -57,9 +46,6 @@ use hotshot_types::{
 // };
 // use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use rand::SeedableRng;
-use std::fmt::Debug;
-use std::net::Ipv4Addr;
 use std::{
     //collections::{BTreeSet, VecDeque},
     collections::VecDeque,
@@ -72,12 +58,10 @@ use std::{
     //time::{Duration, Instant},
     time::Instant,
 };
+use std::{fmt::Debug, net::Ipv4Addr};
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
+use tracing::{debug, error, info, warn};
 
 /// Runs the orchestrator
 pub async fn run_orchestrator_da<
@@ -149,7 +133,7 @@ pub async fn run_orchestrator_da<
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,
@@ -208,7 +192,11 @@ pub trait RunDA<
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> Self;
 
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
@@ -225,12 +213,12 @@ pub trait RunDA<
 
         let config = self.get_config();
 
+        // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            config.seed,
-        ));
         let known_nodes = config.config.known_nodes.clone();
+        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+        let entry = pk.get_stake_table_entry(1u64);
 
         let da_network = self.get_da_network();
         let quorum_network = self.get_quorum_network();
@@ -252,6 +240,7 @@ pub trait RunDA<
         );
 
         let exchanges = NODE::Exchanges::create(
+            known_nodes_with_stake.clone(),
             known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
@@ -260,8 +249,8 @@ pub trait RunDA<
                 view_sync_network.clone(),
             ),
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
 
         SystemContext::init(
@@ -276,6 +265,7 @@ pub trait RunDA<
         )
         .await
         .expect("Could not init hotshot")
+        .0
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
@@ -321,10 +311,6 @@ pub trait RunDA<
         let mut num_successful_commits = 0;
 
         let total_nodes_u64 = total_nodes.get() as u64;
-
-        let api = HotShotSequencingConsensusApi {
-            inner: context.hotshot.inner.clone(),
-        };
 
         context.hotshot.start_consensus().await;
 
@@ -384,12 +370,7 @@ pub trait RunDA<
 
                                         debug!("Submitting txn on round {}", round);
 
-                                        let result = api
-                                            .send_transaction(DataMessage::SubmitTransaction(
-                                                txn.clone(),
-                                                TYPES::Time::new(0),
-                                            ))
-                                            .await;
+                                        let result = context.submit_transaction(txn).await;
 
                                         if result.is_err() {
                                             error! (
@@ -424,7 +405,13 @@ pub trait RunDA<
     fn get_view_sync_network(&self) -> VIEWSYNCNETWORK;
 
     /// Returns the config for this run
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >;
 }
 
 // WEB SERVER
@@ -452,7 +439,11 @@ pub struct WebServerDARun<
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
-    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    config: NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    >,
     quorum_network: StaticQuorumComm<TYPES, I, MEMBERSHIP>,
     da_network: StaticDAComm<TYPES, I, MEMBERSHIP>,
     view_sync_network: StaticViewSyncComm<TYPES, I, MEMBERSHIP>,
@@ -460,7 +451,7 @@ pub struct WebServerDARun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Time = ViewNumber>,
+        TYPES: NodeType,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -522,7 +513,11 @@ where
     Self: Sync,
 {
     async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: NetworkConfig<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+            TYPES::ElectionConfigType,
+        >,
     ) -> WebServerDARun<TYPES, NODE, MEMBERSHIP> {
         // Generate our own key
         let (pub_key, _priv_key) =
@@ -615,14 +610,20 @@ where
         self.view_sync_network.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        TYPES::ElectionConfigType,
+    > {
         self.config.clone()
     }
 }
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType<Time = ViewNumber>,
+    TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<
             TYPES,

@@ -7,8 +7,7 @@ use ark_std::{
 };
 use bitvec::prelude::*;
 use generic_array::{ArrayLength, GenericArray};
-use jf_primitives::errors::PrimitivesError;
-use jf_primitives::signatures::AggregateableSignatureSchemes;
+use jf_primitives::{errors::PrimitivesError, signatures::AggregateableSignatureSchemes};
 use serde::{Deserialize, Serialize};
 
 /// Trait for validating a QC built from different signatures on the same message

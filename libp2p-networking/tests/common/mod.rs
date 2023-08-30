@@ -1,8 +1,9 @@
-use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::channel::RecvError;
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-use futures::FutureExt;
-use futures::{future::join_all, Future};
+use async_compatibility_layer::{
+    art::async_sleep,
+    channel::RecvError,
+    logging::{setup_backtrace, setup_logging},
+};
+use futures::{future::join_all, Future, FutureExt};
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{

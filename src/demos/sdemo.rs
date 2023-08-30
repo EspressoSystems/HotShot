@@ -7,7 +7,7 @@
 //! production use.
 use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::Deref,
@@ -16,15 +16,15 @@ use std::{
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
+use hotshot_signature_key::bn254::BN254Pub;
 use hotshot_types::{
-    certificate::{QuorumCertificate, YesNoSignature},
+    certificate::{AssembledSignature, QuorumCertificate},
     constants::genesis_proposer_id,
     data::{fake_commitment, random_commitment, LeafType, SequencingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
@@ -304,7 +304,7 @@ pub struct SDemoTypes;
 impl NodeType for SDemoTypes {
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = Ed25519Pub;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -357,7 +357,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
         // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: YesNoSignature::Yes(BTreeMap::default()),
+        signatures: AssembledSignature::Genesis(),
         is_genesis: rng.gen(),
     }
 }

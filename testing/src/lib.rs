@@ -1,5 +1,8 @@
 use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 
+/// Helpers for initializing system context handle and building tasks.
+pub mod task_helpers;
+
 ///  builder
 pub mod test_builder;
 

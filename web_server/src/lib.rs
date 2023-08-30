@@ -6,23 +6,16 @@ use async_lock::RwLock;
 use clap::Args;
 use futures::FutureExt;
 
-use hotshot_types::traits::signature_key::EncodedPublicKey;
-use hotshot_types::traits::signature_key::SignatureKey;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use std::collections::HashMap;
-use std::io;
-use std::path::PathBuf;
-use tide_disco::api::ApiError;
-use tide_disco::error::ServerError;
-use tide_disco::method::ReadState;
-use tide_disco::method::WriteState;
-use tide_disco::Api;
-use tide_disco::App;
-use tide_disco::StatusCode;
-use tracing::debug;
-use tracing::info;
+use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
+use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
+use std::{collections::HashMap, io, path::PathBuf};
+use tide_disco::{
+    api::ApiError,
+    error::ServerError,
+    method::{ReadState, WriteState},
+    Api, App, StatusCode,
+};
+use tracing::{debug, info};
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;

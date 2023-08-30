@@ -28,13 +28,12 @@ pub use utils::{View, ViewInner};
 
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use hotshot_types::certificate::QuorumCertificate;
-use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     data::LeafType,
     error::HotShotError,
     traits::{
-        metrics::{Gauge, Histogram, Metrics},
+        metrics::{Counter, Gauge, Histogram, Metrics},
         node_implementation::NodeType,
     },
 };

@@ -1,27 +1,27 @@
 //! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
-use crate::traits::implementations::Libp2pNetwork;
-use crate::traits::implementations::WebServerNetwork;
-use crate::NodeImplementation;
+use crate::{
+    traits::implementations::{Libp2pNetwork, WebServerNetwork},
+    NodeImplementation,
+};
 
 use async_trait::async_trait;
 
 use futures::join;
 
 use hotshot_task::{boxed_sync, BoxSyncFuture};
-use hotshot_types::traits::network::ConsensusIntentEvent;
-use hotshot_types::traits::network::TestableChannelImplementation;
-use hotshot_types::traits::network::TestableNetworkingImplementation;
-use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
     traits::{
         election::Membership,
-        network::{CommunicationChannel, ConnectedNetwork, TransmitType},
+        network::{
+            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            ViewMessage,
+        },
         node_implementation::NodeType,
-        signature_key::TestableSignatureKey,
     },
     vote::VoteType,
 };
@@ -81,8 +81,6 @@ pub struct CombinedNetworks<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for CombinedNetworks<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -128,8 +126,6 @@ where
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -319,8 +315,6 @@ impl<
         MEMBERSHIP,
         CombinedNetworks<TYPES, I, MEMBERSHIP>,
     > for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generate_network() -> Box<dyn Fn(Arc<Self::NETWORK>) -> Self + 'static> {
         Box::new(move |network| WebServerWithFallbackCommChannel::new(network))

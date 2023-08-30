@@ -1,15 +1,16 @@
-use hotshot_types::certificate::{DACertificate, QuorumCertificate};
-use hotshot_types::data::{DAProposal, ViewNumber};
-use hotshot_types::message::Proposal;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::node_implementation::QuorumProposalType;
-use hotshot_types::traits::node_implementation::ViewSyncProposalType;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::vote::{DAVote, QuorumVote};
+use hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
+    data::DAProposal,
+    message::Proposal,
+    traits::node_implementation::{
+        NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+    },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
+};
 
 use crate::view_sync::ViewSyncPhase;
 
+/// All of the possible events that can be passed between Sequecning `HotShot` tasks
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Shutdown the task
@@ -37,9 +38,9 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     DACSend(DACertificate<TYPES>, TYPES::SignatureKey),
     /// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
-    ViewChange(ViewNumber),
+    ViewChange(TYPES::Time),
     /// Timeout for the view sync protocol; emitted by a replica in the view sync task
-    ViewSyncTimeout(ViewNumber, u64, ViewSyncPhase),
+    ViewSyncTimeout(TYPES::Time, u64, ViewSyncPhase),
     /// Send a view sync vote to the network; emitted by a replica in the view sync task
     ViewSyncVoteSend(ViewSyncVote<TYPES>),
     /// Send a view sync certificate to the network; emitted by a relay in the view sync task
@@ -52,13 +53,13 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Receive a view sync certificate from the network; received by a replica in the view sync task
     ViewSyncCertificateRecv(Proposal<ViewSyncProposalType<TYPES, I>>),
     /// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
-    ViewSyncTrigger(ViewNumber),
+    ViewSyncTrigger(TYPES::Time),
     /// A consensus view has timed out; emitted by a replica in the consensus task; received by the view sync task; internal event only
-    Timeout(ViewNumber),
+    Timeout(TYPES::Time),
     /// Receive transactions from the network
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
-    // Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
+    /// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     SendDABlockData(TYPES::BlockType),
 }

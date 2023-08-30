@@ -2,45 +2,44 @@
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 use crate::{CommitmentMap, Consensus, SequencingConsensusApi};
-use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
     art::async_timeout,
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+    channel::UnboundedReceiver,
 };
 use async_lock::{Mutex, RwLock};
-use commit::Commitment;
-use commit::Committable;
-use either::Either;
-use either::{Left, Right};
-use hotshot_types::data::QuorumProposal;
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::CommitteeExchangeType;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
-};
-use hotshot_types::traits::state::State;
+use bitvec::prelude::*;
+use commit::{Commitment, Committable};
+use either::{Either, Left, Right};
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
-    data::{DAProposal, SequencingLeaf},
+    certificate::{AssembledSignature, DACertificate, QuorumCertificate},
+    data::{DAProposal, QuorumProposal, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
-        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        Message, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
-        election::SignedCertificate,
-        node_implementation::{CommitteeEx, NodeType, SequencingQuorumEx},
+        election::{
+            CommitteeExchangeType, ConsensusExchange, QuorumExchangeType, SignedCertificate,
+        },
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType,
+            SequencingQuorumEx,
+        },
         signature_key::SignatureKey,
+        state::State,
         Block,
     },
     vote::{QuorumVote, VoteAccumulator},
 };
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    num::NonZeroU64,
+    sync::Arc,
+    time::Instant,
+};
 use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
@@ -98,16 +97,22 @@ where
         &self,
         cur_view: TYPES::Time,
         threshold: NonZeroU64,
+        total_nodes_num: usize,
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: threshold,
             failure_threshold: threshold,
+            sig_lists: Vec::new(),
+            signers: bitvec![0; total_nodes_num],
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -157,9 +162,8 @@ where
                             }
                             Either::Right(qc) => {
                                 match qc.clone().signatures {
-                                    YesNoSignature::Yes(map) => {
-                                        info!("Number of DA signatures in this QC: {}", map.len());
-                                    }
+                                    AssembledSignature::Yes(_signature) => {}
+                                    AssembledSignature::DA(_signature) => {}
                                     _ => unimplemented!(),
                                 };
                                 return Some(qc);
@@ -255,9 +259,9 @@ where
     )> {
         // Prepare the DA Proposal
         let Some(parent_leaf) = self.parent_leaf().await else {
-             warn!("Couldn't find high QC parent in state map.");
-             return None;
-         };
+            warn!("Couldn't find high QC parent in state map.");
+            return None;
+        };
 
         let mut block = <TYPES as NodeType>::StateType::next_block(None);
         let txns = self.wait_for_transactions().await?;
@@ -297,6 +301,7 @@ where
             .wait_for_votes(
                 self.cur_view,
                 self.committee_exchange.success_threshold(),
+                self.committee_exchange.total_nodes(),
                 block_commitment,
             )
             .await
@@ -382,10 +387,10 @@ where
             view_number: leaf.view_number,
             height: leaf.height,
             justify_qc: self.high_qc.clone(),
+            timeout_certificate: None,
             dac: Some(self.cert),
             proposer_id: leaf.proposer_id,
         };
-
         let message =
             SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
                 data: proposal,
@@ -459,14 +464,18 @@ where
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
-
         let mut accumulator = VoteAccumulator {
             total_vote_outcomes: HashMap::new(),
+            da_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
             viewsync_precommit_vote_outcomes: HashMap::new(),
+            viewsync_commit_vote_outcomes: HashMap::new(),
+            viewsync_finalize_vote_outcomes: HashMap::new(),
             success_threshold: self.quorum_exchange.success_threshold(),
             failure_threshold: self.quorum_exchange.failure_threshold(),
+            sig_lists: Vec::new(),
+            signers: bitvec![0; self.quorum_exchange.total_nodes()],
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -501,10 +510,7 @@ where
                                     }
                                     Either::Right(qc) => {
                                         match qc.clone().signatures {
-                                            YesNoSignature::Yes(map) => info!(
-                                                "Number of qurorum signatures in this QC: {}",
-                                                map.len()
-                                            ),
+                                            AssembledSignature::Yes(_signature) => {}
                                             _ => unimplemented!(),
                                         };
                                         return qc;
@@ -512,7 +518,7 @@ where
                                 }
                             }
                             QuorumVote::Timeout(vote) => {
-                                qcs.insert(vote.justify_qc);
+                                qcs.insert(vote.high_qc);
                             }
                             QuorumVote::No(_) => {
                                 warn!("The next leader has received an unexpected vote!");

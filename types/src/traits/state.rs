@@ -86,6 +86,7 @@ pub trait ConsensusTime:
     + ops::Add<u64, Output = Self>
     + Sub<u64, Output = Self>
     + 'static
+    + Committable
 {
     /// Create a new instance of this time unit at time number 0
     #[must_use]

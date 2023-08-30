@@ -114,22 +114,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Storage<TYPES, LEAF>
 
 #[cfg(test)]
 mod test {
-    use crate::traits::election::static_committee::StaticElectionConfig;
-    use crate::traits::election::static_committee::StaticVoteToken;
+    use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 
     use super::*;
-    use hotshot_types::certificate::{QuorumCertificate, YesNoSignature};
-    use hotshot_types::constants::genesis_proposer_id;
-    use hotshot_types::data::fake_commitment;
-    use hotshot_types::data::{ValidatingLeaf, ViewNumber};
-    use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
-    use hotshot_types::traits::node_implementation::NodeType;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
-    use hotshot_types::traits::state::ConsensusTime;
-    use hotshot_types::traits::Block;
-    use std::collections::BTreeMap;
-    use std::fmt::Debug;
-    use std::hash::Hash;
+    use hotshot_signature_key::bn254::BN254Pub;
+    use hotshot_types::{
+        certificate::{AssembledSignature, QuorumCertificate},
+        constants::genesis_proposer_id,
+        data::{fake_commitment, ValidatingLeaf, ViewNumber},
+        traits::{
+            block_contents::dummy::{DummyBlock, DummyState},
+            node_implementation::NodeType,
+            state::ConsensusTime,
+            Block,
+        },
+    };
+    use std::{fmt::Debug, hash::Hash};
     use tracing::instrument;
 
     #[derive(
@@ -150,8 +150,8 @@ mod test {
     impl NodeType for DummyTypes {
         type Time = ViewNumber;
         type BlockType = DummyBlock;
-        type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
+        type SignatureKey = BN254Pub;
+        type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;
@@ -160,7 +160,7 @@ mod test {
     #[instrument(skip(rng))]
     fn random_stored_view(
         rng: &mut dyn rand::RngCore,
-        view_number: ViewNumber,
+        view_number: <DummyTypes as NodeType>::Time,
     ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
         // TODO is it okay to be using genesis here?
         let _dummy_block_commit = fake_commitment::<DummyBlock>();
@@ -168,9 +168,9 @@ mod test {
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 // block_commitment: dummy_block_commit,
-                is_genesis: view_number == ViewNumber::genesis(),
+                is_genesis: view_number == <DummyTypes as NodeType>::Time::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: YesNoSignature::Yes(BTreeMap::new()),
+                signatures: AssembledSignature::Genesis(),
                 view_number,
             },
             DummyBlock::random(rng),
@@ -191,7 +191,7 @@ mod test {
     async fn memory_storage() {
         let mut rng = rand::thread_rng();
         let storage = MemoryStorage::construct_tmp_storage().unwrap();
-        let genesis = random_stored_view(&mut rng, ViewNumber::genesis());
+        let genesis = random_stored_view(&mut rng, <DummyTypes as NodeType>::Time::genesis());
         storage
             .append_single_view(genesis.clone())
             .await

@@ -10,34 +10,29 @@ use super::{
         ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
-    signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use crate::traits::election::Membership;
-use crate::{data::TestableLeaf, message::Message};
 use crate::{
-    data::{LeafType, SequencingLeaf},
-    message::{ConsensusMessageType, SequencingMessage},
+    data::{LeafType, SequencingLeaf, TestableLeaf},
+    message::{ConsensusMessageType, Message, SequencingMessage},
     traits::{
-        network::TestableChannelImplementation, signature_key::SignatureKey, storage::Storage,
-        Block,
+        election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
+        storage::Storage, Block,
     },
 };
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use commit::Committable;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
+    hash::Hash,
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-
 /// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 type ProcessedConsensusMessageType<TYPES, I> = <<I as NodeImplementation<TYPES>>::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage;
 
@@ -170,6 +165,7 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
 
     /// Create all exchanges.
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: (
@@ -178,8 +174,8 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
             <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// Get the quorum exchange.
@@ -260,6 +256,7 @@ where
     }
 
     fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         keys: Vec<TYPES::SignatureKey>,
         configs: Self::ElectionConfigs,
         networks: (
@@ -268,26 +265,29 @@ where
             <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.0.clone(),
             networks.0,
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
         let view_sync_exchange = VIEWSYNCEXCHANGE::create(
+            entries.clone(),
             keys.clone(),
             configs.0,
             networks.2,
             pk.clone(),
+            entry.clone(),
             sk.clone(),
-            ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, configs.1, networks.1, pk, sk, ek);
+        let committee_exchange =
+            COMMITTEEEXCHANGE::create(entries, keys, configs.1, networks.1, pk, entry, sk);
 
         Self {
             quorum_exchange,
@@ -388,9 +388,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 
     /// Return the full internal state. This is useful for debugging.
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf>;
-
-    /// The private key of the node `id` in a test.
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey;
 }
 
 #[async_trait]
@@ -428,7 +425,6 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     type CommitteeElectionConfig = TYPES::ElectionConfigType;
@@ -468,10 +464,6 @@ where
 
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf> {
         <I::Storage as TestableStorage<TYPES, I::Leaf>>::get_full_state(storage).await
-    }
-
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
     }
 }
 
@@ -569,7 +561,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime + Committable;
+    type Time: ConsensusTime;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.

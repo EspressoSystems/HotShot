@@ -1,41 +1,29 @@
 use hotshot::traits::implementations::CombinedNetworks;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
-        election::{
-            static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::JfPubKey,
-        },
+        election::static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
         implementations::{
             Libp2pCommChannel, Libp2pNetwork, MemoryCommChannel, MemoryNetwork, MemoryStorage,
             WebCommChannel, WebServerNetwork, WebServerWithFallbackCommChannel,
         },
         NodeImplementation,
     },
-};
-use hotshot_types::traits::election::ViewSyncExchange;
-use hotshot_types::vote::QuorumVote;
-use hotshot_types::vote::ViewSyncVote;
-use hotshot_types::{certificate::ViewSyncCertificate, data::QuorumProposal};
-use hotshot_types::{
-    data::{DAProposal, SequencingLeaf, ViewNumber},
-    traits::{
-        election::{CommitteeExchange, QuorumExchange},
-        node_implementation::{ChannelMaps, NodeType, SequencingExchanges},
-    },
-    vote::DAVote,
+    types::bn254::BN254Pub,
 };
 use hotshot_types::{
+    certificate::ViewSyncCertificate,
+    data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, SequencingMessage},
     traits::{
+        election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
         network::{TestableChannelImplementation, TestableNetworkingImplementation},
-        node_implementation::TestableExchange,
+        node_implementation::{ChannelMaps, NodeType, SequencingExchanges, TestableExchange},
     },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
 };
-use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -55,7 +43,7 @@ pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
-    type SignatureKey = JfPubKey<BLSSignatureScheme>;
+    type SignatureKey = BN254Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
@@ -74,9 +62,10 @@ pub struct SequencingWebImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct StaticFallbackImpl;
 
-type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+pub type StaticMembership =
+    StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
 
-type StaticMemoryDAComm = MemoryCommChannel<
+pub type StaticMemoryDAComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     DAProposal<SequencingTestTypes>,
@@ -103,7 +92,7 @@ type StaticWebDAComm = WebCommChannel<
 type StaticFallbackComm =
     WebServerWithFallbackCommChannel<SequencingTestTypes, StaticFallbackImpl, StaticMembership>;
 
-type StaticMemoryQuorumComm = MemoryCommChannel<
+pub type StaticMemoryQuorumComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
@@ -127,7 +116,7 @@ type StaticWebQuorumComm = WebCommChannel<
     StaticMembership,
 >;
 
-type StaticMemoryViewSyncComm = MemoryCommChannel<
+pub type StaticMemoryViewSyncComm = MemoryCommChannel<
     SequencingTestTypes,
     SequencingMemoryImpl,
     ViewSyncCertificate<SequencingTestTypes>,
@@ -184,7 +173,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibp2pImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -350,7 +339,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -471,7 +460,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
@@ -645,7 +634,7 @@ impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(
-        start_view: ViewNumber,
+        start_view: <SequencingTestTypes as NodeType>::Time,
     ) -> (
         ChannelMaps<SequencingTestTypes, Self>,
         Option<ChannelMaps<SequencingTestTypes, Self>>,
