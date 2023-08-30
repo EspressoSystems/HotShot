@@ -208,6 +208,7 @@ pub async fn gen_transport(
     let quic_transport = {
         let mut config = quic::Config::new(&identity);
         config.support_draft_29 = true;
+        config.handshake_timeout = std::time::Duration::from_secs(20);
         QuicTransport::new(config)
     };
 
