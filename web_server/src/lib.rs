@@ -20,7 +20,6 @@ use tracing::{debug, info};
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
 
-
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState<KEY> {

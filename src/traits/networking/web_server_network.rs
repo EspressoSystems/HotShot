@@ -163,8 +163,6 @@ struct Inner<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, T
 impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
     Inner<M, KEY, ELECTIONCONFIG, TYPES>
 {
-    
-    
     #![allow(clippy::too_many_lines)]
     /// Pull a web server.
     async fn poll_web_server(
@@ -201,9 +199,9 @@ impl<M: NetworkMsg, KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: No
                 match possible_message {
                     Ok(Some((index, deserialized_messages))) => {
                         let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
-                        if index > tx_index+1 {
-                            debug!("missed txns from {} to {}", tx_index+1, index-1);
-                            tx_index = index-1;
+                        if index > tx_index + 1 {
+                            debug!("missed txns from {} to {}", tx_index + 1, index - 1);
+                            tx_index = index - 1;
                         }
                         for tx in &deserialized_messages {
                             tx_index += 1;
