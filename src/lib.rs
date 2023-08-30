@@ -58,15 +58,12 @@ use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKin
 
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
+    consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
     data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
-    },
-    consensus::{
-        BlockStore, Consensus, ConsensusMetrics,
-        View, ViewInner, ViewQueue,
     },
     traits::{
         consensus_api::{ConsensusSharedApi, SequencingConsensusApi},
@@ -1106,8 +1103,7 @@ struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPE
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    ConsensusSharedApi<TYPES, I::Leaf, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
     for HotShotValidatingConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -1177,8 +1173,7 @@ pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    ConsensusSharedApi<TYPES, I::Leaf, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -1244,8 +1239,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingConsensusApi<TYPES, I::Leaf, I>
-    for HotShotSequencingConsensusApi<TYPES, I>
+    > SequencingConsensusApi<TYPES, I::Leaf, I> for HotShotSequencingConsensusApi<TYPES, I>
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

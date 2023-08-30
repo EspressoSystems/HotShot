@@ -641,7 +641,6 @@ where
                 if certificate_internal.round < self.next_view {
                     debug!("We're already in a higher round");
 
-
                     return (None, self);
                 }
 

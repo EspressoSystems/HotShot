@@ -14,11 +14,11 @@ use hotshot_task::{
 };
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::{
+    consensus::Consensus,
     data::LeafType,
     error::HotShotError,
     event::EventType,
     message::{GeneralConsensusMessage, MessageKind},
-    consensus::Consensus,
     traits::{
         election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
         node_implementation::{ExchangesType, NodeType, QuorumEx},

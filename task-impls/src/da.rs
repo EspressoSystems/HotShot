@@ -17,9 +17,9 @@ use hotshot_task::{
 };
 use hotshot_types::{
     certificate::DACertificate,
+    consensus::{Consensus, View},
     data::{DAProposal, ProposalType, SequencingLeaf},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
-    consensus::{Consensus, View},
     traits::{
         consensus_api::SequencingConsensusApi,
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
