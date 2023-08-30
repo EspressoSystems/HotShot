@@ -7,7 +7,7 @@ use crate::test_launcher::{Networks, TestLauncher};
 use hotshot::types::SystemContextHandle;
 
 use hotshot::{
-    traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
+    traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext,
 };
 use hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
@@ -64,7 +64,6 @@ where
     /// excecute test
     pub async fn run_test(mut self)
     where
-        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES,
             I::Leaf,
@@ -170,7 +169,6 @@ where
     /// add nodes
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
-        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES,
             I::Leaf,
@@ -209,7 +207,6 @@ where
         >,
     ) -> u64
     where
-        SystemContext<TYPES, I>: ViewRunner<TYPES, I>,
         I::Exchanges: ExchangesType<
             TYPES,
             I::Leaf,
