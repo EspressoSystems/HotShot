@@ -195,12 +195,9 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Udp(port), QuicV1)
 }
 
-/// Generate authenticated transport, copied from `development_transport`
-/// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
-/// and multiplexing from example
-/// <https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs>
+/// Generate authenticated transport
 /// # Errors
-/// could not sign the noise key with `identity`
+/// could not sign the quic key with `identity`
 #[instrument(skip(identity))]
 pub async fn gen_transport(
     identity: Keypair,
