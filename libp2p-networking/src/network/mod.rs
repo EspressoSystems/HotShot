@@ -192,7 +192,7 @@ pub enum NetworkEventInternal {
 /// NOTE we may want something more general in the fture.
 #[must_use]
 pub fn gen_multiaddr(port: u16) -> Multiaddr {
-    build_multiaddr!(Ip4([0, 0, 0, 0]), Udp(port), Quic)
+    build_multiaddr!(Ip4([0, 0, 0, 0]), Udp(port), QuicV1)
 }
 
 /// Generate authenticated transport, copied from `development_transport`
@@ -207,7 +207,6 @@ pub async fn gen_transport(
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
     let quic_transport = {
         let mut config = quic::Config::new(&identity);
-        config.support_draft_29 = true;
         config.handshake_timeout = std::time::Duration::from_secs(20);
         QuicTransport::new(config)
     };

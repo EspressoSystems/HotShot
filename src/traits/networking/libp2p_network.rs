@@ -166,8 +166,8 @@ where
                     node_id < num_bootstrap as u64
                 );
                 let addr =
-                    // Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/0/quic")).unwrap();
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{}{}/quic", 5000 + node_id, network_id)).unwrap();
+                    // Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/0/quic-v1")).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{}{}/quic-v1", 5000 + node_id, network_id)).unwrap();
                 let privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
