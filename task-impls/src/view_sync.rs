@@ -499,16 +499,14 @@ where
                         ))
                         .await;
 
-                    if self
-                        .exchange
-                        .is_leader(self.current_view ) {
-                            self.exchange
-                                .network()
-                                .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncVotes(
-                                    *view_number + 1,
-                                ))
-                                .await;
-                        }
+                    if self.exchange.is_leader(self.current_view) {
+                        self.exchange
+                            .network()
+                            .inject_consensus_info(ConsensusIntentEvent::PollForViewSyncVotes(
+                                *view_number + 1,
+                            ))
+                            .await;
+                    }
                     // panic!("Starting view sync!");
                     // Spawn replica task
 
