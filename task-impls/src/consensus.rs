@@ -708,13 +708,85 @@ where
                 let mut last_view_number_visited = proposal_view;
                 let mut new_commit_reached: bool = false;
                 let mut new_decide_reached = false;
-                let mut new_decide_qc: Option<QuorumCertificate<TYPES, I::Leaf>>  = None;
+                let mut new_decide_qc: Option<QuorumCertificate<TYPES, I::Leaf>> = None;
                 let mut leaf_views: Vec<I::Leaf> = Vec::new();
-                // let mut included_txns: HashSet<_> = HashSet::new();
+                let mut included_txns = HashSet::new();
                 let old_anchor_view = consensus.last_decided_view;
                 let parent_view = leaf.justify_qc.view_number;
                 let mut current_chain_length = 0usize;
-                //         if parent_view + 1 == view {
+
+                // Check if we've reached decide on any new leaves
+                // TODO ED This check might need to change with catchup
+                // TODO ED Don't we check this above?  When would this check ever fail?
+                if parent_view + 1 == proposal_view {
+                    current_chain_length += 1;
+                    if let Err(e) = consensus.visit_leaf_ancestors(
+                            parent_view,
+                            Terminator::Exclusive(old_anchor_view),
+                            true,
+                            |leaf| {
+                                if !new_decide_reached {
+                                    if last_view_number_visited == leaf.view_number + 1 {
+                                        last_view_number_visited = leaf.view_number;
+                                        current_chain_length += 1;
+                                        if current_chain_length == 2 {
+                                            new_locked_view = leaf.view_number;
+                                            new_commit_reached = true;
+                                            // The next leaf in the chain, if there is one, is decided, so this
+                                            // leaf's justify_qc would become the QC for the decided chain.
+                                            new_decide_qc = Some(leaf.justify_qc.clone());
+                                        } else if current_chain_length == 3 {
+                                            new_anchor_view = leaf.view_number;
+                                            new_decide_reached = true;
+                                        }
+                                    } else {
+                                        // nothing more to do here... we don't have a new chain extension
+                                        return false;
+                                    }
+                                }
+                                // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
+                                if new_decide_reached {
+                                    let mut leaf = leaf.clone();
+
+                                    // If the full block is available for this leaf, include it in the leaf
+                                    // chain that we send to the client.
+                                    if let Some(block) =
+                                        consensus.saved_blocks.get(leaf.get_deltas_commitment())
+                                    {
+                                        if let Err(err) = leaf.fill_deltas(block.clone()) {
+                                            error!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                                leaf.commit(), block.commit(), err);
+                                        }
+                                    }
+
+                                    leaf_views.push(leaf.clone());
+                                    match &leaf.deltas {
+                                        Left(block) => {
+                                            let txns = block.contained_transactions();
+                                            for txn in txns {
+                                                included_txns.insert(txn);
+                                            }
+                                        }
+                                        Right(_) => {}
+                                }
+                            }
+                                true
+                            },
+                        ) {
+                            error!("Publishing view error");
+                            self.output_event_stream.publish(Event {
+                                view_number: proposal_view,
+                                event: EventType::Error { error: e.into() },
+                            }).await;
+
+                }
+                }
+                let included_txns_set: HashSet<_> = if new_decide_reached {
+                    included_txns
+                } else {
+                    HashSet::new()
+                };
+
                 //             current_chain_length += 1;
                 //             if let Err(e) = consensus.visit_leaf_ancestors(
                 //             parent_view,
