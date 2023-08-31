@@ -116,6 +116,10 @@ lint_async_std_flume:
   echo Linting with async std executor and flume
   cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples -- -D warnings
 
+lint_imports: 
+  echo Linting imports
+  cargo fmt --all -- --config unstable_features=true,imports_granularity=Crate
+
 careful: careful_tokio careful_async_std
 
 careful_tokio:
