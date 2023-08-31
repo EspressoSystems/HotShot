@@ -254,16 +254,6 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="kw">mod </span>def;
@@ -289,13 +279,12 @@
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade::Version},
+    core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::TopicHash,
     identify::Event <span class="kw">as </span>IdentifyEvent,
     identity::Keypair,
+    quic,
     request_response::ResponseChannel,
-    tcp,
-    yamux::{Config <span class="kw">as </span>YamuxConfig, WindowUpdateMode},
     Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -309,9 +298,9 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
 </span><span class="kw">use </span>libp2p::dns::TokioDnsConfig <span class="kw">as </span>DnsConfig;
 <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
-</span><span class="kw">use </span>tcp::async_io::Transport <span class="kw">as </span>TcpTransport;
+</span><span class="kw">use </span>quic::async_std::Transport <span class="kw">as </span>QuicTransport;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
-</span><span class="kw">use </span>tcp::tokio::Transport <span class="kw">as </span>TcpTransport;
+</span><span class="kw">use </span>quic::tokio::Transport <span class="kw">as </span>QuicTransport;
 <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
@@ -459,46 +448,37 @@
 /// NOTE we may want something more general in the fture.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>gen_multiaddr(port: u16) -&gt; Multiaddr {
-    <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), Tcp(port))
+    <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), Udp(port), QuicV1)
 }
 
-<span class="doccomment">/// Generate authenticated transport, copied from `development_transport`
-/// &lt;http://noiseprotocol.org/noise.html#payload-security-properties&gt; for definition of XX
-/// and multiplexing from example
-/// &lt;https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs&gt;
+<span class="doccomment">/// Generate authenticated transport
 /// # Errors
-/// could not sign the noise key with `identity`
+/// could not sign the quic key with `identity`
 </span><span class="attr">#[instrument(skip(identity))]
 </span><span class="kw">pub async fn </span>gen_transport(
     identity: Keypair,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Boxed&lt;(PeerId, StreamMuxerBox)&gt;, NetworkError&gt; {
-    <span class="kw">let </span>transport = <span class="kw">async move </span>{
-        <span class="kw">let </span>dns_tcp = DnsConfig::system(TcpTransport::new(tcp::Config::new().nodelay(<span class="bool-val">true</span>)));
-
-        <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
-        </span><span class="kw">return </span>dns_tcp
-            .<span class="kw">await
-            </span>.map_err(|e| NetworkError::TransportLaunch { source: e });
-
-        <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
-        </span><span class="kw">return </span>dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
-
-        <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
-        </span><span class="macro">compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-    .<span class="kw">await</span><span class="question-mark">?</span>;
-
-    <span class="kw">let </span>multiplexing_config = {
-        <span class="kw">let </span><span class="kw-2">mut </span>yamux_config = YamuxConfig::default();
-        yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
-        yamux_config
+    <span class="kw">let </span>quic_transport = {
+        <span class="kw">let </span><span class="kw-2">mut </span>config = quic::Config::new(<span class="kw-2">&amp;</span>identity);
+        config.handshake_timeout = std::time::Duration::from_secs(<span class="number">20</span>);
+        QuicTransport::new(config)
     };
 
-    <span class="prelude-val">Ok</span>(transport
-        .upgrade(Version::V1)
-        .authenticate(libp2p_noise::Config::new(<span class="kw-2">&amp;</span>identity).unwrap())
-        .multiplex(multiplexing_config)
-        .timeout(std::time::Duration::from_secs(<span class="number">20</span>))
+    <span class="kw">let </span>dns_quic = {
+        <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+        </span>{
+            DnsConfig::system(quic_transport).<span class="kw">await
+        </span>}
+
+        <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+        </span>{
+            DnsConfig::system(quic_transport)
+        }
+    }
+    .map_err(|e| NetworkError::TransportLaunch { source: e })<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(dns_quic
+        .map(|(peer_id, connection), <span class="kw">_</span>| (peer_id, StreamMuxerBox::new(connection)))
         .boxed())
 }
 
