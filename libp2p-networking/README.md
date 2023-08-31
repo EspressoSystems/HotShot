@@ -14,14 +14,14 @@ The idea here is to spin up several nodes in a p2p network. These nodes can shar
 
 ```
 nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- -p 1111"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/1111 -p 2222"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/2222 -p 3333"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/3333 -p 4444"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/4444 -p 5555"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/5555 -p 6666"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/6666 -p 7777"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/7777 -p 8888"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/8888 -p 9999"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/1111/quic-v1 -p 2222"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/2222/quic-v1 -p 3333"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/3333/quic-v1 -p 4444"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/4444/quic-v1 -p 5555"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/5555/quic-v1 -p 6666"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/6666/quic-v1 -p 7777"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/7777/quic-v1 -p 8888"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/udp/8888/quic-v1 -p 9999"
 ```
 
 At this point the idea is that each node will continue to attempt to connect to nodes
