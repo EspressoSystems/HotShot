@@ -15,6 +15,11 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
     runs-on: ubuntu-latest
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
@@ -35,24 +40,25 @@ jobs:
         name: Enable Rust Caching
 
       - name: Check
-        run: just async_std check
+        run: just ${{ matrix.just_variants }} check
 
       - name: Build all crates in workspace
-        run: just async_std build
+        run: just ${{ matrix.just_variants }} build
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          just async_std test
+          just ${{ matrix.just_variants }} test
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
 
       - name: Setup Docker BuildKit (buildx)
+        if: matrix.just_variants == 'async_std'
         uses: docker/setup-buildx-action@v2
 
       - name: Login to Github Container Repo
         uses: docker/login-action@v2
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -60,12 +66,14 @@ jobs:
 
       - name: Generate docker metadata (web-server)
         uses: docker/metadata-action@v4
+        if: matrix.just_variants == 'async_std'
         id: web-server
         with:
           images: ghcr.io/espressosystems/hotshot/web-server
 
       - name: Build and push web-server docker
         uses: docker/build-push-action@v4
+        if: matrix.just_variants == 'async_std'
         with:
           context: ./
           file: ./deploy/web-server.Dockerfile

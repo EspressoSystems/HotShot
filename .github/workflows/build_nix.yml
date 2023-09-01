@@ -26,3 +26,4 @@ jobs:
       - name: Build
         run: |
           nix develop -c just async_std build
+          nix develop -c just tokio build
