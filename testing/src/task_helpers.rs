@@ -10,13 +10,13 @@ use hotshot::{
     types::{bn254::BN254Pub, SignatureKey, SystemContextHandle},
     HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
 };
-use hotshot_consensus::ConsensusSharedApi;
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::{
     data::{QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, Proposal},
     traits::{
+        consensus_api::ConsensusSharedApi,
         election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::NoMetrics,
         node_implementation::{CommitteeEx, ExchangesType, NodeType, QuorumEx},

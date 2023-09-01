@@ -12,14 +12,15 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 pub mod certificate;
+pub mod consensus;
 pub mod constants;
 pub mod data;
 pub mod error;
 pub mod event;
 pub mod message;
 pub mod traits;
+pub mod utils;
 pub mod vote;
-
 /// the type of consensus to run. Either:
 /// wait for a signal to start a view,
 /// or constantly run

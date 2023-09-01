@@ -54,7 +54,6 @@ hotshot-testing = []
 
 async-std-executor = [
         "dep:async-std",
-        "hotshot-consensus/async-std-executor",
         "hotshot-types/async-std-executor",
         "hotshot-task/async-std-executor",
         "hotshot-task-impls/async-std-executor",
@@ -63,7 +62,6 @@ async-std-executor = [
 ]
 tokio-executor = [
         "dep:tokio",
-        "hotshot-consensus/tokio-executor",
         "hotshot-types/tokio-executor",
         "hotshot-task/tokio-executor",
         "hotshot-task-impls/tokio-executor",
@@ -73,7 +71,6 @@ tokio-executor = [
 
 channel-flume = [
         "hotshot-web-server/channel-flume",
-        "hotshot-consensus/channel-flume",
         "hotshot-types/channel-flume",
         "hotshot-task/channel-flume",
         "hotshot-task-impls/channel-flume",
@@ -81,7 +78,6 @@ channel-flume = [
 ]
 channel-tokio = [
         "hotshot-web-server/channel-tokio",
-        "hotshot-consensus/channel-tokio",
         "hotshot-types/channel-tokio",
         "hotshot-task/channel-tokio",
         "hotshot-task-impls/channel-tokio",
@@ -89,7 +85,6 @@ channel-tokio = [
 ]
 channel-async-std = [
         "hotshot-web-server/channel-async-std",
-        "hotshot-consensus/channel-async-std",
         "hotshot-types/channel-async-std",
         "hotshot-task/channel-async-std",
         "hotshot-task-impls/channel-async-std",
@@ -161,7 +156,6 @@ espresso-systems-common = { workspace = true }
 ethereum-types = { workspace = true }
 futures = { workspace = true }
 hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
-hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
 hotshot-signature-key = { path = "./crates/hotshot-signature-key" }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
@@ -269,7 +263,6 @@ incremental = true
 # when implementing traits externally
 [workspace]
 members = [
-        "consensus",
         "libp2p-networking",
         "testing",
         "types",

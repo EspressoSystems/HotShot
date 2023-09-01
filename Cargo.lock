@@ -2593,7 +2593,6 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "ethereum-types",
  "futures",
- "hotshot-consensus",
  "hotshot-orchestrator",
  "hotshot-signature-key",
  "hotshot-task",
@@ -2616,31 +2615,6 @@ dependencies = [
  "toml 0.7.6",
  "tracing",
  "typenum",
-]
-
-[[package]]
-name = "hotshot-consensus"
-version = "0.1.0"
-dependencies = [
- "async-compatibility-layer",
- "async-lock",
- "async-std",
- "async-trait",
- "bincode",
- "bitvec",
- "blake3",
- "commit",
- "custom_debug",
- "derivative",
- "either",
- "futures",
- "hotshot-types",
- "hotshot-utils",
- "jf-primitives",
- "snafu",
- "time 0.3.28",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2775,7 +2749,6 @@ dependencies = [
  "commit",
  "either",
  "futures",
- "hotshot-consensus",
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
@@ -2806,7 +2779,6 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
- "hotshot-consensus",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",

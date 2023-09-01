@@ -4,7 +4,6 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use commit::Committable;
 use either::Either::{self, Left, Right};
 use futures::FutureExt;
-use hotshot_consensus::SequencingConsensusApi;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
@@ -19,6 +18,7 @@ use hotshot_types::{
     data::SequencingLeaf,
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{ConsensusExchange, ViewSyncExchangeType},
         network::CommunicationChannel,
         node_implementation::{NodeImplementation, NodeType, ViewSyncEx},

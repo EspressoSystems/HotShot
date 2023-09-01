@@ -1,34 +1,12 @@
-//! The consensus layer for hotshot. This currently implements both sequencing and validating
-//! consensus
+//! Provides the core consensus types
 
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    rust_2018_idioms,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
-
-mod da_member;
-mod sequencing_leader;
-mod sequencing_replica;
-pub mod traits;
-pub mod utils;
-
+pub use crate::traits::node_implementation::ViewQueue;
+pub use crate::utils::{View, ViewInner};
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
-pub use da_member::DAMember;
-pub use hotshot_types::traits::node_implementation::ViewQueue;
-pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
-pub use sequencing_replica::SequencingReplica;
 use std::collections::HashSet;
-pub use traits::{ConsensusSharedApi, SequencingConsensusApi};
-pub use utils::{View, ViewInner};
 
-use commit::{Commitment, Committable};
-use derivative::Derivative;
-use hotshot_types::{
+use crate::utils::Terminator;
+use crate::{
     certificate::QuorumCertificate,
     data::LeafType,
     error::HotShotError,
@@ -37,12 +15,13 @@ use hotshot_types::{
         node_implementation::NodeType,
     },
 };
+use commit::{Commitment, Committable};
+use derivative::Derivative;
 use std::{
     collections::{hash_map::Entry, BTreeMap, HashMap},
     sync::Arc,
 };
-use tracing::{error, warn};
-use utils::Terminator;
+use tracing::error;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;

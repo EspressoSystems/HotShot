@@ -9,7 +9,7 @@ use hotshot::{
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
-    HotShotType, SystemContext, ViewRunner,
+    HotShotType, SystemContext,
 };
 use hotshot_orchestrator::{
     self,
@@ -186,7 +186,6 @@ pub trait RunDA<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
     SystemContext<TYPES, NODE>: HotShotType<TYPES, NODE>,
 {
@@ -509,7 +508,6 @@ where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
     async fn initialize_networking(
@@ -679,7 +677,6 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
     SequencingLeaf<TYPES>: TestableLeaf,
-    SystemContext<TYPES, NODE>: ViewRunner<TYPES, NODE>,
 {
     setup_logging();
     setup_backtrace();

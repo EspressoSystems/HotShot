@@ -5,7 +5,6 @@ use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
 use futures::Stream;
-use hotshot_consensus::Consensus;
 use hotshot_task::{
     boxed_sync,
     event_stream::{ChannelStream, EventStream, StreamId},
@@ -15,6 +14,7 @@ use hotshot_task::{
 };
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_types::{
+    consensus::Consensus,
     data::LeafType,
     error::HotShotError,
     event::EventType,
