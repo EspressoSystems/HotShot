@@ -23,13 +23,12 @@ use futures::channel::oneshot::Sender;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade::Version},
+    core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::TopicHash,
     identify::Event as IdentifyEvent,
     identity::Keypair,
+    quic,
     request_response::ResponseChannel,
-    tcp,
-    yamux::{Config as YamuxConfig, WindowUpdateMode},
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
@@ -43,9 +42,9 @@ use libp2p::dns::DnsConfig;
 #[cfg(feature = "tokio-executor")]
 use libp2p::dns::TokioDnsConfig as DnsConfig;
 #[cfg(feature = "async-std-executor")]
-use tcp::async_io::Transport as TcpTransport;
+use quic::async_std::Transport as QuicTransport;
 #[cfg(feature = "tokio-executor")]
-use tcp::tokio::Transport as TcpTransport;
+use quic::tokio::Transport as QuicTransport;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
@@ -193,46 +192,37 @@ pub enum NetworkEventInternal {
 /// NOTE we may want something more general in the fture.
 #[must_use]
 pub fn gen_multiaddr(port: u16) -> Multiaddr {
-    build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
+    build_multiaddr!(Ip4([0, 0, 0, 0]), Udp(port), QuicV1)
 }
 
-/// Generate authenticated transport, copied from `development_transport`
-/// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
-/// and multiplexing from example
-/// <https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs>
+/// Generate authenticated transport
 /// # Errors
-/// could not sign the noise key with `identity`
+/// could not sign the quic key with `identity`
 #[instrument(skip(identity))]
 pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
-    let transport = async move {
-        let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::Config::new().nodelay(true)));
-
-        #[cfg(feature = "async-std-executor")]
-        return dns_tcp
-            .await
-            .map_err(|e| NetworkError::TransportLaunch { source: e });
-
-        #[cfg(feature = "tokio-executor")]
-        return dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
-
-        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-    .await?;
-
-    let multiplexing_config = {
-        let mut yamux_config = YamuxConfig::default();
-        yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
-        yamux_config
+    let quic_transport = {
+        let mut config = quic::Config::new(&identity);
+        config.handshake_timeout = std::time::Duration::from_secs(20);
+        QuicTransport::new(config)
     };
 
-    Ok(transport
-        .upgrade(Version::V1)
-        .authenticate(libp2p_noise::Config::new(&identity).unwrap())
-        .multiplex(multiplexing_config)
-        .timeout(std::time::Duration::from_secs(20))
+    let dns_quic = {
+        #[cfg(feature = "async-std-executor")]
+        {
+            DnsConfig::system(quic_transport).await
+        }
+
+        #[cfg(feature = "tokio-executor")]
+        {
+            DnsConfig::system(quic_transport)
+        }
+    }
+    .map_err(|e| NetworkError::TransportLaunch { source: e })?;
+
+    Ok(dns_quic
+        .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))
         .boxed())
 }
 

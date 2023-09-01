@@ -50,10 +50,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn network(
-        &self,
-    ) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>
-    {
+    pub fn network(&self) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES> {
         &self.networks.0
     }
 
@@ -73,7 +70,7 @@ pub struct CombinedNetworks<
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    pub WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+    pub WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES>,
     pub Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     pub PhantomData<MEMBERSHIP>,
 );
@@ -93,7 +90,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
             <WebServerNetwork<
                 Message<TYPES, I>,
                 TYPES::SignatureKey,
-                TYPES::ElectionConfigType,
                 TYPES,
             > as TestableNetworkingImplementation<_, _>>::generator(
                 expected_node_count,
@@ -292,7 +288,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
-        <WebServerNetwork<_, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(self.network(), event)

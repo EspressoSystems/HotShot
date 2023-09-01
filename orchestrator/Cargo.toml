@@ -48,7 +48,6 @@ libp2p = { workspace = true, features = [
     "identify",
     "kad",
     "gossipsub",
-    "noise",
     "ping",
     "plaintext",
     "pnet",

@@ -119,9 +119,9 @@ pub async fn spin_up_swarms<S: Debug + Default>(
         // as opposed to random ports. These are harder to track
         // especially since the "listener"/inbound connection sees a different
         // port
-        // let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/", start_port + i)).unwrap();
+        // let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{}/quic-v1", start_port + i)).unwrap();
 
-        let addr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1").unwrap();
         config
             .identity(identity)
             .replication_factor(replication_factor)
@@ -151,10 +151,10 @@ pub async fn spin_up_swarms<S: Debug + Default>(
     }
 
     for j in 0..(num_of_nodes - num_bootstrap) {
-        let addr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1").unwrap();
         // NOTE use this if testing locally and want human readable ports
         // let addr = Multiaddr::from_str(&format!(
-        //     "/ip4/127.0.0.1/tcp/{}",
+        //     "/ip4/127.0.0.1/udp/{}/quic-v1",
         //     start_port + num_bootstrap + j
         // )).unwrap();
         let regular_node_config = NetworkNodeConfigBuilder::default()

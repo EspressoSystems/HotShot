@@ -1,10 +1,10 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use commit::Commitment;
-use hotshot_types::{
+use crate::{
     data::{LeafBlock, LeafType},
     traits::node_implementation::NodeType,
 };
+use commit::Commitment;
 use std::ops::Deref;
 
 /// A view's state

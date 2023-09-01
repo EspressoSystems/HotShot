@@ -145,7 +145,7 @@ impl NetworkNode {
     /// Currently:
     ///   * Generates a random key pair and associated [`PeerId`]
     ///   * Launches a hopefully production ready transport:
-    ///       TCP + DNS + Websocket + XX auth
+    ///       QUIC v1 (RFC 9000) + DNS + Websocket + XX auth
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]

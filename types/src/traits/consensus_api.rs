@@ -1,7 +1,6 @@
 //! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
-use async_trait::async_trait;
-use hotshot_types::{
+use crate::{
     certificate::QuorumCertificate,
     data::{LeafType, ProposalType},
     error::HotShotError,
@@ -15,6 +14,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use async_trait::async_trait;
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 

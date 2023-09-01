@@ -22,9 +22,7 @@ test_async_std_all:
   echo Testing with async std executor
   cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
-test_basic:
-  echo Running the basic tests, including the test for success, the test for nodes leaving the network, and unit tests for network, consensus and DA tasks, with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_success test_with_failures test_network test_consensus test_da -- --test-threads=1 --nocapture
+test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task  
 
 test_success:
   echo Testing with async std executor
