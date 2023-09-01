@@ -996,6 +996,7 @@ where
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
+                    self.current_proposal = None; 
                     // self.update_view(view + 1).await;
                 }
             }
@@ -1084,20 +1085,20 @@ where
         };
 
         // Leaf hash in view inner does not match high qc hash - Why?
-        let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
-            // TODO ED Why do we have to return false here?  If we have the QC don't we have all the info we need to propose?
-            // We need to ensure that the situation described below didn't happen.  So we need to fetch the actual proposal
-            // For now what should we do?  In this case any byzantine leader could prevent the next leader from proposing
-            // TODO ED Make gh issue to fix this But I think the leader can still propose.  They just need to fetch the proposal later,
-            // which they will do in the replica task once catchup is in.  So it is fine now? Other than the need for height? 
+        // let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
+        //     // TODO ED Why do we have to return false here?  If we have the QC don't we have all the info we need to propose?
+        //     // We need to ensure that the situation described below didn't happen.  So we need to fetch the actual proposal
+        //     // For now what should we do?  In this case any byzantine leader could prevent the next leader from proposing
+        //     // TODO ED Make gh issue to fix this But I think the leader can still propose.  They just need to fetch the proposal later,
+        //     // which they will do in the replica task once catchup is in.  So it is fine now? Other than the need for height? 
 
-            error!(
-                ?parent_view_number,
-                ?parent_view,
-                "Parent of high QC points to a view without a proposal"
-            );
-            return false;
-        };
+        //     error!(
+        //         ?parent_view_number,
+        //         ?parent_view,
+        //         "Parent of high QC points to a view without a proposal"
+        //     );
+        //     return false;
+        // };
         // TODO ED qc.leaf_commitment won't work for timeout vote, will need to fetch high qc, view sync cert is what should really be passed into this function?  But why can't we just propose even if we don't have the previous proposal?
         let leaf_commitment = qc.leaf_commitment;
 
