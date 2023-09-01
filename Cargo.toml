@@ -153,7 +153,7 @@ bitvec = { workspace = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
-dashmap = "5.5.1"
+dashmap = "5.5.3"
 derivative = { version = "2.2.0", optional = true }
 either = { workspace = true }
 embed-doc-image = "0.1.4"
@@ -176,7 +176,6 @@ libp2p = { workspace = true, features = [
         "identify",
         "kad",
         "gossipsub",
-        "noise",
         "ping",
         "plaintext",
         "pnet",
@@ -310,17 +309,17 @@ futures = "0.3.28"
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
-libp2p = { version = "0.52.2", default-features = false }
+libp2p = { version = "0.52.3", default-features = false }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
-serde = { version = "1.0.186", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
-time = "0.3.27"
+time = "0.3.28"
 toml = "0.7.6"
 tracing = "0.1.37"
 typenum = "1.16.0"

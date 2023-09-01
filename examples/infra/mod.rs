@@ -86,7 +86,7 @@ pub fn parse_dns(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/dns/{ip}/tcp/{port}"))
+    Multiaddr::from_str(&format!("/dns/{ip}/udp/{port}/quic-v1"))
 }
 
 /// libp2p helper function
@@ -94,5 +94,5 @@ pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
+    Multiaddr::from_str(&format!("/ip4/{ip}/udp/{port}/quic-v1"))
 }
