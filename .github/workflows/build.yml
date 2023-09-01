@@ -31,13 +31,14 @@ jobs:
       - uses: actions/checkout@v3
         name: Checkout Repository
 
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler just
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
+          sudo apt-get install -y protobuf-compiler
+          cargo install just
 
       - name: Audit
         # TODO remove ignore flag if/when ansiterm cve fixed
