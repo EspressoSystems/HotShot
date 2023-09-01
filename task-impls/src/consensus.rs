@@ -627,10 +627,10 @@ where
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: sender.to_bytes(),
                 };
-                let justify_qc_commitment = justify_qc.commit();
                 let leaf_commitment = leaf.commit();
 
                 // Validate the `height`.
+                // TODO ED Why height?  Why isn't checking the parent commitment against the qc commitment enough?
                 if leaf.height != parent.height + 1 {
                     error!(
                         "Incorrect height in proposal (expected {}, got {})",
@@ -671,36 +671,14 @@ where
                 if !safety_check && !liveness_check {
                     error!("Failed safety check and liveness check");
                 } else {
-                    // Generate a message with yes vote.
-                    // TODO ED Put vote token logic in message creation function
-                    let vote_token = self.quorum_exchange.make_vote_token(proposal_view);
-
-                    match vote_token {
-                        Err(e) => {
-                            error!(
-                                "Failed to generate vote token for {:?} {:?}",
-                                proposal_view, e
-                            );
-                        }
-                        Ok(None) => {
-                            debug!(
-                                "We were not chosen for consensus committee on {:?}",
-                                proposal_view
-                            );
-                        }
-                        Ok(Some(vote_token)) => {
-                            // Only set this once we're sure we've seen a valid proposal
-                            self.current_proposal = Some(proposal.data.clone());
-
-                            if !self.vote_if_able().await {
-                                return;
-                            }
-
-                            // Garbage collect old DA certs
-                        }
+                    // Proposal has passed all checks; vote
+                    self.current_proposal = Some(proposal.data.clone());
+                    if !self.vote_if_able().await {
+                        return;
                     }
                 }
 
+                // Garbage collect old DA certs
                 for v in (*self.cur_view)..=(*proposal_view) {
                     let time = TYPES::Time::new(v);
                     self.certs.remove(&time);
@@ -873,18 +851,6 @@ where
                     debug!("Decided txns len {:?}", included_txns_set.len());
                     decide_sent.await;
                 }
-
-                // TODO ED Commenting out for now - may need part of this code later to ensure leader has latest proposal
-                // let new_view = self.current_proposal.clone().unwrap().view_number + 1;
-                // // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                // // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                // let should_propose = self.quorum_exchange.is_leader(new_view)
-                //     && consensus.high_qc.view_number
-                //         == self.current_proposal.clone().unwrap().view_number;
-                // // todo get rid of this clone
-                // let qc = consensus.high_qc.clone();
-
-                drop(consensus);
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 debug!("Received quroum vote: {:?}", vote.current_view());
@@ -907,7 +873,7 @@ where
                             &self.vote_collector
                         {
                             if vote.current_view > *collection_view {
-                                // ED I think we'd want to let that task timeout to avoid a griefing vector
+                                // TODO ED I think we'd want to let that task timeout to avoid a griefing vector
                                 self.registry.shutdown_task(*collection_task).await;
                             }
                             *collection_view
@@ -929,7 +895,6 @@ where
                             signers: bitvec![0; self.quorum_exchange.total_nodes()],
                         };
 
-                        // Todo check if we are the leader
                         let accumulator = self.quorum_exchange.accumulate_vote(
                             &vote.clone().signature.0,
                             &vote.clone().signature.1,
@@ -1094,8 +1059,8 @@ where
 
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(&self, qc: QuorumCertificate<TYPES, I::Leaf>) -> bool {
-        // TODO ED This should not be qc view number + 1
         if !self.quorum_exchange.is_leader(qc.view_number + 1) {
+            // This error is benign if it is view 1
             error!(
                 "Somehow we formed a QC but are not the leader for the next view {:?}",
                 qc.view_number + 1
@@ -1105,15 +1070,24 @@ where
 
         let consensus = self.consensus.read().await;
         let parent_view_number = &consensus.high_qc.view_number();
+        // TODO ED Shouldn't be doing decide logic here, only in replica task
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
             // This should have been added by the replica?
+            // TODO ED Why do we have to return false here?  If we have the QC don't we have all the info we need to propose?
             error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
             return false;
         };
+
         // Leaf hash in view inner does not match high qc hash - Why?
         let Some(leaf_commitment) = parent_view.get_leaf_commitment() else {
+            // TODO ED Why do we have to return false here?  If we have the QC don't we have all the info we need to propose?
+            // We need to ensure that the situation described below didn't happen.  So we need to fetch the actual proposal
+            // For now what should we do?  In this case any byzantine leader could prevent the next leader from proposing
+            // TODO ED Make gh issue to fix this But I think the leader can still propose.  They just need to fetch the proposal later,
+            // which they will do in the replica task once catchup is in.  So it is fine now? Other than the need for height? 
+
             error!(
                 ?parent_view_number,
                 ?parent_view,
@@ -1121,6 +1095,12 @@ where
             );
             return false;
         };
+        // TODO ED qc.leaf_commitment won't work for timeout vote, will need to fetch high qc, view sync cert is what should really be passed into this function?  But why can't we just propose even if we don't have the previous proposal?
+        let leaf_commitment = qc.leaf_commitment;
+
+        // If this error happens it means that the qc we just formed doesn't match the parent block commitment we have
+        // TODO How would this ever happen? This could happen if we were sent a bogus proposal last view and everyone else was sent
+        // a different proposal.  No, that is not right, because we are fetching the parent by hash of the qc 
         if leaf_commitment != consensus.high_qc.leaf_commitment() {
             debug!(
                 "They don't equal: {:?}   {:?}",
@@ -1128,43 +1108,46 @@ where
                 consensus.high_qc.leaf_commitment()
             );
         }
-        let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
-            error!("Failed to find high QC of parent.");
-            return false;
-        };
-        if leaf.view_number == consensus.last_decided_view {
-            reached_decided = true;
-        }
+        // let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
+        //     error!("Failed to find high QC of parent.");
+        //     // return false;
+        // };
+        // if leaf.view_number == consensus.last_decided_view {
+        //     reached_decided = true;
+        // }
 
-        let parent_leaf = leaf.clone();
+        // let parent_leaf = leaf.clone();
 
-        let original_parent_hash = parent_leaf.commit();
+        // let original_parent_hash = parent_leaf.commit();
 
-        let mut next_parent_hash = original_parent_hash;
+        // let mut next_parent_hash = original_parent_hash;
 
         // Walk back until we find a decide
-        if !reached_decided {
-            debug!("not reached decide fro view {:?}", self.cur_view);
-            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
-                if next_parent_leaf.view_number <= consensus.last_decided_view {
-                    break;
-                }
-                next_parent_hash = next_parent_leaf.parent_commitment;
-            }
-            debug!("updated saved leaves");
-            // TODO do some sort of sanity check on the view number that it matches decided
-        }
+        // if !reached_decided {
+        //     debug!("not reached decide fro view {:?}", self.cur_view);
+        //     while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
+        //         if next_parent_leaf.view_number <= consensus.last_decided_view {
+        //             break;
+        //         }
+        //         next_parent_hash = next_parent_leaf.parent_commitment;
+        //     }
+        //     debug!("updated saved leaves");
+        //     // TODO do some sort of sanity check on the view number that it matches decided
+        // }
 
         let block_commitment = self.block.commit();
         if block_commitment == TYPES::BlockType::new().commit() {
             debug!("Block is generic block! {:?}", self.cur_view);
         }
 
+        // TODO ED I see, we need the leaf to know which height we're at?  Why do we need height again?
         let leaf = SequencingLeaf {
             view_number: *parent_view_number + 1,
-            height: parent_leaf.height + 1,
+            // TODO ED Put this back in 
+            // height: parent_leaf.height + 1,
+            height: 1, 
             justify_qc: consensus.high_qc.clone(),
-            parent_commitment: parent_leaf.commit(),
+            parent_commitment: qc.leaf_commitment,
             // Use the block commitment rather than the block, so that the replica can construct
             // the same leaf with the commitment.
             deltas: Right(block_commitment),
