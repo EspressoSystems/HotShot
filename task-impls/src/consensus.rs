@@ -487,7 +487,8 @@ where
             //     self.certs.remove(&v);
             // }
             self.cur_view = new_view;
-            self.current_proposal = None;
+            // TODO ED Need a better way to handle this with the new view change logic 
+            // self.current_proposal = None;
 
             // Start polling for proposals for the new view
             self.quorum_exchange
@@ -631,14 +632,14 @@ where
 
                 // Validate the `height`.
                 // TODO ED Why height?  Why isn't checking the parent commitment against the qc commitment enough?
-                if leaf.height != parent.height + 1 {
-                    error!(
-                        "Incorrect height in proposal (expected {}, got {})",
-                        parent.height + 1,
-                        leaf.height
-                    );
-                    return;
-                }
+                // if leaf.height != parent.height + 1 {
+                //     error!(
+                //         "Incorrect height in proposal (expected {}, got {})",
+                //         parent.height + 1,
+                //         leaf.height
+                //     );
+                //     return;
+                // }
 
                 // Validate the proposal's signature
                 if !expected_view_leader_key.validate(&proposal.signature, leaf_commitment.as_ref())
@@ -676,6 +677,8 @@ where
                     if !self.vote_if_able().await {
                         return;
                     }
+                    self.current_proposal = None; 
+
                 }
 
                 // Garbage collect old DA certs
@@ -982,7 +985,7 @@ where
                 );
 
                 if self.publish_proposal_if_able(qc.clone()).await {
-                    self.update_view(qc.view_number + 1).await;
+                    // self.update_view(qc.view_number + 1).await;
                 }
             }
             SequencingHotShotEvent::DACRecv(cert) => {
@@ -993,7 +996,7 @@ where
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
-                    self.update_view(view + 1).await;
+                    // self.update_view(view + 1).await;
                 }
             }
 
