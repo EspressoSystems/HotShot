@@ -1,5 +1,6 @@
 pub mod config;
 
+use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
@@ -18,14 +19,6 @@ use tracing::{debug, info};
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
-
-// TODO ED: Below values should be in a config file
-/// How many views to keep in memory
-const MAX_VIEWS: usize = 25;
-/// How many transactions to keep in memory
-const MAX_TXNS: usize = 500;
-/// How many transactions to return at once
-const TX_BATCH_SIZE: u64 = 1;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
@@ -230,13 +223,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             self.num_txns as usize - MAX_TXNS
         };
 
-        let new_index = if (index as usize) < lowest_in_memory_txs {
+        let starting_index = if (index as usize) < lowest_in_memory_txs {
             lowest_in_memory_txs
         } else {
             index as usize
         };
 
-        for idx in new_index..=self.num_txns.try_into().unwrap() {
+        for idx in starting_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
                 txns_to_return.push(txn.clone())
             }
@@ -247,7 +240,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         if !txns_to_return.is_empty() {
             debug!("Returning this many txs {}", txns_to_return.len());
-            Ok(Some((index, txns_to_return)))
+            //starting_index is the oldest index of the returned txns
+            Ok(Some((starting_index as u64, txns_to_return)))
         } else {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
@@ -299,7 +293,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
         // Only keep vote history for MAX_VIEWS number of views
-        // error!("WEBSERVERVIEWSYNCVOTE for view {}", view_number);
         if self.view_sync_votes.len() >= MAX_VIEWS {
             self.view_sync_votes.remove(&self.oldest_view_sync_vote);
             while !self
@@ -310,7 +303,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             }
         }
         let highest_index = self.view_sync_vote_index.entry(view_number).or_insert(0);
-        // error!("Highest index is {}", highest_index);
         self.view_sync_votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push((*highest_index, vote.clone())))
@@ -357,7 +349,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .view_sync_proposal_index
             .entry(view_number)
             .or_insert(0);
-        // error!("Highest index is {}", highest_index);
         self.view_sync_proposals
             .entry(view_number)
             .and_modify(|current_props| current_props.push((*highest_index, proposal.clone())))
@@ -387,9 +378,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // TODO ED Remove txs from txn_lookup
         if self.transactions.len() >= MAX_TXNS {
-            self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
+            let old_txn = self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
+            if let Some(old_txn) = old_txn {
+                self.txn_lookup.remove(&old_txn);
+            }
         }
         self.txn_lookup.insert(txn.clone(), self.num_txns);
         self.transactions.insert(self.num_txns, txn);
@@ -409,8 +402,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if let Some(new_key) = new_key {
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
-            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added
-            // https://github.com/EspressoSystems/HotShot/issues/1141
             let secret = thread_rng()
                 .sample_iter(&Alphanumeric)
                 .take(30)
@@ -505,8 +496,6 @@ where
     })?
     .get("getviewsyncproposal", |req, state| {
         async move {
-            // error!("Getting view sync proposal!");
-
             let view_number: u64 = req.integer_param("view_number")?;
             let index: u64 = req.integer_param("index")?;
             state.get_view_sync_proposal(view_number, index)
@@ -602,9 +591,9 @@ where
     })?
     .post("postcompletedtransaction", |req, state| {
         async move {
-            //works one key at a time for now
-            let key = req.body_bytes();
-            state.post_completed_transaction(key)
+            //works one txn at a time for now
+            let txn = req.body_bytes();
+            state.post_completed_transaction(txn)
         }
         .boxed()
     })?
