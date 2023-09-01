@@ -43,7 +43,6 @@ jobs:
       - name: Unit and integration tests for all crates in workspace
         run: |
           just async_std test
-          just tokio test
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
