@@ -585,9 +585,7 @@ where
         matches!(
             event,
             SequencingHotShotEvent::ViewSyncCertificateRecv(_)
-                | SequencingHotShotEvent::ViewSyncCertificateSend(_, _)
                 | SequencingHotShotEvent::ViewSyncVoteRecv(_)
-                | SequencingHotShotEvent::ViewSyncVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::Timeout(_)
                 | SequencingHotShotEvent::ViewSyncTimeout(_, _, _)
