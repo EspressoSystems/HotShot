@@ -773,7 +773,7 @@ where
                                 true
                             },
                         ) {
-                            error!("Publishing view error");
+                            error!("Error visiting leaf ancestors");
                             self.output_event_stream.publish(Event {
                                 view_number: proposal_view,
                                 event: EventType::Error { error: e.into() },
@@ -787,168 +787,100 @@ where
                     HashSet::new()
                 };
 
-                //             current_chain_length += 1;
-                //             if let Err(e) = consensus.visit_leaf_ancestors(
-                //             parent_view,
-                //             Terminator::Exclusive(old_anchor_view),
-                //             true,
-                //             |leaf| {
-                //                 if !new_decide_reached {
-                //                     if last_view_number_visited == leaf.view_number + 1 {
-                //                         last_view_number_visited = leaf.view_number;
-                //                         current_chain_length += 1;
-                //                         if current_chain_length == 2 {
-                //                             new_locked_view = leaf.view_number;
-                //                             new_commit_reached = true;
-                //                             // The next leaf in the chain, if there is one, is decided, so this
-                //                             // leaf's justify_qc would become the QC for the decided chain.
-                //                             new_decide_qc = Some(leaf.justify_qc.clone());
-                //                         } else if current_chain_length == 3 {
-                //                             new_anchor_view = leaf.view_number;
-                //                             new_decide_reached = true;
-                //                         }
-                //                     } else {
-                //                         // nothing more to do here... we don't have a new chain extension
-                //                         return false;
-                //                     }
-                //                 }
-                //                 // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-                //                 if new_decide_reached {
-                //                     let mut leaf = leaf.clone();
+                // promote lock here to add proposal to statemap
+                let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+                if high_qc.view_number > consensus.high_qc.view_number {
+                    consensus.high_qc = high_qc;
+                }
+                consensus.state_map.insert(
+                    proposal_view,
+                    View {
+                        view_inner: ViewInner::Leaf {
+                            leaf: leaf.commit(),
+                        },
+                    },
+                );
 
-                //                     // If the full block is available for this leaf, include it in the leaf
-                //                     // chain that we send to the client.
-                //                     if let Some(block) =
-                //                         consensus.saved_blocks.get(leaf.get_deltas_commitment())
-                //                     {
-                //                         if let Err(err) = leaf.fill_deltas(block.clone()) {
-                //                             error!("unable to fill leaf {} with block {}, block will not be available: {}",
-                //                                 leaf.commit(), block.commit(), err);
-                //                         }
-                //                     }
+                consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+                if new_commit_reached {
+                    consensus.locked_view = new_locked_view;
+                }
+                #[allow(clippy::cast_precision_loss)]
+                if new_decide_reached {
+                    let mut included_txn_size = 0;
+                    let mut included_txn_count = 0;
+                    let txns = consensus.transactions.cloned().await;
+                    // store transactions in this block we never added to our transactions.
+                    let _ = included_txns_set.iter().map(|hash| {
+                        if !txns.contains_key(hash) {
+                            consensus.seen_transactions.insert(*hash);
+                        }
+                    });
+                    drop(txns);
+                    consensus
+                        .transactions
+                        .modify(|txns| {
+                            *txns = txns
+                                .drain()
+                                .filter(|(txn_hash, txn)| {
+                                    if included_txns_set.contains(txn_hash) {
+                                        included_txn_count += 1;
+                                        included_txn_size +=
+                                            bincode_opts().serialized_size(txn).unwrap_or_default();
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                })
+                                .collect();
+                        })
+                        .await;
 
-                //                     leaf_views.push(leaf.clone());
-                //                     match &leaf.deltas {
-                //                         Left(block) => {
-                //                             let txns = block.contained_transactions();
-                //                             for txn in txns {
-                //                                 included_txns.insert(txn);
-                //                             }
-                //                         }
-                //                         Right(_) => {}
-                //                 }
-                //             }
-                //                 true
-                //             },
-                //         ) {
-                //             error!("publishing view error");
-                //             self.output_event_stream.publish(Event {
-                //                 view_number: view,
-                //                 event: EventType::Error { error: e.into() },
-                //             }).await;
-                //         }
-                //         }
+                    consensus
+                        .metrics
+                        .outstanding_transactions
+                        .update(-included_txn_count);
+                    consensus
+                        .metrics
+                        .outstanding_transactions_memory_size
+                        .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
-                //         let included_txns_set: HashSet<_> = if new_decide_reached {
-                //             included_txns
-                //         } else {
-                //             HashSet::new()
-                //         };
+                    let decide_sent = self.output_event_stream.publish(Event {
+                        view_number: consensus.last_decided_view,
+                        event: EventType::Decide {
+                            leaf_chain: Arc::new(leaf_views),
+                            qc: Arc::new(new_decide_qc.unwrap()),
+                            block_size: Some(included_txns_set.len().try_into().unwrap()),
+                        },
+                    });
+                    let old_anchor_view = consensus.last_decided_view;
+                    consensus
+                        .collect_garbage(old_anchor_view, new_anchor_view)
+                        .await;
+                    consensus.last_decided_view = new_anchor_view;
+                    // TODO ED What do we use this field for?
+                    consensus.invalid_qc = 0;
+                    // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+                    if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
+                        error!("Could not insert new anchor into the storage API: {:?}", e);
+                    }
 
-                //         // promote lock here to add proposal to statemap
-                //         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                //         if high_qc.view_number > consensus.high_qc.view_number {
-                //             consensus.high_qc = high_qc;
-                //         }
-                //         consensus.state_map.insert(
-                //             view,
-                //             View {
-                //                 view_inner: ViewInner::Leaf {
-                //                     leaf: leaf.commit(),
-                //                 },
-                //             },
-                //         );
-                //         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-                //         if new_commit_reached {
-                //             consensus.locked_view = new_locked_view;
-                //         }
-                //         #[allow(clippy::cast_precision_loss)]
-                //         if new_decide_reached {
-                //             let mut included_txn_size = 0;
-                //             let mut included_txn_count = 0;
-                //             let txns = consensus.transactions.cloned().await;
-                //             // store transactions in this block we never added to our transactions.
-                //             let _ = included_txns_set.iter().map(|hash| {
-                //                 if !txns.contains_key(hash) {
-                //                     consensus.seen_transactions.insert(*hash);
-                //                 }
-                //             });
-                //             drop(txns);
-                //             consensus
-                //                 .transactions
-                //                 .modify(|txns| {
-                //                     *txns = txns
-                //                         .drain()
-                //                         .filter(|(txn_hash, txn)| {
-                //                             if included_txns_set.contains(txn_hash) {
-                //                                 included_txn_count += 1;
-                //                                 included_txn_size += bincode_opts()
-                //                                     .serialized_size(txn)
-                //                                     .unwrap_or_default();
-                //                                 false
-                //                             } else {
-                //                                 true
-                //                             }
-                //                         })
-                //                         .collect();
-                //                 })
-                //                 .await;
+                    debug!("Sending Decide for view {:?}", consensus.last_decided_view);
+                    debug!("Decided txns len {:?}", included_txns_set.len());
+                    decide_sent.await;
+                }
 
-                //             consensus
-                //                 .metrics
-                //                 .outstanding_transactions
-                //                 .update(-included_txn_count);
-                //             consensus
-                //                 .metrics
-                //                 .outstanding_transactions_memory_size
-                //                 .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
+                // TODO ED Commenting out for now - may need to update this later to ensure leader has latest proposal
+                // let new_view = self.current_proposal.clone().unwrap().view_number + 1;
+                // // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                // // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                // let should_propose = self.quorum_exchange.is_leader(new_view)
+                //     && consensus.high_qc.view_number
+                //         == self.current_proposal.clone().unwrap().view_number;
+                // // todo get rid of this clone
+                // let qc = consensus.high_qc.clone();
 
-                //             debug!("about to publish decide");
-                //             let decide_sent = self.output_event_stream.publish(Event {
-                //                 view_number: consensus.last_decided_view,
-                //                 event: EventType::Decide {
-                //                     leaf_chain: Arc::new(leaf_views),
-                //                     qc: Arc::new(new_decide_qc.unwrap()),
-                //                     block_size: Some(included_txns_set.len().try_into().unwrap()),
-                //                 },
-                //             });
-                //             let old_anchor_view = consensus.last_decided_view;
-                //             consensus
-                //                 .collect_garbage(old_anchor_view, new_anchor_view)
-                //                 .await;
-                //             consensus.last_decided_view = new_anchor_view;
-                //             consensus.invalid_qc = 0;
-
-                //             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-                //             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
-                //                 error!("Could not insert new anchor into the storage API: {:?}", e);
-                //             }
-
-                //             debug!("Sending Decide for view {:?}", consensus.last_decided_view);
-                //             debug!("Decided txns len {:?}", included_txns_set.len());
-                //             decide_sent.await;
-                //         }
-
-                //         let new_view = self.current_proposal.clone().unwrap().view_number + 1;
-                //         // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                //         // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                //         let should_propose = self.quorum_exchange.is_leader(new_view)
-                //             && consensus.high_qc.view_number
-                //                 == self.current_proposal.clone().unwrap().view_number;
-                //         // todo get rid of this clone
-                //         let qc = consensus.high_qc.clone();
-
-                //         drop(consensus);
+                drop(consensus);
                 //         if should_propose {
                 //             debug!(
                 //                 "Attempting to publish proposal after voting; now in view: {}",
@@ -956,23 +888,23 @@ where
                 //             );
                 //             self.publish_proposal_if_able(qc).await;
                 //         }
-                //         if !self.vote_if_able().await {
-                //             // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
-                //             return;
-                //         }
+                if !self.vote_if_able().await {
+                    // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
+                    return;
+                }
 
-                //         // ED Only do this GC if we are able to vote
-                //         for v in (*self.cur_view)..=(*view) {
-                //             let time = TYPES::Time::new(v);
-                //             self.certs.remove(&time);
-                //         }
+                // Garbage collect old DA certs
+                for v in (*self.cur_view)..=(*proposal_view) {
+                    let time = TYPES::Time::new(v);
+                    self.certs.remove(&time);
+                }
 
                 //         // Update current view and publish a view change event so other tasks also update
                 //         self.update_view(new_view).await;
 
-                //         if let GeneralConsensusMessage::Vote(vote) = message {
-                //             debug!("Sending vote to next leader {:?}", vote);
-                //         };
+                // if let GeneralConsensusMessage::Vote(vote) = message {
+                //     debug!("Sending vote to next leader {:?}", vote);
+                // };
                 //     }
                 // }
             }
