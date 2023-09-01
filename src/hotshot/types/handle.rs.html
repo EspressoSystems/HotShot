@@ -419,7 +419,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>hotshot_consensus::Consensus;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
     event_stream::{ChannelStream, EventStream, StreamId},
@@ -429,6 +428,7 @@
 };
 <span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
 <span class="kw">use </span>hotshot_types::{
+    consensus::Consensus,
     data::LeafType,
     error::HotShotError,
     event::EventType,

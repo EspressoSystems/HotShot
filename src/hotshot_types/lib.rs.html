@@ -67,6 +67,7 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="attr">#![warn(
     clippy::all,
@@ -81,14 +82,15 @@
 </span><span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
 
 <span class="kw">pub mod </span>certificate;
+<span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>constants;
 <span class="kw">pub mod </span>data;
 <span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>event;
 <span class="kw">pub mod </span>message;
 <span class="kw">pub mod </span>traits;
+<span class="kw">pub mod </span>utils;
 <span class="kw">pub mod </span>vote;
-
 <span class="doccomment">/// the type of consensus to run. Either:
 /// wait for a signal to start a view,
 /// or constantly run

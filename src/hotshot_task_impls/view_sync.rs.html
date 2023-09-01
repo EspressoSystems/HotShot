@@ -1056,7 +1056,6 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_consensus::SequencingConsensusApi;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
@@ -1071,6 +1070,7 @@
     data::SequencingLeaf,
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{ConsensusExchange, ViewSyncExchangeType},
         network::CommunicationChannel,
         node_implementation::{NodeImplementation, NodeType, ViewSyncEx},

@@ -677,6 +677,8 @@
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_timeout},
@@ -688,7 +690,6 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_consensus::{utils::ViewInner, Consensus, SequencingConsensusApi, View};
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -697,9 +698,11 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::DACertificate,
+    consensus::{Consensus, View},
     data::{DAProposal, ProposalType, SequencingLeaf},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType},
@@ -707,6 +710,7 @@
         state::ConsensusTime,
         Block, State,
     },
+    utils::ViewInner,
     vote::VoteAccumulator,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;

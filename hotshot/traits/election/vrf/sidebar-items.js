@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["SORTITION_PARAMETER"],"struct":["VRFStakeTable"]};

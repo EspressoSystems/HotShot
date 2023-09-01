@@ -1304,7 +1304,6 @@
 <a href="#1304" id="1304">1304</a>
 <a href="#1305" id="1305">1305</a>
 <a href="#1306" id="1306">1306</a>
-<a href="#1307" id="1307">1307</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1319,10 +1318,6 @@
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_consensus::{
-    utils::{Terminator, ViewInner},
-    Consensus, SequencingConsensusApi, View,
-};
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -1331,10 +1326,12 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
+    consensus::{Consensus, View},
     data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
+        consensus_api::SequencingConsensusApi,
         election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
@@ -1342,6 +1339,7 @@
         state::ConsensusTime,
         Block,
     },
+    utils::{Terminator, ViewInner},
     vote::{QuorumVote, VoteAccumulator, VoteType},
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;

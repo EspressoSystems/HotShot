@@ -175,13 +175,13 @@
     types::{bn254::BN254Pub, SignatureKey, SystemContextHandle},
     HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
 };
-<span class="kw">use </span>hotshot_consensus::ConsensusSharedApi;
 <span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
 <span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     data::{QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, Proposal},
     traits::{
+        consensus_api::ConsensusSharedApi,
         election::{ConsensusExchange, Membership, SignedCertificate},
         metrics::NoMetrics,
         node_implementation::{CommitteeEx, ExchangesType, NodeType, QuorumEx},

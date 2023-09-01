@@ -53,9 +53,23 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
+
+<span class="doccomment">/// How many views to keep in memory
+</span><span class="kw">pub const </span>MAX_VIEWS: usize = <span class="number">25</span>;
+<span class="doccomment">/// How many transactions to keep in memory
+</span><span class="kw">pub const </span>MAX_TXNS: usize = <span class="number">500</span>;
+<span class="doccomment">/// How many transactions to return at once
+</span><span class="kw">pub const </span>TX_BATCH_SIZE: u64 = <span class="number">1</span>;
 
 <span class="kw">pub fn </span>get_proposal_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)

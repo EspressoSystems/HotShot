@@ -1298,10 +1298,12 @@
             <span class="kw">if </span>message_purpose == MessagePurpose::Data {
                 <span class="kw">let </span>possible_message = <span class="self">self</span>.get_txs_from_web_server(endpoint).<span class="kw">await</span>;
                 <span class="kw">match </span>possible_message {
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((_index, deserialized_messages))) =&gt; {
-                        <span class="comment">// This code assumes nodes can keep up with the number of transactions coming through the network
-                        // We&#39;ll address this issue during https://github.com/EspressoSystems/HotShot/issues/1496
-                        </span><span class="kw">let </span><span class="kw-2">mut </span>broadcast_poll_queue = <span class="self">self</span>.broadcast_poll_queue.write().<span class="kw">await</span>;
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((index, deserialized_messages))) =&gt; {
+                        <span class="kw">let </span><span class="kw-2">mut </span>broadcast_poll_queue = <span class="self">self</span>.broadcast_poll_queue.write().<span class="kw">await</span>;
+                        <span class="kw">if </span>index &gt; tx_index + <span class="number">1 </span>{
+                            <span class="macro">debug!</span>(<span class="string">&quot;missed txns from {} to {}&quot;</span>, tx_index + <span class="number">1</span>, index - <span class="number">1</span>);
+                            tx_index = index - <span class="number">1</span>;
+                        }
                         <span class="kw">for </span>tx <span class="kw">in </span><span class="kw-2">&amp;</span>deserialized_messages {
                             tx_index += <span class="number">1</span>;
                             broadcast_poll_queue.push(tx.clone());
@@ -1312,15 +1314,13 @@
                         async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
                     }
                     <span class="prelude-val">Err</span>(_e) =&gt; {
-                        <span class="comment">// error!(&quot;error is {:?}&quot;, _e);
-                        </span>async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
+                        async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
                     }
                 }
             } <span class="kw">else </span>{
                 <span class="kw">let </span>possible_message = <span class="self">self</span>.get_message_from_web_server(endpoint).<span class="kw">await</span>;
-                <span class="comment">// error!(&quot;Polling for view {}&quot;, view_number);
 
-                </span><span class="kw">match </span>possible_message {
+                <span class="kw">match </span>possible_message {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(deserialized_messages)) =&gt; {
                         <span class="kw">match </span>message_purpose {
                             MessagePurpose::Data =&gt; {

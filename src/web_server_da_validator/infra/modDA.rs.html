@@ -720,9 +720,6 @@
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -734,7 +731,7 @@
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
-    HotShotType, SystemContext, ViewRunner,
+    HotShotType, SystemContext,
 };
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
@@ -911,7 +908,6 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
     SystemContext&lt;TYPES, NODE&gt;: HotShotType&lt;TYPES, NODE&gt;,
 {
@@ -1234,7 +1230,6 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
@@ -1404,7 +1399,6 @@
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType: TestableState,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType: TestableBlock,
     SequencingLeaf&lt;TYPES&gt;: TestableLeaf,
-    SystemContext&lt;TYPES, NODE&gt;: ViewRunner&lt;TYPES, NODE&gt;,
 {
     setup_logging();
     setup_backtrace();

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["static_committee","vrf"]};
+window.SIDEBAR_ITEMS = {"mod":["static_committee"]};

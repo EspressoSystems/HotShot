@@ -257,11 +257,6 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
@@ -270,9 +265,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::test_launcher::{Networks, TestLauncher};
 <span class="kw">use </span>hotshot::types::SystemContextHandle;
 
-<span class="kw">use </span>hotshot::{
-    traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext, ViewRunner,
-};
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext};
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
@@ -328,8 +321,7 @@
     <span class="doccomment">/// excecute test
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>)
     <span class="kw">where
-        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
-        I::Exchanges: ExchangesType&lt;
+        </span>I::Exchanges: ExchangesType&lt;
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
@@ -434,8 +426,7 @@
     <span class="doccomment">/// add nodes
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: usize) -&gt; Vec&lt;u64&gt;
     <span class="kw">where
-        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
-        I::Exchanges: ExchangesType&lt;
+        </span>I::Exchanges: ExchangesType&lt;
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
@@ -473,8 +464,7 @@
         &gt;,
     ) -&gt; u64
     <span class="kw">where
-        </span>SystemContext&lt;TYPES, I&gt;: ViewRunner&lt;TYPES, I&gt;,
-        I::Exchanges: ExchangesType&lt;
+        </span>I::Exchanges: ExchangesType&lt;
             TYPES,
             I::Leaf,
             Message&lt;TYPES, I&gt;,
