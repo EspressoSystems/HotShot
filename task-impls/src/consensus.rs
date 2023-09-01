@@ -629,7 +629,6 @@ where
                 };
                 let justify_qc_commitment = justify_qc.commit();
                 let leaf_commitment = leaf.commit();
-                let message: GeneralConsensusMessage<TYPES, I>;
 
                 // Validate the `height`.
                 if leaf.height != parent.height + 1 {
@@ -673,6 +672,7 @@ where
                     error!("Failed safety check and liveness check");
                 } else {
                     // Generate a message with yes vote.
+                    // TODO ED Put vote token logic in message creation function
                     let vote_token = self.quorum_exchange.make_vote_token(proposal_view);
 
                     match vote_token {
@@ -691,15 +691,19 @@ where
                         Ok(Some(vote_token)) => {
                             // Only set this once we're sure we've seen a valid proposal
                             self.current_proposal = Some(proposal.data.clone());
-                            // TODO ED Make a variable that tracks whether we send a yes or no message
-                            message = self.quorum_exchange.create_yes_message(
-                                justify_qc_commitment,
-                                leaf_commitment,
-                                proposal_view,
-                                vote_token,
-                            );
+
+                            if !self.vote_if_able().await {
+                                return;
+                            }
+
+                            // Garbage collect old DA certs
                         }
                     }
+                }
+
+                for v in (*self.cur_view)..=(*proposal_view) {
+                    let time = TYPES::Time::new(v);
+                    self.certs.remove(&time);
                 }
 
                 let high_qc = leaf.justify_qc.clone();
@@ -870,7 +874,7 @@ where
                     decide_sent.await;
                 }
 
-                // TODO ED Commenting out for now - may need to update this later to ensure leader has latest proposal
+                // TODO ED Commenting out for now - may need part of this code later to ensure leader has latest proposal
                 // let new_view = self.current_proposal.clone().unwrap().view_number + 1;
                 // // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
@@ -881,32 +885,6 @@ where
                 // let qc = consensus.high_qc.clone();
 
                 drop(consensus);
-                //         if should_propose {
-                //             debug!(
-                //                 "Attempting to publish proposal after voting; now in view: {}",
-                //                 *new_view
-                //             );
-                //             self.publish_proposal_if_able(qc).await;
-                //         }
-                if !self.vote_if_able().await {
-                    // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
-                    return;
-                }
-
-                // Garbage collect old DA certs
-                for v in (*self.cur_view)..=(*proposal_view) {
-                    let time = TYPES::Time::new(v);
-                    self.certs.remove(&time);
-                }
-
-                //         // Update current view and publish a view change event so other tasks also update
-                //         self.update_view(new_view).await;
-
-                // if let GeneralConsensusMessage::Vote(vote) = message {
-                //     debug!("Sending vote to next leader {:?}", vote);
-                // };
-                //     }
-                // }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) => {
                 debug!("Received quroum vote: {:?}", vote.current_view());
