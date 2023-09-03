@@ -25,6 +25,7 @@ members = [
         "crates/hotshot-stake-table",
         "crates/hotshot"
 ]
+resolver = "2"
 
 [workspace.dependencies]
 ark-bls12-381 = "0.4"
@@ -80,6 +81,7 @@ libp2p = { package = "libp2p", version = "0.52.3", features = [
     "ping",
     "plaintext",
     "pnet",
+    "quic",
     "relay",
     "request-response",
     "rendezvous",
@@ -118,11 +120,6 @@ tokio = { version = "1.32.0", features = [
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
-
-[metadata.docs.rs]
-# docs.rs uses a nightly compiler, so by instructing it to use our `doc-images` feature we
-# ensure that it will render any images that we may have in inner attribute documentation.
-features = ["doc-images"]
 
 # The default release profile without LTO.
 [profile.release]

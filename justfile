@@ -69,7 +69,7 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests --examples --bins -- -D warnings
+  cargo clippy --workspace --bins --tests --examples -- -D warnings
 
 fmt:
   echo Running cargo fmt
