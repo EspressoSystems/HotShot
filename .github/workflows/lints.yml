@@ -32,5 +32,5 @@ jobs:
 
       - name: Clippy
         run: |
-          just async_std lint
-          just tokio lint
+          nix develop -c just async_std lint
+          nix develop -c just tokio lint
