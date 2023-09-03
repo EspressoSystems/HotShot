@@ -29,6 +29,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
+          cargo install just
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
