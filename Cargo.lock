@@ -582,7 +582,7 @@ dependencies = [
 [[package]]
 name = "async-compatibility-layer"
 version = "1.0.0"
-source = "git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.0#7366f718380acbad2180712ebfebbbee2bf83cd5"
+source = "git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.1#568122b0ef39648daee91d16546985d41c3b0b15"
 dependencies = [
  "async-channel",
  "async-lock",
@@ -590,7 +590,7 @@ dependencies = [
  "async-trait",
  "color-eyre",
  "console-subscriber",
- "flume 0.10.14",
+ "flume 0.11.0",
  "futures",
  "tokio",
  "tokio-stream",
@@ -2235,14 +2235,13 @@ dependencies = [
 
 [[package]]
 name = "flume"
-version = "0.10.14"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1657b4441c3403d9f7b3409e47575237dac27b1b5726df654a6ecbf92f0f7577"
+checksum = "55ac459de2512911e4b674ce33cf20befaba382d05b62b008afc1c8b57cbf181"
 dependencies = [
  "futures-core",
  "futures-sink",
  "nanorand",
- "pin-project",
  "spin 0.9.8",
 ]
 
