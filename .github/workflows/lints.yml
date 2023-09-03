@@ -21,17 +21,11 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+
       - uses: actions/checkout@v3
         name: Checkout Repository
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          cargo install just
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
 
       - name: Format Check
         run: cargo fmt -- --check
