@@ -2,15 +2,18 @@ default: run_ci
 
 set export
 
+original_rustflags := env_var_or_default('RUSTFLAGS', '')
+original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '')
+
 run_ci: lint build test
 
-@tokio target:
+@tokio target *ARGS:
   echo setting executor to tokio
-  export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" ${RUSTFLAGS:}'
+  export RUSTDOCFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 @async_std target *ARGS:
   echo setting executor to async-std
-  export RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"' && just {{target}} {{ARGS}}
+  export RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
   cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches
@@ -83,7 +86,7 @@ fix:
   cargo fix --allow-dirty --allow-staged --workspace --lib --bins --tests --benches
 
 doc:
-  echo Generating docs
+  echo Generating docs {{env_var('RUSTFLAGS')}}
   cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --lib
 
 doc_test:
