@@ -896,7 +896,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>rng = jf_utils::test_rng();
         <span class="kw">let </span>vk_points: Vec&lt;Projective&lt;P&gt;&gt; =
             (<span class="number">0</span>..<span class="number">5</span>).map(|<span class="kw">_</span>| Projective::&lt;P&gt;::rand(<span class="kw-2">&amp;mut </span>rng)).collect();
-        <span class="kw">let </span>selector = <span class="macro">vec!</span>[<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>];
+        <span class="kw">let </span>selector = [<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>];
         <span class="kw">let </span>agg_vk_point =
             vk_points
                 .iter()
@@ -1000,7 +1000,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>rng = jf_utils::test_rng();
         <span class="kw">let </span>vk_points: Vec&lt;Projective&lt;P&gt;&gt; =
             (<span class="number">0</span>..<span class="number">5</span>).map(|<span class="kw">_</span>| Projective::&lt;P&gt;::rand(<span class="kw-2">&amp;mut </span>rng)).collect();
-        <span class="kw">let </span>selector = <span class="macro">vec!</span>[<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>];
+        <span class="kw">let </span>selector = [<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>];
         <span class="kw">let </span>agg_vk_point =
             vk_points
                 .iter()

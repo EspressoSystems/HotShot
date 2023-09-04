@@ -761,9 +761,6 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utilities and internals for maintaining a local stake table
 
 </span><span class="kw">use </span><span class="kw">super</span>::config::{u256_to_field, Digest, FieldType, TREE_BRANCH};
@@ -901,19 +898,16 @@
                 <span class="self">self</span>.path
                     .iter()
                     .skip(<span class="number">1</span>)
-                    .fold(<span class="prelude-val">Ok</span>(init), |result, node| <span class="kw">match </span>node {
-                        MerklePathEntry::Branch { pos, siblings } =&gt; <span class="kw">match </span>result {
-                            <span class="prelude-val">Ok</span>(comm) =&gt; {
-                                <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::from(<span class="number">0</span>); TREE_BRANCH];
-                                input[..<span class="kw-2">*</span>pos].copy_from_slice(<span class="kw-2">&amp;</span>siblings[..<span class="kw-2">*</span>pos]);
-                                input[<span class="kw-2">*</span>pos] = comm;
-                                input[pos + <span class="number">1</span>..].copy_from_slice(<span class="kw-2">&amp;</span>siblings[<span class="kw-2">*</span>pos..]);
-                                <span class="kw">let </span>comm = Digest::evaluate(input)
-                                    .map_err(|<span class="kw">_</span>| StakeTableError::RescueError)<span class="question-mark">?</span>[<span class="number">0</span>];
-                                <span class="prelude-val">Ok</span>(comm)
-                            }
-                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
-                        },
+                    .try_fold(init, |comm, node| <span class="kw">match </span>node {
+                        MerklePathEntry::Branch { pos, siblings } =&gt; {
+                            <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::from(<span class="number">0</span>); TREE_BRANCH];
+                            input[..<span class="kw-2">*</span>pos].copy_from_slice(<span class="kw-2">&amp;</span>siblings[..<span class="kw-2">*</span>pos]);
+                            input[<span class="kw-2">*</span>pos] = comm;
+                            input[pos + <span class="number">1</span>..].copy_from_slice(<span class="kw-2">&amp;</span>siblings[<span class="kw-2">*</span>pos..]);
+                            <span class="kw">let </span>comm = Digest::evaluate(input)
+                                .map_err(|<span class="kw">_</span>| StakeTableError::RescueError)<span class="question-mark">?</span>[<span class="number">0</span>];
+                            <span class="prelude-val">Ok</span>(comm)
+                        }
                         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(StakeTableError::MalformedProof),
                     })
             }

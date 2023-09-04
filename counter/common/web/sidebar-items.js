@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["spawn_server"],"mod":["network_state"],"trait":["WebInfo"]};
