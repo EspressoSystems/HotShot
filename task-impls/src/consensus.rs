@@ -312,7 +312,7 @@ where
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
             if proposal.justify_qc.is_genesis() && proposal.view_number == ViewNumber::new(1) {
-                // warn!("Proposal is genesis!");
+                error!("Proposal is genesis!");
 
                 let view = TYPES::Time::new(*proposal.view_number);
                 let vote_token = self.quorum_exchange.make_vote_token(view);
@@ -487,7 +487,7 @@ where
             //     self.certs.remove(&v);
             // }
             self.cur_view = new_view;
-            // TODO ED Need a better way to handle this with the new view change logic 
+            // TODO ED Need a better way to handle this with the new view change logic
             // self.current_proposal = None;
 
             // Start polling for proposals for the new view
@@ -595,6 +595,9 @@ where
                     } else {
                         self.update_view(proposal_view).await;
                     }
+                } else {
+                    // TODO ED Logic here, need to handle future proposals
+                    self.update_view(proposal_view).await;
                 }
 
                 // Verify proposal and vote if we are able
@@ -616,6 +619,7 @@ where
                     return;
                 };
 
+                error!("Parent is {:?}", parent);
                 let parent_commitment = parent.commit();
 
                 let leaf: SequencingLeaf<_> = SequencingLeaf {
@@ -629,6 +633,7 @@ where
                     proposer_id: sender.to_bytes(),
                 };
                 let leaf_commitment = leaf.commit();
+                error!("Leaf is {:?}", leaf);
 
                 // Validate the `height`.
                 // TODO ED Why height?  Why isn't checking the parent commitment against the qc commitment enough?
@@ -644,7 +649,8 @@ where
                 // Validate the proposal's signature
                 if !expected_view_leader_key.validate(&proposal.signature, leaf_commitment.as_ref())
                 {
-                    error!(?proposal.signature, "Invalid proposal signature");
+                    error!(?proposal, "Invalid proposal signature");
+                    return; 
                 }
 
                 // Liveness check.
@@ -677,8 +683,7 @@ where
                     if !self.vote_if_able().await {
                         return;
                     }
-                    self.current_proposal = None; 
-
+                    self.current_proposal = None;
                 }
 
                 // Garbage collect old DA certs
@@ -984,9 +989,9 @@ where
                     *qc.view_number
                 );
 
-                if self.publish_proposal_if_able(qc.clone()).await {
+                self.publish_proposal_if_able(qc.clone()).await;
                     // self.update_view(qc.view_number + 1).await;
-                }
+                
             }
             SequencingHotShotEvent::DACRecv(cert) => {
                 debug!("DAC Recved for view ! {}", *cert.view_number);
@@ -996,7 +1001,7 @@ where
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
-                    self.current_proposal = None; 
+                    self.current_proposal = None;
                     // self.update_view(view + 1).await;
                 }
             }
@@ -1034,12 +1039,14 @@ where
                 let consensus = self.consensus.read().await;
                 let qc = consensus.high_qc.clone();
                 drop(consensus);
-                if !self.publish_proposal_if_able(qc).await {
-                    error!(
-                        "Failed to publish proposal on view change.  View = {:?}",
-                        self.cur_view
-                    );
-                }
+
+                // TODO ED We don't want to publish a proposal on view change event with timeout logic
+                // if !self.publish_proposal_if_able(qc).await {
+                //     error!(
+                //         "Failed to publish proposal on view change.  View = {:?}",
+                //         self.cur_view
+                //     );
+                // }
             }
             SequencingHotShotEvent::Timeout(view) => {
                 // The view sync module will handle updating views in the case of timeout
@@ -1090,7 +1097,7 @@ where
         //     // We need to ensure that the situation described below didn't happen.  So we need to fetch the actual proposal
         //     // For now what should we do?  In this case any byzantine leader could prevent the next leader from proposing
         //     // TODO ED Make gh issue to fix this But I think the leader can still propose.  They just need to fetch the proposal later,
-        //     // which they will do in the replica task once catchup is in.  So it is fine now? Other than the need for height? 
+        //     // which they will do in the replica task once catchup is in.  So it is fine now? Other than the need for height?
 
         //     error!(
         //         ?parent_view_number,
@@ -1104,14 +1111,16 @@ where
 
         // If this error happens it means that the qc we just formed doesn't match the parent block commitment we have
         // TODO How would this ever happen? This could happen if we were sent a bogus proposal last view and everyone else was sent
-        // a different proposal.  No, that is not right, because we are fetching the parent by hash of the qc 
+        // a different proposal.  No, that is not right, because we are fetching the parent by hash of the qc
         if leaf_commitment != consensus.high_qc.leaf_commitment() {
-            debug!(
+            error!(
                 "They don't equal: {:?}   {:?}",
                 leaf_commitment,
                 consensus.high_qc.leaf_commitment()
             );
         }
+
+        // TODO ED What does this section of code do? 
         // let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
         //     error!("Failed to find high QC of parent.");
         //     // return false;
@@ -1144,14 +1153,22 @@ where
             debug!("Block is generic block! {:?}", self.cur_view);
         }
 
+        let parent_commitment = if consensus.high_qc.is_genesis() {
+            self.genesis_leaf().await.expect("REASON").commit()
+        }
+        else {
+            consensus.high_qc.leaf_commitment.clone()
+        };
+
         // TODO ED I see, we need the leaf to know which height we're at?  Why do we need height again?
         let leaf = SequencingLeaf {
             view_number: *parent_view_number + 1,
-            // TODO ED Put this back in 
+            // TODO ED Put this back in
             // height: parent_leaf.height + 1,
-            height: 1, 
+            height: 1,
             justify_qc: consensus.high_qc.clone(),
-            parent_commitment: qc.leaf_commitment,
+            // TODO ED THIS LINE, is commiting to the leaf commitment in the genesis block and not the genesis block itself, thse are different for the genesis block only 
+            parent_commitment: parent_commitment,
             // Use the block commitment rather than the block, so that the replica can construct
             // the same leaf with the commitment.
             deltas: Right(block_commitment),
@@ -1159,6 +1176,9 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
+
+        error!("Proposal leaf is {:?}", leaf);
+        error!("high qc is {:?}", consensus.high_qc);
 
         let signature = self
             .quorum_exchange
@@ -1179,7 +1199,7 @@ where
             data: proposal,
             signature,
         };
-        debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
+        debug!("Sending proposal for view {:?} \n {:?}", message, "");
 
         self.event_stream
             .publish(SequencingHotShotEvent::QuorumProposalSend(
