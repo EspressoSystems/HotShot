@@ -62,4 +62,8 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     SendDABlockData(TYPES::BlockType),
+    /// Send VID shares to VID storage nodes; emitted by the DA leader
+    ///
+    /// Like [`DAProposalSend`].
+    VidDisperseSend,
 }
