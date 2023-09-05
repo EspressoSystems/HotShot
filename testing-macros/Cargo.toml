@@ -5,53 +5,12 @@ edition = "2021"
 description = "Macros for creating hotshot tests"
 
 [features]
-default = []
-full-ci = ["async-std-executor", "demo", "channel-async-std"]
-tokio-ci = ["tokio-executor", "demo", "channel-tokio"]
+default = ["demo"]
 demo = ["hotshot/demo"]
-
-# NOTE this is used to activate the slow tests we don't wish to run in CI
-slow-tests = []
-profiling = ["async-compatibility-layer/profiling"]
-tokio-executor = [
-  "dep:tokio",
-  "hotshot/tokio-executor",
-  "hotshot-consensus/tokio-executor",
-  "hotshot-types/tokio-executor",
-  "hotshot-testing/tokio-executor",
-  "async-compatibility-layer/tokio-executor",
-]
-async-std-executor = [
-  "dep:async-std",
-  "hotshot/async-std-executor",
-  "hotshot-consensus/async-std-executor",
-  "hotshot-types/async-std-executor",
-  "hotshot-testing/async-std-executor",
-  "async-compatibility-layer/async-std-executor",
-]
-channel-flume = [
-  "hotshot-consensus/channel-flume",
-  "hotshot-types/channel-flume",
-  "hotshot-testing/channel-flume",
-  "async-compatibility-layer/channel-flume",
-]
-channel-tokio = [
-  "hotshot-consensus/channel-tokio",
-  "hotshot-types/channel-tokio",
-  "hotshot-testing/channel-tokio",
-  "async-compatibility-layer/channel-tokio",
-]
-channel-async-std = [
-  "hotshot-consensus/channel-async-std",
-  "hotshot-types/channel-async-std",
-  "hotshot-testing/channel-async-std",
-  "async-compatibility-layer/channel-async-std",
-]
 
 [dependencies]
 ark-bls12-381 = { workspace = true }
 async-compatibility-layer = { workspace = true }
-async-std = { version = "1.12.0", optional = true }
 async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
@@ -59,29 +18,13 @@ blake3 = { workspace = true, features = ["traits-preview"] }
 commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
-hotshot = { path = "../", default-features = false }
-hotshot-consensus = { path = "../consensus", default-features = false }
+hotshot = { path = "../hotshot", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-testing = { path = "../testing", default-features = false }
 jf-primitives = { workspace = true }
 nll = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }
-tokio = { version = "1", optional = true, features = [
-  "fs",
-  "io-util",
-  "io-std",
-  "macros",
-  "net",
-  "parking_lot",
-  "process",
-  "rt",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time",
-  "tracing",
-] }
 tracing = { workspace = true }
 serde = { workspace = true }
 # proc macro stuff
@@ -95,3 +38,8 @@ async-lock = { workspace = true }
 
 [lib]
 proc-macro = true
+
+[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+tokio = { workspace = true }
+[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
+async-std = { workspace = true }

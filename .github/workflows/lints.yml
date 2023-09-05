@@ -14,13 +14,6 @@ jobs:
   lints:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    strategy:
-      matrix:
-        features:
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std,slow-tests"
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio,slow-tests"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds
@@ -28,20 +21,16 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+
       - uses: actions/checkout@v3
         name: Checkout Repository
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
 
       - name: Format Check
         run: cargo fmt -- --check
 
       - name: Clippy
         run: |
-          cargo clippy --workspace --all-targets --no-default-features --features "${{ matrix.features }}" --bins --tests --examples -- -D warnings
+          nix develop -c just async_std lint
+          nix develop -c just tokio lint
