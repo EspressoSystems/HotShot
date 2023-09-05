@@ -21,6 +21,7 @@ use hotshot_task::{
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     consensus::{Consensus, View},
+    constants::LOOK_AHEAD,
     data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
@@ -487,6 +488,12 @@ where
             // }
             self.cur_view = new_view;
             self.current_proposal = None;
+
+            // Send future leaders to new view
+            self.quorum_exchange
+            .network()
+            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(*self.cur_view, self.quorum_exchange.get_leader(new_view+LOOK_AHEAD)))
+            .await;
 
             // Start polling for proposals for the new view
             self.quorum_exchange

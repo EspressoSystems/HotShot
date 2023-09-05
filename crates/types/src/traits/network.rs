@@ -130,7 +130,7 @@ pub enum NetworkError {
 #[derive(Clone, Debug)]
 // Storing view number as a u64 to avoid the need TYPES generic
 /// Events to poll or cancel consensus processes.
-pub enum ConsensusIntentEvent {
+pub enum ConsensusIntentEvent<K: SignatureKey> {
     /// Poll for votes for a particular view
     PollForVotes(u64),
     /// Poll for a proposal for a particular view
@@ -155,9 +155,12 @@ pub enum ConsensusIntentEvent {
     CancelPollForViewSyncCertificate(u64),
     /// Cancel polling for transactions
     CancelPollForTransactions(u64),
+
+    /// Polls for future leaders
+    PollFutureLeader(u64, K),
 }
 
-impl ConsensusIntentEvent {
+impl<K: SignatureKey> ConsensusIntentEvent<K> {
     /// Get the view number of the event.
     #[must_use]
     pub fn view_number(&self) -> u64 {
@@ -174,6 +177,7 @@ impl ConsensusIntentEvent {
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForTransactions(view_number)
             | ConsensusIntentEvent::CancelPollForTransactions(view_number) => *view_number,
+            | ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number,
         }
     }
 }
@@ -256,7 +260,7 @@ pub trait CommunicationChannel<
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>);
 }
 
 /// represents a networking implmentration
@@ -312,7 +316,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent);
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>);
 }
 
 /// Describes additional functionality needed by the test network implementation

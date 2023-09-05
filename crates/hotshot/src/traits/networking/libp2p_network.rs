@@ -49,10 +49,13 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool},
+        Arc,
+    },
     time::Duration,
 };
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
@@ -705,8 +708,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
-        // Not required
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
+        debug!("Injecting event: {:?}", event.clone(),);
+
+        match event {
+            ConsensusIntentEvent::PollFutureLeader(_, leader_to_lookup) => {
+                let _result = self.lookup_node(leader_to_lookup.clone()).await;
+            }
+            _ => {}
+        }
     }
 }
 
@@ -855,8 +865,12 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
-        // Not required
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
+        <Libp2pNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(&self.0, event)
+        .await;
     }
 }
 

@@ -455,7 +455,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {
         // Not required
     }
 }
@@ -593,7 +593,7 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {
         // Not required
     }
 }

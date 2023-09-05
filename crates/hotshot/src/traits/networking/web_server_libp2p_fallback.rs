@@ -287,7 +287,7 @@ impl<
         }
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
         <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,

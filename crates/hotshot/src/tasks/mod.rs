@@ -52,65 +52,6 @@ use std::{
 };
 use tracing::info;
 
-/// Task to look up a node in the future as needed
-pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: SystemContext<TYPES, I>,
-    shut_down: Arc<AtomicBool>,
-) {
-    info!("Launching network lookup task");
-    let networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
-
-    let inner = hotshot.inner.clone();
-
-    let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
-
-    while !shut_down.load(Ordering::Relaxed) {
-        let lock = hotshot.inner.recv_network_lookup.lock().await;
-
-        if let Ok(Some(cur_view)) = lock.recv().await {
-            let view_to_lookup = cur_view + LOOK_AHEAD;
-
-            // perform pruning
-            // TODO in the future btreemap would be better
-            completion_map = completion_map
-                .drain()
-                .filter(|(view, is_done)| {
-                    if !is_done.load(Ordering::Relaxed) {
-                        // we are past the view where this is useful
-                        if cur_view >= *view {
-                            is_done.store(true, Ordering::Relaxed);
-                            return true;
-                        }
-                        // we aren't done
-                        return false;
-                    }
-                    true
-                })
-                .collect();
-
-            // logic to look ahead
-            if !inner.exchanges.quorum_exchange().is_leader(view_to_lookup) {
-                let is_done = Arc::new(AtomicBool::new(false));
-                completion_map.insert(view_to_lookup, is_done.clone());
-                let inner = inner.clone();
-                let networking = networking.clone();
-                async_spawn_local(async move {
-                    info!("starting lookup for {:?}", view_to_lookup);
-                    let _result = networking
-                        .lookup_node(inner.exchanges.quorum_exchange().get_leader(view_to_lookup))
-                        .await;
-                    info!("finished lookup for {:?}", view_to_lookup);
-                });
-            }
-        }
-    }
-
-    // shut down all child tasks
-    for (_, is_done) in completion_map {
-        is_done.store(true, Ordering::Relaxed);
-    }
-}
-
 /// event for global event stream
 #[derive(Clone, Debug)]
 pub enum GlobalEvent {
