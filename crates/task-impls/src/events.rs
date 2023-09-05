@@ -65,5 +65,10 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`DAProposalSend`].
-    VidDisperseSend(VidDisperse, TYPES::SignatureKey),
+    VidDisperseSend(VidDisperse<TYPES>, TYPES::SignatureKey),
+    /// Vid disperse data has been received from the network; handled by the DA task
+    ///
+    /// Like [`DAProposalRecv`].
+    /// TODO GG: lots of boilerplate here eg. `VidDisperse[Send|Recv]`. If we need both [Send|Recv] then maybe partition [`SequencingHotShotEvent`] into separate enums?
+    VidDisperseRecv(VidDisperse<TYPES>, TYPES::SignatureKey),
 }

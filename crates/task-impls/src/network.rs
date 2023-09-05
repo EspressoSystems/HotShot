@@ -106,6 +106,9 @@ impl<
                                 // panic!("Recevid DA C! ");
                                 SequencingHotShotEvent::DACRecv(cert)
                             }
+                            CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
+                                SequencingHotShotEvent::VidDisperseRecv(proposal, sender)
+                            }
                         },
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
@@ -211,6 +214,15 @@ impl<
                 Some(membership.get_leader(vote.current_view() + 1)),
             ),
 
+            // TODO GG `VidDiserpseSend` like `DAProposalSend` for now
+            SequencingHotShotEvent::VidDisperseSend(proposal, sender) => (
+                sender,
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::VidDisperseMsg(proposal),
+                ))), // TODO GG not a CommitteeConsensusMessage
+                TransmitType::Broadcast, // TODO GG broadcast??
+                None,
+            ),
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(

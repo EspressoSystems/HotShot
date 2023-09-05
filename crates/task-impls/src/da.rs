@@ -565,8 +565,12 @@ where
                     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
                     self.event_stream
                         .publish(SequencingHotShotEvent::VidDisperseSend(
-                            VidDisperse { shares, common },
-                            self.committee_exchange.public_key().clone(),
+                            VidDisperse {
+                                view_number: self.cur_view + 1, // copied from `data` above
+                                shares,
+                                common,
+                            },
+                            self.committee_exchange.public_key().clone(), // TODO GG don't send to committee, send to quorum (consensus.rs)
                         ))
                         .await;
                 }

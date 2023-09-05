@@ -5,7 +5,7 @@
 
 use crate::{
     certificate::DACertificate,
-    data::{DAProposal, ProposalType},
+    data::{DAProposal, ProposalType, VidDisperse},
     traits::{
         network::{NetworkMsg, ViewMessage},
         node_implementation::{
@@ -52,7 +52,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
 #[derive(Clone, Debug)]
 pub struct Messages<TYPES: NodeType, I: NodeImplementation<TYPES>>(pub Vec<Message<TYPES, I>>);
 
-/// A message type agnostic description of a messages purpose
+/// A message type agnostic description of a message's purpose
 #[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
     /// Message with a quorum proposal.
@@ -69,6 +69,8 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
+    /// VID message
+    Vid,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -207,6 +209,8 @@ pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType> {
     DAVote(DAVote<TYPES>, TYPES::SignatureKey),
     /// Certificate for the DA.
     DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
+    /// VID dispersal data.
+    VidDisperseMsg(VidDisperse<TYPES>, TYPES::SignatureKey),
 }
 
 impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
@@ -222,6 +226,9 @@ impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
             }
             ProcessedCommitteeConsensusMessage::DACertificate(cert, _) => {
                 CommitteeConsensusMessage::DACertificate(cert)
+            }
+            ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, _) => {
+                CommitteeConsensusMessage::VidDisperseMsg(disperse)
             }
         }
     }
@@ -239,6 +246,9 @@ impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
             }
             CommitteeConsensusMessage::DACertificate(cert) => {
                 ProcessedCommitteeConsensusMessage::DACertificate(cert, sender)
+            }
+            CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
+                ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
             }
         }
     }
@@ -307,6 +317,12 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
 
     /// Certificate data is available
     DACertificate(DACertificate<TYPES>),
+
+    /// Initiate VID dispersal.
+    ///
+    /// TODO GG: this variant should not be a [`CommitteeConsensusMessage`] because it's not sent merely to the DA committee.
+    /// - Use `Msg` suffix to distinguish from [`VidDisperse`].
+    VidDisperseMsg(VidDisperse<TYPES>),
 }
 
 /// Messages related to the consensus protocol.
@@ -378,6 +394,7 @@ impl<
                     }
                     CommitteeConsensusMessage::DAVote(vote_message) => vote_message.current_view(),
                     CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
+                    CommitteeConsensusMessage::VidDisperseMsg(disperse) => disperse.view_number,
                 }
             }
         }
@@ -398,6 +415,7 @@ impl<
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
+                CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::Vid,
             },
         }
     }

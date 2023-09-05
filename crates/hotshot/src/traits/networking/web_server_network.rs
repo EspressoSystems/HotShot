@@ -171,6 +171,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
+                MessagePurpose::Vid => unimplemented!(),
             };
 
             if message_purpose == MessagePurpose::Data {
@@ -248,6 +249,9 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 // return if we found a DAC, since there will only be 1 per view
                                 // In future we should check to make sure DAC is valid
                                 return Ok(());
+                            }
+                            MessagePurpose::Vid => {
+                                unimplemented!()
                             }
                             MessagePurpose::ViewSyncVote => {
                                 // error!(
@@ -507,6 +511,7 @@ impl<
             }
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
+            MessagePurpose::Vid => todo!(),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
