@@ -23,7 +23,7 @@ async fn test_view_sync_task() {
     use core::panic;
 
     use hotshot::tasks::add_view_sync_task;
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot_task_impls::{harness::run_harness, view_sync::ViewSyncPhase};
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{
         traits::election::VoteData,
@@ -33,8 +33,8 @@ async fn test_view_sync_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    // Build the API for node 2.
-    let handle = build_system_handle(2).await.0;
+    // Build the API for node 3.
+    let handle = build_system_handle(3).await.0;
     let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
@@ -42,19 +42,19 @@ async fn test_view_sync_task() {
     let view_sync_exchange = api.inner.exchanges.view_sync_exchange().clone();
     let relay_pub_key = api.public_key().to_bytes();
     let vote_token = view_sync_exchange
-        .make_vote_token(ViewNumber::new(2))
-        .unwrap_or_else(|_| panic!("Unable to make vote token"))
-        .unwrap_or_else(|| panic!("No vote token"));
+        .make_vote_token(ViewNumber::new(3))
+        .unwrap_or_else(|_| panic!("Error making vote token"))
+        .unwrap_or_else(|| panic!("Not chosen for the committee"));
     let vote_data_internal: ViewSyncData<SequencingTestTypes> = ViewSyncData {
         relay: relay_pub_key.clone(),
-        round: ViewNumber::new(2),
+        round: ViewNumber::new(3),
     };
     let vote_data_internal_commitment = vote_data_internal.commit();
     let signature = view_sync_exchange.sign_precommit_message(vote_data_internal_commitment);
     let vote = ViewSyncVote::PreCommit(ViewSyncVoteInternal {
         relay_pub_key,
         relay: 0,
-        round: ViewNumber::new(2),
+        round: ViewNumber::new(3),
         signature,
         vote_token,
         vote_data: VoteData::ViewSyncPreCommit(vote_data_internal_commitment),
@@ -64,14 +64,22 @@ async fn test_view_sync_task() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    // In view 1, node 2 is the next leader.
     input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(SequencingHotShotEvent::ViewSyncVoteRecv(vote.clone()));
+    input.push(SequencingHotShotEvent::Timeout(ViewNumber::new(1)));
+    input.push(SequencingHotShotEvent::Timeout(ViewNumber::new(2)));
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-    output.insert(SequencingHotShotEvent::ViewSyncVoteRecv(vote), 1);
+    output.insert(SequencingHotShotEvent::Timeout(ViewNumber::new(1)), 1);
+    output.insert(SequencingHotShotEvent::Timeout(ViewNumber::new(2)), 1);
+    // 2 `Timeout` events will trigger a replica task to handle a `ViewSyncTrigger` event, which
+    // will then publish a `ViewSyncVoteSend` event.
+    output.insert(SequencingHotShotEvent::ViewSyncVoteSend(vote.clone()), 1);
+    output.insert(
+        SequencingHotShotEvent::ViewSyncTimeout(ViewNumber::new(3), 0, ViewSyncPhase::None),
+        1,
+    );
+    // Triggered by the `Timeout` events.
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
