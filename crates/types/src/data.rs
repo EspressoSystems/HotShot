@@ -160,6 +160,7 @@ pub type VidScheme = jf_primitives::vid::advz::Advz<ark_bls12_381::Bls12_381, sh
 pub use jf_primitives::vid::VidScheme as VidSchemeTrait;
 
 /// VID dispersal data
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperse {
     /// VID shares dispersed among storage nodes
     pub shares: Vec<<VidScheme as VidSchemeTrait>::StorageShare>,

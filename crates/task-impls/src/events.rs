@@ -1,6 +1,6 @@
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::DAProposal,
+    data::{DAProposal, VidDisperse},
     message::Proposal,
     traits::node_implementation::{
         NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
@@ -65,5 +65,5 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`DAProposalSend`].
-    VidDisperseSend,
+    VidDisperseSend(VidDisperse, TYPES::SignatureKey),
 }

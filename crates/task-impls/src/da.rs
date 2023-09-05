@@ -18,7 +18,7 @@ use hotshot_task::{
 use hotshot_types::{
     certificate::DACertificate,
     consensus::{Consensus, View},
-    data::{DAProposal, ProposalType, SequencingLeaf, VidScheme, VidSchemeTrait},
+    data::{DAProposal, ProposalType, SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
     message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
@@ -551,18 +551,23 @@ where
                 // TODO GG clean up this hello-world code for VID
                 debug!("Prepare VID shares");
                 {
+                    // TODO GG how do I get the number of storage nodes?
                     const NUM_STORAGE_NODES: usize = 10;
+
+                    // TODO GG config parameter
                     const NUM_CHUNKS: usize = 5;
 
                     // TODO GG don't use test_srs
                     let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
 
-                    // TODO GG how do I get the number of storage nodes?
                     let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
                     let message_bytes = bincode::serialize(&message).unwrap();
-                    let (_shares, _common) = vid.dispersal_data(&message_bytes).unwrap();
+                    let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
                     self.event_stream
-                        .publish(SequencingHotShotEvent::VidDisperseSend)
+                        .publish(SequencingHotShotEvent::VidDisperseSend(
+                            VidDisperse { shares, common },
+                            self.committee_exchange.public_key().clone(),
+                        ))
                         .await;
                 }
 
