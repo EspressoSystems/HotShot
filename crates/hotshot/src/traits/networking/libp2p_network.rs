@@ -49,10 +49,7 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{
-        atomic::{AtomicBool},
-        Arc,
-    },
+    sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
 use tracing::{debug, error, info, instrument};

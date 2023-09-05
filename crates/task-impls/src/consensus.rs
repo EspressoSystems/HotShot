@@ -491,9 +491,12 @@ where
 
             // Send future leaders to new view
             self.quorum_exchange
-            .network()
-            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(*self.cur_view, self.quorum_exchange.get_leader(new_view+LOOK_AHEAD)))
-            .await;
+                .network()
+                .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
+                    *self.cur_view,
+                    self.quorum_exchange.get_leader(new_view + LOOK_AHEAD),
+                ))
+                .await;
 
             // Start polling for proposals for the new view
             self.quorum_exchange
