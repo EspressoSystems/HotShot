@@ -15,6 +15,11 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
     runs-on: ubuntu-latest
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
@@ -26,33 +31,35 @@ jobs:
       - uses: actions/checkout@v3
         name: Checkout Repository
 
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
+          cargo install just
 
       - name: Check
-        run: cargo check --features=full-ci --workspace
+        run: just ${{ matrix.just_variants }} check
 
       - name: Build all crates in workspace
-        run: cargo build --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --examples
+        run: just ${{ matrix.just_variants }} build
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
+          just ${{ matrix.just_variants }} test
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
 
       - name: Setup Docker BuildKit (buildx)
+        if: matrix.just_variants == 'async_std'
         uses: docker/setup-buildx-action@v2
 
       - name: Login to Github Container Repo
         uses: docker/login-action@v2
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -60,12 +67,14 @@ jobs:
 
       - name: Generate docker metadata (web-server)
         uses: docker/metadata-action@v4
+        if: matrix.just_variants == 'async_std'
         id: web-server
         with:
           images: ghcr.io/espressosystems/hotshot/web-server
 
       - name: Build and push web-server docker
         uses: docker/build-push-action@v4
+        if: matrix.just_variants == 'async_std'
         with:
           context: ./
           file: ./deploy/web-server.Dockerfile
@@ -73,4 +82,3 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.web-server.outputs.tags }}
           labels: ${{ steps.web-server.outputs.labels }}
-

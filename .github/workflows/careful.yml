@@ -19,5 +19,5 @@ jobs:
 
       - name: Run careful tests
         run: |
-          nix develop .#correctnessShell -c just careful
+          nix develop .#correctnessShell -c just tokio careful
         timeout-minutes: 90

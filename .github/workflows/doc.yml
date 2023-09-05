@@ -29,14 +29,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
+          cargo install just
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
 
       - name: Build Docs
         run: |
-          cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --features=full-ci --lib
-          cargo test --doc --workspace --features=full-ci
+          just async_std doc
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}
