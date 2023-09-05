@@ -1,59 +1,5 @@
 [advisories]
 ignore = [
-    # Failure 0.1.8 unsound warning
-    # `type confusion if __private_get_type_id__ is overridden`
-    # Dependency of threshold_crypto
-    # https://rustsec.org/advisories/RUSTSEC-2019-0036
-    "RUSTSEC-2019-0036",
 
-    # Failure 0.1.8 official deprecated
-    # Dependency of threshold_crypto
-    # https://rustsec.org/advisories/RUSTSEC-2020-0036
-    "RUSTSEC-2020-0036",
-
-    # stdweb 0.4.20 unmaintained
-    # Dependency of tide -> http-types -> cookie
-    # Fixed in cookie 0.16.0, waiting on http-types 3.0
-    # https://rustsec.org/advisories/RUSTSEC-2020-0056
-    "RUSTSEC-2020-0056",
-
-    # aesni 0.10.0 unmaintained
-    # Dependency of tide -> http-types -> cookie -> aes-gcm -> aesni
-    # Fixed in cookie 0.16.0, waiting on http-types 3.0
-    # https://rustsec.org/advisories/RUSTSEC-2021-0059
-    "RUSTSEC-2021-0059",
-
-    # aes-soft 0.6.4 unmaintained
-    # Dependency of tide -> http-types -> cookie -> aes-gcm -> aes
-    # Fixed in cookie 0.16.0, waiting on http-types 3.0
-    # https://rustsec.org/advisories/RUSTSEC-2021-0060
-    "RUSTSEC-2021-0060",
-
-    # cpuid-bool 0.2.0 unmaintained
-    # renamed to `cpufeatures`
-    # Dependency of tide -> http-types -> cookie -> aes-gcm -> ghash -> polyval
-    # Fixed in cookie 0.16.0, waiting on http-types 3.0
-    # https://rustsec.org/advisories/RUSTSEC-2021-0064
-    "RUSTSEC-2021-0064",
-
-    # Windows 0.29.0
-    # Dependency of libp2p -> libp2p-mdns -> if-watch
-    # Delegate functions are missing `Send` bound
-    # Waiting on a new release of https://github.com/mxinden/if-watch
-    # https://rustsec.org/advisories/RUSTSEC-2022-0008
-    "RUSTSEC-2022-0008",
-
-    # ed25519-dalek 1.0.1
-    # Dependency of libp2p
-    # Referenced in this issue: https://github.com/libp2p/rust-libp2p/issues/4327
-    # https://rustsec.org/advisories/RUSTSEC-2022-0093
-    "RUSTSEC-2022-0093",
-
-    # webpki 0.22.0 and  rustls-webpki 0.100.1
-    # Dependency of libp2p, tokio, etc.
-    # Referenced in this issue: https://github.com/EspressoSystems/HotShot/issues/1610
-    # https://rustsec.org/advisories/RUSTSEC-2023-0052
-    "RUSTSEC-2023-0052",
-    "RUSTSEC-2023-0053"
 
 ]
