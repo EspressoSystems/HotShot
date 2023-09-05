@@ -2842,6 +2842,7 @@ name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "ark-bls12-381",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",
  "async-compatibility-layer",
@@ -2867,12 +2868,14 @@ dependencies = [
  "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
+ "jf-utils",
  "libp2p-networking",
  "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
  "serde_json",
+ "sha2 0.10.7",
  "snafu",
  "tagged-base64 0.2.4",
  "time 0.3.28",
