@@ -303,7 +303,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         }
 
         let mut pubkey_pid_map = BiHashMap::new();
-
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         let mut topic_map = BiHashMap::new();
@@ -358,18 +357,21 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // only run if we are before or equal to the specified view number
                 if cur_view.load(Ordering::Relaxed) <= view_number {
                     // look up node
-                    let maybe_pid = handle
-                        .get_record_timeout(&pk, dht_timeout)
+                    let _ = handle
+                        .get_record_timeout::<PeerId>(&pk, dht_timeout)
                         .await
                         .map_err(Into::<NetworkError>::into);
 
-                    if let Ok(pid) = maybe_pid {
-                        if handle.lookup_pid(pid).await.is_err() {
-                            error!("Failed to look up pid");
-                        };
-                    } else {
-                        error!("Unable to look up pubkey {:?}", pk);
-                    }
+                    // We shouldn't need this, we don't require a request<>response from the
+                    // future leader.
+
+                    // if let Ok(pid) = maybe_pid {
+                    //     if handle.lookup_pid(pid).await.is_err() {
+                    //         error!("Failed to look up pid");
+                    //     };
+                    // } else {
+                    //     error!("Unable to look up pubkey {:?}", pk);
+                    // }
                 }
             }
         });
