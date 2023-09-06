@@ -10,6 +10,7 @@ use async_trait::async_trait;
 
 use futures::join;
 
+use async_compatibility_layer::channel::UnboundedSendError;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     data::ProposalType,
@@ -25,7 +26,6 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
-use async_compatibility_layer::channel::UnboundedSendError;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
@@ -264,10 +264,13 @@ impl<
         boxed_sync(closure)
     }
 
-    async fn queue_node_lookup(&self, pk: TYPES::SignatureKey) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>>{
+    async fn queue_node_lookup(
+        &self,
+        pk: TYPES::SignatureKey,
+    ) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>> {
         self.network().queue_node_lookup(pk.clone()).await?;
         self.fallback().queue_node_lookup(pk).await?;
-        
+
         Ok(())
     }
 
