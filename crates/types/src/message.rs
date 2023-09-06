@@ -250,6 +250,7 @@ impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
             CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
                 ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
             }
+            CommitteeConsensusMessage::VidVote(_) => todo!(),
         }
     }
 }
@@ -323,6 +324,11 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// TODO GG: this variant should not be a [`CommitteeConsensusMessage`] because it's not sent merely to the DA committee.
     /// - Use `Msg` suffix to distinguish from [`VidDisperse`].
     VidDisperseMsg(VidDisperse<TYPES>),
+
+    /// vote for VID disperse data
+    ///
+    /// TODO GG currently re-using [`DAVote`], eventually we'll need a separate VID vote
+    VidVote(DAVote<TYPES>),
 }
 
 /// Messages related to the consensus protocol.
@@ -395,6 +401,7 @@ impl<
                     CommitteeConsensusMessage::DAVote(vote_message) => vote_message.current_view(),
                     CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
                     CommitteeConsensusMessage::VidDisperseMsg(disperse) => disperse.view_number,
+                    CommitteeConsensusMessage::VidVote(vote) => vote.current_view(),
                 }
             }
         }
@@ -416,6 +423,7 @@ impl<
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::Vid,
+                CommitteeConsensusMessage::VidVote(_) => MessagePurpose::Vote,
             },
         }
     }

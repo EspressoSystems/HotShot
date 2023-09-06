@@ -518,6 +518,22 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES>;
+
+    // TODO GG temporary vid methods, move to quorum
+
+    /// Create a message with a vote on VID disperse data.
+    fn create_vid_message(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> CommitteeConsensusMessage<TYPES>;
+
+    /// Sign a vote on VID proposal.
+    fn sign_vid_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature);
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -590,6 +606,35 @@ impl<
             vote_token,
             vote_data: VoteData::DA(block_commitment),
         })
+    }
+
+    fn create_vid_message(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: <TYPES as NodeType>::Time,
+        vote_token: <TYPES as NodeType>::VoteTokenType,
+    ) -> CommitteeConsensusMessage<TYPES> {
+        let signature = self.sign_vid_vote(block_commitment);
+        CommitteeConsensusMessage::<TYPES>::VidVote(DAVote {
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+            vote_data: VoteData::DA(block_commitment),
+        })
+    }
+
+    fn sign_vid_vote(
+        &self,
+        block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            VoteData::<TYPES::BlockType>::DA(block_commitment)
+                .commit()
+                .as_ref(),
+        );
+        (self.public_key.to_bytes(), signature)
     }
 }
 

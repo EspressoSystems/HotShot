@@ -412,6 +412,86 @@ where
                         .await;
                 };
             }
+            SequencingHotShotEvent::VidDisperseRecv(disperse, _sender) => {
+                debug!("VID disperse received for view: {:?}", disperse.view_number);
+
+                // TODO GG: BEGIN: copy-paste view/leader checks from `DAProposalRecv` code
+
+                // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
+                let view = disperse.view_number;
+
+                // Allow a DA proposal that is one view older, in case we have voted on a quorum
+                // proposal and updated the view.
+                // `self.cur_view` should be at least 1 since there is a view change before getting
+                // the `DAProposalRecv` event. Otherewise, the view number subtraction below will
+                // cause an overflow error.
+                if view < self.cur_view - 1 {
+                    warn!("Throwing away VID disperse data that is more than one view older");
+                    return None;
+                }
+
+                debug!("VID disperse data is fresh.");
+                // TODO GG need convenient access to VID commitment from jellyfish
+                // let block_commitment = proposal.data.deltas.commit();
+                let block_commitment = TYPES::BlockType::new().commit();
+
+                // // ED Is this the right leader?
+                // let view_leader_key = self.committee_exchange.get_leader(view);
+                // if view_leader_key != sender {
+                //     error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
+                //     return None;
+                // }
+
+                // if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
+                //     error!("Could not verify proposal.");
+                //     return None;
+                // }
+
+                // TODO GG: END: copy-paste view/leader checks from `DAProposalRecv` code
+
+                let vote_token = self.committee_exchange.make_vote_token(view);
+                match vote_token {
+                    Err(e) => {
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
+                    }
+                    Ok(None) => {
+                        debug!("We were not chosen for VID quorum on {:?}", view);
+                    }
+                    Ok(Some(vote_token)) => {
+                        // Generate and send vote
+                        let message = self.committee_exchange.create_vid_message(
+                            block_commitment,
+                            view,
+                            vote_token,
+                        );
+
+                        // ED Don't think this is necessary?
+                        // self.cur_view = view;
+
+                        if let CommitteeConsensusMessage::VidVote(vote) = message {
+                            debug!("Sending vote to the VID leader {:?}", vote.current_view);
+                            // TODO GG publish VidVoteSent event
+                            // self.event_stream
+                            //     .publish(SequencingHotShotEvent::DAVoteSend(vote))
+                            //     .await;
+                        }
+                        let mut consensus = self.consensus.write().await;
+
+                        // Ensure this view is in the view map for garbage collection, but do not overwrite if
+                        // there is already a view there: the replica task may have inserted a `Leaf` view which
+                        // contains strictly more information.
+                        consensus.state_map.entry(view).or_insert(View {
+                            view_inner: ViewInner::DA {
+                                block: block_commitment,
+                            },
+                        });
+
+                        // Record the block we have promised to make available.
+                        // TODO GG we don't have the block yet, just a VID share.
+                        // consensus.saved_blocks.insert(proposal.data.deltas);
+                    }
+                }
+            }
             // TODO ED Update high QC through QCFormed event
             SequencingHotShotEvent::ViewChange(view) => {
                 if *self.cur_view >= *view {
@@ -588,7 +668,7 @@ where
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            _ => {}
+            _ => {} // TODO GG error log here?
         }
         None
     }
@@ -666,6 +746,7 @@ where
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::TransactionsRecv(_)
                 | SequencingHotShotEvent::Timeout(_)
+                | SequencingHotShotEvent::VidDisperseRecv(_, _)
                 | SequencingHotShotEvent::ViewChange(_)
         )
     }

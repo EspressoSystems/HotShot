@@ -109,6 +109,7 @@ impl<
                             CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
                                 SequencingHotShotEvent::VidDisperseRecv(proposal, sender)
                             }
+                            CommitteeConsensusMessage::VidVote(_vote) => todo!(),
                         },
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the

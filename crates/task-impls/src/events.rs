@@ -70,5 +70,6 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ///
     /// Like [`DAProposalRecv`].
     /// TODO GG: lots of boilerplate here eg. `VidDisperse[Send|Recv]`. If we need both [Send|Recv] then maybe partition [`SequencingHotShotEvent`] into separate enums?
+    /// TODO GG: should [`VidDisperse`] be of the form [`Proposal<DAProposal<TYPES>>`] to mirror [`DAProposalRecv`]? We need things like `Committable`, etc.
     VidDisperseRecv(VidDisperse<TYPES>, TYPES::SignatureKey),
 }
