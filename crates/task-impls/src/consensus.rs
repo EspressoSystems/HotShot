@@ -1,6 +1,6 @@
 use crate::events::SequencingHotShotEvent;
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
+    art::{async_sleep, async_spawn, async_timeout},
     async_primitives::subscribable_rwlock::ReadView,
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -495,13 +495,13 @@ where
                 let cur_view = *self.cur_view;
                 let leader = self.quorum_exchange.get_leader(new_view + LOOK_AHEAD);
 
-                async_spawn(async move {
+                async_spawn(async_timeout(Duration::from_secs(10), async move {
                     network
                         .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
                             cur_view, leader,
                         ))
                         .await;
-                });
+                }));
             }
 
             // Start polling for proposals for the new view
