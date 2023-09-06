@@ -22,7 +22,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v22
+        uses: cachix/install-nix-action@v23
 
       - uses: actions/checkout@v4
         name: Checkout Repository
