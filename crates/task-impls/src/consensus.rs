@@ -491,13 +491,17 @@ where
 
             // Poll the future leader for lookahead
             if !self.quorum_exchange.is_leader(new_view + LOOK_AHEAD) {
-                self.quorum_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                        *self.cur_view,
-                        self.quorum_exchange.get_leader(new_view + LOOK_AHEAD),
-                    ))
-                    .await;
+                let network = self.quorum_exchange.network().clone();
+                let cur_view = *self.cur_view;
+                let leader = self.quorum_exchange.get_leader(new_view + LOOK_AHEAD);
+
+                async_spawn(async move {
+                    network
+                        .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
+                            cur_view, leader,
+                        ))
+                        .await;
+                });
             }
 
             // Start polling for proposals for the new view

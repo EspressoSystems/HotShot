@@ -707,8 +707,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
         if let ConsensusIntentEvent::PollFutureLeader(_, future_leader) = event {
-            let _result = self
-                .lookup_node(future_leader.clone())
+            let _ = self
+                .lookup_node(future_leader)
                 .await
                 .map_err(|err| error!("failed to lookup node: {}", err));
         }
