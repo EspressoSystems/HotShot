@@ -269,7 +269,9 @@ impl<
         view_number: u64,
         pk: TYPES::SignatureKey,
     ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
-        self.network().queue_node_lookup(view_number, pk.clone()).await?;
+        self.network()
+            .queue_node_lookup(view_number, pk.clone())
+            .await?;
         self.fallback().queue_node_lookup(view_number, pk).await?;
 
         Ok(())
