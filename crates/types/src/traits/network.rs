@@ -176,8 +176,8 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForTransactions(view_number)
-            | ConsensusIntentEvent::CancelPollForTransactions(view_number) => *view_number,
-            ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number,
+            | ConsensusIntentEvent::CancelPollForTransactions(view_number)
+            | ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number
         }
     }
 }

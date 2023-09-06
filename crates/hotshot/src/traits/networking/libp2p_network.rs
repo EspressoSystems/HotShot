@@ -708,11 +708,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
         debug!("Injecting event: {:?}", event.clone(),);
 
-        match event {
-            ConsensusIntentEvent::PollFutureLeader(_, leader_to_lookup) => {
-                let _result = self.lookup_node(leader_to_lookup.clone()).await;
-            }
-            _ => {}
+        if let ConsensusIntentEvent::PollFutureLeader(_, leader_to_lookup) = event {
+            let _result = self.lookup_node(leader_to_lookup.clone()).await;
         }
     }
 }

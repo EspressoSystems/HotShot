@@ -2,9 +2,8 @@
 
 use crate::{
     async_spawn, types::SystemContextHandle, DACertificate, HotShotSequencingConsensusApi,
-    QuorumCertificate, SequencingQuorumEx, SystemContext,
+    QuorumCertificate, SequencingQuorumEx,
 };
-use async_compatibility_layer::art::{async_sleep, async_spawn_local};
 use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
@@ -26,7 +25,6 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    constants::LOOK_AHEAD,
     data::{ProposalType, QuorumProposal, SequencingLeaf},
     event::Event,
     message::{Message, Messages, SequencingMessage},
@@ -45,12 +43,11 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::Duration,
 };
-use tracing::info;
+use async_compatibility_layer::art::async_sleep;
 
 /// event for global event stream
 #[derive(Clone, Debug)]
