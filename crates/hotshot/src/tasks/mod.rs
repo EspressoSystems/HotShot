@@ -4,6 +4,7 @@ use crate::{
     async_spawn, types::SystemContextHandle, DACertificate, HotShotSequencingConsensusApi,
     QuorumCertificate, SequencingQuorumEx,
 };
+use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
@@ -39,15 +40,7 @@ use hotshot_types::{
     },
     vote::{ViewSyncData, VoteType},
 };
-use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    sync::{
-        Arc,
-    },
-    time::Duration,
-};
-use async_compatibility_layer::art::async_sleep;
+use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 /// event for global event stream
 #[derive(Clone, Debug)]

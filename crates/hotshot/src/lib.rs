@@ -44,7 +44,7 @@ use crate::{
 use async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
-    channel::{UnboundedSender},
+    channel::UnboundedSender,
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
