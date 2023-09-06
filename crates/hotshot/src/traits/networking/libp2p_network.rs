@@ -49,7 +49,10 @@ use std::{
     marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 use tracing::{error, info, instrument};
@@ -91,7 +94,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// Receiver for direct messages
     direct_recv: UnboundedReceiver<M>,
     /// Sender for node lookup
-    node_lookup_send: UnboundedSender<Option<K>>,
+    node_lookup_send: UnboundedSender<Option<(u64, K)>>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -109,6 +112,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// hash(hashset) -> topic
     /// btreemap ordered so is hashable
     topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
+    /// the current view number (for node lookup purposes)
+    cur_view: Arc<AtomicU64>,
 }
 
 /// Networking implementation that uses libp2p
@@ -246,11 +251,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     /// Returns when network is ready
     pub async fn wait_for_ready(&self) {
         loop {
-            if self
-                .inner
-                .is_ready
-                .load(std::sync::atomic::Ordering::Relaxed)
-            {
+            if self.inner.is_ready.load(Ordering::Relaxed) {
                 break;
             }
             async_sleep(Duration::from_secs(1)).await;
@@ -334,6 +335,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 metrics: NetworkingMetrics::new(&*metrics),
                 topic_map,
                 node_lookup_send,
+                cur_view: Arc::new(AtomicU64::new(0)),
             }),
         };
 
@@ -345,25 +347,29 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     }
 
     /// Spawns task for looking up nodes pre-emptively
-    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<K>>) {
+    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(u64, K)>>) {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
+        let cur_view = self.inner.cur_view.clone();
 
         async_spawn(async move {
             // cancels on shutdown
-            while let Ok(Some(pk)) = node_lookup_recv.recv().await {
-                // look up node
-                let maybe_pid = handle
-                    .get_record_timeout(&pk, dht_timeout)
-                    .await
-                    .map_err(Into::<NetworkError>::into);
+            while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
+                // only run if we are before or equal to the specified view number
+                if cur_view.load(Ordering::Relaxed) <= view_number {
+                    // look up node
+                    let maybe_pid = handle
+                        .get_record_timeout(&pk, dht_timeout)
+                        .await
+                        .map_err(Into::<NetworkError>::into);
 
-                if let Ok(pid) = maybe_pid {
-                    if handle.lookup_pid(pid).await.is_err() {
-                        error!("Failed to look up pid");
-                    };
-                } else {
-                    error!("Unable to look up pubkey {:?}", pk);
+                    if let Ok(pid) = maybe_pid {
+                        if handle.lookup_pid(pid).await.is_err() {
+                            error!("Failed to look up pid");
+                        };
+                    } else {
+                        error!("Unable to look up pubkey {:?}", pk);
+                    }
                 }
             }
         });
@@ -405,7 +411,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .await
                     .unwrap();
 
-                while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
+                while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
@@ -443,7 +449,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     node_type
                 );
 
-                is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
+                is_ready.store(true, Ordering::Relaxed);
                 info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
@@ -509,7 +515,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                             .context(FailedToSerializeSnafu);
                     }
                     NetworkEvent::IsBootstrapped => {
-                        is_bootstrapped.store(true, std::sync::atomic::Ordering::Relaxed);
+                        is_bootstrapped.store(true, Ordering::Relaxed);
                     }
                 }
             }
@@ -528,9 +534,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
     #[instrument(name = "Libp2pNetwork::ready_nonblocking", skip_all)]
     async fn is_ready(&self) -> bool {
-        self.inner
-            .is_ready
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.inner.is_ready.load(Ordering::Relaxed)
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
@@ -700,18 +704,33 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
-    async fn queue_node_lookup(&self, pk: K) -> Result<(), UnboundedSendError<Option<K>>> {
-        self.inner.node_lookup_send.send(Some(pk)).await?;
+    async fn queue_node_lookup(
+        &self,
+        view_number: u64,
+        pk: K,
+    ) -> Result<(), UnboundedSendError<Option<(u64, K)>>> {
+        self.inner
+            .node_lookup_send
+            .send(Some((view_number, pk)))
+            .await?;
 
         Ok(())
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        if let ConsensusIntentEvent::PollFutureLeader(_, future_leader) = event {
-            let _ = self
-                .queue_node_lookup(future_leader)
-                .await
-                .map_err(|err| error!("failed to process node lookup request: {}", err));
+        match event {
+            ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) => {
+                let _ = self
+                    .queue_node_lookup(future_view, future_leader)
+                    .await
+                    .map_err(|err| error!("failed to process node lookup request: {}", err));
+            }
+
+            ConsensusIntentEvent::PollForProposal(new_view) => {
+                self.inner.cur_view.store(new_view, Ordering::Relaxed);
+            }
+
+            _ => {}
         }
     }
 }
@@ -859,9 +878,10 @@ where
 
     async fn queue_node_lookup(
         &self,
+        view_number: u64,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>> {
-        self.0.queue_node_lookup(pk).await
+    ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
+        self.0.queue_node_lookup(view_number, pk).await
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {

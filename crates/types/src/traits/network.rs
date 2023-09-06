@@ -257,8 +257,9 @@ pub trait CommunicationChannel<
     /// queues looking up a node
     async fn queue_node_lookup(
         &self,
+        _view_number: u64,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>> {
+    ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
         Ok(())
     }
 
@@ -314,7 +315,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         Self: 'b;
 
     /// queues lookup of a node
-    async fn queue_node_lookup(&self, _pk: K) -> Result<(), UnboundedSendError<Option<K>>> {
+    async fn queue_node_lookup(
+        &self,
+        _view_number: u64,
+        _pk: K,
+    ) -> Result<(), UnboundedSendError<Option<(u64, K)>>> {
         Ok(())
     }
 
