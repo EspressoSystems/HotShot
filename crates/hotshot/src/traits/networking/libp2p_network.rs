@@ -705,8 +705,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Ok(())
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
-        // Not required
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
+        if let ConsensusIntentEvent::PollFutureLeader(_, future_leader) = event {
+            let _result = self
+                .lookup_node(future_leader.clone())
+                .await
+                .map_err(|err| error!("failed to lookup node: {}", err));
+        }
     }
 }
 
@@ -855,8 +860,12 @@ where
         self.0.lookup_node(pk).await
     }
 
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent) {
-        // Not required
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
+        <Libp2pNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(&self.0, event)
+        .await;
     }
 }
 
