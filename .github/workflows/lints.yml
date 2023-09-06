@@ -24,7 +24,7 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v22
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: Checkout Repository
 
       - name: Format Check

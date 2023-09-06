@@ -19,7 +19,7 @@ jobs:
         uses: cachix/install-nix-action@v22
 
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate coverage reports
         # Use the `release` profile rather than `release-lto` as other workflows do, since `--
