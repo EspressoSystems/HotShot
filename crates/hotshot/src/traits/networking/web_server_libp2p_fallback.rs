@@ -25,6 +25,7 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use async_compatibility_layer::channel::UnboundedSendError;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
@@ -263,28 +264,11 @@ impl<
         boxed_sync(closure)
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        match join!(
-            self.network().lookup_node(pk.clone()),
-            self.fallback().lookup_node(pk)
-        ) {
-            (Err(e1), Err(e2)) => {
-                error!(
-                    "Both network lookups failed primary error: {}, fallback error: {}",
-                    e1, e2
-                );
-                Err(e1)
-            }
-            (Err(e), _) => {
-                error!("Failed primary lookup with error: {}", e);
-                Ok(())
-            }
-            (_, Err(e)) => {
-                error!("Failed backup lookup with error: {}", e);
-                Ok(())
-            }
-            _ => Ok(()),
-        }
+    async fn queue_node_lookup(&self, pk: TYPES::SignatureKey) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>>{
+        self.network().queue_node_lookup(pk.clone()).await?;
+        self.fallback().queue_node_lookup(pk).await?;
+        
+        Ok(())
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {

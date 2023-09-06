@@ -447,12 +447,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         };
         boxed_sync(closure)
     }
-
-    #[instrument(name = "MemoryNetwork::lookup_node", skip_all)]
-    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
-        // no lookup required
-        Ok(())
-    }
 }
 
 /// memory identity communication channel
@@ -582,10 +576,6 @@ where
     {
         let closure = async move { self.0.recv_msgs(transmit_type).await };
         boxed_sync(closure)
-    }
-
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        self.0.lookup_node(pk).await
     }
 }
 

@@ -263,28 +263,11 @@ impl<
         boxed_sync(closure)
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        match join!(
-            self.network().lookup_node(pk.clone()),
-            self.fallback().lookup_node(pk)
-        ) {
-            (Err(e1), Err(e2)) => {
-                error!(
-                    "Both network lookups failed primary error: {}, fallback error: {}",
-                    e1, e2
-                );
-                Err(e1)
-            }
-            (Err(e), _) => {
-                error!("Failed primary lookup with error: {}", e);
-                Ok(())
-            }
-            (_, Err(e)) => {
-                error!("Failed backup lookup with error: {}", e);
-                Ok(())
-            }
-            _ => Ok(()),
-        }
+    async fn queue_node_lookup(&self, view: TYPES::ViewNumber, pk: TYPES::SignatureKey) -> Result<(), UnboundedError<TYPES::SignatureKey>>{
+        self.network().queue_node_lookup(pk.clone())?;
+        self.fallback().queue_node_lookup(pk)?;
+        
+        Ok(())
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent) {

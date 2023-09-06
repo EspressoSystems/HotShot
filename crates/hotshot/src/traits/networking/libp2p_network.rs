@@ -6,7 +6,7 @@ use super::NetworkingMetrics;
 use crate::NodeImplementation;
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn},
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -90,6 +90,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     direct_send: UnboundedSender<M>,
     /// Receiver for direct messages
     direct_recv: UnboundedReceiver<M>,
+    /// Sender for node lookup
+    node_lookup_send: UnboundedSender<Option<K>>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -313,6 +315,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         // if bounded figure out a way to log dropped msgs
         let (direct_send, direct_recv) = unbounded();
         let (broadcast_send, broadcast_recv) = unbounded();
+        let (node_lookup_send, node_lookup_recv) = unbounded();
 
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
@@ -330,14 +333,40 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics: NetworkingMetrics::new(&*metrics),
                 topic_map,
+                node_lookup_send,
             }),
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-
+        result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
         Ok(result)
+    }
+
+    /// Spawns task for looking up nodes pre-emptively
+    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<K>>) {
+        let handle = self.inner.handle.clone();
+        let dht_timeout = self.inner.dht_timeout;
+
+        async_spawn(async move {
+            // cancels on shutdown
+            while let Ok(Some(pk)) = node_lookup_recv.recv().await {
+                // look up node
+                let maybe_pid = handle
+                    .get_record_timeout(&pk, dht_timeout)
+                    .await
+                    .map_err(Into::<NetworkError>::into);
+
+                if let Ok(pid) = maybe_pid {
+                    if handle.lookup_pid(pid).await.is_err() {
+                        error!("Failed to look up pid");
+                    };
+                } else {
+                    error!("Unable to look up pubkey {:?}", pk);
+                }
+            }
+        });
     }
 
     /// Initiates connection to the outside world
@@ -511,6 +540,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
+            self.inner.node_lookup_send.send(None).await.unwrap();
             if self.inner.handle.is_killed() {
                 error!("Called shut down when already shut down! Noop.");
             } else {
@@ -669,38 +699,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         boxed_sync(closure)
     }
 
-    #[instrument(name = "Libp2pNetwork::lookup_node", skip_all)]
-    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
-        self.wait_for_ready().await;
-
-        if self.inner.handle.is_killed() {
-            return Err(NetworkError::ShutDown);
-        }
-
-        let maybe_pid = self
-            .inner
-            .handle
-            .get_record_timeout(&pk, self.inner.dht_timeout)
-            .await
-            .map_err(Into::<NetworkError>::into);
-
-        if let Ok(pid) = maybe_pid {
-            if self.inner.handle.lookup_pid(pid).await.is_err() {
-                error!("Failed to look up pid");
-                return Err(NetworkError::Libp2p {
-                    source: NetworkNodeHandleError::DHTError {
-                        source: libp2p_networking::network::error::DHTError::NotFound,
-                    },
-                });
-            };
-        } else {
-            error!("Unable to look up pubkey {:?}", pk);
-            return Err(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::DHTError {
-                    source: libp2p_networking::network::error::DHTError::NotFound,
-                },
-            });
-        }
+    #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
+    async fn queue_node_lookup(&self, pk: K) -> Result<(), UnboundedSendError<Option<K>>> {
+        self.inner.node_lookup_send.send(Some(pk)).await?;
 
         Ok(())
     }
@@ -708,9 +709,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
         if let ConsensusIntentEvent::PollFutureLeader(_, future_leader) = event {
             let _ = self
-                .lookup_node(future_leader)
+                .queue_node_lookup(future_leader)
                 .await
-                .map_err(|err| error!("failed to lookup node: {}", err));
+                .map_err(|err| error!("failed to process node lookup request: {}", err));
         }
     }
 }
@@ -856,8 +857,11 @@ where
         boxed_sync(closure)
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        self.0.lookup_node(pk).await
+    async fn queue_node_lookup(
+        &self,
+        pk: TYPES::SignatureKey,
+    ) -> Result<(), UnboundedSendError<Option<TYPES::SignatureKey>>> {
+        self.0.queue_node_lookup(pk).await
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {

@@ -614,12 +614,6 @@ impl<
         boxed_sync(closure)
     }
 
-    /// look up a node
-    /// blocking
-    async fn lookup_node(&self, _pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        Ok(())
-    }
-
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
         <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
@@ -729,12 +723,6 @@ impl<
             }
         };
         boxed_sync(closure)
-    }
-
-    /// look up a node
-    /// blocking
-    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
-        Ok(())
     }
 
     #[allow(clippy::too_many_lines)]
