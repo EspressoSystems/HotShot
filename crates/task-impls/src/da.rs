@@ -192,6 +192,57 @@ where
                 }
             }
         }
+        // TODO GG code copied from `DAVoteRecv` match arm
+        SequencingHotShotEvent::VidVoteRecv(vote) => {
+            debug!("VID vote recv, collection task {:?}", vote.current_view);
+            // panic!("Vote handle received DA vote for view {}", *vote.current_view);
+
+            // For the case where we receive votes after we've made a certificate
+            if state.accumulator.is_right() {
+                debug!("VID accumulator finished view: {:?}", state.cur_view);
+                return (None, state);
+            }
+
+            let accumulator = state.accumulator.left().unwrap();
+            match state.committee_exchange.accumulate_vote(
+                &vote.signature.0,
+                &vote.signature.1,
+                vote.block_commitment,
+                vote.vote_data,
+                vote.vote_token.clone(),
+                state.cur_view,
+                accumulator,
+                None,
+            ) {
+                Left(acc) => {
+                    state.accumulator = Either::Left(acc);
+                    // debug!("Not enough DA votes! ");
+                    return (None, state);
+                }
+                Right(dac) => {
+                    debug!("Sending DAC! {:?}", dac.view_number);
+                    state
+                        .event_stream
+                        .publish(SequencingHotShotEvent::DACSend(
+                            dac.clone(),
+                            state.committee_exchange.public_key().clone(),
+                        ))
+                        .await;
+
+                    state.accumulator = Right(dac.clone());
+                    state
+                        .committee_exchange
+                        .network()
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *dac.view_number,
+                        ))
+                        .await;
+
+                    // Return completed at this point
+                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                }
+            }
+        }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
         _ => {} // TODO GG error log here?
     }
@@ -409,6 +460,94 @@ where
                 } else if let Some((_, _, stream_id)) = self.vote_collector {
                     self.event_stream
                         .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                        .await;
+                };
+            }
+            // TODO GG code copied from `DAVoteRecv` match arm
+            SequencingHotShotEvent::VidVoteRecv(vote) => {
+                // warn!(
+                //     "VID vote recv, Main Task {:?}, key: {:?}",
+                //     vote.current_view,
+                //     self.committee_exchange.public_key()
+                // );
+                // Check if we are the leader and the vote is from the sender.
+                let view = vote.current_view;
+                if !self.committee_exchange.is_leader(view) {
+                    error!(
+                        "We are not the VID leader for view {} are we leader for next view? {}",
+                        *view,
+                        self.committee_exchange.is_leader(view + 1)
+                    );
+                    return None;
+                }
+
+                let handle_event = HandleEvent(Arc::new(move |event, state| {
+                    async move { vote_handle(state, event).await }.boxed()
+                }));
+                let collection_view =
+                    if let Some((collection_view, collection_id, _)) = &self.vote_collector {
+                        // TODO: Is this correct for consecutive leaders?
+                        if view > *collection_view {
+                            // warn!("shutting down for view {:?}", collection_view);
+                            self.registry.shutdown_task(*collection_id).await;
+                        }
+                        *collection_view
+                    } else {
+                        TYPES::Time::new(0)
+                    };
+                let acc = VoteAccumulator {
+                    total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
+                    yes_vote_outcomes: HashMap::new(),
+                    no_vote_outcomes: HashMap::new(),
+                    viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
+                    success_threshold: self.committee_exchange.success_threshold(),
+                    failure_threshold: self.committee_exchange.failure_threshold(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.committee_exchange.total_nodes()],
+                };
+                let accumulator = self.committee_exchange.accumulate_vote(
+                    &vote.clone().signature.0,
+                    &vote.clone().signature.1,
+                    vote.clone().block_commitment,
+                    vote.clone().vote_data.clone(),
+                    vote.clone().vote_token.clone(),
+                    vote.clone().current_view,
+                    acc,
+                    None,
+                );
+                if view > collection_view {
+                    let state = DAVoteCollectionTaskState {
+                        committee_exchange: self.committee_exchange.clone(),
+                        accumulator,
+                        cur_view: view,
+                        event_stream: self.event_stream.clone(),
+                        id: self.id,
+                    };
+                    let name = "VID Vote Collection";
+                    let filter = FilterEvent(Arc::new(|event| {
+                        matches!(event, SequencingHotShotEvent::VidVoteRecv(_))
+                    }));
+                    let builder =
+                        TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
+                            .register_event_stream(self.event_stream.clone(), filter)
+                            .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
+                            .register_state(state)
+                            .register_event_handler(handle_event);
+                    let id = builder.get_task_id().unwrap();
+                    let stream_id = builder.get_stream_id().unwrap();
+                    let _task =
+                        async_spawn(
+                            async move { DAVoteCollectionTypes::build(builder).launch().await },
+                        );
+                    self.vote_collector = Some((view, id, stream_id));
+                } else if let Some((_, _, stream_id)) = self.vote_collector {
+                    self.event_stream
+                        .direct_message(stream_id, SequencingHotShotEvent::VidVoteRecv(vote))
                         .await;
                 };
             }
