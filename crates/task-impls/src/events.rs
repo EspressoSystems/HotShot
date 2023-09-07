@@ -76,4 +76,8 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ///
     /// Like [`DAVoteSend`]
     VidVoteSend(DAVote<TYPES>),
+    /// A VID vote has been received by the network; handled by the DA task
+    ///
+    /// Like [`DAVoteRecv`]
+    VidVoteRecv(DAVote<TYPES>),
 }

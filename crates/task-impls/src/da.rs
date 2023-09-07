@@ -193,7 +193,7 @@ where
             }
         }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
-        _ => {}
+        _ => {} // TODO GG error log here?
     }
     (None, state)
 }
@@ -746,6 +746,7 @@ where
                 | SequencingHotShotEvent::TransactionsRecv(_)
                 | SequencingHotShotEvent::Timeout(_)
                 | SequencingHotShotEvent::VidDisperseRecv(_, _)
+                | SequencingHotShotEvent::VidVoteRecv(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )
     }

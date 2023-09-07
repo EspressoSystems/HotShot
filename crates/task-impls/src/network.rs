@@ -109,7 +109,9 @@ impl<
                             CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
                                 SequencingHotShotEvent::VidDisperseRecv(proposal, sender)
                             }
-                            CommitteeConsensusMessage::VidVote(_vote) => todo!(),
+                            CommitteeConsensusMessage::VidVote(vote) => {
+                                SequencingHotShotEvent::VidVoteRecv(vote.clone())
+                            }
                         },
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
@@ -231,6 +233,14 @@ impl<
                 ))),
                 TransmitType::Broadcast,
                 None,
+            ),
+            SequencingHotShotEvent::VidVoteSend(vote) => (
+                vote.signature_key(),
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::VidVote(vote.clone()),
+                ))),
+                TransmitType::Direct,
+                Some(membership.get_leader(vote.current_view)), // TODO GG who is VID "leader"?
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
