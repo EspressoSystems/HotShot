@@ -367,7 +367,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         // deals with garbage collecting the lookup queue
         let handle_ = handle.clone();
         async_spawn(async move {
-
             loop {
                 // sleep should be near-zero cycles
                 async_sleep(
@@ -375,7 +374,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         .config()
                         .ttl
                         .unwrap_or(Duration::from_secs(28800 * 8)),
-                ).await;
+                )
+                .await;
 
                 handle_.prune_peer_cache().await;
             }
@@ -628,18 +628,23 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
         self.wait_for_ready().await;
 
-        let pid =  match self.inner.handle.lookup_node::<K>(recipient.clone(), self.inner.dht_timeout).await{
+        let pid = match self
+            .inner
+            .handle
+            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .await
+        {
             Ok(pid) => pid,
             Err(err) => {
-                    self.inner.metrics.message_failed_to_send.add(1);
-                    error!(
-                        "Failed to message {:?} because could not find recipient peer id for pk {:?}",
-                        message, recipient
-                    );
-                    return Err(NetworkError::Libp2p { source: err });    
-                }
-            };
-        
+                self.inner.metrics.message_failed_to_send.add(1);
+                error!(
+                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                    message, recipient
+                );
+                return Err(NetworkError::Libp2p { source: err });
+            }
+        };
+
         match self.inner.handle.direct_request(pid, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);
