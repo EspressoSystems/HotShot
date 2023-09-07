@@ -71,6 +71,10 @@ async fn test_network_task() {
         da_proposal.clone(),
         pub_key,
     ));
+    input.push(SequencingHotShotEvent::VidDisperseSend(
+        da_vid_disperse.clone(),
+        pub_key,
+    ));
     input.push(SequencingHotShotEvent::QuorumProposalSend(
         quorum_proposal.clone(),
         pub_key,
