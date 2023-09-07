@@ -268,7 +268,6 @@ where
 {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
-
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
@@ -769,10 +768,10 @@ where
                 // TODO GG clean up this hello-world code for VID
                 debug!("Prepare VID shares");
                 {
-                    // TODO GG how do I get the number of storage nodes?
+                    /// TODO GG how do I get the number of storage nodes?
                     const NUM_STORAGE_NODES: usize = 10;
 
-                    // TODO GG config parameter
+                    /// TODO GG config parameter
                     const NUM_CHUNKS: usize = 5;
 
                     // TODO GG don't use test_srs

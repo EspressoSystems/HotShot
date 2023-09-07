@@ -423,10 +423,10 @@ impl<
                         p.data.get_view_number()
                     }
                     CommitteeConsensusMessage::DAVote(vote_message) => vote_message.current_view(),
-                    CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
+                    CommitteeConsensusMessage::DACertificate(cert)
+                    | CommitteeConsensusMessage::VidCertificate(cert) => cert.view_number,
                     CommitteeConsensusMessage::VidDisperseMsg(disperse) => disperse.view_number,
                     CommitteeConsensusMessage::VidVote(vote) => vote.current_view(),
-                    CommitteeConsensusMessage::VidCertificate(cert) => cert.view_number,
                 }
             }
         }
@@ -445,11 +445,12 @@ impl<
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
-                CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                CommitteeConsensusMessage::DAVote(_) | CommitteeConsensusMessage::VidVote(_) => {
+                    MessagePurpose::Vote
+                }
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
-                CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::Vid,
-                CommitteeConsensusMessage::VidVote(_) => MessagePurpose::Vote,
-                CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::Vid,
+                CommitteeConsensusMessage::VidDisperseMsg(_)
+                | CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::Vid,
             },
         }
     }

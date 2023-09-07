@@ -195,6 +195,7 @@ impl<
     /// Returns the completion status.
     /// # Panics
     /// Panic sif a direct message event is received with no recipient
+    #[allow(clippy::too_many_lines)] // TODO GG we should probably do something about this
     pub async fn handle_event(
         &mut self,
         event: SequencingHotShotEvent<TYPES, I>,
