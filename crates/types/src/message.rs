@@ -70,6 +70,8 @@ pub enum MessagePurpose {
     /// Data message
     Data,
     /// VID message
+    ///
+    /// TODO GG: this is a VID catch-all like [`Proposal`], [`Vote`], [`DAC`]
     Vid,
 }
 
@@ -251,6 +253,7 @@ impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
                 ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
             }
             CommitteeConsensusMessage::VidVote(_) => todo!(),
+            CommitteeConsensusMessage::VidCertificate(_) => todo!(),
         }
     }
 }
@@ -332,10 +335,10 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// Like [`DAVote`].
     /// TODO GG currently re-using [`DAVote`], eventually we'll need a separate VID vote
     VidVote(DAVote<TYPES>),
-    // / VID certificate data is available
-    // /
-    // / Like [`DACertificate`]
-    // VidCertificate(DACertificate<TYPES>),
+    /// VID certificate data is available
+    ///
+    /// Like [`DACertificate`]
+    VidCertificate(DACertificate<TYPES>),
 }
 
 /// Messages related to the consensus protocol.
@@ -409,6 +412,7 @@ impl<
                     CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
                     CommitteeConsensusMessage::VidDisperseMsg(disperse) => disperse.view_number,
                     CommitteeConsensusMessage::VidVote(vote) => vote.current_view(),
+                    CommitteeConsensusMessage::VidCertificate(cert) => cert.view_number,
                 }
             }
         }
@@ -431,6 +435,7 @@ impl<
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::Vid,
                 CommitteeConsensusMessage::VidVote(_) => MessagePurpose::Vote,
+                CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::Vid,
             },
         }
     }

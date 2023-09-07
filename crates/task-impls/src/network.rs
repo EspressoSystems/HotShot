@@ -112,6 +112,10 @@ impl<
                             CommitteeConsensusMessage::VidVote(vote) => {
                                 SequencingHotShotEvent::VidVoteRecv(vote.clone())
                             }
+                            CommitteeConsensusMessage::VidCertificate(_cert) => {
+                                todo!()
+                                // SequencingHotShotEvent::VidCertRecv(cert)
+                            }
                         },
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
@@ -250,14 +254,14 @@ impl<
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view)),
             ),
-            // SequencingHotShotEvent::VidCertSend(certificate, sender) => (
-            //     sender,
-            //     MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
-            //         CommitteeConsensusMessage::DACertificate(certificate),
-            //     ))),
-            //     TransmitType::Broadcast,
-            //     None,
-            // ),
+            SequencingHotShotEvent::VidCertSend(certificate, sender) => (
+                sender,
+                MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+                    CommitteeConsensusMessage::VidCertificate(certificate),
+                ))),
+                TransmitType::Broadcast,
+                None,
+            ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             SequencingHotShotEvent::DACSend(certificate, sender) => (
                 sender,
