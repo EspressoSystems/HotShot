@@ -2,8 +2,9 @@ use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::{SequencingMemoryImpl, SequencingTestTypes};
+use hotshot_testing::task_helpers::vid_init;
 use hotshot_types::{
-    data::{DAProposal, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber},
+    data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
     traits::{
         consensus_api::ConsensusSharedApi, election::ConsensusExchange,
         node_implementation::ExchangesType, state::ConsensusTime,
@@ -103,11 +104,4 @@ async fn test_da_task() {
     };
 
     run_harness(input, output, None, build_fn).await;
-}
-
-fn vid_init() -> VidScheme {
-    const NUM_STORAGE_NODES: usize = 10;
-    const NUM_CHUNKS: usize = 5;
-    let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
-    VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap()
 }

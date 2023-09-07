@@ -3,10 +3,10 @@ use hotshot::HotShotSequencingConsensusApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
-    task_helpers::build_quorum_proposal,
+    task_helpers::{build_quorum_proposal, vid_init},
 };
 use hotshot_types::{
-    data::{DAProposal, ViewNumber},
+    data::{DAProposal, VidSchemeTrait, ViewNumber},
     traits::{
         consensus_api::ConsensusSharedApi, node_implementation::ExchangesType, state::ConsensusTime,
     },
@@ -23,7 +23,9 @@ async fn test_network_task() {
     use hotshot::demos::sdemo::{SDemoBlock, SDemoNormalBlock};
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{message::Proposal, traits::election::CommitteeExchangeType};
+    use hotshot_types::{
+        data::VidDisperse, message::Proposal, traits::election::CommitteeExchangeType,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -51,6 +53,14 @@ async fn test_network_task() {
         signature,
     };
     let quorum_proposal = build_quorum_proposal(&handle, priv_key, 2).await;
+    let vid = vid_init();
+    let da_proposal_bytes = bincode::serialize(&da_proposal).unwrap();
+    let (shares, common) = vid.dispersal_data(&da_proposal_bytes).unwrap();
+    let da_vid_disperse = VidDisperse {
+        view_number: da_proposal.data.view_number,
+        shares,
+        common,
+    };
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
@@ -72,6 +82,10 @@ async fn test_network_task() {
     // One output from the input, the other from the DA task.
     output.insert(
         SequencingHotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
+        2,
+    );
+    output.insert(
+        SequencingHotShotEvent::VidDisperseSend(da_vid_disperse, pub_key),
         2,
     );
     // Only one output from the input.
