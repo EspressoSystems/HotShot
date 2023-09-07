@@ -1,8 +1,10 @@
 use commit::Committable;
 use hotshot::HotShotSequencingConsensusApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
-use hotshot_testing::node_types::{SequencingMemoryImpl, SequencingTestTypes};
-use hotshot_testing::task_helpers::vid_init;
+use hotshot_testing::{
+    node_types::{SequencingMemoryImpl, SequencingTestTypes},
+    task_helpers::vid_init,
+};
 use hotshot_types::{
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
     traits::{
