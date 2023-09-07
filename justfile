@@ -54,7 +54,7 @@ test_da_task:
 
 test_view_sync_task:
   echo Testing the view sync task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
