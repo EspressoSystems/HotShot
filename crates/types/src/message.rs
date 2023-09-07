@@ -321,14 +321,21 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
 
     /// Initiate VID dispersal.
     ///
-    /// TODO GG: this variant should not be a [`CommitteeConsensusMessage`] because it's not sent merely to the DA committee.
+    /// Like [`DAProposal`].
+    /// TODO GG:
+    /// - this variant should not be a [`CommitteeConsensusMessage`] because it's not sent merely to the DA committee.
     /// - Use `Msg` suffix to distinguish from [`VidDisperse`].
     VidDisperseMsg(VidDisperse<TYPES>),
 
-    /// vote for VID disperse data
+    /// Vote for VID disperse data
     ///
+    /// Like [`DAVote`].
     /// TODO GG currently re-using [`DAVote`], eventually we'll need a separate VID vote
     VidVote(DAVote<TYPES>),
+    // / VID certificate data is available
+    // /
+    // / Like [`DACertificate`]
+    // VidCertificate(DACertificate<TYPES>),
 }
 
 /// Messages related to the consensus protocol.

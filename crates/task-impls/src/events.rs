@@ -80,4 +80,8 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ///
     /// Like [`DAVoteRecv`]
     VidVoteRecv(DAVote<TYPES>),
+    /// The VID leader has collected enough votes to form a VID cert; emitted by the VID leader in the DA task; sent to the entire network via the networking task
+    ///
+    /// Like [`DACSend`]
+    VidCertSend(DACertificate<TYPES>, TYPES::SignatureKey),
 }

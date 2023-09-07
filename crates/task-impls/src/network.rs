@@ -250,6 +250,14 @@ impl<
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view)),
             ),
+            // SequencingHotShotEvent::VidCertSend(certificate, sender) => (
+            //     sender,
+            //     MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
+            //         CommitteeConsensusMessage::DACertificate(certificate),
+            //     ))),
+            //     TransmitType::Broadcast,
+            //     None,
+            // ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             SequencingHotShotEvent::DACSend(certificate, sender) => (
                 sender,
@@ -330,6 +338,7 @@ impl<
                 | SequencingHotShotEvent::QuorumVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::DACSend(_, _)
+                | SequencingHotShotEvent::VidCertSend(_, _)
                 | SequencingHotShotEvent::ViewChange(_)
         )
     }

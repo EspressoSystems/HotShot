@@ -223,7 +223,7 @@ where
                     debug!("Sending DAC! {:?}", dac.view_number);
                     state
                         .event_stream
-                        .publish(SequencingHotShotEvent::DACSend(
+                        .publish(SequencingHotShotEvent::VidCertSend(
                             dac.clone(),
                             state.committee_exchange.public_key().clone(),
                         ))
