@@ -173,6 +173,11 @@ pub struct VidDisperse<TYPES: NodeType> {
 /// Trusted KZG setup for VID.
 ///
 /// TESTING ONLY: don't use this in production
+/// TODO GG: https://github.com/EspressoSystems/HotShot/issues/1686
+///
+/// # Panics
+/// ...because this is only for tests. This comment exists to pacify clippy.
+#[must_use]
 pub fn test_srs(
     num_storage_nodes: usize,
 ) -> <UnivariateKzgPCS<Bls12_381> as PolynomialCommitmentScheme>::SRS {
