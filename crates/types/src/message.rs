@@ -211,8 +211,12 @@ pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType> {
     DAVote(DAVote<TYPES>, TYPES::SignatureKey),
     /// Certificate for the DA.
     DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
-    /// VID dispersal data.
+    /// VID dispersal data. Like [`DAProposal`]
     VidDisperseMsg(VidDisperse<TYPES>, TYPES::SignatureKey),
+    /// Vote from VID storage node. Like [`DAVote`]
+    VidVote(DAVote<TYPES>, TYPES::SignatureKey),
+    /// Certificate for VID. Like [`DACertificate`]
+    VidCertificate(DACertificate<TYPES>, TYPES::SignatureKey),
 }
 
 impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
@@ -231,6 +235,12 @@ impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
             }
             ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, _) => {
                 CommitteeConsensusMessage::VidDisperseMsg(disperse)
+            }
+            ProcessedCommitteeConsensusMessage::VidVote(v, _) => {
+                CommitteeConsensusMessage::VidVote(v)
+            }
+            ProcessedCommitteeConsensusMessage::VidCertificate(cert, _) => {
+                CommitteeConsensusMessage::VidCertificate(cert)
             }
         }
     }
@@ -252,8 +262,12 @@ impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
             CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
                 ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
             }
-            CommitteeConsensusMessage::VidVote(_) => todo!(),
-            CommitteeConsensusMessage::VidCertificate(_) => todo!(),
+            CommitteeConsensusMessage::VidVote(v) => {
+                ProcessedCommitteeConsensusMessage::VidVote(v, sender)
+            }
+            CommitteeConsensusMessage::VidCertificate(cert) => {
+                ProcessedCommitteeConsensusMessage::VidCertificate(cert, sender)
+            }
         }
     }
 }
