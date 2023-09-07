@@ -18,6 +18,9 @@ run_ci: lint build test
 build:
   cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches
 
+example *ARGS:
+  cargo run --profile=release-lto --example {{ARGS}}
+
 test:
   echo Testing
   cargo test --verbose --profile=release-lto --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
