@@ -1048,8 +1048,6 @@
 <a href="#1048" id="1048">1048</a>
 <a href="#1049" id="1049">1049</a>
 <a href="#1050" id="1050">1050</a>
-<a href="#1051" id="1051">1051</a>
-<a href="#1052" id="1052">1052</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -1637,9 +1635,7 @@
         <span class="macro">matches!</span>(
             event,
             SequencingHotShotEvent::ViewSyncCertificateRecv(<span class="kw">_</span>)
-                | SequencingHotShotEvent::ViewSyncCertificateSend(<span class="kw">_</span>, <span class="kw">_</span>)
                 | SequencingHotShotEvent::ViewSyncVoteRecv(<span class="kw">_</span>)
-                | SequencingHotShotEvent::ViewSyncVoteSend(<span class="kw">_</span>)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::Timeout(<span class="kw">_</span>)
                 | SequencingHotShotEvent::ViewSyncTimeout(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
