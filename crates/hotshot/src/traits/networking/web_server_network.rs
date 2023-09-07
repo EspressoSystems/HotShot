@@ -171,7 +171,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
-                MessagePurpose::Vid => unimplemented!(),
+                MessagePurpose::Vid => unimplemented!(), // TODO GG https://github.com/EspressoSystems/HotShot/issues/1685
             };
 
             if message_purpose == MessagePurpose::Data {
@@ -251,7 +251,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 return Ok(());
                             }
                             MessagePurpose::Vid => {
-                                unimplemented!()
+                                unimplemented!() // TODO GG https://github.com/EspressoSystems/HotShot/issues/1685
                             }
                             MessagePurpose::ViewSyncVote => {
                                 // error!(
