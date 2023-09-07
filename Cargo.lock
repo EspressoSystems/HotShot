@@ -2816,6 +2816,7 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
+ "bincode",
  "bitvec",
  "blake3",
  "commit",

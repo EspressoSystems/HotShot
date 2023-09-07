@@ -3,7 +3,7 @@ use hotshot::HotShotSequencingConsensusApi;
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::{SequencingMemoryImpl, SequencingTestTypes};
 use hotshot_types::{
-    data::{DAProposal, ViewNumber},
+    data::{DAProposal, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber},
     traits::{
         consensus_api::ConsensusSharedApi, election::ConsensusExchange,
         node_implementation::ExchangesType, state::ConsensusTime,
@@ -53,6 +53,9 @@ async fn test_da_task() {
         data: proposal,
         signature,
     };
+    let vid = vid_init();
+    let message_bytes = bincode::serialize(&message).unwrap();
+    let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
@@ -80,6 +83,17 @@ async fn test_da_task() {
             output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
         }
     }
+    output.insert(
+        SequencingHotShotEvent::VidDisperseSend(
+            VidDisperse {
+                view_number: message.data.view_number,
+                shares,
+                common,
+            },
+            pub_key,
+        ),
+        1,
+    );
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
@@ -89,4 +103,11 @@ async fn test_da_task() {
     };
 
     run_harness(input, output, None, build_fn).await;
+}
+
+fn vid_init() -> VidScheme {
+    const NUM_STORAGE_NODES: usize = 10;
+    const NUM_CHUNKS: usize = 5;
+    let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
+    VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap()
 }
