@@ -1100,7 +1100,7 @@
                 }
 
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;View changed by more than 1&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
                 <span class="comment">// Inject view info into network

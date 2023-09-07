@@ -207,7 +207,8 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+<a href="#210" id="210">210</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
@@ -333,6 +334,7 @@
         TestRunner {
             launcher: <span class="self">self</span>,
             nodes: Vec::new(),
+            late_start: HashMap::new(),
             next_node_id: <span class="number">0</span>,
             task_runner: TaskRunner::default(),
         }

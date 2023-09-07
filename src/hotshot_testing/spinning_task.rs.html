@@ -137,14 +137,28 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
 
+<span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
+<span class="kw">use </span>hotshot::HotShotType;
+<span class="kw">use </span>hotshot::SystemContext;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -154,8 +168,6 @@
 };
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>snafu::Snafu;
-
-<span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>SpinningTaskErr {}
 
@@ -171,6 +183,7 @@
 
 <span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) changes: Vec&lt;Vec&lt;ChangeNode&gt;&gt;,
 }
 
@@ -202,7 +215,10 @@
 <span class="kw">impl </span>SpinningTaskDescription {
     <span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
-    ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt; {
+    ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;
+    <span class="kw">where
+        </span>SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
+    {
         Box::new(<span class="kw">move </span>|state, <span class="kw-2">mut </span>registry, test_event_stream| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>event_handler =
@@ -242,9 +258,13 @@
                                 <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>nodes_to_change {
                                     <span class="kw">match </span>updown {
                                         UpDown::Up =&gt; {
-                                            <span class="comment">// TODO... we don&#39;t need this right now anyway. We haven&#39;t
-                                            // implemented catchup
-                                        </span>}
+                                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) =
+                                                state.late_start.remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap())
+                                            {
+                                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Spinning up node late&quot;</span>);
+                                                node.run_tasks().<span class="kw">await</span>;
+                                            }
+                                        }
                                         UpDown::Down =&gt; {
                                             <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
                                                 node.handle.shut_down().<span class="kw">await</span>;

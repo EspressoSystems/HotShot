@@ -274,6 +274,8 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -295,6 +297,7 @@
 <span class="kw">use super</span>::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
 };
+<span class="kw">use </span>hotshot::{HotShotType, SystemContext};
 
 <span class="doccomment">/// data describing how a round should be timed.
 </span><span class="attr">#[derive(Clone, Debug, Copy)]
@@ -460,6 +463,7 @@
         </span>I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Exchanges:
             TestableExchange&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf, Message&lt;TYPES, I&gt;&gt;,
+        SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     {
         <span class="kw">let </span>TestMetadata {
             total_nodes,
