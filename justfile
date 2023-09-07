@@ -22,6 +22,10 @@ test:
   echo Testing
   cargo test --verbose --profile=release-lto --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
+test_catchup:
+    echo Testing with async std executor
+    cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task
 
 test_success:
