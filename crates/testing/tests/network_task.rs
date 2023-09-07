@@ -86,7 +86,7 @@ async fn test_network_task() {
     );
     output.insert(
         SequencingHotShotEvent::VidDisperseSend(da_vid_disperse, pub_key),
-        2,
+        2, // TODO GG why 2 here and not 1 like everywhere else?
     );
     // Only one output from the input.
     // The consensus task will fail to send a second proposal, like the DA task does, due to the

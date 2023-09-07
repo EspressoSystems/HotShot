@@ -97,6 +97,7 @@ async fn test_da_task() {
         ),
         1,
     );
+    // TODO GG add VidVoteSend steps like DAVoteSend above?
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
