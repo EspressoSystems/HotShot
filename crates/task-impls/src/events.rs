@@ -84,4 +84,8 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     ///
     /// Like [`DACSend`]
     VidCertSend(DACertificate<TYPES>, TYPES::SignatureKey),
+    /// A VID cert has been recieved by the network; handled by the consensus task
+    ///
+    /// Like [`DACRecv`]
+    VidCertRecv(DACertificate<TYPES>),
 }

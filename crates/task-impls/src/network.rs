@@ -112,9 +112,8 @@ impl<
                             CommitteeConsensusMessage::VidVote(vote) => {
                                 SequencingHotShotEvent::VidVoteRecv(vote.clone())
                             }
-                            CommitteeConsensusMessage::VidCertificate(_cert) => {
-                                todo!()
-                                // SequencingHotShotEvent::VidCertRecv(cert)
+                            CommitteeConsensusMessage::VidCertificate(cert) => {
+                                SequencingHotShotEvent::VidCertRecv(cert)
                             }
                         },
                     };
