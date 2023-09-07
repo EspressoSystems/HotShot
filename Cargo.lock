@@ -3778,6 +3778,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "custom_debug",
+ "dashmap",
  "derive_builder",
  "either",
  "futures",

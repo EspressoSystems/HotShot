@@ -81,10 +81,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// this node's public key
     pk: K,
     /// handle to control the network
-    handle: Arc<NetworkNodeHandle<()>>,
-    /// Bidirectional map from public key provided by espresso
-    /// to public key provided by libp2p
-    pubkey_pid_map: RwLock<BiHashMap<K, PeerId>>,
+    handle: Arc<NetworkNodeHandle<(), K>>,
     /// map of known replica peer ids to public keys
     broadcast_recv: UnboundedReceiver<M>,
     /// Sender for broadcast messages
@@ -285,7 +282,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
-            NetworkNodeHandle::<()>::new(config, id)
+            NetworkNodeHandle::<(), K>::new(config, id)
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
@@ -320,7 +317,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: network_handle,
-                pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
                 direct_send: direct_send.clone(),
                 direct_recv,
@@ -346,33 +342,42 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     }
 
     /// Spawns task for looking up nodes pre-emptively
+    /// as well as garbage collecting the peer cache
     fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(u64, K)>>) {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
         let cur_view = self.inner.cur_view.clone();
 
+        // deals with handling lookup queue. should be infallible
+        let handle_ = handle.clone();
         async_spawn(async move {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
+                info!("Performing lookup for peer {:?}", pk);
                 // only run if we are before or equal to the specified view number
                 if cur_view.load(Ordering::Relaxed) <= view_number {
-                    // look up node
-                    let _ = handle
-                        .get_record_timeout::<PeerId>(&pk, dht_timeout)
-                        .await
-                        .map_err(Into::<NetworkError>::into);
-
-                    // We shouldn't need this, we don't require a request<>response from the
-                    // future leader.
-
-                    // if let Ok(pid) = maybe_pid {
-                    //     if handle.lookup_pid(pid).await.is_err() {
-                    //         error!("Failed to look up pid");
-                    //     };
-                    // } else {
-                    //     error!("Unable to look up pubkey {:?}", pk);
-                    // }
+                    // look up node, caching if applicable
+                    if let Err(err) = handle_.lookup_node::<K>(pk.clone(), dht_timeout).await {
+                        error!("Failed to perform lookup for key {:?}: {}", pk, err);
+                    };
                 }
+            }
+        });
+
+        // deals with garbage collecting the lookup queue
+        let handle_ = handle.clone();
+        async_spawn(async move {
+
+            loop {
+                // sleep should be near-zero cycles
+                async_sleep(
+                    handle_
+                        .config()
+                        .ttl
+                        .unwrap_or(Duration::from_secs(28800 * 8)),
+                ).await;
+
+                handle_.prune_peer_cache().await;
             }
         });
     }
@@ -622,37 +627,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
 
         self.wait_for_ready().await;
-        // check local cache. if that fails, initiate search
-        // if search fails, just error out
-        // NOTE: relay may be a good way to fix this in the future .
-        let pid: PeerId = if let Some(pid) = self
-            .inner
-            .pubkey_pid_map
-            .read()
-            .await
-            .get_by_left(&recipient)
-        {
-            *pid
-        } else {
-            match self
-                .inner
-                .handle
-                .get_record_timeout(&recipient, self.inner.dht_timeout)
-                .await
-            {
-                Ok(r) => r,
-                Err(e) => {
-                    self.inner.metrics.message_failed_to_send.add(1);
-                    error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
-                    return Err(NetworkError::Libp2p { source: e });
-                }
-            }
-        };
 
-        if let Err(e) = self.inner.handle.lookup_pid(pid).await {
-            self.inner.metrics.message_failed_to_send.add(1);
-            return Err(e.into());
-        }
+        let pid =  match self.inner.handle.lookup_node::<K>(recipient.clone(), self.inner.dht_timeout).await{
+            Ok(pid) => pid,
+            Err(err) => {
+                    self.inner.metrics.message_failed_to_send.add(1);
+                    error!(
+                        "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                        message, recipient
+                    );
+                    return Err(NetworkError::Libp2p { source: err });    
+                }
+            };
+        
         match self.inner.handle.direct_request(pid, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);

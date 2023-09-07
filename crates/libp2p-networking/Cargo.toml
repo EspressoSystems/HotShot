@@ -50,6 +50,7 @@ tide = { version = "0.16", optional = true, default-features = false, features =
 tokio-stream = "0.1.14"
 tracing = { workspace = true }
 void = "1.0.2"
+dashmap = "5.5.3"
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 libp2p = { workspace = true, features = ["tokio"] }
