@@ -470,10 +470,9 @@ where
 
                         if let CommitteeConsensusMessage::VidVote(vote) = message {
                             debug!("Sending vote to the VID leader {:?}", vote.current_view);
-                            // TODO GG publish VidVoteSent event
-                            // self.event_stream
-                            //     .publish(SequencingHotShotEvent::DAVoteSend(vote))
-                            //     .await;
+                            self.event_stream
+                                .publish(SequencingHotShotEvent::VidVoteSend(vote))
+                                .await;
                         }
                         let mut consensus = self.consensus.write().await;
 

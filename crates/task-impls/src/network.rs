@@ -331,6 +331,8 @@ impl<
             SequencingHotShotEvent::DAProposalSend(_, _)
                 | SequencingHotShotEvent::DAVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
+                | SequencingHotShotEvent::VidDisperseSend(_, _)
+                | SequencingHotShotEvent::VidVoteSend(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )
     }
