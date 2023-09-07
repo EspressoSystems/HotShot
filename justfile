@@ -24,6 +24,10 @@ test:
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_view_sync_task
 
+test_catchup:
+    echo Testing with async std executor
+    cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+
 test_success:
   echo Testing success test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
