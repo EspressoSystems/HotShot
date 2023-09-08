@@ -192,7 +192,7 @@ where
                 }
             }
         }
-        // TODO GG code copied from `DAVoteRecv` match arm
+        // TODO https://github.com/EspressoSystems/HotShot/issues/1690
         SequencingHotShotEvent::VidVoteRecv(vote) => {
             debug!("VID vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
@@ -464,7 +464,7 @@ where
                         .await;
                 };
             }
-            // TODO GG code copied from `DAVoteRecv` match arm
+            // TODO https://github.com/EspressoSystems/HotShot/issues/1690
             SequencingHotShotEvent::VidVoteRecv(vote) => {
                 // warn!(
                 //     "VID vote recv, Main Task {:?}, key: {:?}",
