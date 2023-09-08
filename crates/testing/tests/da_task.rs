@@ -71,7 +71,7 @@ async fn test_da_task() {
         message.clone(),
         pub_key,
     ));
-    // TODO GG why does this test pass without a `VidDisperseRecv` event here?
+    // TODO why does this test pass without a `VidDisperseRecv` event here? https://github.com/EspressoSystems/HotShot/issues/1697
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
@@ -98,9 +98,9 @@ async fn test_da_task() {
         ),
         1,
     );
-    // TODO GG why does this test pass without a `VidVoteSend` event here?
+    // TODO why does this test pass without a `VidVoteSend` event here? https://github.com/EspressoSystems/HotShot/issues/1697
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
-    // TODO GG why does this test pass without a `VidDisperseRecv` event here?
+    // TODO why does this test pass without a `VidDisperseRecv` event here? https://github.com/EspressoSystems/HotShot/issues/1697
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
