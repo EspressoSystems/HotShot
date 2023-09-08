@@ -345,7 +345,7 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// Vote for VID disperse data
     ///
     /// Like [`DAVote`].
-    /// TODO GG currently re-using [`DAVote`], eventually we'll need a separate VID vote
+    /// TODO currently re-using [`DAVote`], eventually we'll need a separate VID vote <https://github.com/EspressoSystems/HotShot/issues/1703>
     VidVote(DAVote<TYPES>),
     /// VID certificate data is available
     ///
