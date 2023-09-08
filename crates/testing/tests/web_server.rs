@@ -34,7 +34,7 @@ async fn web_server_network() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(100000),
+                duration: Duration::from_millis(1_200_000),
             },
         ),
         ..TestMetadata::default()
