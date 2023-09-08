@@ -555,7 +555,8 @@ where
             SequencingHotShotEvent::VidDisperseRecv(disperse, _sender) => {
                 debug!("VID disperse received for view: {:?}", disperse.view_number);
 
-                // TODO GG: BEGIN: copy-paste view/leader checks from `DAProposalRecv` code
+                // TODO https://github.com/EspressoSystems/HotShot/issues/1691
+                // TODO eliminate copy-paste view/leader checks from `DAProposalRecv` code
 
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = disperse.view_number;
@@ -586,8 +587,6 @@ where
                 //     error!("Could not verify proposal.");
                 //     return None;
                 // }
-
-                // TODO GG: END: copy-paste view/leader checks from `DAProposalRecv` code
 
                 let vote_token = self.committee_exchange.make_vote_token(view);
                 match vote_token {
