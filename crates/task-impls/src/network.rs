@@ -242,7 +242,7 @@ impl<
                     CommitteeConsensusMessage::VidVote(vote.clone()),
                 ))),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.current_view)), // TODO GG who is VID "leader"?
+                Some(membership.get_leader(vote.current_view)), // TODO who is VID leader? https://github.com/EspressoSystems/HotShot/issues/1699
             ),
             SequencingHotShotEvent::DAVoteSend(vote) => (
                 vote.signature_key(),
