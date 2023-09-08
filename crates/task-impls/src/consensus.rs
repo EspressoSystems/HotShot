@@ -1038,7 +1038,7 @@ where
                 debug!("VID cert received for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
-                self.certs.insert(view, cert);
+                self.certs.insert(view, cert); // TODO new cert type for VID https://github.com/EspressoSystems/HotShot/issues/1701
 
                 // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
