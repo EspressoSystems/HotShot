@@ -244,7 +244,7 @@ where
             }
         }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
-        _ => {} // TODO GG error log here?
+        _ => {error!("unexpected event {:?}", event)}
     }
     (None, state)
 }
@@ -805,7 +805,7 @@ where
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            _ => {} // TODO GG error log here?
+            _ => {error!("unexpected event {:?}", event)}
         }
         None
     }
