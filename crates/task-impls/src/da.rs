@@ -625,7 +625,7 @@ where
                         });
 
                         // Record the block we have promised to make available.
-                        // TODO GG we don't have the block yet, just a VID share.
+                        // TODO https://github.com/EspressoSystems/HotShot/issues/1692
                         // consensus.saved_blocks.insert(proposal.data.deltas);
                     }
                 }
