@@ -18,7 +18,7 @@ async-lock = { workspace = true }
 async-trait = { workspace = true }
 ark-serialize = { version = "0.3", features = [
     "derive",
-] } # TODO GG upgrade to 0.4 and inherit this dep from workspace
+] } # TODO upgrade to 0.4 and inherit this dep from workspace https://github.com/EspressoSystems/HotShot/issues/1700
 ark-std = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
