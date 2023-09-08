@@ -519,7 +519,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES>;
 
-    // TODO GG temporary vid methods, move to quorum
+    // TODO temporary vid methods, move to quorum https://github.com/EspressoSystems/HotShot/issues/1696
 
     /// Create a message with a vote on VID disperse data.
     fn create_vid_message(

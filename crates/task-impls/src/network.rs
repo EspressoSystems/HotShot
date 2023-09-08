@@ -220,14 +220,12 @@ impl<
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.current_view() + 1)),
             ),
-
-            // TODO GG `VidDiserpseSend` like `DAProposalSend` for now
             SequencingHotShotEvent::VidDisperseSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::VidDisperseMsg(proposal),
-                ))), // TODO GG not a CommitteeConsensusMessage
-                TransmitType::Broadcast, // TODO GG broadcast??
+                ))), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                TransmitType::Broadcast, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
                 None,
             ),
             SequencingHotShotEvent::DAProposalSend(proposal, sender) => (

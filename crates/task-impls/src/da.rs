@@ -786,7 +786,8 @@ where
                                 shares,
                                 common,
                             },
-                            self.committee_exchange.public_key().clone(), // TODO GG don't send to committee, send to quorum (consensus.rs)
+                            // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
+                            self.committee_exchange.public_key().clone(),
                         ))
                         .await;
                 }
