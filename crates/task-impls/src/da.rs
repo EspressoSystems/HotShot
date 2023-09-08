@@ -244,7 +244,9 @@ where
             }
         }
         SequencingHotShotEvent::Shutdown => return (Some(HotShotTaskCompleted::ShutDown), state),
-        _ => {error!("unexpected event {:?}", event)}
+        _ => {
+            error!("unexpected event {:?}", event);
+        }
     }
     (None, state)
 }
@@ -805,7 +807,9 @@ where
             SequencingHotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted::ShutDown);
             }
-            _ => {error!("unexpected event {:?}", event)}
+            _ => {
+                error!("unexpected event {:?}", event);
+            }
         }
         None
     }
