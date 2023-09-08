@@ -572,7 +572,7 @@ where
                 }
 
                 debug!("VID disperse data is fresh.");
-                // TODO GG need convenient access to VID commitment from jellyfish
+                // TODO https://github.com/EspressoSystems/jellyfish/issues/369
                 // let block_commitment = proposal.data.deltas.commit();
                 let block_commitment = TYPES::BlockType::new().commit();
 
