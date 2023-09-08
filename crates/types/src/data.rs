@@ -176,7 +176,7 @@ pub struct VidDisperse<TYPES: NodeType> {
 /// Trusted KZG setup for VID.
 ///
 /// TESTING ONLY: don't use this in production
-/// TODO GG: <https://github.com/EspressoSystems/HotShot/issues/1686>
+/// TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
 ///
 /// # Panics
 /// ...because this is only for tests. This comment exists to pacify clippy.
