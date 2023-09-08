@@ -160,6 +160,9 @@ pub type VidScheme = jf_primitives::vid::advz::Advz<ark_bls12_381::Bls12_381, sh
 pub use jf_primitives::vid::VidScheme as VidSchemeTrait;
 
 /// VID dispersal data
+///
+/// TODO https://github.com/EspressoSystems/HotShot/issues/1695
+/// `VidDisperse` should be of the form `Proposal<DAProposal<TYPES>>` to mirror `DAProposalRecv`. We need things like `Committable`, etc.
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
