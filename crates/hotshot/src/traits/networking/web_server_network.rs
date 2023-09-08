@@ -511,7 +511,7 @@ impl<
             }
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
-            MessagePurpose::Vid => todo!(),
+            MessagePurpose::Vid => config::post_vid_todo(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
