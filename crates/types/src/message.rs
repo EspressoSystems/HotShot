@@ -71,7 +71,7 @@ pub enum MessagePurpose {
     Data,
     /// VID message
     ///
-    /// TODO GG: this is a VID catch-all like [`Proposal`], [`Vote`], [`DAC`]
+    /// TODO split this variant <https://github.com/EspressoSystems/HotShot/issues/1702>
     Vid,
 }
 
