@@ -775,7 +775,7 @@ where
                     /// TODO GG config parameter
                     const NUM_CHUNKS: usize = 5;
 
-                    // TODO GG don't use test_srs
+                    // TODO https://github.com/EspressoSystems/HotShot/issues/1686
                     let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
 
                     let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
