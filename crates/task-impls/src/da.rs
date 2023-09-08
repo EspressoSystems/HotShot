@@ -766,13 +766,11 @@ where
                     ))
                     .await;
 
-                // TODO GG clean up this hello-world code for VID
                 debug!("Prepare VID shares");
                 {
-                    /// TODO GG how do I get the number of storage nodes?
+                    /// TODO https://github.com/EspressoSystems/HotShot/issues/1693
                     const NUM_STORAGE_NODES: usize = 10;
-
-                    /// TODO GG config parameter
+                    /// TODO https://github.com/EspressoSystems/HotShot/issues/1693
                     const NUM_CHUNKS: usize = 5;
 
                     // TODO https://github.com/EspressoSystems/HotShot/issues/1686
