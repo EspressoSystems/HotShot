@@ -577,9 +577,7 @@ where
                 }
 
                 debug!("VID disperse data is fresh.");
-                // TODO https://github.com/EspressoSystems/jellyfish/issues/369
-                // let block_commitment = proposal.data.deltas.commit();
-                let block_commitment = TYPES::BlockType::new().commit();
+                let block_commitment = disperse.data.commitment;
 
                 // // ED Is this the right leader?
                 // let view_leader_key = self.committee_exchange.get_leader(view);
@@ -784,7 +782,8 @@ where
                     let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
                     let message_bytes = bincode::serialize(&message).unwrap();
                     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
-                    // TODO GG for now reuse the same block commitment and signature as DA committee
+                    // TODO for now reuse the same block commitment and signature as DA committee
+                    // https://github.com/EspressoSystems/jellyfish/issues/369
 
                     self.event_stream
                         .publish(SequencingHotShotEvent::VidDisperseSend(

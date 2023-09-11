@@ -59,7 +59,8 @@ async fn test_da_task() {
     let vid = vid_init();
     let message_bytes = bincode::serialize(&message).unwrap();
     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
-    // TODO GG for now reuse the same block commitment and signature as DA committee
+    // TODO for now reuse the same block commitment and signature as DA committee
+    // https://github.com/EspressoSystems/jellyfish/issues/369
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
