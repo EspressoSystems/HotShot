@@ -784,15 +784,19 @@ where
                     let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
                     let message_bytes = bincode::serialize(&message).unwrap();
                     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
+                    // TODO GG for now reuse the same block commitment and signature as DA committee
+
                     self.event_stream
                         .publish(SequencingHotShotEvent::VidDisperseSend(
-                            Proposal{
-                            data: VidDisperse {
-                                view_number: self.cur_view + 1, // copied from `data` above
-                                shares,
-                                common,
+                            Proposal {
+                                data: VidDisperse {
+                                    view_number: self.cur_view + 1, // copied from `data` above
+                                    commitment: block.commit(),
+                                    shares,
+                                    common,
+                                },
+                                signature: message.signature,
                             },
-                            signature: message.signature, },
                             // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
                             self.committee_exchange.public_key().clone(),
                         ))

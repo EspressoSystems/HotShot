@@ -59,6 +59,7 @@ async fn test_da_task() {
     let vid = vid_init();
     let message_bytes = bincode::serialize(&message).unwrap();
     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
+    // TODO GG for now reuse the same block commitment and signature as DA committee
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
@@ -88,13 +89,16 @@ async fn test_da_task() {
         }
     }
     output.insert(
-        SequencingHotShotEvent::VidDisperseSend( Proposal {
-            data: VidDisperse {
-                view_number: message.data.view_number,
-                shares,
-                common,
+        SequencingHotShotEvent::VidDisperseSend(
+            Proposal {
+                data: VidDisperse {
+                    view_number: message.data.view_number,
+                    commitment: block_commitment,
+                    shares,
+                    common,
+                },
+                signature: message.signature.clone(),
             },
-            signature: message.signature.clone(),},
             pub_key,
         ),
         1,

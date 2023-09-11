@@ -167,6 +167,8 @@ pub use jf_primitives::vid::VidScheme as VidSchemeTrait;
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::Time,
+    /// Block commitment
+    pub commitment: Commitment<TYPES::BlockType>,
     /// VID shares dispersed among storage nodes
     pub shares: Vec<<VidScheme as VidSchemeTrait>::StorageShare>,
     /// VID common data sent to all storage nodes
