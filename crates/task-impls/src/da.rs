@@ -366,6 +366,9 @@ where
                             self.event_stream
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
+                        } else {
+                            // TODO GG use the type system to make this check unnecessary
+                            error!("create_da_message did not return a DA message!");
                         }
                         let mut consensus = self.consensus.write().await;
 
@@ -615,6 +618,9 @@ where
                             self.event_stream
                                 .publish(SequencingHotShotEvent::VidVoteSend(vote))
                                 .await;
+                        } else {
+                            // TODO GG use the type system to make this check unnecessary
+                            error!("create_vid_message did not return a vid message!");
                         }
                         let mut consensus = self.consensus.write().await;
 
