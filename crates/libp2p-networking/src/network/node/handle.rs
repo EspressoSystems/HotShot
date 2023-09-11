@@ -15,6 +15,7 @@ use async_lock::{Mutex, RwLock};
 use bincode::Options;
 use dashmap::DashMap;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
+use hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -329,7 +330,7 @@ impl<S, K: Debug + Eq + Hash + Serialize + Clone> NetworkNodeHandle<S, K> {
                     + self
                         .network_config
                         .ttl
-                        .unwrap_or(Duration::from_secs(28800 * 16)),
+                        .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * 16)),
                 key,
             );
             pid

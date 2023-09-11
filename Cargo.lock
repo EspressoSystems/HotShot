@@ -3789,6 +3789,7 @@ dependencies = [
  "derive_builder",
  "either",
  "futures",
+ "hotshot-constants",
  "hotshot-utils",
  "libp2p",
  "libp2p-identity",
