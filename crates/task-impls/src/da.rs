@@ -554,7 +554,7 @@ where
                         .await;
                 };
             }
-            SequencingHotShotEvent::VidDisperseRecv(disperse, _sender) => {
+            SequencingHotShotEvent::VidDisperseRecv(disperse, sender) => {
                 debug!(
                     "VID disperse received for view: {:?}",
                     disperse.data.get_view_number()
@@ -579,17 +579,17 @@ where
                 debug!("VID disperse data is fresh.");
                 let block_commitment = disperse.data.commitment;
 
-                // // ED Is this the right leader?
-                // let view_leader_key = self.committee_exchange.get_leader(view);
-                // if view_leader_key != sender {
-                //     error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
-                //     return None;
-                // }
+                // ED Is this the right leader?
+                let view_leader_key = self.committee_exchange.get_leader(view);
+                if view_leader_key != sender {
+                    error!("VID proposal doesn't have expected leader key for view {} \n DA proposal is: [N/A for VID]", *view);
+                    return None;
+                }
 
-                // if !view_leader_key.validate(&proposal.signature, block_commitment.as_ref()) {
-                //     error!("Could not verify proposal.");
-                //     return None;
-                // }
+                if !view_leader_key.validate(&disperse.signature, block_commitment.as_ref()) {
+                    error!("Could not verify VID proposal sig.");
+                    return None;
+                }
 
                 let vote_token = self.committee_exchange.make_vote_token(view);
                 match vote_token {
