@@ -2656,7 +2656,7 @@ dependencies = [
  "surf-disco",
  "time 0.3.28",
  "tokio",
- "toml 0.7.6",
+ "toml 0.7.7",
  "tracing",
  "typenum",
 ]
@@ -2914,7 +2914,7 @@ dependencies = [
  "tide",
  "tide-disco 0.4.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.1)",
  "tokio",
- "toml 0.7.6",
+ "toml 0.7.7",
  "tracing",
 ]
 
@@ -5740,9 +5740,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693151e1ac27563d6dbcec9dee9fbd5da8539b20fa14ad3752b2e6d363ace360"
+checksum = "2cc66a619ed80bf7a0f6b17dd063a84b88f6dea1813737cf469aef1d081142c2"
 dependencies = [
  "itoa 1.0.9",
  "ryu",
@@ -6651,7 +6651,7 @@ dependencies = [
  "tagged-base64 0.2.4",
  "tide",
  "tide-websockets",
- "toml 0.7.6",
+ "toml 0.7.7",
  "tracing",
  "tracing-distributed",
  "tracing-futures",
@@ -6845,9 +6845,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17e963a819c331dcacd7ab957d80bc2b9a9c1e71c804826d2f283dd65306542"
+checksum = "de0a3ab2091e52d7299a39d098e200114a972df0a7724add02a273aa9aada592"
 dependencies = [
  "serde",
  "serde_spanned",
@@ -6866,9 +6866,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.19.14"
+version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8123f27e969974a3dfba720fdb560be359f57b44302d280ba72e76a74480e8a"
+checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap 2.0.0",
  "serde",
