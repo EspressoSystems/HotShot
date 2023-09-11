@@ -13,7 +13,7 @@ use futures::join;
 use async_compatibility_layer::channel::UnboundedSendError;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
-    data::ProposalType,
+    data::{ProposalType, ViewNumber},
     message::Message,
     traits::{
         election::Membership,
@@ -266,9 +266,9 @@ impl<
 
     async fn queue_node_lookup(
         &self,
-        view_number: u64,
+        view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         self.network()
             .queue_node_lookup(view_number, pk.clone())
             .await?;

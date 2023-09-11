@@ -5,16 +5,17 @@
 use super::NetworkingMetrics;
 use crate::NodeImplementation;
 use async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
+use hotshot_constants::{KAD_DEFAULT_REPUB_INTERVAL_SEC, LOOK_AHEAD};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
-    data::ProposalType,
+    data::{ProposalType, ViewNumber},
     message::{Message, MessageKind},
     traits::{
         election::Membership,
@@ -26,6 +27,7 @@ use hotshot_types::{
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
+        state::ConsensusTime,
     },
     vote::VoteType,
 };
@@ -90,8 +92,10 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     direct_send: UnboundedSender<M>,
     /// Receiver for direct messages
     direct_recv: UnboundedReceiver<M>,
-    /// Sender for node lookup
-    node_lookup_send: UnboundedSender<Option<(u64, K)>>,
+    /// Sender for node lookup (relevant view number, key of node) (None for shutdown)
+    node_lookup_send: UnboundedSender<Option<(ViewNumber, K)>>,
+    /// Sender for shutdown of the peer cache's garbage collection task
+    cache_gc_shutdown_send: UnboundedSender<()>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -109,8 +113,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// hash(hashset) -> topic
     /// btreemap ordered so is hashable
     topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
-    /// the current view number (for node lookup purposes)
-    cur_view: Arc<AtomicU64>,
+    /// the latest view number (for node lookup purposes)
+    latest_view: Arc<AtomicU64>,
 }
 
 /// Networking implementation that uses libp2p
@@ -313,6 +317,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let (direct_send, direct_recv) = unbounded();
         let (broadcast_send, broadcast_recv) = unbounded();
         let (node_lookup_send, node_lookup_recv) = unbounded();
+        let (cache_gc_shutdown_send, cache_gc_shutdown_recv) = unbounded::<()>();
 
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
@@ -330,12 +335,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 metrics: NetworkingMetrics::new(&*metrics),
                 topic_map,
                 node_lookup_send,
-                cur_view: Arc::new(AtomicU64::new(0)),
+                cache_gc_shutdown_send,
+                latest_view: Arc::new(AtomicU64::new(0)),
             }),
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-        result.spawn_node_lookup(node_lookup_recv);
+        result.spawn_node_lookup(node_lookup_recv, cache_gc_shutdown_recv);
         result.spawn_connect(id);
 
         Ok(result)
@@ -343,19 +349,28 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
     /// Spawns task for looking up nodes pre-emptively
     /// as well as garbage collecting the peer cache
-    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(u64, K)>>) {
+    #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+    fn spawn_node_lookup(
+        &self,
+        node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
+        cache_gc_shutdown_send: UnboundedReceiver<()>,
+    ) {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
-        let cur_view = self.inner.cur_view.clone();
+        let latest_view = self.inner.latest_view.clone();
 
         // deals with handling lookup queue. should be infallible
         let handle_ = handle.clone();
         async_spawn(async move {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
+                /// defines lookahead threshold based on the constant
+                const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
+
                 info!("Performing lookup for peer {:?}", pk);
-                // only run if we are before or equal to the specified view number
-                if cur_view.load(Ordering::Relaxed) <= view_number {
+
+                // only run if we are not too close to the next view number
+                if latest_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up node, caching if applicable
                     if let Err(err) = handle_.lookup_node::<K>(pk.clone(), dht_timeout).await {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
@@ -368,16 +383,18 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle_ = handle.clone();
         async_spawn(async move {
             loop {
-                // sleep should be near-zero cycles
-                async_sleep(
-                    handle_
-                        .config()
-                        .ttl
-                        .unwrap_or(Duration::from_secs(28800 * 8)),
-                )
-                .await;
-
-                handle_.prune_peer_cache().await;
+                let ttl = handle_
+                    .config()
+                    .ttl
+                    .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * 8));
+                if async_timeout(ttl, cache_gc_shutdown_send.recv())
+                    .await
+                    .is_err()
+                {
+                    handle_.prune_peer_cache().await;
+                } else {
+                    break;
+                }
             }
         });
     }
@@ -552,6 +569,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     {
         let closure = async move {
             self.inner.node_lookup_send.send(None).await.unwrap();
+            self.inner.cache_gc_shutdown_send.send(()).await.unwrap();
             if self.inner.handle.is_killed() {
                 error!("Called shut down when already shut down! Noop.");
             } else {
@@ -700,28 +718,28 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
     async fn queue_node_lookup(
         &self,
-        view_number: u64,
+        view_number: ViewNumber,
         pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(u64, K)>>> {
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
         self.inner
             .node_lookup_send
             .send(Some((view_number, pk)))
-            .await?;
-
-        Ok(())
+            .await
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
         match event {
             ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) => {
                 let _ = self
-                    .queue_node_lookup(future_view, future_leader)
+                    .queue_node_lookup(ViewNumber::new(future_view), future_leader)
                     .await
                     .map_err(|err| error!("failed to process node lookup request: {}", err));
             }
 
             ConsensusIntentEvent::PollForProposal(new_view) => {
-                self.inner.cur_view.store(new_view, Ordering::Relaxed);
+                if new_view > self.inner.latest_view.load(Ordering::Relaxed) {
+                    self.inner.latest_view.store(new_view, Ordering::Relaxed);
+                }
             }
 
             _ => {}
@@ -872,9 +890,9 @@ where
 
     async fn queue_node_lookup(
         &self,
-        view_number: u64,
+        view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         self.0.queue_node_lookup(view_number, pk).await
     }
 

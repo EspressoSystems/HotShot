@@ -11,7 +11,11 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
+use crate::{
+    data::{ProposalType, ViewNumber},
+    message::MessagePurpose,
+    vote::VoteType,
+};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -257,9 +261,9 @@ pub trait CommunicationChannel<
     /// queues looking up a node
     async fn queue_node_lookup(
         &self,
-        _view_number: u64,
+        _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(u64, TYPES::SignatureKey)>>> {
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
 
@@ -317,9 +321,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// queues lookup of a node
     async fn queue_node_lookup(
         &self,
-        _view_number: u64,
+        _view_number: ViewNumber,
         _pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(u64, K)>>> {
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
         Ok(())
     }
 

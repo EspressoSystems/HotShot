@@ -12,6 +12,7 @@ use commit::Committable;
 use core::time::Duration;
 use either::{Either, Left, Right};
 use futures::FutureExt;
+use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -21,7 +22,6 @@ use hotshot_task::{
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     consensus::{Consensus, View},
-    constants::LOOK_AHEAD,
     data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
