@@ -25,7 +25,7 @@ async fn webserver_libp2p_network() {
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::new(240, 0),
+                duration: Duration::new(480, 0),
             },
         ),
         ..TestMetadata::default_multiple_rounds()
