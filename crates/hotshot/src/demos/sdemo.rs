@@ -206,15 +206,14 @@ impl Block for SDemoBlock {
     }
 
     fn add_transaction_raw(
-        &self,
+        &mut self,
         tx: &Self::Transaction,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> std::result::Result<(), Self::Error> {
         match self {
             SDemoBlock::Genesis(_) => Err(SDemoError::GenesisCantHaveTransactions),
             SDemoBlock::Normal(n) => {
-                let mut new = n.clone();
-                new.transactions.push(tx.clone());
-                Ok(SDemoBlock::Normal(new))
+                n.transactions.push(tx.clone());
+                Ok(())
             }
         }
     }

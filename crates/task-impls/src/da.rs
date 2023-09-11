@@ -511,8 +511,7 @@ where
                     .await;
 
                 for txn in txns {
-                    if let Ok(new_block) = block.add_transaction_raw(&txn) {
-                        block = new_block;
+                    if block.add_transaction_raw(&txn).is_ok() {
                         continue;
                     }
                 }

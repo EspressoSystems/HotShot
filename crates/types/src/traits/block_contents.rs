@@ -50,8 +50,10 @@ pub trait Block:
     /// # Errors
     ///
     /// Should return an error if this transaction leads to an invalid block
-    fn add_transaction_raw(&self, tx: &Self::Transaction)
-        -> std::result::Result<Self, Self::Error>;
+    fn add_transaction_raw(
+        &mut self,
+        tx: &Self::Transaction,
+    ) -> std::result::Result<(), Self::Error>;
 
     /// returns hashes of all the transactions in this block
     /// TODO make this ordered with a vec
@@ -142,12 +144,11 @@ pub mod dummy {
         }
 
         fn add_transaction_raw(
-            &self,
+            &mut self,
             _tx: &Self::Transaction,
-        ) -> std::result::Result<Self, Self::Error> {
-            Ok(Self {
-                nonce: self.nonce + 1,
-            })
+        ) -> std::result::Result<(), Self::Error> {
+            self.nonce += 1;
+            Ok(())
         }
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
