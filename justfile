@@ -16,11 +16,11 @@ run_ci: lint build test
   export RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches
+  cargo build --verbose --workspace --examples --bins --tests --lib --benches
 
 test:
   echo Testing
-  cargo test --verbose --profile=release-lto --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_view_sync_task
 
