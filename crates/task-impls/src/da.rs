@@ -146,13 +146,14 @@ where
             debug!("DA vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
-            // For the case where we receive votes after we've made a certificate
-            if state.accumulator.is_right() {
-                debug!("DA accumulator finished view: {:?}", state.cur_view);
-                return (None, state);
-            }
-
-            let accumulator = state.accumulator.left().unwrap();
+            let accumulator = match state.accumulator {
+                Right(_) => {
+                    // For the case where we receive votes after we've made a certificate
+                    debug!("VID accumulator finished view: {:?}", state.cur_view);
+                    return (None, state);
+                }
+                Left(a) => a,
+            };
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
                 &vote.signature.1,
@@ -197,13 +198,14 @@ where
             debug!("VID vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
-            // For the case where we receive votes after we've made a certificate
-            if state.accumulator.is_right() {
-                debug!("VID accumulator finished view: {:?}", state.cur_view);
-                return (None, state);
-            }
-
-            let accumulator = state.accumulator.left().unwrap();
+            let accumulator = match state.accumulator {
+                Right(_) => {
+                    // For the case where we receive votes after we've made a certificate
+                    debug!("VID accumulator finished view: {:?}", state.cur_view);
+                    return (None, state);
+                }
+                Left(a) => a,
+            };
             match state.committee_exchange.accumulate_vote(
                 &vote.signature.0,
                 &vote.signature.1,
