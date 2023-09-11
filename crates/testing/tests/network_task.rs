@@ -83,14 +83,13 @@ async fn test_network_task() {
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 2);
-    // One output from the input, the other from the DA task.
     output.insert(
         SequencingHotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
-        2,
+        2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     output.insert(
         SequencingHotShotEvent::VidDisperseSend(da_vid_disperse, pub_key),
-        2, // TODO why 2 here and not 1 like everywhere else?
+        2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     // Only one output from the input.
     // The consensus task will fail to send a second proposal, like the DA task does, due to the
