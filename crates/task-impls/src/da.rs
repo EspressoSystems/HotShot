@@ -149,7 +149,7 @@ where
             let accumulator = match state.accumulator {
                 Right(_) => {
                     // For the case where we receive votes after we've made a certificate
-                    debug!("VID accumulator finished view: {:?}", state.cur_view);
+                    debug!("DA accumulator finished view: {:?}", state.cur_view);
                     return (None, state);
                 }
                 Left(a) => a,
@@ -218,25 +218,25 @@ where
             ) {
                 Left(acc) => {
                     state.accumulator = Either::Left(acc);
-                    // debug!("Not enough DA votes! ");
+                    // debug!("Not enough VID votes! ");
                     return (None, state);
                 }
-                Right(dac) => {
-                    debug!("Sending DAC! {:?}", dac.view_number);
+                Right(vid_cert) => {
+                    debug!("Sending VID cert! {:?}", vid_cert.view_number);
                     state
                         .event_stream
                         .publish(SequencingHotShotEvent::VidCertSend(
-                            dac.clone(),
+                            vid_cert.clone(),
                             state.committee_exchange.public_key().clone(),
                         ))
                         .await;
 
-                    state.accumulator = Right(dac.clone());
+                    state.accumulator = Right(vid_cert.clone());
                     state
                         .committee_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *dac.view_number,
+                            *vid_cert.view_number,
                         ))
                         .await;
 
@@ -514,6 +514,7 @@ where
                     sig_lists: Vec::new(),
                     signers: bitvec![0; self.committee_exchange.total_nodes()],
                 };
+                // TODO GG can VID re-use accumulate_vote, or does VID need its own accumulate_vote?
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.clone().signature.0,
                     &vote.clone().signature.1,
