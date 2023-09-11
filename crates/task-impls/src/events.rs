@@ -65,11 +65,11 @@ pub enum SequencingHotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`DAProposalSend`].
-    VidDisperseSend(VidDisperse<TYPES>, TYPES::SignatureKey),
+    VidDisperseSend(Proposal<VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`DAProposalRecv`].
-    VidDisperseRecv(VidDisperse<TYPES>, TYPES::SignatureKey),
+    VidDisperseRecv(Proposal<VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Send a VID vote to the VID leader; emitted by VID storage nodes in the DA task after seeing a valid VID dispersal
     ///
     /// Like [`DAVoteSend`]

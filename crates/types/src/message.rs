@@ -212,7 +212,7 @@ pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType> {
     /// Certificate for the DA.
     DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
     /// VID dispersal data. Like [`DAProposal`]
-    VidDisperseMsg(VidDisperse<TYPES>, TYPES::SignatureKey),
+    VidDisperseMsg(Proposal<VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Vote from VID storage node. Like [`DAVote`]
     VidVote(DAVote<TYPES>, TYPES::SignatureKey),
     /// Certificate for VID. Like [`DACertificate`]
@@ -340,7 +340,7 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     ///
     /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from [`VidDisperse`].
     /// TODO this variant should not be a [`CommitteeConsensusMessage`] because <https://github.com/EspressoSystems/HotShot/issues/1696>
-    VidDisperseMsg(VidDisperse<TYPES>),
+    VidDisperseMsg(Proposal<VidDisperse<TYPES>>),
 
     /// Vote for VID disperse data
     ///
@@ -423,7 +423,9 @@ impl<
                     CommitteeConsensusMessage::DAVote(vote_message) => vote_message.current_view(),
                     CommitteeConsensusMessage::DACertificate(cert)
                     | CommitteeConsensusMessage::VidCertificate(cert) => cert.view_number,
-                    CommitteeConsensusMessage::VidDisperseMsg(disperse) => disperse.view_number,
+                    CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
+                        disperse.data.get_view_number()
+                    }
                     CommitteeConsensusMessage::VidVote(vote) => vote.current_view(),
                 }
             }

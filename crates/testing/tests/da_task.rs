@@ -88,12 +88,13 @@ async fn test_da_task() {
         }
     }
     output.insert(
-        SequencingHotShotEvent::VidDisperseSend(
-            VidDisperse {
+        SequencingHotShotEvent::VidDisperseSend( Proposal {
+            data: VidDisperse {
                 view_number: message.data.view_number,
                 shares,
                 common,
             },
+            signature: message.signature.clone(),},
             pub_key,
         ),
         1,

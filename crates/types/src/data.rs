@@ -235,6 +235,13 @@ impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> ProposalType for VidDisperse<TYPES> {
+    type NodeType = TYPES;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        self.view_number
+    }
+}
+
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     for QuorumProposal<TYPES, LEAF>
 {

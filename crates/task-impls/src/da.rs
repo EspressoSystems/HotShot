@@ -555,13 +555,16 @@ where
                 };
             }
             SequencingHotShotEvent::VidDisperseRecv(disperse, _sender) => {
-                debug!("VID disperse received for view: {:?}", disperse.view_number);
+                debug!(
+                    "VID disperse received for view: {:?}",
+                    disperse.data.get_view_number()
+                );
 
                 // TODO https://github.com/EspressoSystems/HotShot/issues/1691
                 // TODO eliminate copy-paste view/leader checks from `DAProposalRecv` code
 
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
-                let view = disperse.view_number;
+                let view = disperse.data.get_view_number();
 
                 // Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
@@ -783,11 +786,13 @@ where
                     let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
                     self.event_stream
                         .publish(SequencingHotShotEvent::VidDisperseSend(
-                            VidDisperse {
+                            Proposal{
+                            data: VidDisperse {
                                 view_number: self.cur_view + 1, // copied from `data` above
                                 shares,
                                 common,
                             },
+                            signature: message.signature, },
                             // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
                             self.committee_exchange.public_key().clone(),
                         ))
