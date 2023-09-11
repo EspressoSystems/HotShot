@@ -98,7 +98,17 @@ async fn test_da_task() {
         ),
         1,
     );
+
     // TODO why does this test pass without a `VidVoteSend` event here? https://github.com/EspressoSystems/HotShot/issues/1697
+    // TODO test hangs if we uncomment the following
+    // if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
+    //     let vid_message =
+    //         committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
+    //     if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
+    //         output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
+    //     }
+    // }
+
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
     // TODO why does this test pass without a `VidDisperseRecv` event here? https://github.com/EspressoSystems/HotShot/issues/1697
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
