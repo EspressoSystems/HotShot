@@ -82,12 +82,10 @@ async fn test_da_task() {
         message.clone(),
         pub_key,
     ));
-    // TODO why does this test pass without a `VidDisperseRecv` event here? https://github.com/EspressoSystems/HotShot/issues/1697
-    // TODO test panics if we uncomment the following
-    // input.push(SequencingHotShotEvent::VidDisperseRecv(
-    //     vid_proposal.clone(),
-    //     pub_key,
-    // ));
+    input.push(SequencingHotShotEvent::VidDisperseRecv(
+        vid_proposal.clone(),
+        pub_key,
+    ));
     input.push(SequencingHotShotEvent::Shutdown);
 
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(1)), 1);
@@ -108,25 +106,21 @@ async fn test_da_task() {
         1,
     );
 
-    // TODO why does this test pass without a `VidVoteSend` event here? https://github.com/EspressoSystems/HotShot/issues/1697
-    // TODO test hangs if we uncomment the following
-    // if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
-    //     let vid_message =
-    //         committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
-    //     if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
-    //         output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
-    //     } else {
-    //         panic!("wtf");
-    //     }
-    // }
+    if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
+        let vid_message =
+            committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
+        if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
+            output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
+        } else {
+            panic!("wtf");
+        }
+    }
 
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
-    // TODO why does this test pass without a `VidDisperseRecv` event here? https://github.com/EspressoSystems/HotShot/issues/1697
-    // TODO test hangs if we uncomment the following
-    // output.insert(
-    //     SequencingHotShotEvent::VidDisperseRecv(vid_proposal, pub_key),
-    //     1,
-    // );
+    output.insert(
+        SequencingHotShotEvent::VidDisperseRecv(vid_proposal, pub_key),
+        1,
+    );
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
