@@ -347,12 +347,12 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// Vote for VID disperse data
     ///
     /// Like [`DAVote`].
-    /// TODO currently re-using [`DAVote`], eventually we'll need a separate VID vote <https://github.com/EspressoSystems/HotShot/issues/1703>
+    /// TODO currently re-using [`DAVote`]; do we need a separate VID vote? <https://github.com/EspressoSystems/HotShot/issues/1703>
     VidVote(DAVote<TYPES>),
     /// VID certificate data is available
     ///
     /// Like [`DACertificate`]
-    /// TODO GG can I re-use [`DACertificate`] for VID?
+    /// TODO currently re-using [`DACertificate`]; do we need a separate VID cert? <https://github.com/EspressoSystems/HotShot/issues/1716>
     VidCertificate(DACertificate<TYPES>),
 }
 

@@ -238,7 +238,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 }
                             }
                             MessagePurpose::VidVote => {
-                                // TODO GG copied from `MessagePurpose::Vote` match arm
+                                // TODO copy-pasted from `MessagePurpose::Vote` https://github.com/EspressoSystems/HotShot/issues/1690
                                 let mut direct_poll_queue = self.direct_poll_queue.write().await;
                                 for vote in &deserialized_messages {
                                     vote_index += 1;
@@ -261,7 +261,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 return Ok(());
                             }
                             MessagePurpose::VidCert => {
-                                // TODO GG copied from `MessagePurpose::DAC` match arm
+                                // TODO copy-pasted from `MessagePurpose::DAC` https://github.com/EspressoSystems/HotShot/issues/1690
                                 debug!(
                                     "Received VID cert from web server for view {} {}",
                                     view_number, self.is_da
@@ -277,7 +277,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 return Ok(());
                             }
                             MessagePurpose::VidDisperse => {
-                                // TODO GG copied from `MessagePurpose::Proposal` match arm
+                                // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
 
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                                 self.broadcast_poll_queue

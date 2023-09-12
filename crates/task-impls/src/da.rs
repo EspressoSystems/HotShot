@@ -193,8 +193,9 @@ where
                 }
             }
         }
-        // TODO https://github.com/EspressoSystems/HotShot/issues/1690
         SequencingHotShotEvent::VidVoteRecv(vote) => {
+            // TODO copy-pasted from DAVoteRecv https://github.com/EspressoSystems/HotShot/issues/1690
+
             debug!("VID vote recv, collection task {:?}", vote.current_view);
             // panic!("Vote handle received DA vote for view {}", *vote.current_view);
 
@@ -469,8 +470,9 @@ where
                         .await;
                 };
             }
-            // TODO https://github.com/EspressoSystems/HotShot/issues/1690
             SequencingHotShotEvent::VidVoteRecv(vote) => {
+                // TODO copy-pasted from DAVoteRecv https://github.com/EspressoSystems/HotShot/issues/1690
+
                 // warn!(
                 //     "VID vote recv, Main Task {:?}, key: {:?}",
                 //     vote.current_view,
@@ -514,7 +516,6 @@ where
                     sig_lists: Vec::new(),
                     signers: bitvec![0; self.committee_exchange.total_nodes()],
                 };
-                // TODO GG can VID re-use accumulate_vote, or does VID need its own accumulate_vote?
                 let accumulator = self.committee_exchange.accumulate_vote(
                     &vote.clone().signature.0,
                     &vote.clone().signature.1,
@@ -559,13 +560,11 @@ where
                 };
             }
             SequencingHotShotEvent::VidDisperseRecv(disperse, sender) => {
+                // TODO copy-pasted from DAProposalRecv https://github.com/EspressoSystems/HotShot/issues/1690
                 debug!(
                     "VID disperse received for view: {:?}",
                     disperse.data.get_view_number()
                 );
-
-                // TODO https://github.com/EspressoSystems/HotShot/issues/1691
-                // TODO eliminate copy-paste view/leader checks from `DAProposalRecv` code
 
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = disperse.data.get_view_number();
