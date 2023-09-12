@@ -281,8 +281,14 @@ impl<
         <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(self.network(), event)
+        >>::inject_consensus_info(self.network(), event.clone())
         .await;
+
+        <Libp2pNetwork<_, _> as ConnectedNetwork<
+        Message<TYPES, I>,
+        TYPES::SignatureKey,
+        >>::inject_consensus_info(self.fallback(), event)
+    .await;
     }
 }
 

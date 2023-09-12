@@ -338,8 +338,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 topic_map,
                 node_lookup_send,
                 cache_gc_shutdown_send,
-                // Start the latest view from 0. "Latest" refers to "most recent view we are polling for 
-                // proposals on". We need this because to have consensus info injected we need a working 
+                // Start the latest view from 0. "Latest" refers to "most recent view we are polling for
+                // proposals on". We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don't need.
                 latest_seen_view: Arc::new(AtomicU64::new(0)),
             }),
@@ -743,7 +743,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
             ConsensusIntentEvent::PollForProposal(new_view) => {
                 if new_view > self.inner.latest_seen_view.load(Ordering::Relaxed) {
-                    self.inner.latest_seen_view.store(new_view, Ordering::Relaxed);
+                    self.inner
+                        .latest_seen_view
+                        .store(new_view, Ordering::Relaxed);
                 }
             }
 
