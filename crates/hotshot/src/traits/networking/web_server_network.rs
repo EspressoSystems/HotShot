@@ -172,6 +172,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::Vid => unimplemented!(), // TODO https://github.com/EspressoSystems/HotShot/issues/1685
+                MessagePurpose::VidVote => config::get_vid_vote_route(view_number, vote_index), // like `Vote`
             };
 
             if message_purpose == MessagePurpose::Data {
@@ -229,6 +230,14 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 //     view_number,
                                 //     self.is_da
                                 // );
+                                let mut direct_poll_queue = self.direct_poll_queue.write().await;
+                                for vote in &deserialized_messages {
+                                    vote_index += 1;
+                                    direct_poll_queue.push(vote.clone());
+                                }
+                            }
+                            MessagePurpose::VidVote => {
+                                // TODO GG copied from `MessagePurpose::Vote` match arm
                                 let mut direct_poll_queue = self.direct_poll_queue.write().await;
                                 for vote in &deserialized_messages {
                                     vote_index += 1;
@@ -511,6 +520,7 @@ impl<
             }
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
+            MessagePurpose::VidVote => config::post_vid_vote_route(*view_number),
             MessagePurpose::Vid => config::post_vid_todo(*view_number),
         };
 

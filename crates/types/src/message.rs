@@ -73,6 +73,8 @@ pub enum MessagePurpose {
     ///
     /// TODO split this variant <https://github.com/EspressoSystems/HotShot/issues/1702>
     Vid,
+    /// VID vote
+    VidVote,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -350,6 +352,7 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// VID certificate data is available
     ///
     /// Like [`DACertificate`]
+    /// TODO GG can I re-use [`DACertificate`] for VID?
     VidCertificate(DACertificate<TYPES>),
 }
 
@@ -445,9 +448,8 @@ impl<
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
-                CommitteeConsensusMessage::DAVote(_) | CommitteeConsensusMessage::VidVote(_) => {
-                    MessagePurpose::Vote
-                }
+                CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                CommitteeConsensusMessage::VidVote(_) => MessagePurpose::VidVote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_)
                 | CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::Vid,

@@ -37,6 +37,14 @@ pub fn post_vote_route(view_number: u64) -> String {
     format!("api/votes/{view_number}")
 }
 
+pub fn get_vid_vote_route(view_number: u64, index: u64) -> String {
+    format!("api/vid/votes/{view_number}/{index}")
+}
+
+pub fn post_vid_vote_route(view_number: u64) -> String {
+    format!("api/vid/votes/{view_number}")
+}
+
 pub fn get_transactions_route(index: u64) -> String {
     format!("api/transactions/{index}")
 }
