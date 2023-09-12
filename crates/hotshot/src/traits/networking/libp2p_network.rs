@@ -57,7 +57,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
@@ -114,7 +114,9 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// btreemap ordered so is hashable
     topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
     /// the latest view number (for node lookup purposes)
-    latest_view: Arc<AtomicU64>,
+    /// NOTE: supposed to represent a ViewNumber but we
+    /// haven't made that atomic yet and we prefer lock-free
+    latest_seen_view: Arc<AtomicU64>,
 }
 
 /// Networking implementation that uses libp2p
@@ -336,7 +338,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 topic_map,
                 node_lookup_send,
                 cache_gc_shutdown_send,
-                latest_view: Arc::new(AtomicU64::new(0)),
+                // Start the latest view from 0. "Latest" refers to "most recent view we are polling for 
+                // proposals on". We need this because to have consensus info injected we need a working 
+                // network already. In the worst case, we send a few lookups we don't need.
+                latest_seen_view: Arc::new(AtomicU64::new(0)),
             }),
         };
 
@@ -357,7 +362,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
-        let latest_view = self.inner.latest_view.clone();
+        let latest_seen_view = self.inner.latest_seen_view.clone();
 
         // deals with handling lookup queue. should be infallible
         let handle_ = handle.clone();
@@ -370,7 +375,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 info!("Performing lookup for peer {:?}", pk);
 
                 // only run if we are not too close to the next view number
-                if latest_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
+                if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up node, caching if applicable
                     if let Err(err) = handle_.lookup_node::<K>(pk.clone(), dht_timeout).await {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
@@ -733,12 +738,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 let _ = self
                     .queue_node_lookup(ViewNumber::new(future_view), future_leader)
                     .await
-                    .map_err(|err| error!("failed to process node lookup request: {}", err));
+                    .map_err(|err| warn!("failed to process node lookup request: {}", err));
             }
 
             ConsensusIntentEvent::PollForProposal(new_view) => {
-                if new_view > self.inner.latest_view.load(Ordering::Relaxed) {
-                    self.inner.latest_view.store(new_view, Ordering::Relaxed);
+                if new_view > self.inner.latest_seen_view.load(Ordering::Relaxed) {
+                    self.inner.latest_seen_view.store(new_view, Ordering::Relaxed);
                 }
             }
 
