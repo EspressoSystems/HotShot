@@ -171,7 +171,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
-                MessagePurpose::Vid => unimplemented!(), // TODO https://github.com/EspressoSystems/HotShot/issues/1685
+                MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
                 MessagePurpose::VidVote => config::get_vid_vote_route(view_number, vote_index), // like `Vote`
             };
 
@@ -259,8 +259,24 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                                 // In future we should check to make sure DAC is valid
                                 return Ok(());
                             }
-                            MessagePurpose::Vid => {
-                                unimplemented!() // TODO https://github.com/EspressoSystems/HotShot/issues/1685
+                            MessagePurpose::VidDisperse => {
+                                // TODO GG copied from `MessagePurpose::Proposal` match arm
+
+                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                                self.broadcast_poll_queue
+                                    .write()
+                                    .await
+                                    .push(deserialized_messages[0].clone());
+
+                                return Ok(());
+                                // Wait for the view to change before polling for proposals again
+                                // let event = receiver.recv().await;
+                                // match event {
+                                //     Ok(event) => view_number = event.view_number(),
+                                //     Err(_r) => {
+                                //         error!("Proposal receiver error!  It was likely shutdown")
+                                //     }
+                                // }
                             }
                             MessagePurpose::ViewSyncVote => {
                                 // error!(
@@ -521,7 +537,7 @@ impl<
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidVote => config::post_vid_vote_route(*view_number),
-            MessagePurpose::Vid => config::post_vid_todo(*view_number),
+            MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {

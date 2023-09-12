@@ -69,11 +69,9 @@ pub enum MessagePurpose {
     Internal,
     /// Data message
     Data,
-    /// VID message
-    ///
-    /// TODO split this variant <https://github.com/EspressoSystems/HotShot/issues/1702>
-    Vid,
-    /// VID vote
+    /// VID disperse, like [`Proposal`].
+    VidDisperse,
+    /// VID vote, like [`Vote`].
     VidVote,
 }
 
@@ -451,8 +449,8 @@ impl<
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::VidVote(_) => MessagePurpose::VidVote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
-                CommitteeConsensusMessage::VidDisperseMsg(_)
-                | CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::Vid,
+                CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
+                CommitteeConsensusMessage::VidCertificate(_) => todo!(),
             },
         }
     }

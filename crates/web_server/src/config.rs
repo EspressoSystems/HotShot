@@ -25,16 +25,20 @@ pub fn post_da_certificate_route(view_number: u64) -> String {
     format!("api/certificate/{view_number}")
 }
 
-pub fn post_vid_todo(view_number: u64) -> String {
-    format!("api/vid-todo/{view_number}") // TODO https://github.com/EspressoSystems/HotShot/issues/1685
-}
-
 pub fn get_vote_route(view_number: u64, index: u64) -> String {
     format!("api/votes/{view_number}/{index}")
 }
 
 pub fn post_vote_route(view_number: u64) -> String {
     format!("api/votes/{view_number}")
+}
+
+pub fn get_vid_disperse_route(view_number: u64) -> String {
+    format!("api/vid/disperse/{view_number}")
+}
+
+pub fn post_vid_disperse_route(view_number: u64) -> String {
+    format!("api/vid/disperse/{view_number}")
 }
 
 pub fn get_vid_vote_route(view_number: u64, index: u64) -> String {
