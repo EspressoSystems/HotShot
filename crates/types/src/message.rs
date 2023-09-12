@@ -73,6 +73,8 @@ pub enum MessagePurpose {
     VidDisperse,
     /// VID vote, like [`Vote`].
     VidVote,
+    /// VID certificate, like [`DAC`].
+    VidCert,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message

@@ -173,6 +173,7 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
                 MessagePurpose::VidVote => config::get_vid_vote_route(view_number, vote_index), // like `Vote`
+                MessagePurpose::VidCert => config::get_vid_cert_route(view_number), // like `DAC`
             };
 
             if message_purpose == MessagePurpose::Data {
@@ -257,6 +258,22 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> Inner<M, KEY, TYPES> {
 
                                 // return if we found a DAC, since there will only be 1 per view
                                 // In future we should check to make sure DAC is valid
+                                return Ok(());
+                            }
+                            MessagePurpose::VidCert => {
+                                // TODO GG copied from `MessagePurpose::DAC` match arm
+                                debug!(
+                                    "Received VID cert from web server for view {} {}",
+                                    view_number, self.is_da
+                                );
+                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                                self.broadcast_poll_queue
+                                    .write()
+                                    .await
+                                    .push(deserialized_messages[0].clone());
+
+                                // return if we found a VID cert, since there will only be 1 per view
+                                // In future we should check to make sure VID cert is valid
                                 return Ok(());
                             }
                             MessagePurpose::VidDisperse => {
@@ -538,6 +555,7 @@ impl<
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidVote => config::post_vid_vote_route(*view_number),
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
+            MessagePurpose::VidCert => config::post_vid_disperse_route(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
