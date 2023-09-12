@@ -94,26 +94,30 @@ async fn test_da_task() {
         SequencingHotShotEvent::DAProposalSend(message.clone(), pub_key),
         1,
     );
-    if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
-        let da_message =
-            committee_exchange.create_da_message(block_commitment, ViewNumber::new(2), vote_token);
-        if let CommitteeConsensusMessage::DAVote(vote) = da_message {
-            output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
-        }
+    let vote_token = committee_exchange
+        .make_vote_token(ViewNumber::new(2))
+        .unwrap()
+        .unwrap();
+    let da_message =
+        committee_exchange.create_da_message(block_commitment, ViewNumber::new(2), vote_token);
+    if let CommitteeConsensusMessage::DAVote(vote) = da_message {
+        output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
     }
     output.insert(
         SequencingHotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
         1,
     );
 
-    if let Ok(Some(vote_token)) = committee_exchange.make_vote_token(ViewNumber::new(2)) {
-        let vid_message =
-            committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
-        if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
-            output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
-        } else {
-            panic!("wtf");
-        }
+    let vote_token = committee_exchange
+        .make_vote_token(ViewNumber::new(2))
+        .unwrap()
+        .unwrap();
+    let vid_message =
+        committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
+    if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
+        output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
+    } else {
+        panic!("wtf");
     }
 
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
