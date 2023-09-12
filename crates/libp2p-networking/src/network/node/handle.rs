@@ -767,24 +767,24 @@ mod test {
         let present_pid = PeerId::random();
         handle
             .peer_cache
-            .insert(present_key.clone(), present_pid.clone());
+            .insert(present_key, present_pid);
         handle
             .peer_cache_expiries
             .write()
             .await
-            .insert(now, present_key.clone());
+            .insert(now, present_key);
 
         // later insert
         let later_key = PeerId::random();
         let later_pid = PeerId::random();
         handle
             .peer_cache
-            .insert(later_key.clone(), later_pid.clone());
+            .insert(later_key, later_pid);
         handle
             .peer_cache_expiries
             .write()
             .await
-            .insert(now + Duration::from_secs(1), later_key.clone());
+            .insert(now + Duration::from_secs(1), later_key);
 
         // check that now and later exist
         assert!(handle
