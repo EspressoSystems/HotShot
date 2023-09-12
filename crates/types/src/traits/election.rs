@@ -15,7 +15,7 @@ use crate::{
 };
 
 use crate::{
-    message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message},
+    message::{GeneralConsensusMessage, Message},
     vote::ViewSyncVoteInternal,
 };
 
@@ -517,7 +517,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES>;
+    ) -> DAVote<TYPES>;
 
     // TODO temporary vid methods, move to quorum https://github.com/EspressoSystems/HotShot/issues/1696
 
@@ -527,7 +527,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES>;
+    ) -> DAVote<TYPES>;
 
     /// Sign a vote on VID proposal.
     fn sign_vid_vote(
@@ -597,15 +597,15 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES> {
+    ) -> DAVote<TYPES> {
         let signature = self.sign_da_vote(block_commitment);
-        CommitteeConsensusMessage::<TYPES>::DAVote(DAVote {
+        DAVote {
             signature,
             block_commitment,
             current_view,
             vote_token,
             vote_data: VoteData::DA(block_commitment),
-        })
+        }
     }
 
     fn create_vid_message(
@@ -613,15 +613,15 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: <TYPES as NodeType>::Time,
         vote_token: <TYPES as NodeType>::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES> {
+    ) -> DAVote<TYPES> {
         let signature = self.sign_vid_vote(block_commitment);
-        CommitteeConsensusMessage::<TYPES>::VidVote(DAVote {
+        DAVote {
             signature,
             block_commitment,
             current_view,
             vote_token,
             vote_data: VoteData::DA(block_commitment),
-        })
+        }
     }
 
     fn sign_vid_vote(

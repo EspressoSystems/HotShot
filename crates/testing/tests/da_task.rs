@@ -26,10 +26,7 @@ async fn test_da_task() {
     };
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{
-        message::{CommitteeConsensusMessage, Proposal},
-        traits::election::CommitteeExchangeType,
-    };
+    use hotshot_types::{message::Proposal, traits::election::CommitteeExchangeType};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -98,11 +95,9 @@ async fn test_da_task() {
         .make_vote_token(ViewNumber::new(2))
         .unwrap()
         .unwrap();
-    let da_message =
+    let da_vote =
         committee_exchange.create_da_message(block_commitment, ViewNumber::new(2), vote_token);
-    if let CommitteeConsensusMessage::DAVote(vote) = da_message {
-        output.insert(SequencingHotShotEvent::DAVoteSend(vote), 1);
-    }
+    output.insert(SequencingHotShotEvent::DAVoteSend(da_vote), 1);
     output.insert(
         SequencingHotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
         1,
@@ -112,13 +107,9 @@ async fn test_da_task() {
         .make_vote_token(ViewNumber::new(2))
         .unwrap()
         .unwrap();
-    let vid_message =
+    let vid_vote =
         committee_exchange.create_vid_message(block_commitment, ViewNumber::new(2), vote_token);
-    if let CommitteeConsensusMessage::VidVote(vote) = vid_message {
-        output.insert(SequencingHotShotEvent::VidVoteSend(vote), 1);
-    } else {
-        panic!("wtf");
-    }
+    output.insert(SequencingHotShotEvent::VidVoteSend(vid_vote), 1);
 
     output.insert(SequencingHotShotEvent::DAProposalRecv(message, pub_key), 1);
     output.insert(

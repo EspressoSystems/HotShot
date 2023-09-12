@@ -19,7 +19,7 @@ use hotshot_types::{
     certificate::DACertificate,
     consensus::{Consensus, View},
     data::{DAProposal, ProposalType, SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
-    message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
+    message::{Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
         election::{CommitteeExchangeType, ConsensusExchange, Membership},
@@ -353,7 +353,7 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         // Generate and send vote
-                        let message = self.committee_exchange.create_da_message(
+                        let vote = self.committee_exchange.create_da_message(
                             block_commitment,
                             view,
                             vote_token,
@@ -362,15 +362,10 @@ where
                         // ED Don't think this is necessary?
                         // self.cur_view = view;
 
-                        if let CommitteeConsensusMessage::DAVote(vote) = message {
-                            debug!("Sending vote to the DA leader {:?}", vote.current_view);
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::DAVoteSend(vote))
-                                .await;
-                        } else {
-                            // TODO use the type system to make this check unnecessary https://github.com/EspressoSystems/HotShot/issues/1717
-                            error!("create_da_message did not return a DA message!");
-                        }
+                        debug!("Sending vote to the DA leader {:?}", vote.current_view);
+                        self.event_stream
+                            .publish(SequencingHotShotEvent::DAVoteSend(vote))
+                            .await;
                         let mut consensus = self.consensus.write().await;
 
                         // Ensure this view is in the view map for garbage collection, but do not overwrite if
@@ -604,7 +599,7 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         // Generate and send vote
-                        let message = self.committee_exchange.create_vid_message(
+                        let vote = self.committee_exchange.create_vid_message(
                             block_commitment,
                             view,
                             vote_token,
@@ -613,15 +608,10 @@ where
                         // ED Don't think this is necessary?
                         // self.cur_view = view;
 
-                        if let CommitteeConsensusMessage::VidVote(vote) = message {
-                            debug!("Sending vote to the VID leader {:?}", vote.current_view);
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::VidVoteSend(vote))
-                                .await;
-                        } else {
-                            // TODO use the type system to make this check unnecessary https://github.com/EspressoSystems/HotShot/issues/1717
-                            error!("create_vid_message did not return a vid message!");
-                        }
+                        debug!("Sending vote to the VID leader {:?}", vote.current_view);
+                        self.event_stream
+                            .publish(SequencingHotShotEvent::VidVoteSend(vote))
+                            .await;
                         let mut consensus = self.consensus.write().await;
 
                         // Ensure this view is in the view map for garbage collection, but do not overwrite if
