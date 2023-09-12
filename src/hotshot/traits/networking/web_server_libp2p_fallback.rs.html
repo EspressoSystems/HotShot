@@ -312,10 +312,6 @@
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -328,9 +324,10 @@
 
 <span class="kw">use </span>futures::join;
 
+<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
-    data::ProposalType,
+    data::{ProposalType, ViewNumber},
     message::Message,
     traits::{
         election::Membership,
@@ -581,36 +578,31 @@
         boxed_sync(closure)
     }
 
-    <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">match </span><span class="macro">join!</span>(
-            <span class="self">self</span>.network().lookup_node(pk.clone()),
-            <span class="self">self</span>.fallback().lookup_node(pk)
-        ) {
-            (<span class="prelude-val">Err</span>(e1), <span class="prelude-val">Err</span>(e2)) =&gt; {
-                <span class="macro">error!</span>(
-                    <span class="string">&quot;Both network lookups failed primary error: {}, fallback error: {}&quot;</span>,
-                    e1, e2
-                );
-                <span class="prelude-val">Err</span>(e1)
-            }
-            (<span class="prelude-val">Err</span>(e), <span class="kw">_</span>) =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Failed primary lookup with error: {}&quot;</span>, e);
-                <span class="prelude-val">Ok</span>(())
-            }
-            (<span class="kw">_</span>, <span class="prelude-val">Err</span>(e)) =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Failed backup lookup with error: {}&quot;</span>, e);
-                <span class="prelude-val">Ok</span>(())
-            }
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
-        }
+    <span class="kw">async fn </span>queue_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: ViewNumber,
+        pk: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+        <span class="self">self</span>.network()
+            .queue_node_lookup(view_number, pk.clone())
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.fallback().queue_node_lookup(view_number, pk).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent) {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
         &lt;WebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, I&gt;,
             TYPES::SignatureKey,
-        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.network(), event)
+        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.network(), event.clone())
         .<span class="kw">await</span>;
+
+        &lt;Libp2pNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+        Message&lt;TYPES, I&gt;,
+        TYPES::SignatureKey,
+        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.fallback(), event)
+    .<span class="kw">await</span>;
     }
 }
 

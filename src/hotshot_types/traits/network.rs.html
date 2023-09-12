@@ -368,6 +368,24 @@
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -381,7 +399,12 @@
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_executor_impl = <span class="string">&quot;tokio&quot;</span>)))]
 </span><span class="macro">compile_error! </span>{<span class="string">&quot;Either config option \&quot;async-std\&quot; or \&quot;tokio\&quot; must be enabled for this crate.&quot;</span>}
 <span class="kw">use super</span>::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-<span class="kw">use crate</span>::{data::ProposalType, message::MessagePurpose, vote::VoteType};
+<span class="kw">use crate</span>::{
+    data::{ProposalType, ViewNumber},
+    message::MessagePurpose,
+    vote::VoteType,
+};
+<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
@@ -500,7 +523,7 @@
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="comment">// Storing view number as a u64 to avoid the need TYPES generic
 </span><span class="doccomment">/// Events to poll or cancel consensus processes.
-</span><span class="kw">pub enum </span>ConsensusIntentEvent {
+</span><span class="kw">pub enum </span>ConsensusIntentEvent&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// Poll for votes for a particular view
     </span>PollForVotes(u64),
     <span class="doccomment">/// Poll for a proposal for a particular view
@@ -513,6 +536,8 @@
     </span>PollForViewSyncCertificate(u64),
     <span class="doccomment">/// Poll for new transactions
     </span>PollForTransactions(u64),
+    <span class="doccomment">/// Poll for future leader
+    </span>PollFutureLeader(u64, K),
     <span class="doccomment">/// Cancel polling for votes
     </span>CancelPollForVotes(u64),
     <span class="doccomment">/// Cancel polling for view sync votes.
@@ -527,7 +552,7 @@
     </span>CancelPollForTransactions(u64),
 }
 
-<span class="kw">impl </span>ConsensusIntentEvent {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; ConsensusIntentEvent&lt;K&gt; {
     <span class="doccomment">/// Get the view number of the event.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
@@ -543,7 +568,8 @@
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForTransactions(view_number)
-            | ConsensusIntentEvent::CancelPollForTransactions(view_number) =&gt; <span class="kw-2">*</span>view_number,
+            | ConsensusIntentEvent::CancelPollForTransactions(view_number)
+            | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
         }
     }
 }
@@ -620,13 +646,18 @@
         </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
         <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
 
-    <span class="doccomment">/// look up a node
-    /// blocking
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
+    <span class="doccomment">/// queues looking up a node
+    </span><span class="kw">async fn </span>queue_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _view_number: ViewNumber,
+        _pk: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
 
     <span class="doccomment">/// Injects consensus data such as view number into the networking implementation
     /// blocking
-    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent);
+    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {}
 }
 
 <span class="doccomment">/// represents a networking implmentration
@@ -675,14 +706,19 @@
         </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
         <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
 
-    <span class="doccomment">/// look up a node
-    /// blocking
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
+    <span class="doccomment">/// queues lookup of a node
+    </span><span class="kw">async fn </span>queue_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _view_number: ViewNumber,
+        _pk: K,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
 
     <span class="doccomment">/// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent);
+    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;K&gt;) {}
 }
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation

@@ -1,6 +1,7 @@
 var sourcesIndex = JSON.parse('{\
 "counter":["",[],["counter.rs"]],\
 "hotshot":["",[["demos",[],["sdemo.rs","vdemo.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["libp2p_network.rs","memory_network.rs","web_server_libp2p_fallback.rs","web_server_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
+"hotshot_constants":["",[],["lib.rs"]],\
 "hotshot_orchestrator":["",[],["client.rs","config.rs","lib.rs"]],\
 "hotshot_qc":["",[["snarked",[],["circuit.rs"]]],["bit_vector.rs","bit_vector_old.rs","lib.rs","snarked.rs"]],\
 "hotshot_signature_key":["",[["bn254",[],["bn254_priv.rs","bn254_pub.rs"]]],["bn254.rs","lib.rs"]],\
@@ -8,7 +9,7 @@ var sourcesIndex = JSON.parse('{\
 "hotshot_task":["",[],["event_stream.rs","global_registry.rs","lib.rs","task.rs","task_impls.rs","task_launcher.rs","task_state.rs"]],\
 "hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","lib.rs","network.rs","view_sync.rs"]],\
 "hotshot_testing":["",[],["completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","task_helpers.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs"]],\
-"hotshot_types":["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["certificate.rs","consensus.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","utils.rs","vote.rs"]],\
+"hotshot_types":["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["certificate.rs","consensus.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","utils.rs","vote.rs"]],\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "hotshot_web_server":["",[],["config.rs","lib.rs"]],\
 "libp2p_networking":["",[["network",[["behaviours",[],["dht.rs","direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\

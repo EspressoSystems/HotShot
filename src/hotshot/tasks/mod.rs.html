@@ -494,82 +494,13 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{
     async_spawn, types::SystemContextHandle, DACertificate, HotShotSequencingConsensusApi,
-    QuorumCertificate, SequencingQuorumEx, SystemContext,
+    QuorumCertificate, SequencingQuorumEx,
 };
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn_local};
+<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
@@ -591,7 +522,6 @@
 };
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    constants::LOOK_AHEAD,
     data::{ProposalType, QuorumProposal, SequencingLeaf},
     event::Event,
     message::{Message, Messages, SequencingMessage},
@@ -606,75 +536,7 @@
     },
     vote::{ViewSyncData, VoteType},
 };
-<span class="kw">use </span>std::{
-    collections::HashMap,
-    marker::PhantomData,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-<span class="kw">use </span>tracing::info;
-
-<span class="doccomment">/// Task to look up a node in the future as needed
-</span><span class="kw">pub async fn </span>network_lookup_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    hotshot: SystemContext&lt;TYPES, I&gt;,
-    shut_down: Arc&lt;AtomicBool&gt;,
-) {
-    <span class="macro">info!</span>(<span class="string">&quot;Launching network lookup task&quot;</span>);
-    <span class="kw">let </span>networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
-
-    <span class="kw">let </span>inner = hotshot.inner.clone();
-
-    <span class="kw">let </span><span class="kw-2">mut </span>completion_map: HashMap&lt;TYPES::Time, Arc&lt;AtomicBool&gt;&gt; = HashMap::default();
-
-    <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) {
-        <span class="kw">let </span>lock = hotshot.inner.recv_network_lookup.lock().<span class="kw">await</span>;
-
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cur_view)) = lock.recv().<span class="kw">await </span>{
-            <span class="kw">let </span>view_to_lookup = cur_view + LOOK_AHEAD;
-
-            <span class="comment">// perform pruning
-            // TODO in the future btreemap would be better
-            </span>completion_map = completion_map
-                .drain()
-                .filter(|(view, is_done)| {
-                    <span class="kw">if </span>!is_done.load(Ordering::Relaxed) {
-                        <span class="comment">// we are past the view where this is useful
-                        </span><span class="kw">if </span>cur_view &gt;= <span class="kw-2">*</span>view {
-                            is_done.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-                            <span class="kw">return </span><span class="bool-val">true</span>;
-                        }
-                        <span class="comment">// we aren&#39;t done
-                        </span><span class="kw">return </span><span class="bool-val">false</span>;
-                    }
-                    <span class="bool-val">true
-                </span>})
-                .collect();
-
-            <span class="comment">// logic to look ahead
-            </span><span class="kw">if </span>!inner.exchanges.quorum_exchange().is_leader(view_to_lookup) {
-                <span class="kw">let </span>is_done = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
-                completion_map.insert(view_to_lookup, is_done.clone());
-                <span class="kw">let </span>inner = inner.clone();
-                <span class="kw">let </span>networking = networking.clone();
-                async_spawn_local(<span class="kw">async move </span>{
-                    <span class="macro">info!</span>(<span class="string">&quot;starting lookup for {:?}&quot;</span>, view_to_lookup);
-                    <span class="kw">let </span>_result = networking
-                        .lookup_node(inner.exchanges.quorum_exchange().get_leader(view_to_lookup))
-                        .<span class="kw">await</span>;
-                    <span class="macro">info!</span>(<span class="string">&quot;finished lookup for {:?}&quot;</span>, view_to_lookup);
-                });
-            }
-        }
-    }
-
-    <span class="comment">// shut down all child tasks
-    </span><span class="kw">for </span>(<span class="kw">_</span>, is_done) <span class="kw">in </span>completion_map {
-        is_done.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-    }
-}
+<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]

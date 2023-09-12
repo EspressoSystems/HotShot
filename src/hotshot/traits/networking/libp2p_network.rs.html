@@ -882,6 +882,58 @@
 <a href="#882" id="882">882</a>
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -889,16 +941,17 @@
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetrics;
 <span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
 <span class="kw">use </span>async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
+    channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>hotshot_constants::{KAD_DEFAULT_REPUB_INTERVAL_SEC, LOOK_AHEAD};
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
-    data::ProposalType,
+    data::{ProposalType, ViewNumber},
     message::{Message, MessageKind},
     traits::{
         election::Membership,
@@ -910,6 +963,7 @@
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
+        state::ConsensusTime,
     },
     vote::VoteType,
 };
@@ -933,10 +987,13 @@
     marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
     time::Duration,
 };
-<span class="kw">use </span>tracing::{error, info, instrument};
+<span class="kw">use </span>tracing::{error, info, instrument, warn};
 
 <span class="doccomment">/// hardcoded topic of QC used
 </span><span class="kw">pub const </span>QC_TOPIC: <span class="kw-2">&amp;</span>str = <span class="string">&quot;global&quot;</span>;
@@ -962,10 +1019,7 @@
     <span class="doccomment">/// this node&#39;s public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
-    </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
-    <span class="doccomment">/// Bidirectional map from public key provided by espresso
-    /// to public key provided by libp2p
-    </span>pubkey_pid_map: RwLock&lt;BiHashMap&lt;K, PeerId&gt;&gt;,
+    </span>handle: Arc&lt;NetworkNodeHandle&lt;(), K&gt;&gt;,
     <span class="doccomment">/// map of known replica peer ids to public keys
     </span>broadcast_recv: UnboundedReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for broadcast messages
@@ -974,6 +1028,10 @@
     </span>direct_send: UnboundedSender&lt;M&gt;,
     <span class="doccomment">/// Receiver for direct messages
     </span>direct_recv: UnboundedReceiver&lt;M&gt;,
+    <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
+    </span>node_lookup_send: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
+    <span class="doccomment">/// Sender for shutdown of the peer cache&#39;s garbage collection task
+    </span>cache_gc_shutdown_send: UnboundedSender&lt;()&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -991,6 +1049,10 @@
     /// hash(hashset) -&gt; topic
     /// btreemap ordered so is hashable
     </span>topic_map: RwLock&lt;BiHashMap&lt;BTreeSet&lt;K&gt;, String&gt;&gt;,
+    <span class="doccomment">/// the latest view number (for node lookup purposes)
+    /// NOTE: supposed to represent a ViewNumber but we
+    /// haven&#39;t made that atomic yet and we prefer lock-free
+    </span>latest_seen_view: Arc&lt;AtomicU64&gt;,
 }
 
 <span class="doccomment">/// Networking implementation that uses libp2p
@@ -1128,11 +1190,7 @@
     <span class="doccomment">/// Returns when network is ready
     </span><span class="kw">pub async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">loop </span>{
-            <span class="kw">if </span><span class="self">self
-                </span>.inner
-                .is_ready
-                .load(std::sync::atomic::Ordering::Relaxed)
-            {
+            <span class="kw">if </span><span class="self">self</span>.inner.is_ready.load(Ordering::Relaxed) {
                 <span class="kw">break</span>;
             }
             async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
@@ -1166,7 +1224,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
         <span class="kw">let </span>network_handle = Arc::new(
-            NetworkNodeHandle::&lt;()&gt;::new(config, id)
+            NetworkNodeHandle::&lt;(), K&gt;::new(config, id)
                 .<span class="kw">await
                 </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>,
         );
@@ -1184,7 +1242,6 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>pubkey_pid_map = BiHashMap::new();
-
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         <span class="kw">let </span><span class="kw-2">mut </span>topic_map = BiHashMap::new();
@@ -1197,11 +1254,12 @@
         // if bounded figure out a way to log dropped msgs
         </span><span class="kw">let </span>(direct_send, direct_recv) = unbounded();
         <span class="kw">let </span>(broadcast_send, broadcast_recv) = unbounded();
+        <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
+        <span class="kw">let </span>(cache_gc_shutdown_send, cache_gc_shutdown_recv) = unbounded::&lt;()&gt;();
 
         <span class="kw">let </span>result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: network_handle,
-                pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
                 direct_send: direct_send.clone(),
                 direct_recv,
@@ -1214,14 +1272,72 @@
                 is_bootstrapped: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
                 topic_map,
+                node_lookup_send,
+                cache_gc_shutdown_send,
+                <span class="comment">// Start the latest view from 0. &quot;Latest&quot; refers to &quot;most recent view we are polling for
+                // proposals on&quot;. We need this because to have consensus info injected we need a working
+                // network already. In the worst case, we send a few lookups we don&#39;t need.
+                </span>latest_seen_view: Arc::new(AtomicU64::new(<span class="number">0</span>)),
             }),
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-
+        result.spawn_node_lookup(node_lookup_recv, cache_gc_shutdown_recv);
         result.spawn_connect(id);
 
         <span class="prelude-val">Ok</span>(result)
+    }
+
+    <span class="doccomment">/// Spawns task for looking up nodes pre-emptively
+    /// as well as garbage collecting the peer cache
+    </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+    </span><span class="kw">fn </span>spawn_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
+        cache_gc_shutdown_send: UnboundedReceiver&lt;()&gt;,
+    ) {
+        <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+        <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
+        <span class="kw">let </span>latest_seen_view = <span class="self">self</span>.inner.latest_seen_view.clone();
+
+        <span class="comment">// deals with handling lookup queue. should be infallible
+        </span><span class="kw">let </span>handle_ = handle.clone();
+        async_spawn(<span class="kw">async move </span>{
+            <span class="comment">// cancels on shutdown
+            </span><span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((view_number, pk))) = node_lookup_recv.recv().<span class="kw">await </span>{
+                <span class="doccomment">/// defines lookahead threshold based on the constant
+                </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
+
+                <span class="macro">info!</span>(<span class="string">&quot;Performing lookup for peer {:?}&quot;</span>, pk);
+
+                <span class="comment">// only run if we are not too close to the next view number
+                </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
+                    <span class="comment">// look up node, caching if applicable
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle_.lookup_node::&lt;K&gt;(pk.clone(), dht_timeout).<span class="kw">await </span>{
+                        <span class="macro">error!</span>(<span class="string">&quot;Failed to perform lookup for key {:?}: {}&quot;</span>, pk, err);
+                    };
+                }
+            }
+        });
+
+        <span class="comment">// deals with garbage collecting the lookup queue
+        </span><span class="kw">let </span>handle_ = handle.clone();
+        async_spawn(<span class="kw">async move </span>{
+            <span class="kw">loop </span>{
+                <span class="kw">let </span>ttl = handle_
+                    .config()
+                    .ttl
+                    .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * <span class="number">8</span>));
+                <span class="kw">if </span>async_timeout(ttl, cache_gc_shutdown_send.recv())
+                    .<span class="kw">await
+                    </span>.is_err()
+                {
+                    handle_.prune_peer_cache().<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">break</span>;
+                }
+            }
+        });
     }
 
     <span class="doccomment">/// Initiates connection to the outside world
@@ -1260,7 +1376,7 @@
                     .<span class="kw">await
                     </span>.unwrap();
 
-                <span class="kw">while </span>!is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
+                <span class="kw">while </span>!is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
 
@@ -1298,7 +1414,7 @@
                     node_type
                 );
 
-                is_ready.store(<span class="bool-val">true</span>, std::sync::atomic::Ordering::Relaxed);
+                is_ready.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                 <span class="macro">info!</span>(<span class="string">&quot;STARTING CONSENSUS ON {:?}&quot;</span>, handle.peer_id());
                 <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
@@ -1364,7 +1480,7 @@
                             .context(FailedToSerializeSnafu);
                     }
                     NetworkEvent::IsBootstrapped =&gt; {
-                        is_bootstrapped.store(<span class="bool-val">true</span>, std::sync::atomic::Ordering::Relaxed);
+                        is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                     }
                 }
             }
@@ -1383,9 +1499,7 @@
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready_nonblocking&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.inner
-            .is_ready
-            .load(std::sync::atomic::Ordering::Relaxed)
+        <span class="self">self</span>.inner.is_ready.load(Ordering::Relaxed)
     }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::shut_down&quot;</span>, skip_all)]
@@ -1395,6 +1509,8 @@
         <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
+            <span class="self">self</span>.inner.node_lookup_send.send(<span class="prelude-val">None</span>).<span class="kw">await</span>.unwrap();
+            <span class="self">self</span>.inner.cache_gc_shutdown_send.send(()).<span class="kw">await</span>.unwrap();
             <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
                 <span class="macro">error!</span>(<span class="string">&quot;Called shut down when already shut down! Noop.&quot;</span>);
             } <span class="kw">else </span>{
@@ -1470,37 +1586,24 @@
         }
 
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
-        <span class="comment">// check local cache. if that fails, initiate search
-        // if search fails, just error out
-        // NOTE: relay may be a good way to fix this in the future .
-        </span><span class="kw">let </span>pid: PeerId = <span class="kw">if let </span><span class="prelude-val">Some</span>(pid) = <span class="self">self
+
+        <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
             </span>.inner
-            .pubkey_pid_map
-            .read()
+            .handle
+            .lookup_node::&lt;K&gt;(recipient.clone(), <span class="self">self</span>.inner.dht_timeout)
             .<span class="kw">await
-            </span>.get_by_left(<span class="kw-2">&amp;</span>recipient)
-        {
-            <span class="kw-2">*</span>pid
-        } <span class="kw">else </span>{
-            <span class="kw">match </span><span class="self">self
-                </span>.inner
-                .handle
-                .get_record_timeout(<span class="kw-2">&amp;</span>recipient, <span class="self">self</span>.inner.dht_timeout)
-                .<span class="kw">await
-            </span>{
-                <span class="prelude-val">Ok</span>(r) =&gt; r,
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                    <span class="macro">error!</span>(<span class="string">&quot;Failed to message {:?} because could not find recipient peer id for pk {:?}&quot;</span>, message, recipient);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: e });
-                }
+        </span>{
+            <span class="prelude-val">Ok</span>(pid) =&gt; pid,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                <span class="macro">error!</span>(
+                    <span class="string">&quot;Failed to message {:?} because could not find recipient peer id for pk {:?}&quot;</span>,
+                    message, recipient
+                );
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: err });
             }
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.handle.lookup_pid(pid).<span class="kw">await </span>{
-            <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
-        }
         <span class="kw">match </span><span class="self">self</span>.inner.handle.direct_request(pid, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(()) =&gt; {
                 <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
@@ -1553,45 +1656,38 @@
         boxed_sync(closure)
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::lookup_node&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
-
-        <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
-        }
-
-        <span class="kw">let </span>maybe_pid = <span class="self">self
-            </span>.inner
-            .handle
-            .get_record_timeout(<span class="kw-2">&amp;</span>pk, <span class="self">self</span>.inner.dht_timeout)
+    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::queue_node_lookup&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>queue_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: ViewNumber,
+        pk: K,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
+        <span class="self">self</span>.inner
+            .node_lookup_send
+            .send(<span class="prelude-val">Some</span>((view_number, pk)))
             .<span class="kw">await
-            </span>.map_err(Into::&lt;NetworkError&gt;::into);
-
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(pid) = maybe_pid {
-            <span class="kw">if </span><span class="self">self</span>.inner.handle.lookup_pid(pid).<span class="kw">await</span>.is_err() {
-                <span class="macro">error!</span>(<span class="string">&quot;Failed to look up pid&quot;</span>);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
-                    source: NetworkNodeHandleError::DHTError {
-                        source: libp2p_networking::network::error::DHTError::NotFound,
-                    },
-                });
-            };
-        } <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">&quot;Unable to look up pubkey {:?}&quot;</span>, pk);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::DHTError {
-                    source: libp2p_networking::network::error::DHTError::NotFound,
-                },
-            });
-        }
-
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
-        <span class="comment">// Not required
     </span>}
+
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;K&gt;) {
+        <span class="kw">match </span>event {
+            ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) =&gt; {
+                <span class="kw">let _ </span>= <span class="self">self
+                    </span>.queue_node_lookup(ViewNumber::new(future_view), future_leader)
+                    .<span class="kw">await
+                    </span>.map_err(|err| <span class="macro">warn!</span>(<span class="string">&quot;failed to process node lookup request: {}&quot;</span>, err));
+            }
+
+            ConsensusIntentEvent::PollForProposal(new_view) =&gt; {
+                <span class="kw">if </span>new_view &gt; <span class="self">self</span>.inner.latest_seen_view.load(Ordering::Relaxed) {
+                    <span class="self">self</span>.inner
+                        .latest_seen_view
+                        .store(new_view, Ordering::Relaxed);
+                }
+            }
+
+            <span class="kw">_ </span>=&gt; {}
+        }
+    }
 }
 
 <span class="doccomment">/// libp2p identity communication channel
@@ -1735,13 +1831,21 @@
         boxed_sync(closure)
     }
 
-    <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.lookup_node(pk).<span class="kw">await
+    <span class="kw">async fn </span>queue_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: ViewNumber,
+        pk: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.queue_node_lookup(view_number, pk).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
-        <span class="comment">// Not required
-    </span>}
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
+        &lt;Libp2pNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+            Message&lt;TYPES, I&gt;,
+            TYPES::SignatureKey,
+        &gt;&gt;::inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, event)
+        .<span class="kw">await</span>;
+    }
 }
 
 <span class="kw">impl</span>&lt;

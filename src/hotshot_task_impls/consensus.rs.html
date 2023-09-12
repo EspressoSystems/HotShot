@@ -1304,6 +1304,19 @@
 <a href="#1304" id="1304">1304</a>
 <a href="#1305" id="1305">1305</a>
 <a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1318,6 +1331,7 @@
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>hotshot_constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -1793,6 +1807,18 @@
             // }
             </span><span class="self">self</span>.cur_view = new_view;
             <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
+
+            <span class="comment">// Poll the future leader for lookahead
+            </span><span class="kw">let </span>lookahead_view = new_view + LOOK_AHEAD;
+            <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(lookahead_view) {
+                <span class="self">self</span>.quorum_exchange
+                    .network()
+                    .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
+                        <span class="kw-2">*</span>lookahead_view,
+                        <span class="self">self</span>.quorum_exchange.get_leader(lookahead_view),
+                    ))
+                    .<span class="kw">await</span>;
+            }
 
             <span class="comment">// Start polling for proposals for the new view
             </span><span class="self">self</span>.quorum_exchange

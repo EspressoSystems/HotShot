@@ -1104,12 +1104,6 @@
 <a href="#1104" id="1104">1104</a>
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1240,17 +1234,23 @@
     <span class="comment">// TODO ED This should be TYPES::Time
     // Theoretically there should never be contention for this lock...
     </span><span class="doccomment">/// Task map for quorum proposals.
-    </span>proposal_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>proposal_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for quorum votes.
-    </span>vote_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>vote_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for DACs.
-    </span>dac_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>dac_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync certificates.
-    </span>view_sync_cert_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>view_sync_cert_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync votes.
-    </span>view_sync_vote_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>view_sync_vote_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for transactions
-    </span>txn_task_map: Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&gt;&gt;&gt;&gt;,
+    </span>txn_task_map:
+        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType&gt; Inner&lt;M, KEY, TYPES&gt; {
@@ -1258,7 +1258,7 @@
     </span><span class="doccomment">/// Pull a web server.
     </span><span class="kw">async fn </span>poll_web_server(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        receiver: UnboundedReceiver&lt;ConsensusIntentEvent&gt;,
+        receiver: UnboundedReceiver&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;,
         message_purpose: MessagePurpose,
         view_number: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
@@ -1720,13 +1720,7 @@
         boxed_sync(closure)
     }
 
-    <span class="doccomment">/// look up a node
-    /// blocking
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, _pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent) {
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
         &lt;WebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, I&gt;,
             TYPES::SignatureKey,
@@ -1837,14 +1831,8 @@
         boxed_sync(closure)
     }
 
-    <span class="doccomment">/// look up a node
-    /// blocking
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, _pk: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="prelude-val">Ok</span>(())
-    }
-
     <span class="attr">#[allow(clippy::too_many_lines)]
-    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent) {
+    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;K&gt;) {
         <span class="macro">debug!</span>(
             <span class="string">&quot;Injecting event: {:?} is da {}&quot;</span>,
             event.clone(),
@@ -2109,7 +2097,7 @@
                 };
             }
 
-            <span class="kw">_ </span>=&gt; <span class="macro">error!</span>(<span class="string">&quot;Unexpected event!&quot;</span>),
+            <span class="kw">_ </span>=&gt; {}
         }
     }
 }

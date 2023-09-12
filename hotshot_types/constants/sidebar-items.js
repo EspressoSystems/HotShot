@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LOOK_AHEAD"],"fn":["genesis_proposer_id"]};
