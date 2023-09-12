@@ -368,7 +368,7 @@ where
                                 .publish(SequencingHotShotEvent::DAVoteSend(vote))
                                 .await;
                         } else {
-                            // TODO GG use the type system to make this check unnecessary
+                            // TODO use the type system to make this check unnecessary https://github.com/EspressoSystems/HotShot/issues/1717
                             error!("create_da_message did not return a DA message!");
                         }
                         let mut consensus = self.consensus.write().await;
@@ -619,7 +619,7 @@ where
                                 .publish(SequencingHotShotEvent::VidVoteSend(vote))
                                 .await;
                         } else {
-                            // TODO GG use the type system to make this check unnecessary
+                            // TODO use the type system to make this check unnecessary https://github.com/EspressoSystems/HotShot/issues/1717
                             error!("create_vid_message did not return a vid message!");
                         }
                         let mut consensus = self.consensus.write().await;
