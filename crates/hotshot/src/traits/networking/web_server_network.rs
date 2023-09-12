@@ -555,7 +555,7 @@ impl<
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidVote => config::post_vid_vote_route(*view_number),
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
-            MessagePurpose::VidCert => config::post_vid_disperse_route(*view_number),
+            MessagePurpose::VidCert => config::post_vid_cert_route(*view_number),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
