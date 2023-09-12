@@ -119,7 +119,6 @@ impl<S: Default + Debug, K: Debug + Eq + Hash + Serialize + Clone> NetworkNodeHa
 
         let kill_switch = Mutex::new(Some(kill_switch));
         let recv_kill = Mutex::new(Some(recv_kill));
-
         Ok(NetworkNodeHandle {
             network_config: config,
             state: std::sync::Arc::default(),
@@ -738,4 +737,111 @@ pub mod network_node_handle_error {
     pub use super::{
         NetworkSnafu, NodeConfigSnafu, RecvSnafu, SendSnafu, SerializationSnafu, TimeoutSnafu,
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// libp2p peer cache test
+    #[cfg_attr(
+        async_executor_impl = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[instrument]
+    async fn test_libp2p_cache_eviction() {
+        async_compatibility_layer::logging::setup_logging();
+        async_compatibility_layer::logging::setup_backtrace();
+
+        let handle: NetworkNodeHandle<(), PeerId> =
+            NetworkNodeHandle::new(NetworkNodeConfig::default(), 0)
+                .await
+                .unwrap();
+
+        let now = SystemTime::now();
+        let later = now + Duration::from_secs(1);
+
+        // present insert
+        let present_key = PeerId::random();
+        let present_pid = PeerId::random();
+        handle
+            .peer_cache
+            .insert(present_key.clone(), present_pid.clone());
+        handle
+            .peer_cache_expiries
+            .write()
+            .await
+            .insert(now, present_key.clone());
+
+        // later insert
+        let later_key = PeerId::random();
+        let later_pid = PeerId::random();
+        handle
+            .peer_cache
+            .insert(later_key.clone(), later_pid.clone());
+        handle
+            .peer_cache_expiries
+            .write()
+            .await
+            .insert(now + Duration::from_secs(1), later_key.clone());
+
+        // check that now and later exist
+        assert!(handle
+            .peer_cache
+            .get(&present_key)
+            .is_some_and(|entry| entry.value() == &present_pid));
+        assert!(handle
+            .peer_cache
+            .get(&later_key)
+            .is_some_and(|entry| entry.value() == &later_pid));
+        assert!(handle
+            .peer_cache_expiries
+            .read()
+            .await
+            .get(&now)
+            .is_some_and(|entry| entry == &present_key));
+        assert!(handle
+            .peer_cache_expiries
+            .read()
+            .await
+            .get(&later)
+            .is_some_and(|entry| entry == &later_key));
+
+        // prune
+        handle.prune_peer_cache().await;
+
+        // check that now doesn't exist and later does
+        assert!(handle.peer_cache.get(&present_key).is_none());
+        assert!(handle
+            .peer_cache
+            .get(&later_key)
+            .is_some_and(|entry| entry.value() == &later_pid));
+        assert!(handle.peer_cache_expiries.read().await.get(&now).is_none());
+        assert!(handle
+            .peer_cache_expiries
+            .read()
+            .await
+            .get(&later)
+            .is_some_and(|entry| entry == &later_key));
+
+        // wait for later to expire
+        async_sleep(Duration::from_secs(1)).await;
+
+        // prune
+        handle.prune_peer_cache().await;
+
+        // check that later doesn't exist
+        assert!(handle.peer_cache.get(&later_key).is_none());
+        assert!(handle
+            .peer_cache_expiries
+            .read()
+            .await
+            .get(&later)
+            .is_none());
+
+        // check that the expiries and cache are empty
+        assert!(handle.peer_cache_expiries.read().await.is_empty());
+        assert!(handle.peer_cache.is_empty());
+    }
 }
