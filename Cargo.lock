@@ -2637,6 +2637,7 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "ethereum-types",
  "futures",
+ "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-signature-key",
  "hotshot-task",
@@ -2660,6 +2661,10 @@ dependencies = [
  "tracing",
  "typenum",
 ]
+
+[[package]]
+name = "hotshot-constants"
+version = "0.3.3"
 
 [[package]]
 name = "hotshot-orchestrator"
@@ -2793,6 +2798,7 @@ dependencies = [
  "commit",
  "either",
  "futures",
+ "hotshot-constants",
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
@@ -2864,6 +2870,7 @@ dependencies = [
  "futures",
  "generic-array",
  "hex_fmt",
+ "hotshot-constants",
  "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
@@ -3778,9 +3785,11 @@ dependencies = [
  "clap",
  "color-eyre",
  "custom_debug",
+ "dashmap",
  "derive_builder",
  "either",
  "futures",
+ "hotshot-constants",
  "hotshot-utils",
  "libp2p",
  "libp2p-identity",

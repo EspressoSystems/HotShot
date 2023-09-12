@@ -17,6 +17,7 @@ members = [
         "crates/testing",
         "crates/types",
         "crates/utils",
+        "crates/constants",
         # "testing-macros",
         "crates/task",
         "crates/task-impls",
