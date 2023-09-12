@@ -765,9 +765,7 @@ mod test {
         // present insert
         let present_key = PeerId::random();
         let present_pid = PeerId::random();
-        handle
-            .peer_cache
-            .insert(present_key, present_pid);
+        handle.peer_cache.insert(present_key, present_pid);
         handle
             .peer_cache_expiries
             .write()
@@ -777,9 +775,7 @@ mod test {
         // later insert
         let later_key = PeerId::random();
         let later_pid = PeerId::random();
-        handle
-            .peer_cache
-            .insert(later_key, later_pid);
+        handle.peer_cache.insert(later_key, later_pid);
         handle
             .peer_cache_expiries
             .write()
