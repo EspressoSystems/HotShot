@@ -8,7 +8,6 @@ use crate::{
         AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
         ViewSyncCertificate,
     },
-    constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,
         node_implementation::NodeType,
@@ -25,6 +24,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use espresso_systems_common::hotshot::tag;
+use hotshot_constants::GENESIS_PROPOSER_ID;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme};
 use rand::Rng;
@@ -100,6 +100,12 @@ impl std::ops::Sub<u64> for ViewNumber {
     fn sub(self, rhs: u64) -> Self::Output {
         Self(self.0 - rhs)
     }
+}
+
+/// Generate the genesis block proposer ID from the defined constant
+#[must_use]
+pub fn genesis_proposer_id() -> EncodedPublicKey {
+    EncodedPublicKey(GENESIS_PROPOSER_ID.to_vec())
 }
 
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
