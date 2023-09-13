@@ -66,7 +66,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate docker metadata (web-server)
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         if: matrix.just_variants == 'async_std'
         id: web-server
         with:
