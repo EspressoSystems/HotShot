@@ -847,8 +847,6 @@ where
         .await
         .unwrap();
 
-        underlying_quorum_network.wait_for_ready().await;
-
         // Create the network
         let quorum_network: Libp2pCommChannel<
             TYPES,
@@ -872,7 +870,9 @@ where
             DAProposal<TYPES>,
             DAVote<TYPES>,
             MEMBERSHIP,
-        > = Libp2pCommChannel::new(underlying_quorum_network.into());
+        > = Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+
+        underlying_quorum_network.wait_for_ready().await;
 
         Libp2pDARun {
             config,

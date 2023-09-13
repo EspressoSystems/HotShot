@@ -1,4 +1,4 @@
-rounds = 100
+rounds = 10
 transactions_per_round = 10
 node_index = 0
 seed = [
