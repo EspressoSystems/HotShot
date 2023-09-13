@@ -30,11 +30,11 @@ test_catchup:
 
 test_success:
   echo Testing success test
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing web server
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
@@ -46,7 +46,7 @@ test_network_task:
 
 test_consensus_task:
   echo Testing with async std executor
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task with async std executor
