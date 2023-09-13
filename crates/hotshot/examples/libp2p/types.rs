@@ -3,7 +3,7 @@ use hotshot::{
     demos::sdemo::SDemoTypes,
     traits::{
         election::static_committee::GeneralStaticCommittee,
-        implementations::{MemoryStorage, Libp2pCommChannel},
+        implementations::{Libp2pCommChannel, MemoryStorage},
     },
 };
 use hotshot_types::{
