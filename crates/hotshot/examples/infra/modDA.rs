@@ -815,6 +815,17 @@ where
         };
         config_builder.mesh_params(Some(mesh_params));
 
+        let mut all_keys = BTreeSet::new();
+        let mut da_keys = BTreeSet::new();
+        for i in 0..config.config.total_nodes.get() as u64 {
+            let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
+            let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            if i < config.config.da_committee_size as u64 {
+                da_keys.insert(pubkey.clone());
+            }
+            all_keys.insert(pubkey);
+        }
+
         let node_config = config_builder.build().unwrap();
         let underlying_quorum_network = Libp2pNetwork::new(
             NoMetrics::boxed(),
@@ -830,22 +841,13 @@ where
             config.node_index as usize,
             // NOTE: this introduces an invariant that the keys are assigned using this indexed
             // function
-            {
-                let mut keys = BTreeSet::new();
-                for i in 0..config.config.total_nodes.get() {
-                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                        config.seed,
-                        i as u64,
-                    )
-                    .0;
-                    keys.insert(pk);
-                }
-                keys
-            },
-            BTreeSet::new(),
+            all_keys,
+            da_keys,
         )
         .await
         .unwrap();
+
+        underlying_quorum_network.wait_for_ready().await;
 
         // Create the network
         let quorum_network: Libp2pCommChannel<
@@ -871,8 +873,6 @@ where
             DAVote<TYPES>,
             MEMBERSHIP,
         > = Libp2pCommChannel::new(underlying_quorum_network.clone().into());
-
-        underlying_quorum_network.wait_for_ready().await;
 
         Libp2pDARun {
             config,
