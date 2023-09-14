@@ -1236,9 +1236,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.2"
+version = "4.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a13b88d2c62ff462f88e4a121f17a82c1af05693a2f192b5c38d14de73c19f6"
+checksum = "84ed82781cea27b43c9b106a979fe450a13a31aab0500595fb3fc06616de08e6"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -2637,6 +2637,7 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "ethereum-types",
  "futures",
+ "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-signature-key",
  "hotshot-task",
@@ -2660,6 +2661,10 @@ dependencies = [
  "tracing",
  "typenum",
 ]
+
+[[package]]
+name = "hotshot-constants"
+version = "0.3.3"
 
 [[package]]
 name = "hotshot-orchestrator"
@@ -2793,6 +2798,7 @@ dependencies = [
  "commit",
  "either",
  "futures",
+ "hotshot-constants",
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
@@ -2816,6 +2822,7 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
+ "bincode",
  "bitvec",
  "blake3",
  "commit",
@@ -2842,6 +2849,7 @@ name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "ark-bls12-381",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",
  "async-compatibility-layer",
@@ -2864,15 +2872,18 @@ dependencies = [
  "futures",
  "generic-array",
  "hex_fmt",
+ "hotshot-constants",
  "hotshot-task",
  "hotshot-utils",
  "jf-primitives",
+ "jf-utils",
  "libp2p-networking",
  "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
  "serde_json",
+ "sha2 0.10.7",
  "snafu",
  "tagged-base64 0.2.4",
  "time 0.3.28",
@@ -3778,9 +3789,11 @@ dependencies = [
  "clap",
  "color-eyre",
  "custom_debug",
+ "dashmap",
  "derive_builder",
  "either",
  "futures",
+ "hotshot-constants",
  "hotshot-utils",
  "libp2p",
  "libp2p-identity",

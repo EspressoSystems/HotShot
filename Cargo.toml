@@ -17,13 +17,14 @@ members = [
         "crates/testing",
         "crates/types",
         "crates/utils",
+        "crates/constants",
         # "testing-macros",
         "crates/task",
         "crates/task-impls",
         "crates/hotshot-qc",
         "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
-        "crates/hotshot"
+        "crates/hotshot",
 ]
 resolver = "2"
 
@@ -61,6 +62,7 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.188", features = ["derive"] }
+sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
 time = "0.3.28"
@@ -68,46 +70,46 @@ toml = "0.7.8"
 tracing = "0.1.37"
 typenum = "1.16.0"
 libp2p = { package = "libp2p", version = "0.52.3", features = [
-    "macros",
-    "autonat",
-    "deflate",
-    "dns",
-    "floodsub",
-    "gossipsub",
-    "identify",
-    "kad",
-    "mdns",
-    "noise",
-    "ping",
-    "plaintext",
-    "pnet",
-    "quic",
-    "relay",
-    "request-response",
-    "rendezvous",
-    "secp256k1",
-    "serde",
-    "tcp",
-    "uds",
-    "wasm-ext",
-    "websocket",
-    "yamux",
+        "macros",
+        "autonat",
+        "deflate",
+        "dns",
+        "floodsub",
+        "gossipsub",
+        "identify",
+        "kad",
+        "mdns",
+        "noise",
+        "ping",
+        "plaintext",
+        "pnet",
+        "quic",
+        "relay",
+        "request-response",
+        "rendezvous",
+        "secp256k1",
+        "serde",
+        "tcp",
+        "uds",
+        "wasm-ext",
+        "websocket",
+        "yamux",
 ] }
 async-std = { version = "1.12.0", features = ["attributes"] }
 tokio = { version = "1.32.0", features = [
-  "fs",
-  "io-util",
-  "io-std",
-  "macros",
-  "net",
-  "parking_lot",
-  "process",
-  "rt",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time",
-  "tracing",
+        "fs",
+        "io-util",
+        "io-std",
+        "macros",
+        "net",
+        "parking_lot",
+        "process",
+        "rt",
+        "rt-multi-thread",
+        "signal",
+        "sync",
+        "time",
+        "tracing",
 ] }
 
 ### Profiles
