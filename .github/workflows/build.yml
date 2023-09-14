@@ -71,14 +71,3 @@ jobs:
         id: web-server
         with:
           images: ghcr.io/espressosystems/hotshot/web-server
-
-      - name: Build and push web-server docker
-        uses: docker/build-push-action@v5
-        if: matrix.just_variants == 'async_std'
-        with:
-          context: ./
-          file: ./deploy/web-server.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server.outputs.tags }}
-          labels: ${{ steps.web-server.outputs.labels }}
