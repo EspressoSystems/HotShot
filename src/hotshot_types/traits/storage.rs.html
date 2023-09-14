@@ -183,7 +183,7 @@
 <span class="kw">use crate</span>::{
     certificate::QuorumCertificate,
     data::LeafType,
-    traits::{election::SignedCertificate, Block},
+    traits::{election::SignedCertificate, BlockPayload},
 };
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Commitment;
@@ -331,7 +331,7 @@
     </span>TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
 {
-    <span class="doccomment">/// Create a new `StoredView` from the given QC, Block and State.
+    <span class="doccomment">/// Create a new `StoredView` from the given QC, `BlockPayload` and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     </span><span class="kw">pub fn </span>from_qc_block_and_state(
@@ -340,7 +340,7 @@
         state: LEAF::MaybeState,
         height: u64,
         parent_commitment: Commitment&lt;LEAF&gt;,
-        rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
+        rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
         proposer_id: EncodedPublicKey,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{

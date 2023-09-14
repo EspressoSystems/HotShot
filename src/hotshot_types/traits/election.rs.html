@@ -1392,6 +1392,8 @@
 <a href="#1392" id="1392">1392</a>
 <a href="#1393" id="1393">1393</a>
 <a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1487,9 +1489,11 @@
 </span><span class="kw">impl</span>&lt;COMMITTABLE: Committable + Serialize + Clone&gt; Committable <span class="kw">for </span>VoteData&lt;COMMITTABLE&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            VoteData::DA(block_commitment) =&gt; commit::RawCommitmentBuilder::new(<span class="string">&quot;DA Block Commit&quot;</span>)
-                .field(<span class="string">&quot;block_commitment&quot;</span>, <span class="kw-2">*</span>block_commitment)
-                .finalize(),
+            VoteData::DA(block_commitment) =&gt; {
+                commit::RawCommitmentBuilder::new(<span class="string">&quot;DA BlockPayload Commit&quot;</span>)
+                    .field(<span class="string">&quot;block_commitment&quot;</span>, <span class="kw-2">*</span>block_commitment)
+                    .finalize()
+            }
             VoteData::Yes(leaf_commitment) =&gt; commit::RawCommitmentBuilder::new(<span class="string">&quot;Yes Vote Commit&quot;</span>)
                 .field(<span class="string">&quot;leaf_commitment&quot;</span>, <span class="kw-2">*</span>leaf_commitment)
                 .finalize(),

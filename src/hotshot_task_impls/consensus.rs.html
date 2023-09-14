@@ -1370,7 +1370,7 @@
         node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
         signature_key::SignatureKey,
         state::ConsensusTime,
-        Block,
+        BlockPayload,
     },
     utils::{Terminator, ViewInner},
     vote::{QuorumVote, VoteAccumulator, VoteType},
@@ -2529,7 +2529,7 @@
 
         <span class="kw">let </span>block_commitment = <span class="self">self</span>.block.commit();
         <span class="kw">if </span>block_commitment == TYPES::BlockType::new().commit() {
-            <span class="macro">debug!</span>(<span class="string">&quot;Block is generic block! {:?}&quot;</span>, <span class="self">self</span>.cur_view);
+            <span class="macro">debug!</span>(<span class="string">&quot;BlockPayload is generic block! {:?}&quot;</span>, <span class="self">self</span>.cur_view);
         }
 
         <span class="kw">let </span>leaf = SequencingLeaf {

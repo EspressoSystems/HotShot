@@ -597,7 +597,7 @@
     message::{ConsensusMessageType, Message, SequencingMessage},
     traits::{
         election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
-        storage::Storage, Block,
+        storage::Storage, BlockPayload,
     },
 };
 <span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -761,7 +761,7 @@
     <span class="doccomment">/// Get the view sync exchange.
     </span><span class="kw">fn </span>view_sync_exchange(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::ViewSyncExchange;
 
-    <span class="doccomment">/// Block the underlying networking interfaces until node is successfully initialized into the
+    <span class="doccomment">/// BlockPayload the underlying networking interfaces until node is successfully initialized into the
     /// networks.
     </span><span class="kw">async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
@@ -937,7 +937,7 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::StateType&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction;
 
     <span class="doccomment">/// Creates random transaction if possible
     /// otherwise panics
@@ -946,7 +946,7 @@
         leaf: <span class="kw-2">&amp;</span><span class="self">Self</span>::Leaf,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction;
 
     <span class="doccomment">/// generate a genesis block
     </span><span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockType;
@@ -1012,7 +1012,7 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::StateType&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction {
         &lt;TYPES::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(state, rng, padding)
     }
 
@@ -1020,7 +1020,7 @@
         leaf: <span class="kw-2">&amp;</span><span class="self">Self</span>::Leaf,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction {
         &lt;<span class="self">Self</span>::Leaf <span class="kw">as </span>TestableLeaf&gt;::create_random_transaction(leaf, rng, padding)
     }
 
@@ -1139,14 +1139,14 @@
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.
-    </span><span class="kw">type </span>BlockType: Block&lt;Transaction = <span class="self">Self</span>::Transaction&gt;;
+    </span><span class="kw">type </span>BlockType: BlockPayload&lt;Transaction = <span class="self">Self</span>::Transaction&gt;;
     <span class="doccomment">/// The signature key that this hotshot setup is using.
     </span><span class="kw">type </span>SignatureKey: SignatureKey;
     <span class="doccomment">/// The vote token that this hotshot setup is using.
     </span><span class="kw">type </span>VoteTokenType: VoteToken;
     <span class="doccomment">/// The transaction type that this hotshot setup is using.
     ///
-    /// This should be equal to `Block::Transaction`
+    /// This should be equal to `BlockPayload::Transaction`
     </span><span class="kw">type </span>Transaction: Transaction;
     <span class="doccomment">/// The election config type that this hotshot setup is using.
     </span><span class="kw">type </span>ElectionConfigType: ElectionConfig;

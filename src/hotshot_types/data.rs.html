@@ -1025,7 +1025,7 @@
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
-        Block, State,
+        BlockPayload, State,
     },
 };
 <span class="kw">use </span>ark_bls12_381::Bls12_381;
@@ -1120,7 +1120,7 @@
 }
 
 <span class="doccomment">/// The `Transaction` type associated with a `State`, as a syntactic shortcut
-</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; = &lt;&lt;STATE <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; = &lt;&lt;STATE <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction;
 <span class="doccomment">/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
 </span><span class="kw">pub type </span>TxnCommitment&lt;STATE&gt; = Commitment&lt;Transaction&lt;STATE&gt;&gt;;
 
@@ -1150,14 +1150,14 @@
     </span><span class="attr">#[debug(skip)]
     </span><span class="kw">pub </span>parent_commitment: Commitment&lt;LEAF&gt;,
 
-    <span class="doccomment">/// Block leaf wants to apply
+    <span class="doccomment">/// BlockPayload leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
 
     <span class="doccomment">/// What the state should be after applying `self.deltas`
     </span><span class="kw">pub </span>state_commitment: Commitment&lt;TYPES::StateType&gt;,
 
     <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
+    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
@@ -1166,7 +1166,7 @@
 <span class="doccomment">/// A proposal to start providing data availability for a block.
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Block leaf wants to apply
+    <span class="doccomment">/// BlockPayload leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
     <span class="doccomment">/// View this proposal applies to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
@@ -1297,14 +1297,14 @@
 /// full. It is guaranteed to contain, at least, a cryptographic commitment to the block, and it
 /// provides an interface for resolving the commitment to a full block if the full block is
 /// available.
-</span><span class="kw">pub trait </span>DeltasType&lt;Block: Committable&gt;:
+</span><span class="kw">pub trait </span>DeltasType&lt;BlockPayload: Committable&gt;:
     Clone + Debug + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync
 {
     <span class="doccomment">/// Errors reported by this type.
     </span><span class="kw">type </span>Error: std::error::Error;
 
     <span class="doccomment">/// Get a cryptographic commitment to the block represented by this delta.
-    </span><span class="kw">fn </span>block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;Block&gt;;
+    </span><span class="kw">fn </span>block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;BlockPayload&gt;;
 
     <span class="doccomment">/// Get the full block if it is available, otherwise return this object unchanged.
     ///
@@ -1312,7 +1312,7 @@
     ///
     /// Returns the original [`DeltasType`], unchanged, in an [`Err`] variant in the case where the
     /// full block is not currently available.
-    </span><span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Block, <span class="self">Self</span>&gt;;
+    </span><span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BlockPayload, <span class="self">Self</span>&gt;;
 
     <span class="doccomment">/// Fill this [`DeltasType`] by providing a complete block.
     ///
@@ -1323,7 +1323,7 @@
     ///
     /// Fails if `block` does not match `self.block_commitment()`, or if the block is not able to be
     /// stored for some implementation-defined reason.
-    </span><span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
+    </span><span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BlockPayload) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
 }
 
 <span class="doccomment">/// Error which occurs when [`DeltasType::fill`] is called with a block that does not match the
@@ -1506,10 +1506,10 @@
 </span><span class="kw">pub type </span>LeafNode&lt;LEAF&gt; = &lt;LEAF <span class="kw">as </span>LeafType&gt;::NodeType;
 <span class="doccomment">/// The [`StateType`] in a [`LeafType`].
 </span><span class="kw">pub type </span>LeafState&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::StateType;
-<span class="doccomment">/// The [`Block`] in a [`LeafType`].
+<span class="doccomment">/// The [`BlockPayload`] in a [`LeafType`].
 </span><span class="kw">pub type </span>LeafBlock&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::BlockType;
 <span class="doccomment">/// The [`Transaction`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafTransaction&lt;LEAF&gt; = &lt;LeafBlock&lt;LEAF&gt; <span class="kw">as </span>Block&gt;::Transaction;
+</span><span class="kw">pub type </span>LeafTransaction&lt;LEAF&gt; = &lt;LeafBlock&lt;LEAF&gt; <span class="kw">as </span>BlockPayload&gt;::Transaction;
 <span class="doccomment">/// The [`ConsensusTime`] used by a [`LeafType`].
 </span><span class="kw">pub type </span>LeafTime&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::Time;
 
@@ -1523,12 +1523,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction;
 }
 
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 #[derivative(Hash, PartialEq, Eq)]
@@ -1546,14 +1546,14 @@
     /// So we can ask if it extends
     </span><span class="kw">pub </span>parent_commitment: Commitment&lt;ValidatingLeaf&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// Block leaf wants to apply
+    <span class="doccomment">/// BlockPayload leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
 
     <span class="doccomment">/// What the state should be AFTER applying `self.deltas`
     </span><span class="kw">pub </span>state: TYPES::StateType,
 
     <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
+    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
 
     <span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
@@ -1568,7 +1568,7 @@
 
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>SequencingLeaf&lt;TYPES: NodeType&gt; {
@@ -1589,7 +1589,7 @@
     </span><span class="kw">pub </span>deltas: Either&lt;TYPES::BlockType, Commitment&lt;TYPES::BlockType&gt;&gt;,
 
     <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
+    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
 
     <span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     </span><span class="kw">pub </span>timestamp: i128,
@@ -1706,7 +1706,7 @@
         <span class="self">self</span>.state.clone()
     }
 
-    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt; {
+    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt; {
         <span class="self">self</span>.rejected.clone()
     }
 
@@ -1744,7 +1744,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction {
         &lt;TYPES::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(
             <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
             rng,
@@ -1821,7 +1821,7 @@
     <span class="comment">// The Sequencing Leaf doesn&#39;t have a state.
     </span><span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::MaybeState {}
 
-    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt; {
+    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction&gt; {
         <span class="self">self</span>.rejected.clone()
     }
 
@@ -1858,7 +1858,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction {
         TYPES::StateType::create_random_transaction(<span class="prelude-val">None</span>, rng, padding)
     }
 }

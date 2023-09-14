@@ -204,7 +204,7 @@
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::Block;
+</span><span class="kw">use </span><span class="kw">crate</span>::traits::BlockPayload;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
@@ -220,7 +220,7 @@
 ///
 /// This trait represents the behaviors that the &#39;global&#39; ledger state must have:
 ///   * A defined error type ([`Error`](State::Error))
-///   * The type of block that modifies this type of state ([`Block`](State::BlockType))
+///   * The type of block that modifies this type of state ([`BlockPayload`](State::BlockType))
 ///   * A method to get a template (empty) next block from the current state
 ///     ([`next_block`](State::next_block))
 ///   * The ability to validate that a block is actually a valid extension of this state
@@ -243,7 +243,7 @@
     <span class="doccomment">/// The error type for this particular type of ledger state
     </span><span class="kw">type </span>Error: Error + Debug + Send + Sync;
     <span class="doccomment">/// The type of block this state is associated with
-    </span><span class="kw">type </span>BlockType: Block;
+    </span><span class="kw">type </span>BlockType: BlockPayload;
     <span class="doccomment">/// Time compatibility needed for reward collection
     </span><span class="kw">type </span>Time: ConsensusTime;
 
@@ -310,11 +310,11 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+    ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>BlockPayload&gt;::Transaction;
 }
 
 <span class="doccomment">/// extra functions required on block to be usable by hotshot-testing
-</span><span class="kw">pub trait </span>TestableBlock: Block + Debug {
+</span><span class="kw">pub trait </span>TestableBlock: BlockPayload + Debug {
     <span class="doccomment">/// generate a genesis block
     </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self</span>;
 
