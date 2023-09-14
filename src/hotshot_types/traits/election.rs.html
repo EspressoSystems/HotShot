@@ -1355,6 +1355,51 @@
 <a href="#1355" id="1355">1355</a>
 <a href="#1356" id="1356">1356</a>
 <a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1372,7 +1417,7 @@
 };
 
 <span class="kw">use crate</span>::{
-    message::{CommitteeConsensusMessage, GeneralConsensusMessage, Message},
+    message::{GeneralConsensusMessage, Message},
     vote::ViewSyncVoteInternal,
 };
 
@@ -1874,7 +1919,23 @@
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; CommitteeConsensusMessage&lt;TYPES&gt;;
+    ) -&gt; DAVote&lt;TYPES&gt;;
+
+    <span class="comment">// TODO temporary vid methods, move to quorum https://github.com/EspressoSystems/HotShot/issues/1696
+
+    </span><span class="doccomment">/// Create a message with a vote on VID disperse data.
+    </span><span class="kw">fn </span>create_vid_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_commitment: Commitment&lt;TYPES::BlockType&gt;,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -&gt; DAVote&lt;TYPES&gt;;
+
+    <span class="doccomment">/// Sign a vote on VID proposal.
+    </span><span class="kw">fn </span>sign_vid_vote(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_commitment: Commitment&lt;TYPES::BlockType&gt;,
+    ) -&gt; (EncodedPublicKey, EncodedSignature);
 }
 
 <span class="doccomment">/// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -1938,15 +1999,44 @@
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; CommitteeConsensusMessage&lt;TYPES&gt; {
+    ) -&gt; DAVote&lt;TYPES&gt; {
         <span class="kw">let </span>signature = <span class="self">self</span>.sign_da_vote(block_commitment);
-        CommitteeConsensusMessage::&lt;TYPES&gt;::DAVote(DAVote {
+        DAVote {
             signature,
             block_commitment,
             current_view,
             vote_token,
             vote_data: VoteData::DA(block_commitment),
-        })
+        }
+    }
+
+    <span class="kw">fn </span>create_vid_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_commitment: Commitment&lt;TYPES::BlockType&gt;,
+        current_view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+        vote_token: &lt;TYPES <span class="kw">as </span>NodeType&gt;::VoteTokenType,
+    ) -&gt; DAVote&lt;TYPES&gt; {
+        <span class="kw">let </span>signature = <span class="self">self</span>.sign_vid_vote(block_commitment);
+        DAVote {
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+            vote_data: VoteData::DA(block_commitment),
+        }
+    }
+
+    <span class="kw">fn </span>sign_vid_vote(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_commitment: Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType&gt;,
+    ) -&gt; (EncodedPublicKey, EncodedSignature) {
+        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+            VoteData::&lt;TYPES::BlockType&gt;::DA(block_commitment)
+                .commit()
+                .as_ref(),
+        );
+        (<span class="self">self</span>.public_key.to_bytes(), signature)
     }
 }
 

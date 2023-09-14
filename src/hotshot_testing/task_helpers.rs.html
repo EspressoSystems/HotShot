@@ -163,6 +163,13 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
     test_builder::TestMetadata,
@@ -178,7 +185,7 @@
 <span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
 <span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
 <span class="kw">use </span>hotshot_types::{
-    data::{QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{QuorumProposal, SequencingLeaf, VidScheme, ViewNumber},
     message::{Message, Proposal},
     traits::{
         consensus_api::ConsensusSharedApi,
@@ -327,5 +334,12 @@
     <span class="kw">let </span>private_key = &lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
     <span class="kw">let </span>public_key = &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
     (private_key, public_key)
+}
+
+<span class="kw">pub fn </span>vid_init() -&gt; VidScheme {
+    <span class="kw">const </span>NUM_STORAGE_NODES: usize = <span class="number">10</span>;
+    <span class="kw">const </span>NUM_CHUNKS: usize = <span class="number">5</span>;
+    <span class="kw">let </span>srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
+    VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, <span class="kw-2">&amp;</span>srs).unwrap()
 }
 </code></pre></div></section></main></body></html>

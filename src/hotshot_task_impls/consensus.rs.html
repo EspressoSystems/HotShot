@@ -1317,6 +1317,17 @@
 <a href="#1317" id="1317">1317</a>
 <a href="#1318" id="1318">1318</a>
 <a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -2366,7 +2377,17 @@
                     <span class="self">self</span>.update_view(view + <span class="number">1</span>).<span class="kw">await</span>;
                 }
             }
+            SequencingHotShotEvent::VidCertRecv(cert) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;VID cert received for view ! {}&quot;</span>, <span class="kw-2">*</span>cert.view_number);
 
+                <span class="kw">let </span>view = cert.view_number;
+                <span class="self">self</span>.certs.insert(view, cert); <span class="comment">// TODO new cert type for VID https://github.com/EspressoSystems/HotShot/issues/1701
+
+                // TODO Make sure we aren&#39;t voting for an arbitrarily old round for no reason
+                </span><span class="kw">if </span><span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
+                    <span class="self">self</span>.update_view(view + <span class="number">1</span>).<span class="kw">await</span>;
+                }
+            }
             SequencingHotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;View Change event for view {}&quot;</span>, <span class="kw-2">*</span>new_view);
 
@@ -2630,6 +2651,7 @@
             | SequencingHotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
             | SequencingHotShotEvent::QCFormed(<span class="kw">_</span>)
             | SequencingHotShotEvent::DACRecv(<span class="kw">_</span>)
+            | SequencingHotShotEvent::VidCertRecv(<span class="kw">_</span>)
             | SequencingHotShotEvent::ViewChange(<span class="kw">_</span>)
             | SequencingHotShotEvent::SendDABlockData(<span class="kw">_</span>)
             | SequencingHotShotEvent::Timeout(<span class="kw">_</span>)

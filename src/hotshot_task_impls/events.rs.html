@@ -63,9 +63,33 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::DAProposal,
+    data::{DAProposal, VidDisperse},
     message::Proposal,
     traits::node_implementation::{
         NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
@@ -127,5 +151,29 @@
     </span>TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     <span class="doccomment">/// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     </span>SendDABlockData(TYPES::BlockType),
+    <span class="doccomment">/// Send VID shares to VID storage nodes; emitted by the DA leader
+    ///
+    /// Like [`DAProposalSend`].
+    </span>VidDisperseSend(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Vid disperse data has been received from the network; handled by the DA task
+    ///
+    /// Like [`DAProposalRecv`].
+    </span>VidDisperseRecv(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Send a VID vote to the VID leader; emitted by VID storage nodes in the DA task after seeing a valid VID dispersal
+    ///
+    /// Like [`DAVoteSend`]
+    </span>VidVoteSend(DAVote&lt;TYPES&gt;),
+    <span class="doccomment">/// A VID vote has been received by the network; handled by the DA task
+    ///
+    /// Like [`DAVoteRecv`]
+    </span>VidVoteRecv(DAVote&lt;TYPES&gt;),
+    <span class="doccomment">/// The VID leader has collected enough votes to form a VID cert; emitted by the VID leader in the DA task; sent to the entire network via the networking task
+    ///
+    /// Like [`DACSend`]
+    </span>VidCertSend(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// A VID cert has been recieved by the network; handled by the consensus task
+    ///
+    /// Like [`DACRecv`]
+    </span>VidCertRecv(DACertificate&lt;TYPES&gt;),
 }
 </code></pre></div></section></main></body></html>

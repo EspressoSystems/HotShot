@@ -1104,6 +1104,55 @@
 <a href="#1104" id="1104">1104</a>
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1283,7 +1332,10 @@
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC =&gt; config::get_da_certificate_route(view_number),
-            };
+                MessagePurpose::VidDisperse =&gt; config::get_vid_disperse_route(view_number), <span class="comment">// like `Proposal`
+                </span>MessagePurpose::VidVote =&gt; config::get_vid_vote_route(view_number, vote_index), <span class="comment">// like `Vote`
+                </span>MessagePurpose::VidCert =&gt; config::get_vid_cert_route(view_number), <span class="comment">// like `DAC`
+            </span>};
 
             <span class="kw">if </span>message_purpose == MessagePurpose::Data {
                 <span class="kw">let </span>possible_message = <span class="self">self</span>.get_txs_from_web_server(endpoint).<span class="kw">await</span>;
@@ -1346,6 +1398,14 @@
                                     direct_poll_queue.push(vote.clone());
                                 }
                             }
+                            MessagePurpose::VidVote =&gt; {
+                                <span class="comment">// TODO copy-pasted from `MessagePurpose::Vote` https://github.com/EspressoSystems/HotShot/issues/1690
+                                </span><span class="kw">let </span><span class="kw-2">mut </span>direct_poll_queue = <span class="self">self</span>.direct_poll_queue.write().<span class="kw">await</span>;
+                                <span class="kw">for </span>vote <span class="kw">in </span><span class="kw-2">&amp;</span>deserialized_messages {
+                                    vote_index += <span class="number">1</span>;
+                                    direct_poll_queue.push(vote.clone());
+                                }
+                            }
                             MessagePurpose::DAC =&gt; {
                                 <span class="macro">debug!</span>(
                                     <span class="string">&quot;Received DAC from web server for view {} {}&quot;</span>,
@@ -1361,6 +1421,41 @@
                                 // In future we should check to make sure DAC is valid
                                 </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
                             }
+                            MessagePurpose::VidCert =&gt; {
+                                <span class="comment">// TODO copy-pasted from `MessagePurpose::DAC` https://github.com/EspressoSystems/HotShot/issues/1690
+                                </span><span class="macro">debug!</span>(
+                                    <span class="string">&quot;Received VID cert from web server for view {} {}&quot;</span>,
+                                    view_number, <span class="self">self</span>.is_da
+                                );
+                                <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                                </span><span class="self">self</span>.broadcast_poll_queue
+                                    .write()
+                                    .<span class="kw">await
+                                    </span>.push(deserialized_messages[<span class="number">0</span>].clone());
+
+                                <span class="comment">// return if we found a VID cert, since there will only be 1 per view
+                                // In future we should check to make sure VID cert is valid
+                                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                            }
+                            MessagePurpose::VidDisperse =&gt; {
+                                <span class="comment">// TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
+
+                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                                </span><span class="self">self</span>.broadcast_poll_queue
+                                    .write()
+                                    .<span class="kw">await
+                                    </span>.push(deserialized_messages[<span class="number">0</span>].clone());
+
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                                <span class="comment">// Wait for the view to change before polling for proposals again
+                                // let event = receiver.recv().await;
+                                // match event {
+                                //     Ok(event) =&gt; view_number = event.view_number(),
+                                //     Err(_r) =&gt; {
+                                //         error!(&quot;Proposal receiver error!  It was likely shutdown&quot;)
+                                //     }
+                                // }
+                            </span>}
                             MessagePurpose::ViewSyncVote =&gt; {
                                 <span class="comment">// error!(
                                 //     &quot;Received {} view sync votes from web server for view {} is da {}&quot;,
@@ -1619,6 +1714,9 @@
             }
             MessagePurpose::ViewSyncVote =&gt; config::post_view_sync_vote_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::DAC =&gt; config::post_da_certificate_route(<span class="kw-2">*</span>view_number),
+            MessagePurpose::VidVote =&gt; config::post_vid_vote_route(<span class="kw-2">*</span>view_number),
+            MessagePurpose::VidDisperse =&gt; config::post_vid_disperse_route(<span class="kw-2">*</span>view_number),
+            MessagePurpose::VidCert =&gt; config::post_vid_cert_route(<span class="kw-2">*</span>view_number),
         };
 
         <span class="kw">let </span>network_msg: SendMsg&lt;M&gt; = SendMsg {

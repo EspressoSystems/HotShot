@@ -1544,7 +1544,7 @@
                 source: NetworkNodeHandleError::NoSuchTopic,
             })<span class="question-mark">?
             </span>.clone();
-        <span class="macro">error!</span>(<span class="string">&quot;Broadcasting to topic {}&quot;</span>, topic);
+        <span class="macro">info!</span>(<span class="string">&quot;broadcasting to topic: {}&quot;</span>, topic);
 
         <span class="comment">// gossip doesn&#39;t broadcast from itself, so special case
         </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {

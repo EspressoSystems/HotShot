@@ -493,8 +493,8 @@
         &gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
-        <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..total {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;running node{}&quot;</span>, _i);
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
+            <span class="macro">tracing::debug!</span>(<span class="string">&quot;launch node {}&quot;</span>, i);
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
