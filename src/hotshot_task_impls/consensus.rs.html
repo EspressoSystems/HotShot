@@ -1328,6 +1328,14 @@
 <a href="#1328" id="1328">1328</a>
 <a href="#1329" id="1329">1329</a>
 <a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1886,7 +1894,7 @@
 
                 <span class="kw">let </span>view = proposal.data.get_view_number();
                 <span class="kw">if </span>view &lt; <span class="self">self</span>.cur_view {
-                    <span class="macro">error!</span>(<span class="string">&quot;view too high&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;view too high {:?}&quot;</span>, proposal.data.clone());
                     <span class="kw">return</span>;
                 }
 
@@ -2210,7 +2218,8 @@
                                 <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
                                 <span class="kw-2">*</span>new_view
                             );
-                            <span class="self">self</span>.publish_proposal_if_able(qc).<span class="kw">await</span>;
+                            <span class="self">self</span>.publish_proposal_if_able(qc.clone(), qc.view_number + <span class="number">1</span>)
+                                .<span class="kw">await</span>;
                         }
                         <span class="kw">if </span>!<span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
                             <span class="comment">// TOOD ED This means we publish the proposal without updating our own view, which doesn&#39;t seem right
@@ -2362,7 +2371,10 @@
                     <span class="kw-2">*</span>qc.view_number
                 );
 
-                <span class="kw">if </span><span class="self">self</span>.publish_proposal_if_able(qc.clone()).<span class="kw">await </span>{
+                <span class="kw">if </span><span class="self">self
+                    </span>.publish_proposal_if_able(qc.clone(), qc.view_number + <span class="number">1</span>)
+                    .<span class="kw">await
+                </span>{
                     <span class="self">self</span>.update_view(qc.view_number + <span class="number">1</span>).<span class="kw">await</span>;
                 }
             }
@@ -2421,7 +2433,7 @@
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 <span class="kw">let </span>qc = consensus.high_qc.clone();
                 drop(consensus);
-                <span class="kw">if </span>!<span class="self">self</span>.publish_proposal_if_able(qc).<span class="kw">await </span>{
+                <span class="kw">if </span>!<span class="self">self</span>.publish_proposal_if_able(qc, <span class="self">self</span>.cur_view).<span class="kw">await </span>{
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Failed to publish proposal on view change.  View = {:?}&quot;</span>,
                         <span class="self">self</span>.cur_view
@@ -2449,13 +2461,17 @@
     }
 
     <span class="doccomment">/// Sends a proposal if possible from the high qc we have
-    </span><span class="kw">pub async fn </span>publish_proposal_if_able(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: QuorumCertificate&lt;TYPES, I::Leaf&gt;) -&gt; bool {
+    </span><span class="kw">pub async fn </span>publish_proposal_if_able(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _qc: QuorumCertificate&lt;TYPES, I::Leaf&gt;,
+        view: TYPES::Time,
+    ) -&gt; bool {
         <span class="comment">// TODO ED This should not be qc view number + 1
-        </span><span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(qc.view_number + <span class="number">1</span>) {
+        </span><span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(view) {
             <span class="macro">error!</span>(
                 <span class="string">&quot;Somehow we formed a QC but are not the leader for the next view {:?}&quot;</span>,
-                qc.view_number + <span class="number">1
-            </span>);
+                view
+            );
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
@@ -2517,7 +2533,7 @@
         }
 
         <span class="kw">let </span>leaf = SequencingLeaf {
-            view_number: <span class="kw-2">*</span>parent_view_number + <span class="number">1</span>,
+            view_number: view,
             height: parent_leaf.height + <span class="number">1</span>,
             justify_qc: consensus.high_qc.clone(),
             parent_commitment: parent_leaf.commit(),
