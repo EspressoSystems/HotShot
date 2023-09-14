@@ -2645,6 +2645,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
+ "jf-primitives",
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
