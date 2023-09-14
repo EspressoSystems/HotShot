@@ -114,6 +114,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Configuration items for this hotshot instance
     config: HotShotConfig<
+        TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         TYPES::ElectionConfigType,
     >,
@@ -174,6 +175,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<
+            TYPES::SignatureKey,
             <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
             TYPES::ElectionConfigType,
         >,
@@ -398,6 +400,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<
+            TYPES::SignatureKey,
             <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
             TYPES::ElectionConfigType,
         >,
