@@ -576,10 +576,6 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -748,7 +744,6 @@
     <span class="doccomment">/// Create all exchanges.
     </span><span class="kw">fn </span>create(
         entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
-        keys: Vec&lt;TYPES::SignatureKey&gt;,
         configs: <span class="self">Self</span>::ElectionConfigs,
         networks: (
             &lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, MESSAGE&gt;&gt;::Networking,
@@ -839,7 +834,6 @@
 
     <span class="kw">fn </span>create(
         entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
-        keys: Vec&lt;TYPES::SignatureKey&gt;,
         configs: <span class="self">Self</span>::ElectionConfigs,
         networks: (
             &lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, MESSAGE&gt;&gt;::Networking,
@@ -852,7 +846,6 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>quorum_exchange = QUORUMEXCHANGE::create(
             entries.clone(),
-            keys.clone(),
             configs.<span class="number">0</span>.clone(),
             networks.<span class="number">0</span>,
             pk.clone(),
@@ -861,7 +854,6 @@
         );
         <span class="kw">let </span>view_sync_exchange = VIEWSYNCEXCHANGE::create(
             entries.clone(),
-            keys.clone(),
             configs.<span class="number">0</span>,
             networks.<span class="number">2</span>,
             pk.clone(),
@@ -869,7 +861,7 @@
             sk.clone(),
         );
         <span class="kw">let </span>committee_exchange =
-            COMMITTEEEXCHANGE::create(entries, keys, configs.<span class="number">1</span>, networks.<span class="number">1</span>, pk, entry, sk);
+            COMMITTEEEXCHANGE::create(entries, configs.<span class="number">1</span>, networks.<span class="number">1</span>, pk, entry, sk);
 
         <span class="self">Self </span>{
             quorum_exchange,

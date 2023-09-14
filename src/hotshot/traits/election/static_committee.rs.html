@@ -189,7 +189,6 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
@@ -211,12 +210,8 @@
 
 </span><span class="attr">#[derive(Clone, Debug, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>GeneralStaticCommittee&lt;T, LEAF: LeafType&lt;NodeType = T&gt;, PUBKEY: SignatureKey&gt; {
-    <span class="doccomment">/// All the nodes participating
-    </span>nodes: Vec&lt;PUBKEY&gt;,
     <span class="doccomment">/// All the nodes participating and their stake
     </span>nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
-    <span class="doccomment">/// The nodes on the static committee
-    </span>committee_nodes: Vec&lt;PUBKEY&gt;,
     <span class="doccomment">/// The nodes on the static committee and their stake
     </span>committee_nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
     <span class="doccomment">/// Node type phantom
@@ -233,11 +228,9 @@
 {
     <span class="doccomment">/// Creates a new dummy elector
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(nodes: Vec&lt;PUBKEY&gt;, nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(_nodes: <span class="kw-2">&amp;</span>[PUBKEY], nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            nodes: nodes.clone(),
             nodes_with_stake: nodes_with_stake.clone(),
-            committee_nodes: nodes,
             committee_nodes_with_stake: nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
@@ -299,8 +292,9 @@
 
     <span class="doccomment">/// Index the vector of public keys with the current view number
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
-        <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
-        <span class="self">self</span>.nodes[index].clone()
+        <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes_with_stake.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
+        <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
+        TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
     }
 
     <span class="doccomment">/// Simply make the partial signature
@@ -311,7 +305,8 @@
     ) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;StaticVoteToken&lt;PUBKEY&gt;&gt;, ElectionError&gt; {
         <span class="comment">// TODO ED Below
         </span><span class="kw">let </span>pub_key = PUBKEY::from_private(private_key);
-        <span class="kw">if </span>!<span class="self">self</span>.committee_nodes.contains(<span class="kw-2">&amp;</span>pub_key) {
+        <span class="kw">let </span>entry = pub_key.get_stake_table_entry(<span class="number">1u64</span>);
+        <span class="kw">if </span>!<span class="self">self</span>.committee_nodes_with_stake.contains(<span class="kw-2">&amp;</span>entry) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
         <span class="kw">let </span><span class="kw-2">mut </span>message: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
@@ -329,7 +324,8 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="kw">match </span>token {
             Checked::Valid(t) | Checked::Unchecked(t) =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.committee_nodes.contains(<span class="kw-2">&amp;</span>pub_key) {
+                <span class="kw">let </span>entry = pub_key.get_stake_table_entry(<span class="number">1u64</span>);
+                <span class="kw">if </span><span class="self">self</span>.committee_nodes_with_stake.contains(<span class="kw-2">&amp;</span>entry) {
                     <span class="prelude-val">Ok</span>(Checked::Valid(t))
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(Checked::Inval(t))
@@ -345,18 +341,13 @@
 
     <span class="kw">fn </span>create_election(
         keys_qc: Vec&lt;PUBKEY::StakeTableEntry&gt;,
-        keys: Vec&lt;PUBKEY&gt;,
         config: TYPES::ElectionConfigType,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes = keys.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes_with_stake = keys_qc.clone();
-        committee_nodes.truncate(config.num_nodes.try_into().unwrap());
         <span class="macro">debug!</span>(<span class="string">&quot;Election Membership Size: {}&quot;</span>, config.num_nodes);
         committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
         <span class="self">Self </span>{
             nodes_with_stake: keys_qc,
-            nodes: keys,
-            committee_nodes,
             committee_nodes_with_stake,
             _type_phantom: PhantomData,
             _leaf_phantom: PhantomData,
@@ -364,22 +355,29 @@
     }
 
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.committee_nodes.len()
+        <span class="self">self</span>.committee_nodes_with_stake.len()
     }
 
     <span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
-        NonZeroU64::new(((<span class="self">self</span>.committee_nodes.len() <span class="kw">as </span>u64 * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
+        NonZeroU64::new(((<span class="self">self</span>.committee_nodes_with_stake.len() <span class="kw">as </span>u64 * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
     }
 
     <span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
-        NonZeroU64::new(((<span class="self">self</span>.committee_nodes.len() <span class="kw">as </span>u64) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
+        NonZeroU64::new(((<span class="self">self</span>.committee_nodes_with_stake.len() <span class="kw">as </span>u64) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
     }
 
     <span class="kw">fn </span>get_committee(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
-        <span class="self">self</span>.committee_nodes.clone().into_iter().collect()
+        <span class="comment">// Transfer from committee_nodes_with_stake to pure committee_nodes
+        </span>(<span class="number">0</span>..<span class="self">self</span>.committee_nodes_with_stake.len())
+            .map(|node_id| {
+                &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey::get_public_key(
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.committee_nodes_with_stake[node_id],
+                )
+            })
+            .collect()
     }
 }
 </code></pre></div></section></main></body></html>

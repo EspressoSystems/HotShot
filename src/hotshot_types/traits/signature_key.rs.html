@@ -125,6 +125,9 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
@@ -227,6 +230,9 @@
 
     <span class="doccomment">/// get the stake table entry from the public key and stake value
     </span><span class="kw">fn </span>get_stake_table_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, stake: u64) -&gt; <span class="self">Self</span>::StakeTableEntry;
+
+    <span class="doccomment">/// only get the public key from the stake table entry
+    </span><span class="kw">fn </span>get_public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// get the public parameter for the assembled signature checking
     </span><span class="kw">fn </span>get_public_parameter(

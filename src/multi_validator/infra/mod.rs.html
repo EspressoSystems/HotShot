@@ -150,7 +150,7 @@
     &gt; = config_toml.into();
 
     <span class="comment">// Generate network&#39;s public keys
-    </span>config.config.known_nodes = (<span class="number">0</span>..config.config.total_nodes.get())
+    </span><span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..config.config.total_nodes.get())
         .map(|node_id| {
             TYPES::SignatureKey::generated_from_seed_indexed(
                 config.seed,
@@ -161,7 +161,7 @@
         .collect();
 
     config.config.known_nodes_with_stake = (<span class="number">0</span>..config.config.total_nodes.get())
-        .map(|node_id| config.config.known_nodes[node_id].get_stake_table_entry(<span class="number">1u64</span>))
+        .map(|node_id| known_nodes[node_id].get_stake_table_entry(<span class="number">1u64</span>))
         .collect();
 
     config

@@ -253,6 +253,14 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -429,7 +437,15 @@
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
         <span class="macro">println!</span>(<span class="string">&quot;Nodes connected: {}&quot;</span>, <span class="self">self</span>.nodes_connected);
-        <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= <span class="self">self</span>.config.config.known_nodes.len().try_into().unwrap() {
+        <span class="kw">if </span><span class="self">self</span>.nodes_connected
+            &gt;= <span class="self">self
+                </span>.config
+                .config
+                .known_nodes_with_stake
+                .len()
+                .try_into()
+                .unwrap()
+        {
             <span class="self">self</span>.start = <span class="bool-val">true</span>;
         }
         <span class="prelude-val">Ok</span>(())

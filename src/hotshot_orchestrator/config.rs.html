@@ -234,7 +234,11 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
@@ -301,9 +305,10 @@
     <span class="kw">pub </span>key_type_name: String,
     <span class="kw">pub </span>election_config_type_name: String,
     <span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
-    <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ENTRY, ELECTIONCONFIG&gt;,
+    <span class="kw">pub </span>config: HotShotConfig&lt;ENTRY, ELECTIONCONFIG&gt;,
     <span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
     <span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    _key_type_phantom: PhantomData&lt;KEY&gt;,
 }
 
 <span class="kw">impl</span>&lt;K, ENTRY, E&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, ENTRY, E&gt; {
@@ -321,6 +326,7 @@
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             web_server_config: <span class="prelude-val">None</span>,
             da_web_server_config: <span class="prelude-val">None</span>,
+            _key_type_phantom: PhantomData,
         }
     }
 }
@@ -388,6 +394,7 @@
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
+            _key_type_phantom: PhantomData,
         }
     }
 }
@@ -419,14 +426,13 @@
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
 }
 
-<span class="kw">impl</span>&lt;K, ENTRY, E&gt; From&lt;HotShotConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;K, ENTRY, E&gt; {
+<span class="kw">impl</span>&lt;ENTRY, E&gt; From&lt;HotShotConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;ENTRY, E&gt; {
     <span class="kw">fn </span>from(val: HotShotConfigFile) -&gt; <span class="self">Self </span>{
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: val.total_nodes,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
-            known_nodes: Vec::new(),
             known_nodes_with_stake: Vec::new(),
             da_committee_size: val.committee_nodes,
             next_view_timeout: val.next_view_timeout,

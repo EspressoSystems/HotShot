@@ -718,8 +718,6 @@
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -937,7 +935,6 @@
         <span class="comment">// Get KeyPair for certificate Aggregation
         </span><span class="kw">let </span>(pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        <span class="kw">let </span>known_nodes = config.config.known_nodes.clone();
         <span class="kw">let </span>known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
         <span class="kw">let </span>entry = pk.get_stake_table_entry(<span class="number">1u64</span>);
 
@@ -962,7 +959,6 @@
 
         <span class="kw">let </span>exchanges = NODE::Exchanges::create(
             known_nodes_with_stake.clone(),
-            known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
