@@ -55,10 +55,10 @@ jobs:
 
       - name: Setup Docker BuildKit (buildx)
         if: matrix.just_variants == 'async_std'
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Github Container Repo
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
         with:
           registry: ghcr.io
@@ -66,19 +66,19 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate docker metadata (web-server)
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         if: matrix.just_variants == 'async_std'
         id: web-server
         with:
           images: ghcr.io/espressosystems/hotshot/web-server
 
-      - name: Build and push web-server docker
-        uses: docker/build-push-action@v4
-        if: matrix.just_variants == 'async_std'
-        with:
-          context: ./
-          file: ./deploy/web-server.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server.outputs.tags }}
-          labels: ${{ steps.web-server.outputs.labels }}
+      # - name: Build and push web-server docker
+      #   uses: docker/build-push-action@v5
+      #   if: matrix.just_variants == 'async_std'
+      #   with:
+      #     context: ./
+      #     file: ./deploy/web-server.Dockerfile
+      #     platforms: linux/amd64
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: ${{ steps.web-server.outputs.tags }}
+      #     labels: ${{ steps.web-server.outputs.labels }}
