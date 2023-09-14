@@ -32,8 +32,12 @@ test_catchup:
     cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
 
 test_success:
-  echo Testing success test
+  echo Testing test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
+
+test_timeout:
+  echo Testing timeout test
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture --ignored
 
 test_web_server:
   echo Testing web server
