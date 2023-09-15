@@ -1394,6 +1394,62 @@
 <a href="#1394" id="1394">1394</a>
 <a href="#1395" id="1395">1395</a>
 <a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1415,6 +1471,7 @@
     vote::ViewSyncVoteInternal,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::vote::Accumulator2;
 <span class="kw">use crate</span>::{
     data::LeafType,
     traits::{
@@ -1424,8 +1481,8 @@
         state::ConsensusTime,
     },
     vote::{
-        Accumulator, DAVote, QuorumVote, TimeoutVote, ViewSyncData, ViewSyncVote, VoteAccumulator,
-        VoteType, YesOrNoVote,
+        DAVote, QuorumVote, TimeoutVote, ViewSyncData, ViewSyncVote, VoteAccumulator, VoteType,
+        YesOrNoVote,
     },
 };
 <span class="kw">use </span>bincode::Options;
@@ -1456,6 +1513,7 @@
 /// the outcome is already knowable.
 ///
 /// This would be a useful general utility.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub enum </span>Checked&lt;T&gt; {
     <span class="doccomment">/// This item has been checked, and is valid
     </span>Valid(T),
@@ -1579,12 +1637,19 @@
     COMMITTABLE: Committable + Serialize + Clone,
     TOKEN: VoteToken,
 {
+    <span class="doccomment">/// `VoteType` that is used in this certificate
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, COMMITTABLE&gt;;
+
+    <span class="doccomment">/// `Accumulator` type to accumulate votes.
+    </span><span class="kw">type </span>VoteAccumulator: Accumulator2&lt;TYPES, COMMITTABLE, <span class="self">Self</span>::Vote&gt;;
+
     <span class="doccomment">/// Build a QC from the threshold signature and commitment
+    </span><span class="comment">// TODO ED Rename this function and rework this function parameters
+    // Assumes last vote was valid since it caused a QC to form.
+    // Removes need for relay on other cert specific fields
     </span><span class="kw">fn </span>from_signatures_and_commitment(
-        view_number: TIME,
         signatures: AssembledSignature&lt;TYPES&gt;,
-        commit: Commitment&lt;COMMITTABLE&gt;,
-        relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+        vote: <span class="self">Self</span>::Vote,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Get the view number.
@@ -1594,6 +1659,7 @@
     </span><span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; AssembledSignature&lt;TYPES&gt;;
 
     <span class="comment">// TODO (da) the following functions should be refactored into a QC-specific trait.
+    // TODO ED Make an issue for this
 
     </span><span class="doccomment">/// Get the leaf commitment.
     </span><span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;COMMITTABLE&gt;;
@@ -1673,7 +1739,8 @@
     <span class="doccomment">/// A proposal for participants to vote on.
     </span><span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
     <span class="doccomment">/// A vote on a [`Proposal`](Self::Proposal).
-    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
+    </span><span class="comment">// TODO ED Make this equal Certificate vote (if possible?)
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, <span class="self">Self</span>::Commitment&gt;;
     <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
     </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
         + Hash
@@ -1681,7 +1748,7 @@
     <span class="doccomment">/// The committee eligible to make decisions.
     </span><span class="kw">type </span>Membership: Membership&lt;TYPES&gt;;
     <span class="doccomment">/// Network used by [`Membership`](Self::Membership) to communicate.
-    </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, M, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Membership&gt;;
+    </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, M, <span class="self">Self</span>::Membership&gt;;
     <span class="doccomment">/// Commitments to items which are the subject of proposals and decisions.
     </span><span class="kw">type </span>Commitment: Committable + Serialize + Clone;
 
@@ -1810,60 +1877,39 @@
         is_valid_signature &amp;&amp; is_valid_vote_token
     }
 
+    <span class="doccomment">/// Validate a vote by checking its signature and token.
+    </span><span class="kw">fn </span>is_valid_vote_2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
+        data: <span class="kw-2">&amp;</span>VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
+        vote_token: <span class="kw-2">&amp;</span>Checked&lt;TYPES::VoteTokenType&gt;,
+    ) -&gt; bool {
+        <span class="kw">let </span>is_valid_signature = key.validate(encoded_signature, data.commit().as_ref());
+        <span class="kw">let </span>valid_vote_token = <span class="self">self
+            </span>.membership()
+            .validate_vote_token(key.clone(), vote_token.clone());
+        <span class="kw">let </span>is_valid_vote_token = <span class="kw">match </span>valid_vote_token {
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;Vote token was invalid&quot;</span>);
+                <span class="bool-val">false
+            </span>}
+            <span class="prelude-val">Ok</span>(Checked::Valid(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
+            <span class="prelude-val">Ok</span>(Checked::Inval(<span class="kw">_</span>) | Checked::Unchecked(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+        };
+
+        is_valid_signature &amp;&amp; is_valid_vote_token
+    }
+
     <span class="attr">#[doc(hidden)]
+
     </span><span class="kw">fn </span>accumulate_internal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        vota_meta: VoteMetaData&lt;<span class="self">Self</span>::Commitment, TYPES::VoteTokenType, TYPES::Time&gt;,
-        accumulator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
+        _vota_meta: VoteMetaData&lt;<span class="self">Self</span>::Commitment, TYPES::VoteTokenType, TYPES::Time&gt;,
+        _accumulator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
     ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt; {
-        <span class="kw">if </span>!<span class="self">self</span>.is_valid_vote(
-            <span class="kw-2">&amp;</span>vota_meta.encoded_key,
-            <span class="kw-2">&amp;</span>vota_meta.encoded_signature,
-            vota_meta.data.clone(),
-            <span class="comment">// Ignoring deserialization errors below since we are getting rid of it soon
-            </span>Checked::Unchecked(vota_meta.vote_token.clone()),
-        ) {
-            <span class="macro">error!</span>(<span class="string">&quot;Invalid vote!&quot;</span>);
-            <span class="kw">return </span>Either::Left(accumulator);
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>vota_meta.encoded_key)
-        {
-            <span class="kw">let </span>stake_table_entry = key.get_stake_table_entry(<span class="number">1u64</span>);
-            <span class="kw">let </span>append_node_id = <span class="self">self
-                </span>.membership()
-                .get_committee_qc_stake_table()
-                .iter()
-                .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
-                .unwrap();
-
-            <span class="kw">match </span>accumulator.append((
-                vota_meta.commitment,
-                (
-                    vota_meta.encoded_key.clone(),
-                    (
-                        vota_meta.encoded_signature.clone(),
-                        <span class="self">self</span>.membership().get_committee_qc_stake_table(),
-                        append_node_id,
-                        vota_meta.data,
-                        vota_meta.vote_token,
-                    ),
-                ),
-            )) {
-                Either::Left(accumulator) =&gt; Either::Left(accumulator),
-                Either::Right(signatures) =&gt; {
-                    Either::Right(<span class="self">Self</span>::Certificate::from_signatures_and_commitment(
-                        vota_meta.view_number,
-                        signatures,
-                        vota_meta.commitment,
-                        vota_meta.relay,
-                    ))
-                }
-            }
-        } <span class="kw">else </span>{
-            Either::Left(accumulator)
-        }
-    }
+        <span class="macro">todo!</span>() <span class="comment">// TODO ED Remove this function
+    </span>}
 
     <span class="doccomment">/// Add a vote to the accumulating signature.  Return The certificate if the vote
     /// brings us over the threshould, Else return the accumulator.
@@ -1879,6 +1925,72 @@
         accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
         relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt;;
+
+    <span class="comment">// TODO ED Depending on what we do in the future with the exchanges trait, we can move the accumulator out of the `SignedCertificate`
+    // trait.  Logically, I feel it makes sense to accumulate on the certificate rather than the exchange, however.
+    </span><span class="doccomment">/// Accumulate vote
+    /// Returns either the accumulate if no threshold was reached, or a `SignedCertificate` if the threshold was reached
+    </span><span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="kw">fn </span>accumulate_vote_2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        accumulator: &lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            <span class="self">Self</span>::Commitment,
+        &gt;&gt;::VoteAccumulator,
+        vote: <span class="kw-2">&amp;</span>&lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            <span class="self">Self</span>::Commitment,
+        &gt;&gt;::Vote,
+        _commit: <span class="kw-2">&amp;</span>Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
+    ) -&gt; Either&lt;
+        &lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            <span class="self">Self</span>::Commitment,
+        &gt;&gt;::VoteAccumulator,
+        <span class="self">Self</span>::Certificate,
+    &gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.is_valid_vote_2(
+            <span class="kw-2">&amp;</span>vote.get_key(),
+            <span class="kw-2">&amp;</span>vote.get_signature(),
+            <span class="kw-2">&amp;</span>vote.get_data(),
+            <span class="comment">// TODO ED We&#39;ve had this comment for a while: Ignoring deserialization errors below since we are getting rid of it soon
+            </span><span class="kw-2">&amp;</span>Checked::Unchecked(vote.get_vote_token()),
+        ) {
+            <span class="macro">error!</span>(<span class="string">&quot;Invalid vote!&quot;</span>);
+            <span class="kw">return </span>Either::Left(accumulator);
+        }
+
+        <span class="kw">let </span>stake_table_entry = vote.get_key().get_stake_table_entry(<span class="number">1u64</span>);
+        <span class="comment">// TODO ED Could we make this part of the vote in the future?  It&#39;s only a usize.
+        </span><span class="kw">let </span>append_node_id = <span class="self">self
+            </span>.membership()
+            .get_committee_qc_stake_table()
+            .iter()
+            .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
+            .unwrap();
+
+        <span class="comment">// TODO ED Should make append function take a reference to vote
+        </span><span class="kw">match </span>accumulator.append(
+            vote.clone(),
+            append_node_id,
+            <span class="self">self</span>.membership().get_committee_qc_stake_table(),
+        ) {
+            Either::Left(accumulator) =&gt; Either::Left(accumulator),
+            Either::Right(signatures) =&gt; {
+                <span class="comment">// TODO ED Update this function to just take in the signatures and most recent vote
+                </span>Either::Right(<span class="self">Self</span>::Certificate::from_signatures_and_commitment(
+                    signatures,
+                    vote.clone(),
+                ))
+            }
+        }
+    }
 
     <span class="doccomment">/// The committee which votes on proposals.
     </span><span class="kw">fn </span>membership(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Membership;
@@ -1938,7 +2050,7 @@
 </span><span class="kw">pub struct </span>CommitteeExchange&lt;
     TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
-    NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+    NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
     M: NetworkMsg,
 &gt; {
     <span class="doccomment">/// The network being used by this exchange.
@@ -1959,7 +2071,7 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; CommitteeExchangeType&lt;TYPES, M&gt; <span class="kw">for </span>CommitteeExchange&lt;TYPES, MEMBERSHIP, NETWORK, M&gt;
 {
@@ -2037,7 +2149,7 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; ConsensusExchange&lt;TYPES, M&gt; <span class="kw">for </span>CommitteeExchange&lt;TYPES, MEMBERSHIP, NETWORK, M&gt;
 {
@@ -2199,7 +2311,7 @@
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
-    NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, QuorumVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+    NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
     M: NetworkMsg,
 &gt; {
     <span class="doccomment">/// The network being used by this exchange.
@@ -2222,7 +2334,7 @@
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, QuorumVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; QuorumExchangeType&lt;TYPES, LEAF, M&gt;
     <span class="kw">for </span>QuorumExchange&lt;TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
@@ -2354,7 +2466,7 @@
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, QuorumVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; ConsensusExchange&lt;TYPES, M&gt;
     <span class="kw">for </span>QuorumExchange&lt;TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
@@ -2489,7 +2601,7 @@
     TYPES: NodeType,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
-    NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, ViewSyncVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+    NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
     M: NetworkMsg,
 &gt; {
     <span class="doccomment">/// The network being used by this exchange.
@@ -2511,7 +2623,7 @@
         TYPES: NodeType,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, ViewSyncVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; ViewSyncExchangeType&lt;TYPES, M&gt; <span class="kw">for </span>ViewSyncExchange&lt;TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
 {
@@ -2712,7 +2824,7 @@
         TYPES: NodeType,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, ViewSyncVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+        NETWORK: CommunicationChannel&lt;TYPES, M, MEMBERSHIP&gt;,
         M: NetworkMsg,
     &gt; ConsensusExchange&lt;TYPES, M&gt; <span class="kw">for </span>ViewSyncExchange&lt;TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
 {

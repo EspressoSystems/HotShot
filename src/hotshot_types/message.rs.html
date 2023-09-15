@@ -899,7 +899,7 @@
                         // this should match replica upon receipt
                         </span>p.data.get_view_number()
                     }
-                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.current_view(),
+                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.get_view(),
                     GeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                         InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
                     },
@@ -916,13 +916,13 @@
                         // this should match replica upon receipt
                         </span>p.data.get_view_number()
                     }
-                    CommitteeConsensusMessage::DAVote(vote_message) =&gt; vote_message.current_view(),
+                    CommitteeConsensusMessage::DAVote(vote_message) =&gt; vote_message.get_view(),
                     CommitteeConsensusMessage::DACertificate(cert)
                     | CommitteeConsensusMessage::VidCertificate(cert) =&gt; cert.view_number,
                     CommitteeConsensusMessage::VidDisperseMsg(disperse) =&gt; {
                         disperse.data.get_view_number()
                     }
-                    CommitteeConsensusMessage::VidVote(vote) =&gt; vote.current_view(),
+                    CommitteeConsensusMessage::VidVote(vote) =&gt; vote.get_view(),
                 }
             }
         }

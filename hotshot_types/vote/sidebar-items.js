@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["QuorumVote","ViewSyncVote"],"struct":["DAVote","TimeoutVote","ViewSyncData","ViewSyncVoteInternal","VoteAccumulator","YesOrNoVote"],"trait":["Accumulator","VoteType"],"type":["VoteMap"]};
+window.SIDEBAR_ITEMS = {"enum":["QuorumVote","ViewSyncVote"],"struct":["AccumulatorPlaceholder","DAVote","DAVoteAccumulator","QuorumVoteAccumulator","TimeoutVote","ViewSyncData","ViewSyncVoteAccumulator","ViewSyncVoteInternal","VoteAccumulator","YesOrNoVote"],"trait":["Accumulator","Accumulator2","VoteType"],"type":["VoteMap"]};

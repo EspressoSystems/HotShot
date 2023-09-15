@@ -188,7 +188,6 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
@@ -303,8 +302,7 @@
         view_number: TYPES::Time,
         private_key: <span class="kw-2">&amp;</span>&lt;PUBKEY <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     ) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;StaticVoteToken&lt;PUBKEY&gt;&gt;, ElectionError&gt; {
-        <span class="comment">// TODO ED Below
-        </span><span class="kw">let </span>pub_key = PUBKEY::from_private(private_key);
+        <span class="kw">let </span>pub_key = PUBKEY::from_private(private_key);
         <span class="kw">let </span>entry = pub_key.get_stake_table_entry(<span class="number">1u64</span>);
         <span class="kw">if </span>!<span class="self">self</span>.committee_nodes_with_stake.contains(<span class="kw-2">&amp;</span>entry) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);

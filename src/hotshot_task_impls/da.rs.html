@@ -908,31 +908,6 @@
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_timeout},
@@ -950,6 +925,9 @@
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
+<span class="kw">use </span>hotshot_types::traits::election::SignedCertificate;
+<span class="kw">use </span>hotshot_types::vote::DAVoteAccumulator;
+<span class="kw">use </span>hotshot_types::vote::VoteType;
 <span class="kw">use </span>hotshot_types::{
     certificate::DACertificate,
     consensus::{Consensus, View},
@@ -965,10 +943,10 @@
         BlockPayload, State,
     },
     utils::ViewInner,
-    vote::VoteAccumulator,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -1036,11 +1014,19 @@
 {
     <span class="doccomment">/// the committee exchange
     </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// the vote accumulator
-    </span><span class="kw">pub </span>accumulator:
-        Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;,
-    <span class="comment">// TODO ED Make this just &quot;view&quot; since it is only for this task
-    </span><span class="doccomment">/// the current view
+
+    <span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="doccomment">/// Accumulates DA votes
+    </span><span class="kw">pub </span>accumulator: Either&lt;
+        &lt;DACertificate&lt;TYPES&gt; <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            TYPES::BlockType,
+        &gt;&gt;::VoteAccumulator,
+        DACertificate&lt;TYPES&gt;,
+    &gt;,
+    <span class="doccomment">/// the current view
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// event stream for channel events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
@@ -1081,29 +1067,23 @@
             <span class="macro">debug!</span>(<span class="string">&quot;DA vote recv, collection task {:?}&quot;</span>, vote.current_view);
             <span class="comment">// panic!(&quot;Vote handle received DA vote for view {}&quot;, *vote.current_view);
 
-            </span><span class="kw">let </span>accumulator = <span class="kw">match </span>state.accumulator {
-                Right(<span class="kw">_</span>) =&gt; {
-                    <span class="comment">// For the case where we receive votes after we&#39;ve made a certificate
-                    </span><span class="macro">debug!</span>(<span class="string">&quot;DA accumulator finished view: {:?}&quot;</span>, state.cur_view);
-                    <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
-                }
-                Left(a) =&gt; a,
-            };
-            <span class="kw">match </span>state.committee_exchange.accumulate_vote(
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                vote.block_commitment,
-                vote.vote_data,
-                vote.vote_token.clone(),
-                state.cur_view,
+            // For the case where we receive votes after we&#39;ve made a certificate
+            </span><span class="kw">if </span>state.accumulator.is_right() {
+                <span class="macro">debug!</span>(<span class="string">&quot;DA accumulator finished view: {:?}&quot;</span>, state.cur_view);
+                <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+            }
+
+            <span class="kw">let </span>accumulator = state.accumulator.left().unwrap();
+
+            <span class="kw">match </span>state.committee_exchange.accumulate_vote_2(
                 accumulator,
-                <span class="prelude-val">None</span>,
+                <span class="kw-2">&amp;</span>vote,
+                <span class="kw-2">&amp;</span>vote.block_commitment,
             ) {
-                Left(acc) =&gt; {
-                    state.accumulator = Either::Left(acc);
-                    <span class="comment">// debug!(&quot;Not enough DA votes! &quot;);
-                    </span><span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                Left(new_accumulator) =&gt; {
+                    state.accumulator = either::Left(new_accumulator);
                 }
+
                 Right(dac) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;Sending DAC! {:?}&quot;</span>, dac.view_number);
                     state
@@ -1131,32 +1111,20 @@
         SequencingHotShotEvent::VidVoteRecv(vote) =&gt; {
             <span class="comment">// TODO copy-pasted from DAVoteRecv https://github.com/EspressoSystems/HotShot/issues/1690
 
-            </span><span class="macro">debug!</span>(<span class="string">&quot;VID vote recv, collection task {:?}&quot;</span>, vote.current_view);
+            </span><span class="macro">debug!</span>(<span class="string">&quot;VID vote recv, collection task {:?}&quot;</span>, vote.get_view());
             <span class="comment">// panic!(&quot;Vote handle received DA vote for view {}&quot;, *vote.current_view);
 
-            </span><span class="kw">let </span>accumulator = <span class="kw">match </span>state.accumulator {
-                Right(<span class="kw">_</span>) =&gt; {
-                    <span class="comment">// For the case where we receive votes after we&#39;ve made a certificate
-                    </span><span class="macro">debug!</span>(<span class="string">&quot;VID accumulator finished view: {:?}&quot;</span>, state.cur_view);
-                    <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
-                }
-                Left(a) =&gt; a,
-            };
-            <span class="kw">match </span>state.committee_exchange.accumulate_vote(
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                vote.block_commitment,
-                vote.vote_data,
-                vote.vote_token.clone(),
-                state.cur_view,
+            </span><span class="kw">let </span>accumulator = state.accumulator.left().unwrap();
+
+            <span class="kw">match </span>state.committee_exchange.accumulate_vote_2(
                 accumulator,
-                <span class="prelude-val">None</span>,
+                <span class="kw-2">&amp;</span>vote,
+                <span class="kw-2">&amp;</span>vote.block_commitment,
             ) {
-                Left(acc) =&gt; {
-                    state.accumulator = Either::Left(acc);
-                    <span class="comment">// debug!(&quot;Not enough VID votes! &quot;);
-                    </span><span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                Left(new_accumulator) =&gt; {
+                    state.accumulator = either::Left(new_accumulator);
                 }
+
                 Right(vid_cert) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;Sending VID cert! {:?}&quot;</span>, vid_cert.view_number);
                     state
@@ -1214,9 +1182,7 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event {
             SequencingHotShotEvent::TransactionsRecv(transactions) =&gt; {
-                <span class="comment">// TODO ED Add validation checks
-
-                </span><span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                 consensus
                     .get_transactions()
                     .modify(|txns| {
@@ -1344,32 +1310,25 @@
                     } <span class="kw">else </span>{
                         TYPES::Time::new(<span class="number">0</span>)
                     };
-                <span class="kw">let </span>acc = VoteAccumulator {
-                    total_vote_outcomes: HashMap::new(),
+
+                <span class="kw">let </span>new_accumulator = DAVoteAccumulator {
                     da_vote_outcomes: HashMap::new(),
-                    yes_vote_outcomes: HashMap::new(),
-                    no_vote_outcomes: HashMap::new(),
-                    viewsync_precommit_vote_outcomes: HashMap::new(),
-                    viewsync_commit_vote_outcomes: HashMap::new(),
-                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: <span class="self">self</span>.committee_exchange.success_threshold(),
-                    failure_threshold: <span class="self">self</span>.committee_exchange.failure_threshold(),
                     sig_lists: Vec::new(),
                     signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.committee_exchange.total_nodes()],
+                    phantom: PhantomData,
                 };
-                <span class="kw">let </span>accumulator = <span class="self">self</span>.committee_exchange.accumulate_vote(
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">1</span>,
-                    vote.clone().block_commitment,
-                    vote.clone().vote_data.clone(),
-                    vote.clone().vote_token.clone(),
-                    vote.clone().current_view,
-                    acc,
-                    <span class="prelude-val">None</span>,
+
+                <span class="kw">let </span>accumulator = <span class="self">self</span>.committee_exchange.accumulate_vote_2(
+                    new_accumulator,
+                    <span class="kw-2">&amp;</span>vote,
+                    <span class="kw-2">&amp;</span>vote.clone().block_commitment,
                 );
+
                 <span class="kw">if </span>view &gt; collection_view {
                     <span class="kw">let </span>state = DAVoteCollectionTaskState {
                         committee_exchange: <span class="self">self</span>.committee_exchange.clone(),
+
                         accumulator,
                         cur_view: view,
                         event_stream: <span class="self">self</span>.event_stream.clone(),
@@ -1433,32 +1392,25 @@
                     } <span class="kw">else </span>{
                         TYPES::Time::new(<span class="number">0</span>)
                     };
-                <span class="kw">let </span>acc = VoteAccumulator {
-                    total_vote_outcomes: HashMap::new(),
+
+                <span class="kw">let </span>new_accumulator = DAVoteAccumulator {
                     da_vote_outcomes: HashMap::new(),
-                    yes_vote_outcomes: HashMap::new(),
-                    no_vote_outcomes: HashMap::new(),
-                    viewsync_precommit_vote_outcomes: HashMap::new(),
-                    viewsync_commit_vote_outcomes: HashMap::new(),
-                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: <span class="self">self</span>.committee_exchange.success_threshold(),
-                    failure_threshold: <span class="self">self</span>.committee_exchange.failure_threshold(),
                     sig_lists: Vec::new(),
                     signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.committee_exchange.total_nodes()],
+                    phantom: PhantomData,
                 };
-                <span class="kw">let </span>accumulator = <span class="self">self</span>.committee_exchange.accumulate_vote(
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">1</span>,
-                    vote.clone().block_commitment,
-                    vote.clone().vote_data.clone(),
-                    vote.clone().vote_token.clone(),
-                    vote.clone().current_view,
-                    acc,
-                    <span class="prelude-val">None</span>,
+
+                <span class="kw">let </span>accumulator = <span class="self">self</span>.committee_exchange.accumulate_vote_2(
+                    new_accumulator,
+                    <span class="kw-2">&amp;</span>vote,
+                    <span class="kw-2">&amp;</span>vote.clone().block_commitment,
                 );
+
                 <span class="kw">if </span>view &gt; collection_view {
                     <span class="kw">let </span>state = DAVoteCollectionTaskState {
                         committee_exchange: <span class="self">self</span>.committee_exchange.clone(),
+
                         accumulator,
                         cur_view: view,
                         event_stream: <span class="self">self</span>.event_stream.clone(),
@@ -1564,8 +1516,7 @@
                     </span>}
                 }
             }
-            <span class="comment">// TODO ED Update high QC through QCFormed event
-            </span>SequencingHotShotEvent::ViewChange(view) =&gt; {
+            SequencingHotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1577,7 +1528,6 @@
                 <span class="comment">// Inject view info into network
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
 
-                // TODO ED Only poll if you are on the committee
                 </span><span class="kw">let </span>is_da = <span class="self">self
                     </span>.committee_exchange
                     .membership()

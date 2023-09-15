@@ -1337,12 +1337,6 @@
 <a href="#1337" id="1337">1337</a>
 <a href="#1338" id="1338">1338</a>
 <a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1364,6 +1358,7 @@
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
+<span class="kw">use </span>hotshot_types::vote::QuorumVoteAccumulator;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     consensus::{Consensus, View},
@@ -1380,7 +1375,7 @@
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vote::{QuorumVote, VoteAccumulator, VoteType},
+    vote::{QuorumVote, VoteType},
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>snafu::Snafu;
@@ -1494,8 +1489,15 @@
     </span><span class="kw">pub </span>quorum_exchange: Arc&lt;SequencingQuorumEx&lt;TYPES, I&gt;&gt;,
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Accumulator for votes
-    </span><span class="kw">pub </span>accumulator:
-        Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, I::Leaf&gt;, QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt;,
+    </span><span class="kw">pub </span>accumulator: Either&lt;
+        &lt;QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            SequencingLeaf&lt;TYPES&gt;,
+        &gt;&gt;::VoteAccumulator,
+        QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+    &gt;,
     <span class="doccomment">/// View which this vote collection task is collecting votes in
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// The event stream shared by all tasks
@@ -1535,33 +1537,28 @@
         Commitment = SequencingLeaf&lt;TYPES&gt;,
     &gt;,
 {
-    <span class="comment">// TODO ED Emit a view change event upon new proposal?
-    </span><span class="kw">match </span>event {
-        SequencingHotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="kw">match </span>vote {
-            QuorumVote::Yes(vote) =&gt; {
+    <span class="kw">match </span>event {
+        SequencingHotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="kw">match </span>vote.clone() {
+            QuorumVote::Yes(vote_internal) =&gt; {
                 <span class="comment">// For the case where we receive votes after we&#39;ve made a certificate
                 </span><span class="kw">if </span>state.accumulator.is_right() {
                     <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
                 }
 
-                <span class="kw">if </span>vote.current_view != state.cur_view {
+                <span class="kw">if </span>vote_internal.current_view != state.cur_view {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Vote view does not match! vote view is {} current view is {}&quot;</span>,
-                        <span class="kw-2">*</span>vote.current_view, <span class="kw-2">*</span>state.cur_view
+                        <span class="kw-2">*</span>vote_internal.current_view, <span class="kw-2">*</span>state.cur_view
                     );
                     <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
                 }
 
                 <span class="kw">let </span>accumulator = state.accumulator.left().unwrap();
-                <span class="kw">match </span>state.quorum_exchange.accumulate_vote(
-                    <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                    vote.leaf_commitment,
-                    vote.vote_data,
-                    vote.vote_token.clone(),
-                    state.cur_view,
+
+                <span class="kw">match </span>state.quorum_exchange.accumulate_vote_2(
                     accumulator,
-                    <span class="prelude-val">None</span>,
+                    <span class="kw-2">&amp;</span>vote,
+                    <span class="kw-2">&amp;</span>vote_internal.leaf_commitment,
                 ) {
                     Either::Left(acc) =&gt; {
                         state.accumulator = Either::Left(acc);
@@ -1712,10 +1709,7 @@
                             );
 
                         <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
-                            <span class="macro">debug!</span>(
-                                <span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>,
-                                vote.current_view()
-                            );
+                            <span class="macro">debug!</span>(<span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>, vote.get_view());
                             <span class="self">self</span>.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .<span class="kw">await</span>;
@@ -1788,12 +1782,8 @@
 
                         };
 
-                        <span class="comment">// TODO ED Only publish event in vote if able
-                        </span><span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
-                            <span class="macro">debug!</span>(
-                                <span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>,
-                                vote.current_view()
-                            );
+                        <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
+                            <span class="macro">debug!</span>(<span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>, vote.get_view());
                             <span class="self">self</span>.event_stream
                                 .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
                                 .<span class="kw">await</span>;
@@ -2256,26 +2246,26 @@
                 }
             }
             SequencingHotShotEvent::QuorumVoteRecv(vote) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Received quroum vote: {:?}&quot;</span>, vote.current_view());
+                <span class="macro">debug!</span>(<span class="string">&quot;Received quroum vote: {:?}&quot;</span>, vote.get_view());
 
-                <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(vote.current_view() + <span class="number">1</span>) {
+                <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(vote.get_view() + <span class="number">1</span>) {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;We are not the leader for view {} are we the leader for view + 1? {}&quot;</span>,
-                        <span class="kw-2">*</span>vote.current_view() + <span class="number">1</span>,
-                        <span class="self">self</span>.quorum_exchange.is_leader(vote.current_view() + <span class="number">2</span>)
+                        <span class="kw-2">*</span>vote.get_view() + <span class="number">1</span>,
+                        <span class="self">self</span>.quorum_exchange.is_leader(vote.get_view() + <span class="number">2</span>)
                     );
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">match </span>vote {
-                    QuorumVote::Yes(vote) =&gt; {
+                <span class="kw">match </span>vote.clone() {
+                    QuorumVote::Yes(vote_internal) =&gt; {
                         <span class="kw">let </span>handle_event = HandleEvent(Arc::new(<span class="kw">move </span>|event, state| {
                             <span class="kw">async move </span>{ vote_handle(state, event).<span class="kw">await </span>}.boxed()
                         }));
                         <span class="kw">let </span>collection_view = <span class="kw">if let </span><span class="prelude-val">Some</span>((collection_view, collection_task, <span class="kw">_</span>)) =
                             <span class="kw-2">&amp;</span><span class="self">self</span>.vote_collector
                         {
-                            <span class="kw">if </span>vote.current_view &gt; <span class="kw-2">*</span>collection_view {
+                            <span class="kw">if </span>vote_internal.current_view &gt; <span class="kw-2">*</span>collection_view {
                                 <span class="comment">// ED I think we&#39;d want to let that task timeout to avoid a griefing vector
                                 </span><span class="self">self</span>.registry.shutdown_task(<span class="kw-2">*</span>collection_task).<span class="kw">await</span>;
                             }
@@ -2284,37 +2274,31 @@
                             TYPES::Time::new(<span class="number">0</span>)
                         };
 
-                        <span class="kw">let </span>acc = VoteAccumulator {
+                        <span class="comment">// Todo check if we are the leader
+                        </span><span class="kw">let </span>new_accumulator = QuorumVoteAccumulator {
                             total_vote_outcomes: HashMap::new(),
-                            da_vote_outcomes: HashMap::new(),
                             yes_vote_outcomes: HashMap::new(),
                             no_vote_outcomes: HashMap::new(),
-                            viewsync_precommit_vote_outcomes: HashMap::new(),
-                            viewsync_commit_vote_outcomes: HashMap::new(),
-                            viewsync_finalize_vote_outcomes: HashMap::new(),
+
                             success_threshold: <span class="self">self</span>.quorum_exchange.success_threshold(),
                             failure_threshold: <span class="self">self</span>.quorum_exchange.failure_threshold(),
+
                             sig_lists: Vec::new(),
                             signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.quorum_exchange.total_nodes()],
+                            phantom: PhantomData,
                         };
 
-                        <span class="comment">// Todo check if we are the leader
-                        </span><span class="kw">let </span>accumulator = <span class="self">self</span>.quorum_exchange.accumulate_vote(
-                            <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">0</span>,
-                            <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">1</span>,
-                            vote.clone().leaf_commitment,
-                            vote.clone().vote_data.clone(),
-                            vote.clone().vote_token.clone(),
-                            vote.clone().current_view,
-                            acc,
-                            <span class="prelude-val">None</span>,
+                        <span class="kw">let </span>accumulator = <span class="self">self</span>.quorum_exchange.accumulate_vote_2(
+                            new_accumulator,
+                            <span class="kw-2">&amp;</span>vote,
+                            <span class="kw-2">&amp;</span>vote_internal.clone().leaf_commitment,
                         );
 
-                        <span class="kw">if </span>vote.current_view &gt; collection_view {
+                        <span class="kw">if </span>vote_internal.current_view &gt; collection_view {
                             <span class="kw">let </span>state = VoteCollectionTaskState {
                                 quorum_exchange: <span class="self">self</span>.quorum_exchange.clone(),
                                 accumulator,
-                                cur_view: vote.current_view,
+                                cur_view: vote_internal.current_view,
                                 event_stream: <span class="self">self</span>.event_stream.clone(),
                                 id: <span class="self">self</span>.id,
                             };
@@ -2334,17 +2318,22 @@
                             <span class="kw">let </span>id = builder.get_task_id().unwrap();
                             <span class="kw">let </span>stream_id = builder.get_stream_id().unwrap();
 
-                            <span class="self">self</span>.vote_collector = <span class="prelude-val">Some</span>((vote.current_view, id, stream_id));
+                            <span class="self">self</span>.vote_collector = <span class="prelude-val">Some</span>((vote_internal.current_view, id, stream_id));
 
                             <span class="kw">let </span>_task = async_spawn(<span class="kw">async move </span>{
                                 VoteCollectionTypes::build(builder).launch().<span class="kw">await</span>;
                             });
-                            <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.current_view);
+                            <span class="macro">debug!</span>(
+                                <span class="string">&quot;Starting vote handle for view {:?}&quot;</span>,
+                                vote_internal.current_view
+                            );
                         } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, stream_id)) = <span class="self">self</span>.vote_collector {
                             <span class="self">self</span>.event_stream
                                 .direct_message(
                                     stream_id,
-                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(vote)),
+                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(
+                                        vote_internal,
+                                    )),
                                 )
                                 .<span class="kw">await</span>;
                         }
@@ -2480,8 +2469,7 @@
         _qc: QuorumCertificate&lt;TYPES, I::Leaf&gt;,
         view: TYPES::Time,
     ) -&gt; bool {
-        <span class="comment">// TODO ED This should not be qc view number + 1
-        </span><span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(view) {
+        <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(view) {
             <span class="macro">error!</span>(
                 <span class="string">&quot;Somehow we formed a QC but are not the leader for the next view {:?}&quot;</span>,
                 view

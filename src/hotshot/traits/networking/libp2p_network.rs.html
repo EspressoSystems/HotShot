@@ -908,32 +908,6 @@
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -951,7 +925,7 @@
 <span class="kw">use </span>hotshot_constants::{KAD_DEFAULT_REPUB_INTERVAL_SEC, LOOK_AHEAD};
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
-    data::{ProposalType, ViewNumber},
+    data::ViewNumber,
     message::{Message, MessageKind},
     traits::{
         election::Membership,
@@ -965,7 +939,6 @@
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
-    vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -1695,21 +1668,14 @@
 </span><span class="kw">pub struct </span>Libp2pCommChannel&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
     Arc&lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;,
-    PhantomData&lt;(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)&gt;,
+    PhantomData&lt;(TYPES, I, MEMBERSHIP)&gt;,
 );
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    Libp2pCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// create a new libp2p communication channel
     </span><span class="attr">#[must_use]
@@ -1718,14 +1684,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 <span class="kw">where
     </span>MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
@@ -1767,14 +1728,9 @@
 // top
 // we don&#39;t really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
 </span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
+    CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 <span class="kw">where
     </span>MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
 {
@@ -1848,21 +1804,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, MEMBERSHIP: Membership&lt;TYPES&gt;&gt;
     TestableChannelImplementation&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
-        PROPOSAL,
-        VOTE,
         MEMBERSHIP,
         Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
-    &gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, MEMBERSHIP&gt;
 {
     <span class="kw">fn </span>generate_network(
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;

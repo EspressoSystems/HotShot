@@ -501,6 +501,7 @@
     QuorumCertificate, SequencingQuorumEx,
 };
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
+<span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
@@ -536,6 +537,7 @@
     },
     vote::{ViewSyncData, VoteType},
 };
+<span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="doccomment">/// event for global event stream
@@ -557,8 +559,9 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
+    COMMITTABLE: Committable + Serialize + Clone,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
+    VOTE: VoteType&lt;TYPES, COMMITTABLE&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -574,8 +577,7 @@
 ) -&gt; TaskRunner
 <span class="comment">// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 </span><span class="kw">where
-    </span>EXCHANGE::Networking:
-        CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
+    </span>EXCHANGE::Networking: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
 {
     <span class="kw">let </span>channel = exchange.network().clone();
     <span class="kw">let </span>broadcast_stream = GeneratedStream::&lt;Messages&lt;TYPES, I&gt;&gt;::new(Arc::new(<span class="kw">move </span>|| {
@@ -667,8 +669,9 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
+    COMMITTABLE: Committable + Serialize + Clone,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
+    VOTE: VoteType&lt;TYPES, COMMITTABLE&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -685,19 +688,16 @@
 ) -&gt; TaskRunner
 <span class="comment">// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 </span><span class="kw">where
-    </span>EXCHANGE::Networking:
-        CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
+    </span>EXCHANGE::Networking: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
 {
     <span class="kw">let </span>filter = NetworkEventTaskState::&lt;
         TYPES,
         I,
-        PROPOSAL,
-        VOTE,
         MEMBERSHIP,
         &lt;EXCHANGE <span class="kw">as </span>ConsensusExchange&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::Networking,
     &gt;::filter(task_kind);
     <span class="kw">let </span>channel = exchange.network().clone();
-    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
+    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         channel,
         event_stream: event_stream.clone(),
         view: TYPES::Time::genesis(),
@@ -705,7 +705,7 @@
     };
     <span class="kw">let </span>registry = task_runner.registry.clone();
     <span class="kw">let </span>network_event_handler = HandleEvent(Arc::new(
-        <span class="kw">move </span>|event, <span class="kw-2">mut </span>state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, MEMBERSHIP, <span class="kw">_</span>&gt;| {
+        <span class="kw">move </span>|event, <span class="kw-2">mut </span>state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, MEMBERSHIP, <span class="kw">_</span>&gt;| {
             <span class="kw">let </span>membership = exchange.membership().clone();
             <span class="kw">async move </span>{
                 <span class="kw">let </span>completion_status = state.handle_event(event, <span class="kw-2">&amp;</span>membership).<span class="kw">await</span>;
@@ -717,7 +717,7 @@
     <span class="kw">let </span>networking_name = <span class="string">&quot;Networking Task&quot;</span>;
 
     <span class="kw">let </span>networking_task_builder =
-        TaskBuilder::&lt;NetworkEventTaskTypes&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::new(networking_name.to_string())
+        TaskBuilder::&lt;NetworkEventTaskTypes&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::new(networking_name.to_string())
             .register_event_stream(event_stream.clone(), filter)
             .<span class="kw">await
             </span>.register_registry(<span class="kw-2">&amp;mut </span>registry.clone())

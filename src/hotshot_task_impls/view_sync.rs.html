@@ -1048,6 +1048,11 @@
 <a href="#1048" id="1048">1048</a>
 <a href="#1049" id="1049">1049</a>
 <a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -1059,7 +1064,13 @@
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-<span class="kw">use </span>hotshot_types::traits::{election::Membership, network::ConsensusIntentEvent};
+<span class="kw">use </span>hotshot_types::{
+    traits::{
+        election::{Membership, SignedCertificate},
+        network::ConsensusIntentEvent,
+    },
+    vote::ViewSyncVoteAccumulator,
+};
 
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
@@ -1075,10 +1086,10 @@
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
-    vote::{ViewSyncData, ViewSyncVote, VoteAccumulator},
+    vote::{ViewSyncData, ViewSyncVote},
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{debug, error, instrument};
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="doccomment">/// Phases of view sync
@@ -1266,8 +1277,14 @@
     <span class="doccomment">/// View sync exchange
     </span><span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// Vote accumulator
+    </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub </span>accumulator: Either&lt;
-        VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;,
+        &lt;ViewSyncCertificate&lt;TYPES&gt; <span class="kw">as </span>SignedCertificate&lt;
+            TYPES,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            ViewSyncData&lt;TYPES&gt;,
+        &gt;&gt;::VoteAccumulator,
         ViewSyncCertificate&lt;TYPES&gt;,
     &gt;,
     <span class="doccomment">/// Our node id; for logging
@@ -1430,24 +1447,23 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>accumulator = VoteAccumulator {
-                    total_vote_outcomes: HashMap::new(),
-                    da_vote_outcomes: HashMap::new(),
-                    yes_vote_outcomes: HashMap::new(),
-                    no_vote_outcomes: HashMap::new(),
-                    viewsync_precommit_vote_outcomes: HashMap::new(),
-                    viewsync_commit_vote_outcomes: HashMap::new(),
-                    viewsync_finalize_vote_outcomes: HashMap::new(),
+                <span class="kw">let </span>new_accumulator = ViewSyncVoteAccumulator {
+                    pre_commit_vote_outcomes: HashMap::new(),
+                    commit_vote_outcomes: HashMap::new(),
+                    finalize_vote_outcomes: HashMap::new(),
+
                     success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                     failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
+
                     sig_lists: Vec::new(),
                     signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
+                    phantom: PhantomData,
                 };
 
                 <span class="kw">let </span><span class="kw-2">mut </span>relay_state = ViewSyncRelayTaskState {
                     event_stream: <span class="self">self</span>.event_stream.clone(),
                     exchange: <span class="self">self</span>.exchange.clone(),
-                    accumulator: either::Left(accumulator),
+                    accumulator: either::Left(new_accumulator),
                     id: <span class="self">self</span>.id,
                 };
 
@@ -2008,7 +2024,7 @@
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);
                 }
 
-                <span class="kw">let </span>(vote_internal, phase) = <span class="kw">match </span>vote {
+                <span class="kw">let </span>(vote_internal, phase) = <span class="kw">match </span>vote.clone() {
                     ViewSyncVote::PreCommit(vote_internal) =&gt; {
                         (vote_internal, ViewSyncPhase::PreCommit)
                     }
@@ -2043,15 +2059,10 @@
                     <span class="kw-2">*</span>vote_internal.round, vote_internal.relay
                 );
 
-                <span class="kw">let </span>accumulator = <span class="self">self</span>.exchange.accumulate_vote(
-                    <span class="kw-2">&amp;</span>vote_internal.signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>vote_internal.signature.<span class="number">1</span>,
-                    view_sync_data,
-                    vote_internal.vote_data,
-                    vote_internal.vote_token.clone(),
-                    vote_internal.round,
+                <span class="kw">let </span>accumulator = <span class="self">self</span>.exchange.accumulate_vote_2(
                     <span class="self">self</span>.accumulator.left().unwrap(),
-                    <span class="prelude-val">Some</span>(vote_internal.relay),
+                    <span class="kw-2">&amp;</span>vote,
+                    <span class="kw-2">&amp;</span>view_sync_data,
                 );
 
                 <span class="self">self</span>.accumulator = <span class="kw">match </span>accumulator {
@@ -2063,8 +2074,7 @@
                             data: certificate.clone(),
                             signature,
                         };
-                        <span class="comment">// error!(&quot;Sending view sync cert {:?}&quot;, message.clone());
-                        </span><span class="self">self</span>.event_stream
+                        <span class="self">self</span>.event_stream
                             .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
                                 message,
                                 <span class="self">self</span>.exchange.public_key().clone(),
@@ -2072,19 +2082,19 @@
                             .<span class="kw">await</span>;
 
                         <span class="comment">// Reset accumulator for new certificate
-                        </span>either::Left(VoteAccumulator {
-                            total_vote_outcomes: HashMap::new(),
-                            da_vote_outcomes: HashMap::new(),
-                            yes_vote_outcomes: HashMap::new(),
-                            no_vote_outcomes: HashMap::new(),
-                            viewsync_precommit_vote_outcomes: HashMap::new(),
-                            viewsync_commit_vote_outcomes: HashMap::new(),
-                            viewsync_finalize_vote_outcomes: HashMap::new(),
+                        </span><span class="kw">let </span>new_accumulator = ViewSyncVoteAccumulator {
+                            pre_commit_vote_outcomes: HashMap::new(),
+                            commit_vote_outcomes: HashMap::new(),
+                            finalize_vote_outcomes: HashMap::new(),
+
                             success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                             failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
+
                             sig_lists: Vec::new(),
                             signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
-                        })
+                            phantom: PhantomData,
+                        };
+                        either::Left(new_accumulator)
                     }
                 };
 

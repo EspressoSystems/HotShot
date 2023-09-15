@@ -1086,15 +1086,6 @@
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
 <a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1156,7 +1147,7 @@
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
-    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -1176,7 +1167,7 @@
         storage::StoredView,
         State,
     },
-    vote::{ViewSyncData, VoteType},
+    vote::ViewSyncData,
     HotShotConfig,
 };
 <span class="kw">use </span>snafu::ResultExt;
@@ -2025,10 +2016,7 @@
         I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
     &gt; SequencingConsensusApi&lt;TYPES, I::Leaf, I&gt; <span class="kw">for </span>HotShotSequencingConsensusApi&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>send_direct_message&lt;
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
+    <span class="kw">async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
@@ -2053,10 +2041,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>send_direct_da_message&lt;
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
+    <span class="kw">async fn </span>send_direct_da_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
@@ -2083,10 +2068,7 @@
 
     <span class="comment">// TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // &lt;https://github.com/EspressoSystems/HotShot/issues/1194&gt;
-    </span><span class="kw">async fn </span>send_broadcast_message&lt;
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
+    </span><span class="kw">async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {

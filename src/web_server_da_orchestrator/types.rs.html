@@ -73,9 +73,6 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra_da::WebServerDARun;
 <span class="kw">use </span>hotshot::{
     demos::sdemo::SDemoTypes,
@@ -103,12 +100,9 @@
 <span class="kw">pub type </span>ThisLeaf = SequencingLeaf&lt;SDemoTypes&gt;;
 <span class="kw">pub type </span>ThisMembership =
     GeneralStaticCommittee&lt;SDemoTypes, ThisLeaf, &lt;SDemoTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
-<span class="kw">pub type </span>DANetwork =
-    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisDAProposal, ThisDAVote, ThisMembership&gt;;
-<span class="kw">pub type </span>QuorumNetwork =
-    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisQuorumProposal, ThisQuorumVote, ThisMembership&gt;;
-<span class="kw">pub type </span>ViewSyncNetwork =
-    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisViewSyncProposal, ThisViewSyncVote, ThisMembership&gt;;
+<span class="kw">pub type </span>DANetwork = WebCommChannel&lt;SDemoTypes, NodeImpl, ThisMembership&gt;;
+<span class="kw">pub type </span>QuorumNetwork = WebCommChannel&lt;SDemoTypes, NodeImpl, ThisMembership&gt;;
+<span class="kw">pub type </span>ViewSyncNetwork = WebCommChannel&lt;SDemoTypes, NodeImpl, ThisMembership&gt;;
 
 <span class="kw">pub type </span>ThisDAProposal = DAProposal&lt;SDemoTypes&gt;;
 <span class="kw">pub type </span>ThisDAVote = DAVote&lt;SDemoTypes&gt;;

@@ -613,111 +613,6 @@
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
 <a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -739,7 +634,7 @@
 <span class="kw">use </span>hotshot_task::task::FilterEvent;
 <span class="kw">use </span>hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
+    data::{QuorumProposal, SequencingLeaf, TestableLeaf},
     event::{Event, EventType},
     message::{Message, SequencingMessage},
     traits::{
@@ -753,7 +648,6 @@
         },
         state::{ConsensusTime, TestableBlock, TestableState},
     },
-    vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
 <span class="comment">// use libp2p::{
@@ -787,27 +681,9 @@
 </span><span class="kw">pub async fn </span>run_orchestrator_da&lt;
     TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
-    DANETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    QUORUMNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            ViewSyncCertificate&lt;TYPES&gt;,
-            ViewSyncVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
+    DANETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    QUORUMNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
     NODE: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -855,27 +731,9 @@
 </span><span class="kw">pub trait </span>RunDA&lt;
     TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
-    DANETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    QUORUMNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            ViewSyncCertificate&lt;TYPES&gt;,
-            ViewSyncVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
+    DANETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    QUORUMNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
     NODE: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1134,21 +992,13 @@
 <span class="comment">// WEB SERVER
 
 </span><span class="doccomment">/// Alias for the [`WebCommChannel`] for sequencing consensus.
-</span><span class="kw">type </span>StaticDAComm&lt;TYPES, I, MEMBERSHIP&gt; =
-    WebCommChannel&lt;TYPES, I, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;;
+</span><span class="kw">type </span>StaticDAComm&lt;TYPES, I, MEMBERSHIP&gt; = WebCommChannel&lt;TYPES, I, MEMBERSHIP&gt;;
 
 <span class="doccomment">/// Alias for the [&#39;WebCommChannel&#39;] for validating consensus
-</span><span class="kw">type </span>StaticQuorumComm&lt;TYPES, I, MEMBERSHIP&gt; = WebCommChannel&lt;
-    TYPES,
-    I,
-    QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    MEMBERSHIP,
-&gt;;
+</span><span class="kw">type </span>StaticQuorumComm&lt;TYPES, I, MEMBERSHIP&gt; = WebCommChannel&lt;TYPES, I, MEMBERSHIP&gt;;
 
 <span class="doccomment">/// Alias for the [&#39;WebCommChannel&#39;] for view sync consensus
-</span><span class="kw">type </span>StaticViewSyncComm&lt;TYPES, I, MEMBERSHIP&gt; =
-    WebCommChannel&lt;TYPES, I, ViewSyncCertificate&lt;TYPES&gt;, ViewSyncVote&lt;TYPES&gt;, MEMBERSHIP&gt;;
+</span><span class="kw">type </span>StaticViewSyncComm&lt;TYPES, I, MEMBERSHIP&gt; = WebCommChannel&lt;TYPES, I, MEMBERSHIP&gt;;
 
 <span class="doccomment">/// Represents a web server-based run
 </span><span class="kw">pub struct </span>WebServerDARun&lt;
@@ -1181,32 +1031,20 @@
                     SequencingLeaf&lt;TYPES&gt;,
                     QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
                     MEMBERSHIP,
-                    WebCommChannel&lt;
-                        TYPES,
-                        NODE,
-                        QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-                        QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-                        MEMBERSHIP,
-                    &gt;,
+                    WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt;,
                     Message&lt;TYPES, NODE&gt;,
                 &gt;,
                 CommitteeExchange&lt;
                     TYPES,
                     MEMBERSHIP,
-                    WebCommChannel&lt;TYPES, NODE, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt;,
+                    WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt;,
                     Message&lt;TYPES, NODE&gt;,
                 &gt;,
                 ViewSyncExchange&lt;
                     TYPES,
                     ViewSyncCertificate&lt;TYPES&gt;,
                     MEMBERSHIP,
-                    WebCommChannel&lt;
-                        TYPES,
-                        NODE,
-                        ViewSyncCertificate&lt;TYPES&gt;,
-                        ViewSyncVote&lt;TYPES&gt;,
-                        MEMBERSHIP,
-                    &gt;,
+                    WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt;,
                     Message&lt;TYPES, NODE&gt;,
                 &gt;,
             &gt;,
@@ -1258,21 +1096,11 @@
         );
 
         <span class="comment">// Create the network
-        </span><span class="kw">let </span>quorum_network: WebCommChannel&lt;
-            TYPES,
-            NODE,
-            QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            MEMBERSHIP,
-        &gt; = WebCommChannel::new(underlying_quorum_network.clone().into());
+        </span><span class="kw">let </span>quorum_network: WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; =
+            WebCommChannel::new(underlying_quorum_network.clone().into());
 
-        <span class="kw">let </span>view_sync_network: WebCommChannel&lt;
-            TYPES,
-            NODE,
-            ViewSyncCertificate&lt;TYPES&gt;,
-            ViewSyncVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; = WebCommChannel::new(underlying_quorum_network.into());
+        <span class="kw">let </span>view_sync_network: WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; =
+            WebCommChannel::new(underlying_quorum_network.into());
 
         <span class="kw">let </span>WebServerConfig {
             host,
@@ -1281,17 +1109,10 @@
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         <span class="comment">// Each node runs the DA network so that leaders have access to transactions and DA votes
-        </span><span class="kw">let </span>da_network: WebCommChannel&lt;TYPES, NODE, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt; =
-            WebCommChannel::new(
-                WebServerNetwork::create(
-                    <span class="kw-2">&amp;</span>host.to_string(),
-                    port,
-                    wait_between_polls,
-                    pub_key,
-                    <span class="bool-val">true</span>,
-                )
+        </span><span class="kw">let </span>da_network: WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; = WebCommChannel::new(
+            WebServerNetwork::create(<span class="kw-2">&amp;</span>host.to_string(), port, wait_between_polls, pub_key, <span class="bool-val">true</span>)
                 .into(),
-            );
+        );
 
         WebServerDARun {
             config,
@@ -1301,28 +1122,15 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_network(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; WebCommChannel&lt;TYPES, NODE, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES&gt;, MEMBERSHIP&gt; {
+    <span class="kw">fn </span>get_da_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; {
         <span class="self">self</span>.da_network.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_network(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; WebCommChannel&lt;
-        TYPES,
-        NODE,
-        QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        MEMBERSHIP,
-    &gt; {
+    <span class="kw">fn </span>get_quorum_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; {
         <span class="self">self</span>.quorum_network.clone()
     }
 
-    <span class="kw">fn </span>get_view_sync_network(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; WebCommChannel&lt;TYPES, NODE, ViewSyncCertificate&lt;TYPES&gt;, ViewSyncVote&lt;TYPES&gt;, MEMBERSHIP&gt;
-    {
+    <span class="kw">fn </span>get_view_sync_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebCommChannel&lt;TYPES, NODE, MEMBERSHIP&gt; {
         <span class="self">self</span>.view_sync_network.clone()
     }
 
@@ -1341,27 +1149,9 @@
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
     TYPES: NodeType,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
-    DANETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    QUORUMNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel&lt;
-            TYPES,
-            Message&lt;TYPES, NODE&gt;,
-            ViewSyncCertificate&lt;TYPES&gt;,
-            ViewSyncVote&lt;TYPES&gt;,
-            MEMBERSHIP,
-        &gt; + Debug,
+    DANETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    QUORUMNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
     NODE: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
