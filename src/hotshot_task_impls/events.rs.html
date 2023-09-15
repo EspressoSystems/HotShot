@@ -87,6 +87,10 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{DAProposal, VidDisperse},
@@ -151,6 +155,10 @@
     </span>TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     <span class="doccomment">/// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     </span>SendDABlockData(TYPES::BlockType),
+    <span class="doccomment">/// Event when the transactions task has a block formed
+    </span>BlockReady(TYPES::BlockType, TYPES::Time),
+    <span class="doccomment">/// Event when consensus decided on a leaf
+    </span>LeafDecided(Vec&lt;I::Leaf&gt;),
     <span class="doccomment">/// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`DAProposalSend`].
