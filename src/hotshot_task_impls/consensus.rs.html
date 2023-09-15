@@ -1336,6 +1336,13 @@
 <a href="#1336" id="1336">1336</a>
 <a href="#1337" id="1337">1337</a>
 <a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1826,6 +1833,13 @@
             // }
             </span><span class="self">self</span>.cur_view = new_view;
             <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
+
+            <span class="kw">if </span>new_view == TYPES::Time::new(<span class="number">1</span>) {
+                <span class="self">self</span>.quorum_exchange
+                    .network()
+                    .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
+                    .<span class="kw">await</span>;
+            }
 
             <span class="comment">// Poll the future leader for lookahead
             </span><span class="kw">let </span>lookahead_view = new_view + LOOK_AHEAD;

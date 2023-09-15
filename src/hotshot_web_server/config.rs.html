@@ -84,6 +84,10 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
@@ -101,6 +105,10 @@
 
 <span class="kw">pub fn </span>post_proposal_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
+}
+
+<span class="kw">pub fn </span>get_recent_proposal_route() -&gt; String {
+    <span class="string">&quot;api/proposal&quot;</span>.to_string()
 }
 
 <span class="kw">pub fn </span>get_da_certificate_route(view_number: u64) -&gt; String {

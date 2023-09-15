@@ -386,6 +386,9 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -528,6 +531,8 @@
     </span>PollForVotes(u64),
     <span class="doccomment">/// Poll for a proposal for a particular view
     </span>PollForProposal(u64),
+    <span class="doccomment">/// Poll for the most recent proposal the webserver has
+    </span>PollForCurrentProposal,
     <span class="doccomment">/// Poll for a DAC for a particular view
     </span>PollForDAC(u64),
     <span class="doccomment">/// Poll for view sync votes starting at a particular view
@@ -570,6 +575,7 @@
             | ConsensusIntentEvent::PollForTransactions(view_number)
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
+            ConsensusIntentEvent::PollForCurrentProposal =&gt; <span class="number">1</span>,
         }
     }
 }
