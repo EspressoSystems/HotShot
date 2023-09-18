@@ -36,7 +36,7 @@ use crate::{
     certificate::QuorumCertificate,
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_view_sync_task,
+        add_transaction_task, add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
@@ -59,7 +59,7 @@ use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKin
 use hotshot_types::{
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
-    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -79,7 +79,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{ViewSyncData, VoteType},
+    vote::ViewSyncData,
     HotShotConfig,
 };
 use snafu::ResultExt;
@@ -114,7 +114,6 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Configuration items for this hotshot instance
     config: HotShotConfig<
-        TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         TYPES::ElectionConfigType,
     >,
@@ -175,7 +174,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<
-            TYPES::SignatureKey,
             <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
             TYPES::ElectionConfigType,
         >,
@@ -400,7 +398,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<
-            TYPES::SignatureKey,
             <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
             TYPES::ElectionConfigType,
         >,
@@ -770,6 +767,13 @@ where
             handle.clone(),
         )
         .await;
+        let task_runner = add_transaction_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
         let task_runner = add_view_sync_task::<TYPES, I>(
             task_runner,
             internal_event_stream.clone(),
@@ -931,10 +935,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingConsensusApi<TYPES, I::Leaf, I> for HotShotSequencingConsensusApi<TYPES, I>
 {
-    async fn send_direct_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
+    async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage<TYPES, I>,
@@ -959,10 +960,7 @@ impl<
         Ok(())
     }
 
-    async fn send_direct_da_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
+    async fn send_direct_da_message(
         &self,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage<TYPES, I>,
@@ -989,10 +987,7 @@ impl<
 
     // TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // <https://github.com/EspressoSystems/HotShot/issues/1194>
-    async fn send_broadcast_message<
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    >(
+    async fn send_broadcast_message(
         &self,
         message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError> {

@@ -22,7 +22,7 @@ use hotshot_orchestrator::{
 use hotshot_task::task::FilterEvent;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
-    data::{DAProposal, QuorumProposal, SequencingLeaf, TestableLeaf},
+    data::{QuorumProposal, SequencingLeaf, TestableLeaf},
     event::{Event, EventType},
     message::{Message, SequencingMessage},
     traits::{
@@ -36,7 +36,6 @@ use hotshot_types::{
         },
         state::{ConsensusTime, TestableBlock, TestableState},
     },
-    vote::{DAVote, QuorumVote, ViewSyncVote},
     HotShotConfig,
 };
 use libp2p_identity::{
@@ -80,27 +79,9 @@ use tracing::{debug, error, info, warn};
 pub async fn run_orchestrator_da<
     TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
-    DANETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            DAProposal<TYPES>,
-            DAVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
-    QUORUMNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        > + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
+    DANETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    QUORUMNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -148,27 +129,9 @@ pub async fn run_orchestrator_da<
 pub trait RunDA<
     TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
-    DANETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            DAProposal<TYPES>,
-            DAVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
-    QUORUMNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        > + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
+    DANETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    QUORUMNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
@@ -228,7 +191,6 @@ pub trait RunDA<
         // Get KeyPair for certificate Aggregation
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let known_nodes = config.config.known_nodes.clone();
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
         let entry = pk.get_stake_table_entry(1u64);
 
@@ -253,7 +215,6 @@ pub trait RunDA<
 
         let exchanges = NODE::Exchanges::create(
             known_nodes_with_stake.clone(),
-            known_nodes.clone(),
             (quorum_election_config, committee_election_config),
             (
                 quorum_network.clone(),
@@ -476,32 +437,20 @@ impl<
                     SequencingLeaf<TYPES>,
                     QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
                     MEMBERSHIP,
-                    WebCommChannel<
-                        TYPES,
-                        NODE,
-                        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-                        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-                        MEMBERSHIP,
-                    >,
+                    WebCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
                 CommitteeExchange<
                     TYPES,
                     MEMBERSHIP,
-                    WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
+                    WebCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
                 ViewSyncExchange<
                     TYPES,
                     ViewSyncCertificate<TYPES>,
                     MEMBERSHIP,
-                    WebCommChannel<
-                        TYPES,
-                        NODE,
-                        ViewSyncCertificate<TYPES>,
-                        ViewSyncVote<TYPES>,
-                        MEMBERSHIP,
-                    >,
+                    WebCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
             >,
@@ -553,21 +502,11 @@ where
         );
 
         // Create the network
-        let quorum_network: WebCommChannel<
-            TYPES,
-            NODE,
-            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        > = WebCommChannel::new(underlying_quorum_network.clone().into());
+        let quorum_network: WebCommChannel<TYPES, NODE, MEMBERSHIP> =
+            WebCommChannel::new(underlying_quorum_network.clone().into());
 
-        let view_sync_network: WebCommChannel<
-            TYPES,
-            NODE,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > = WebCommChannel::new(underlying_quorum_network.into());
+        let view_sync_network: WebCommChannel<TYPES, NODE, MEMBERSHIP> =
+            WebCommChannel::new(underlying_quorum_network.into());
 
         let WebServerConfig {
             host,
@@ -576,17 +515,10 @@ where
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         // Each node runs the DA network so that leaders have access to transactions and DA votes
-        let da_network: WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> =
-            WebCommChannel::new(
-                WebServerNetwork::create(
-                    &host.to_string(),
-                    port,
-                    wait_between_polls,
-                    pub_key,
-                    true,
-                )
+        let da_network: WebCommChannel<TYPES, NODE, MEMBERSHIP> = WebCommChannel::new(
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, true)
                 .into(),
-            );
+        );
 
         WebServerDARun {
             config,
@@ -596,28 +528,15 @@ where
         }
     }
 
-    fn get_da_network(
-        &self,
-    ) -> WebCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> {
+    fn get_da_network(&self) -> WebCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.da_network.clone()
     }
 
-    fn get_quorum_network(
-        &self,
-    ) -> WebCommChannel<
-        TYPES,
-        NODE,
-        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > {
+    fn get_quorum_network(&self) -> WebCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.quorum_network.clone()
     }
 
-    fn get_view_sync_network(
-        &self,
-    ) -> WebCommChannel<TYPES, NODE, ViewSyncCertificate<TYPES>, ViewSyncVote<TYPES>, MEMBERSHIP>
-    {
+    fn get_view_sync_network(&self) -> WebCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.view_sync_network.clone()
     }
 
@@ -922,27 +841,9 @@ where
 pub async fn main_entry_point<
     TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES> + Debug,
-    DANETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            DAProposal<TYPES>,
-            DAVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
-    QUORUMNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        > + Debug,
-    VIEWSYNCNETWORK: CommunicationChannel<
-            TYPES,
-            Message<TYPES, NODE>,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > + Debug,
+    DANETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    QUORUMNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
+    VIEWSYNCNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
     NODE: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
