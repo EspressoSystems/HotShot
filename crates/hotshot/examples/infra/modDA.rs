@@ -20,6 +20,7 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
+use hotshot_types::HotShotConfig;
 use hotshot_types::{
     certificate::ViewSyncCertificate,
     data::{QuorumProposal, SequencingLeaf, TestableLeaf},
@@ -36,7 +37,6 @@ use hotshot_types::{
         },
         state::{ConsensusTime, TestableBlock, TestableState},
     },
-    HotShotConfig,
 };
 use libp2p_identity::{
     ed25519::{self, SecretKey},
@@ -389,23 +389,6 @@ pub trait RunDA<
 
 // WEB SERVER
 
-/// Alias for the [`WebCommChannel`] for sequencing consensus.
-type StaticDACommWeb<TYPES, I, MEMBERSHIP> =
-    WebCommChannel<TYPES, I, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>;
-
-/// Alias for the ['WebCommChannel'] for validating consensus
-type StaticQuorumCommWeb<TYPES, I, MEMBERSHIP> = WebCommChannel<
-    TYPES,
-    I,
-    QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
-
-/// Alias for the ['WebCommChannel'] for view sync consensus
-type StaticViewSyncCommWeb<TYPES, I, MEMBERSHIP> =
-    WebCommChannel<TYPES, I, ViewSyncCertificate<TYPES>, ViewSyncVote<TYPES>, MEMBERSHIP>;
-
 /// Represents a web server-based run
 pub struct WebServerDARun<
     TYPES: NodeType,
@@ -417,9 +400,9 @@ pub struct WebServerDARun<
         <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         TYPES::ElectionConfigType,
     >,
-    quorum_network: StaticQuorumCommWeb<TYPES, I, MEMBERSHIP>,
-    da_network: StaticDACommWeb<TYPES, I, MEMBERSHIP>,
-    view_sync_network: StaticViewSyncCommWeb<TYPES, I, MEMBERSHIP>,
+    quorum_network: WebCommChannel<TYPES, I, MEMBERSHIP>,
+    da_network: WebCommChannel<TYPES, I, MEMBERSHIP>,
+    view_sync_network: WebCommChannel<TYPES, I, MEMBERSHIP>,
 }
 
 #[async_trait]
@@ -461,9 +444,9 @@ impl<
     RunDA<
         TYPES,
         MEMBERSHIP,
-        StaticDACommWeb<TYPES, NODE, MEMBERSHIP>,
-        StaticQuorumCommWeb<TYPES, NODE, MEMBERSHIP>,
-        StaticViewSyncCommWeb<TYPES, NODE, MEMBERSHIP>,
+        WebCommChannel<TYPES, NODE, MEMBERSHIP>,
+        WebCommChannel<TYPES, NODE, MEMBERSHIP>,
+        WebCommChannel<TYPES, NODE, MEMBERSHIP>,
         NODE,
     > for WebServerDARun<TYPES, NODE, MEMBERSHIP>
 where
@@ -553,23 +536,6 @@ where
 
 // Libp2p
 
-/// Alias for the [`Libp2pCommChannel`] for sequencing consensus.
-type StaticDACommLibp2p<TYPES, I, MEMBERSHIP> =
-    Libp2pCommChannel<TYPES, I, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>;
-
-/// Alias for the ['Libp2pCommChannel'] for validating consensus
-type StaticQuorumCommLibp2p<TYPES, I, MEMBERSHIP> = Libp2pCommChannel<
-    TYPES,
-    I,
-    QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
-
-/// Alias for the ['Libp2pCommChannel'] for view sync consensus
-type StaticViewSyncCommLibp2p<TYPES, I, MEMBERSHIP> =
-    Libp2pCommChannel<TYPES, I, ViewSyncCertificate<TYPES>, ViewSyncVote<TYPES>, MEMBERSHIP>;
-
 /// Represents a libp2p-based run
 pub struct Libp2pDARun<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
 {
@@ -578,9 +544,9 @@ pub struct Libp2pDARun<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP
         <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         TYPES::ElectionConfigType,
     >,
-    quorum_network: StaticQuorumCommLibp2p<TYPES, I, MEMBERSHIP>,
-    da_network: StaticDACommLibp2p<TYPES, I, MEMBERSHIP>,
-    view_sync_network: StaticViewSyncCommLibp2p<TYPES, I, MEMBERSHIP>,
+    quorum_network: Libp2pCommChannel<TYPES, I, MEMBERSHIP>,
+    da_network: Libp2pCommChannel<TYPES, I, MEMBERSHIP>,
+    view_sync_network: Libp2pCommChannel<TYPES, I, MEMBERSHIP>,
 }
 
 #[async_trait]
@@ -598,32 +564,20 @@ impl<
                     SequencingLeaf<TYPES>,
                     QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
                     MEMBERSHIP,
-                    Libp2pCommChannel<
-                        TYPES,
-                        NODE,
-                        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-                        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-                        MEMBERSHIP,
-                    >,
+                    Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
                 CommitteeExchange<
                     TYPES,
                     MEMBERSHIP,
-                    Libp2pCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP>,
+                    Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
                 ViewSyncExchange<
                     TYPES,
                     ViewSyncCertificate<TYPES>,
                     MEMBERSHIP,
-                    Libp2pCommChannel<
-                        TYPES,
-                        NODE,
-                        ViewSyncCertificate<TYPES>,
-                        ViewSyncVote<TYPES>,
-                        MEMBERSHIP,
-                    >,
+                    Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
                     Message<TYPES, NODE>,
                 >,
             >,
@@ -634,9 +588,9 @@ impl<
     RunDA<
         TYPES,
         MEMBERSHIP,
-        StaticDACommLibp2p<TYPES, NODE, MEMBERSHIP>,
-        StaticQuorumCommLibp2p<TYPES, NODE, MEMBERSHIP>,
-        StaticViewSyncCommLibp2p<TYPES, NODE, MEMBERSHIP>,
+        Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
+        Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
+        Libp2pCommChannel<TYPES, NODE, MEMBERSHIP>,
         NODE,
     > for Libp2pDARun<TYPES, NODE, MEMBERSHIP>
 where
@@ -769,29 +723,14 @@ where
         underlying_quorum_network.wait_for_ready().await;
 
         // Create the network
-        let quorum_network: Libp2pCommChannel<
-            TYPES,
-            NODE,
-            QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-            MEMBERSHIP,
-        > = Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let quorum_network: Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> =
+            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
 
-        let view_sync_network: Libp2pCommChannel<
-            TYPES,
-            NODE,
-            ViewSyncCertificate<TYPES>,
-            ViewSyncVote<TYPES>,
-            MEMBERSHIP,
-        > = Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let view_sync_network: Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> =
+            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
 
-        let da_network: Libp2pCommChannel<
-            TYPES,
-            NODE,
-            DAProposal<TYPES>,
-            DAVote<TYPES>,
-            MEMBERSHIP,
-        > = Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let da_network: Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> =
+            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
 
         Libp2pDARun {
             config,
@@ -801,28 +740,15 @@ where
         }
     }
 
-    fn get_da_network(
-        &self,
-    ) -> Libp2pCommChannel<TYPES, NODE, DAProposal<TYPES>, DAVote<TYPES>, MEMBERSHIP> {
+    fn get_da_network(&self) -> Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.da_network.clone()
     }
 
-    fn get_quorum_network(
-        &self,
-    ) -> Libp2pCommChannel<
-        TYPES,
-        NODE,
-        QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > {
+    fn get_quorum_network(&self) -> Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.quorum_network.clone()
     }
 
-    fn get_view_sync_network(
-        &self,
-    ) -> Libp2pCommChannel<TYPES, NODE, ViewSyncCertificate<TYPES>, ViewSyncVote<TYPES>, MEMBERSHIP>
-    {
+    fn get_view_sync_network(&self) -> Libp2pCommChannel<TYPES, NODE, MEMBERSHIP> {
         self.view_sync_network.clone()
     }
 
