@@ -168,6 +168,8 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
     test_builder::TestMetadata,
@@ -177,7 +179,7 @@
 <span class="kw">use </span>hotshot::{
     certificate::QuorumCertificate,
     traits::{BlockPayload, NodeImplementation, TestableNodeImplementation},
-    types::{bn254::BN254Pub, SignatureKey, SystemContextHandle},
+    types::{bn254::BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
 };
 <span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
@@ -218,7 +220,8 @@
     .unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
-    <span class="kw">let </span>private_key = &lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
+    <span class="kw">let </span>private_key =
+        &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
     <span class="kw">let </span>public_key = &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
     <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         &lt;QuorumEx&lt;SequencingTestTypes, SequencingMemoryImpl&gt; <span class="kw">as </span>ConsensusExchange&lt;
@@ -258,7 +261,7 @@
 
 <span class="kw">async fn </span>build_quorum_proposal_and_signature(
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;SequencingTestTypes, SequencingMemoryImpl&gt;,
-    private_key: <span class="kw-2">&amp;</span>&lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     view: u64,
 ) -&gt; (
     QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
@@ -299,7 +302,7 @@
         timestamp: <span class="number">0</span>,
         proposer_id: api.public_key().to_bytes(),
     };
-    <span class="kw">let </span>signature = &lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref());
+    <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref());
     <span class="kw">let </span>proposal = QuorumProposal::&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt; {
         block_commitment,
         view_number: ViewNumber::new(view),
@@ -315,7 +318,7 @@
 
 <span class="kw">pub async fn </span>build_quorum_proposal(
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;SequencingTestTypes, SequencingMemoryImpl&gt;,
-    private_key: <span class="kw-2">&amp;</span>&lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     view: u64,
 ) -&gt; Proposal&lt;QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;&gt; {
     <span class="kw">let </span>(proposal, signature) =
@@ -326,8 +329,9 @@
     }
 }
 
-<span class="kw">pub fn </span>key_pair_for_id(node_id: u64) -&gt; (&lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::PrivateKey, BN254Pub) {
-    <span class="kw">let </span>private_key = &lt;BN254Pub <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
+<span class="kw">pub fn </span>key_pair_for_id(node_id: u64) -&gt; (&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey, BLSPubKey) {
+    <span class="kw">let </span>private_key =
+        &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
     <span class="kw">let </span>public_key = &lt;SequencingTestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
     (private_key, public_key)
 }

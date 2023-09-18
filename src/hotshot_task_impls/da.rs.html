@@ -761,7 +761,6 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
@@ -860,7 +859,6 @@
 {
     <span class="doccomment">/// the committee exchange
     </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
-
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Accumulates DA votes
     </span><span class="kw">pub </span>accumulator: Either&lt;

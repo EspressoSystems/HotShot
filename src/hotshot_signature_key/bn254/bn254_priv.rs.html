@@ -78,12 +78,12 @@
 
 <span class="doccomment">/// Private key type for a bn254 keypair
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Debug)]
-</span><span class="kw">pub struct </span>BN254Priv {
+</span><span class="kw">pub struct </span>BLSPrivKey {
     <span class="doccomment">/// The private key for  this keypair
     </span><span class="kw">pub</span>(<span class="kw">super</span>) priv_key: QCSignKey,
 }
 
-<span class="kw">impl </span>BN254Priv {
+<span class="kw">impl </span>BLSPrivKey {
     <span class="doccomment">/// Generate a new private key from scratch
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generate() -&gt; <span class="self">Self </span>{
@@ -125,7 +125,7 @@
     }
 }
 
-<span class="kw">impl </span>PartialOrd <span class="kw">for </span>BN254Priv {
+<span class="kw">impl </span>PartialOrd <span class="kw">for </span>BLSPrivKey {
     <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
         <span class="kw">let </span>self_bytes = <span class="kw-2">&amp;</span><span class="self">self</span>.priv_key.to_string();
         <span class="kw">let </span>other_bytes = <span class="kw-2">&amp;</span>other.priv_key.to_string();
@@ -133,7 +133,7 @@
     }
 }
 
-<span class="kw">impl </span>Ord <span class="kw">for </span>BN254Priv {
+<span class="kw">impl </span>Ord <span class="kw">for </span>BLSPrivKey {
     <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Ordering {
         <span class="kw">let </span>self_bytes = <span class="kw-2">&amp;</span><span class="self">self</span>.priv_key.to_string();
         <span class="kw">let </span>other_bytes = <span class="kw-2">&amp;</span>other.priv_key.to_string();

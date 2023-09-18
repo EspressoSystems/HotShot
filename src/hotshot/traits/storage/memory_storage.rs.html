@@ -327,7 +327,7 @@
     <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>hotshot_signature_key::bn254::BN254Pub;
+    <span class="kw">use </span>hotshot_signature_key::bn254::BLSPubKey;
     <span class="kw">use </span>hotshot_types::{
         certificate::{AssembledSignature, QuorumCertificate},
         data::{fake_commitment, genesis_proposer_id, ValidatingLeaf, ViewNumber},
@@ -359,7 +359,7 @@
     <span class="kw">impl </span>NodeType <span class="kw">for </span>DummyTypes {
         <span class="kw">type </span>Time = ViewNumber;
         <span class="kw">type </span>BlockType = DummyBlock;
-        <span class="kw">type </span>SignatureKey = BN254Pub;
+        <span class="kw">type </span>SignatureKey = BLSPubKey;
         <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;<span class="self">Self</span>::SignatureKey&gt;;
         <span class="kw">type </span>Transaction = &lt;DummyBlock <span class="kw">as </span>BlockPayload&gt;::Transaction;
         <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;

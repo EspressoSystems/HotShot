@@ -1450,6 +1450,9 @@
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1906,8 +1909,9 @@
     </span><span class="kw">fn </span>accumulate_internal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _vota_meta: VoteMetaData&lt;<span class="self">Self</span>::Commitment, TYPES::VoteTokenType, TYPES::Time&gt;,
-        _accumulator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt; {
+        _accumulator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;
+    {
         <span class="macro">todo!</span>() <span class="comment">// TODO ED Remove this function
     </span>}
 
@@ -1922,9 +1926,9 @@
         vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;,
         relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt;;
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;;
 
     <span class="comment">// TODO ED Depending on what we do in the future with the exchanges trait, we can move the accumulator out of the `SignedCertificate`
     // trait.  Logically, I feel it makes sense to accumulate on the certificate rather than the exchange, however.
@@ -2204,9 +2208,10 @@
         vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;,
         _relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt; {
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;
+    {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
@@ -2516,9 +2521,9 @@
         vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, LEAF&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, LEAF, TYPES&gt;,
         _relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, LEAF&gt;, <span class="self">Self</span>::Certificate&gt; {
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, LEAF, TYPES&gt;, <span class="self">Self</span>::Certificate&gt; {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
@@ -2871,9 +2876,10 @@
         vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;, TYPES&gt;,
         relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;, <span class="self">Self</span>::Certificate&gt; {
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;
+    {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

@@ -191,7 +191,7 @@
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
-<span class="kw">use </span>hotshot_signature_key::bn254::BN254Pub;
+<span class="kw">use </span>hotshot_signature_key::bn254::BLSPubKey;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     traits::{
@@ -220,7 +220,7 @@
 }
 
 <span class="doccomment">/// static committee using a vrf kp
-</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; = GeneralStaticCommittee&lt;T, LEAF, BN254Pub&gt;;
+</span><span class="kw">pub type </span>StaticCommittee&lt;T, LEAF&gt; = GeneralStaticCommittee&lt;T, LEAF, BLSPubKey&gt;;
 
 <span class="kw">impl</span>&lt;T, LEAF: LeafType&lt;NodeType = T&gt;, PUBKEY: SignatureKey&gt;
     GeneralStaticCommittee&lt;T, LEAF, PUBKEY&gt;

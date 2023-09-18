@@ -977,9 +977,6 @@
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -1000,9 +997,6 @@
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::signatures::{
-    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
-};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
@@ -1330,7 +1324,7 @@
     <span class="doccomment">/// A quorum&#39;s worth of stake, generally 2f + 1
     </span><span class="kw">pub </span>success_threshold: NonZeroU64,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature&gt;,
+    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     </span><span class="kw">pub </span>signers: BitVec,
     <span class="doccomment">/// Phantom data to specify the vote this accumulator is for
@@ -1357,7 +1351,7 @@
 
         <span class="comment">// Deserialize the signature so that it can be assembeld into a QC
         // TODO ED Update this once we&#39;ve gotten rid of EncodedSignature
-        </span><span class="kw">let </span>original_signature: &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature =
+        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             bincode_opts()
                 .deserialize(<span class="kw-2">&amp;</span>vote.get_signature().<span class="number">0</span>)
                 .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
@@ -1428,7 +1422,7 @@
     <span class="doccomment">/// A failure threshold, generally f + 1
     </span><span class="kw">pub </span>failure_threshold: NonZeroU64,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature&gt;,
+    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     </span><span class="kw">pub </span>signers: BitVec,
     <span class="doccomment">/// Phantom data to ensure this struct is over a specific `VoteType` implementation
@@ -1456,7 +1450,7 @@
 
         <span class="comment">// Deserialize the signature so that it can be assembeld into a QC
         // TODO ED Update this once we&#39;ve gotten rid of EncodedSignature
-        </span><span class="kw">let </span>original_signature: &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature =
+        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             bincode_opts()
                 .deserialize(<span class="kw-2">&amp;</span>vote.get_signature().<span class="number">0</span>)
                 .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
@@ -1559,7 +1553,7 @@
     <span class="doccomment">/// A quorum&#39;s failure threshold, generally f + 1
     </span><span class="kw">pub </span>failure_threshold: NonZeroU64,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature&gt;,
+    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     </span><span class="kw">pub </span>signers: BitVec,
     <span class="doccomment">/// Phantom data since we want the accumulator to be attached to a single `VoteType`  
@@ -1592,7 +1586,7 @@
 
         <span class="comment">// Deserialize the signature so that it can be assembeld into a QC
         // TODO ED Update this once we&#39;ve gotten rid of EncodedSignature
-        </span><span class="kw">let </span>original_signature: &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature =
+        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             bincode_opts()
                 .deserialize(<span class="kw-2">&amp;</span>vote.get_signature().<span class="number">0</span>)
                 .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
@@ -1753,7 +1747,7 @@
 
 <span class="doccomment">/// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-</span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, COMMITMENT: Committable + Serialize + Clone&gt; {
+</span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, COMMITMENT: Committable + Serialize + Clone, TYPES: NodeType&gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
     </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
     <span class="doccomment">/// Map of all da signatures accumlated so far
@@ -1773,7 +1767,7 @@
     <span class="doccomment">/// Enough stake to know that we cannot possibly get a quorum, generally f + 1
     </span><span class="kw">pub </span>failure_threshold: NonZeroU64,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature&gt;,
+    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     </span><span class="kw">pub </span>signers: BitVec,
 }
@@ -1794,7 +1788,7 @@
             ),
         ),
         AssembledSignature&lt;TYPES&gt;,
-    &gt; <span class="kw">for </span>VoteAccumulator&lt;TOKEN, LEAF&gt;
+    &gt; <span class="kw">for </span>VoteAccumulator&lt;TOKEN, LEAF, TYPES&gt;
 <span class="kw">where
     </span>TOKEN: Clone + VoteToken,
 {
@@ -1818,7 +1812,7 @@
         <span class="kw">let </span>(commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
 
         <span class="comment">// Desereialize the sig so that it can be assembeld into a QC
-        </span><span class="kw">let </span>origianl_sig: &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature =
+        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             bincode_opts()
                 .deserialize(<span class="kw-2">&amp;</span>sig.<span class="number">0</span>)
                 .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
@@ -1872,7 +1866,7 @@
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
         <span class="self">self</span>.signers.set(node_id, <span class="bool-val">true</span>);
-        <span class="self">self</span>.sig_lists.push(origianl_sig);
+        <span class="self">self</span>.sig_lists.push(original_signature);
 
         <span class="kw-2">*</span>total_stake_casted += u64::from(token.vote_count());
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));

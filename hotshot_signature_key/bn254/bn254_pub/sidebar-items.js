@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BN254Pub"]};
+window.SIDEBAR_ITEMS = {"struct":["BLSPubKey"]};
