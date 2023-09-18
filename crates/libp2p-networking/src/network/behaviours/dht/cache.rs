@@ -36,6 +36,12 @@ pub enum CacheError {
         /// source of error
         source: Box<bincode::ErrorKind>,
     },
+
+    /// General cache error
+    GeneralCache {
+        /// source of error
+        source: Box<bincode::ErrorKind>,
+    },
 }
 
 pub struct Config {
@@ -115,8 +121,16 @@ impl Cache {
         let mut cache_to_write = HashMap::new();
         let expiries = self.expiries.read().await;
         for (expiry, key) in &*expiries {
-            let entry = self.cache.get(key).unwrap();
-            cache_to_write.insert(expiry, (key, entry.value().clone()));
+            if let Some(entry) = self.cache.get(key) {
+                cache_to_write.insert(expiry, (key, entry.value().clone()));
+            } else {
+                tracing::warn!("key not found in cache: {:?}", key);
+                Err(CacheError::GeneralCache {
+                    source: Box::new(bincode::ErrorKind::Custom(
+                        "key not found in cache".to_string(),
+                    )),
+                })?;
+            };
         }
 
         let encoded = bincode_opts()
@@ -247,7 +261,7 @@ mod test {
         });
 
         // add 10 key-value pairs to the cache
-        for i in 0 as u8..10 as u8 {
+        for i in 0u8..10u8 {
             let (key, value) = (vec![i; 1], vec![i + 1; 1]);
             cache.insert(key, value).await;
         }
@@ -263,13 +277,13 @@ mod test {
         });
 
         // check that the cache has the 10 key-value pairs
-        for i in 0 as u8..10 as u8 {
+        for i in 0u8..10u8 {
             let (key, value) = (vec![i; 1], vec![i + 1; 1]);
             assert_eq!(cache.get(&key).await.unwrap().value(), &value);
         }
 
         // delete the cache file
-        let _ = std::fs::remove_file("test.cache").unwrap();
+        let _ = std::fs::remove_file("test.cache");
     }
 
     #[cfg_attr(
@@ -303,6 +317,6 @@ mod test {
         assert!(std::path::Path::new("test.cache").exists());
 
         // delete the cache file
-        let _ = std::fs::remove_file("test.cache").unwrap();
+        _ = std::fs::remove_file("test.cache");
     }
 }
