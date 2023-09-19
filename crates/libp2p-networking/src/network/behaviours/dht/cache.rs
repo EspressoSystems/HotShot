@@ -44,20 +44,14 @@ pub enum CacheError {
     },
 }
 
+#[derive(Clone, derive_builder::Builder, custom_debug::Debug, Default)]
 pub struct Config {
-    pub filename: String,
+    #[builder(default = "Some(\"dht.cache\".to_string())")]
+    pub filename: Option<String>,
+    #[builder(default = "Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * 16)")]
     pub expiry: Duration,
+    #[builder(default = "4")]
     pub max_disk_parity_delta: u32,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            filename: "dht.cache".to_string(),
-            expiry: Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * 16),
-            max_disk_parity_delta: 4,
-        }
-    }
 }
 
 impl Default for Cache {
@@ -97,18 +91,20 @@ impl Cache {
     }
 
     pub async fn load(&self) -> Result<(), CacheError> {
-        let encoded = std::fs::read(self.config.filename.clone()).context(DiskSnafu)?;
+        if let Some(filename) = &self.config.filename {
+            let encoded = std::fs::read(filename).context(DiskSnafu)?;
 
-        let cache: HashMap<SystemTime, (Vec<u8>, Vec<u8>)> = bincode_opts()
-            .deserialize(&encoded)
-            .context(DeserializationSnafu)?;
+            let cache: HashMap<SystemTime, (Vec<u8>, Vec<u8>)> = bincode_opts()
+                .deserialize(&encoded)
+                .context(DeserializationSnafu)?;
 
-        // inline prune and insert
-        let now = SystemTime::now();
-        for (expiry, (key, value)) in cache {
-            if now < expiry {
-                self.cache.insert(key.clone(), value);
-                self.expiries.write().await.insert(expiry, key);
+            // inline prune and insert
+            let now = SystemTime::now();
+            for (expiry, (key, value)) in cache {
+                if now < expiry {
+                    self.cache.insert(key.clone(), value);
+                    self.expiries.write().await.insert(expiry, key);
+                }
             }
         }
 
@@ -116,28 +112,32 @@ impl Cache {
     }
 
     pub async fn save(&self) -> Result<(), CacheError> {
-        self.prune().await;
+        if let Some(filename) = &self.config.filename {
+            // prune first
+            self.prune().await;
 
-        let mut cache_to_write = HashMap::new();
-        let expiries = self.expiries.read().await;
-        for (expiry, key) in &*expiries {
-            if let Some(entry) = self.cache.get(key) {
-                cache_to_write.insert(expiry, (key, entry.value().clone()));
-            } else {
-                tracing::warn!("key not found in cache: {:?}", key);
-                Err(CacheError::GeneralCache {
-                    source: Box::new(bincode::ErrorKind::Custom(
-                        "key not found in cache".to_string(),
-                    )),
-                })?;
-            };
+            // serialize
+            let mut cache_to_write = HashMap::new();
+            let expiries = self.expiries.read().await;
+            for (expiry, key) in &*expiries {
+                if let Some(entry) = self.cache.get(key) {
+                    cache_to_write.insert(expiry, (key, entry.value().clone()));
+                } else {
+                    tracing::warn!("key not found in cache: {:?}", key);
+                    Err(CacheError::GeneralCache {
+                        source: Box::new(bincode::ErrorKind::Custom(
+                            "key not found in cache".to_string(),
+                        )),
+                    })?;
+                };
+            }
+
+            let encoded = bincode_opts()
+                .serialize(&cache_to_write)
+                .context(SerializationSnafu)?;
+
+            std::fs::write(filename, encoded).context(DiskSnafu)?;
         }
-
-        let encoded = bincode_opts()
-            .serialize(&cache_to_write)
-            .context(SerializationSnafu)?;
-
-        std::fs::write(self.config.filename.clone(), encoded).context(DiskSnafu)?;
 
         Ok(())
     }
@@ -216,7 +216,7 @@ mod test {
 
         // cache with 1s eviction
         let cache = Cache::new(Config {
-            filename: "test.cache".to_string(),
+            filename: None,
             expiry: Duration::from_secs(1),
             max_disk_parity_delta: 4,
         });
@@ -255,7 +255,7 @@ mod test {
         let _ = std::fs::remove_file("test.cache");
 
         let cache = Cache::new(Config {
-            filename: "test.cache".to_string(),
+            filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
         });
@@ -271,7 +271,7 @@ mod test {
 
         // load the cache
         let cache = Cache::new(Config {
-            filename: "test.cache".to_string(),
+            filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
         });
@@ -297,7 +297,7 @@ mod test {
 
         let cache = Cache::new(Config {
             // tests run sequentially, shouldn't matter
-            filename: "test.cache".to_string(),
+            filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
         });

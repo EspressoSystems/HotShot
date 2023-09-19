@@ -117,6 +117,7 @@ impl DHTBehaviour {
         mut kadem: Kademlia<MemoryStore>,
         pid: PeerId,
         replication_factor: NonZeroUsize,
+        cache_location: Option<String>,
     ) -> Self {
         // needed because otherwise we stay in client mode when testing locally
         // and don't publish keys stuff
@@ -145,7 +146,12 @@ impl DHTBehaviour {
             },
             in_progress_get_closest_peers: HashMap::default(),
             replication_factor,
-            cache: Cache::default(),
+            cache: Cache::new(
+                cache::ConfigBuilder::default()
+                    .filename(cache_location)
+                    .build()
+                    .unwrap_or_default(),
+            ),
         }
     }
 

@@ -198,6 +198,8 @@ where
                         // setting to sane defaults
                         .ttl(None)
                         .republication_interval(None)
+                        // this removes the cache for tests
+                        .dht_cache_location(None)
                         .build()
                         .unwrap()
                 } else {
@@ -218,6 +220,8 @@ where
                         // setting to sane defaults
                         .ttl(None)
                         .republication_interval(None)
+                        // this removes the cache for tests
+                        .dht_cache_location(None)
                         .build()
                         .unwrap()
                 };
