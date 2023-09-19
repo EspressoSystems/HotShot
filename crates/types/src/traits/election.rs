@@ -91,6 +91,20 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     ViewSyncFinalize(Commitment<COMMITTABLE>),
 }
 
+impl<COMMITTABLE> VoteData<COMMITTABLE>
+where
+    COMMITTABLE: Committable + Serialize + Clone,
+{
+    /// Return the underlying commitment.
+    pub fn get_commit(&self) -> Commitment<COMMITTABLE> {
+        use VoteData::*;
+        match self {
+            DA(c) | Yes(c) | No(c) | Timeout(c) | ViewSyncPreCommit(c) | ViewSyncCommit(c)
+            | ViewSyncFinalize(c) => *c,
+        }
+    }
+}
+
 /// Make different types of `VoteData` committable
 impl<COMMITTABLE: Committable + Serialize + Clone> Committable for VoteData<COMMITTABLE> {
     fn commit(&self) -> Commitment<Self> {
