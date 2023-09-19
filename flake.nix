@@ -173,7 +173,7 @@
             zlib.out
             fenix.packages.${system}.rust-analyzer
             just
-            pkgconfig
+            pkg-config
             openssl.dev
             openssl.out
           ] ++ lib.optionals stdenv.isDarwin [
