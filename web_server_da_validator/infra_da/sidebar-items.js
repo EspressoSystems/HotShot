@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main_entry_point","run_orchestrator_da"],"struct":["WebServerDARun"],"trait":["RunDA"],"type":["StaticDAComm","StaticQuorumComm","StaticViewSyncComm"]};
+window.SIDEBAR_ITEMS = {"fn":["libp2p_generate_indexed_identity","main_entry_point","run_orchestrator_da"],"struct":["Libp2pDARun","WebServerDARun"],"trait":["RunDA"]};

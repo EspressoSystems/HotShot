@@ -95,7 +95,6 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
@@ -167,8 +166,7 @@
     config
 }
 
-<span class="doccomment">/// yeesh maybe we should just implement SignatureKey for this...
-</span><span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
+<span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());

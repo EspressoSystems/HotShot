@@ -260,7 +260,6 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -289,8 +288,7 @@
     Keypair,
 };
 
-<span class="doccomment">/// yeesh maybe we should just implement SignatureKey for this...
-</span><span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
+<span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
