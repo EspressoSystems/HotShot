@@ -96,7 +96,9 @@ where
     COMMITTABLE: Committable + Serialize + Clone,
 {
     /// Return the underlying commitment.
+    #[must_use]
     pub fn get_commit(&self) -> Commitment<COMMITTABLE> {
+        #[allow(clippy::enum_glob_use)]
         use VoteData::*;
         match self {
             DA(c) | Yes(c) | No(c) | Timeout(c) | ViewSyncPreCommit(c) | ViewSyncCommit(c)
