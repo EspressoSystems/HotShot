@@ -309,7 +309,7 @@
         <span class="kw">type </span>Transaction = DummyTransaction;
 
         <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-            &lt;<span class="self">Self </span><span class="kw">as </span>TestableBlock&gt;::genesis()
+            <span class="self">Self </span>{ nonce: <span class="number">0 </span>}
         }
 
         <span class="kw">fn </span>add_transaction_raw(

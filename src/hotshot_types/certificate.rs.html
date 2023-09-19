@@ -542,7 +542,7 @@
     <span class="doccomment">/// Commitment to what&#39;s voted on.  E.g. the leaf for a `QuorumCertificate`
     </span><span class="kw">pub </span>commitment: Commitment&lt;COMMITTABLE&gt;,
     <span class="doccomment">/// Data of the vote, yes, no, timeout, or DA
-    </span><span class="kw">pub </span>data: VoteData&lt;COMMITTABLE&gt;,
+    </span><span class="kw">pub </span>data: VoteData&lt;Commitment&lt;COMMITTABLE&gt;&gt;,
     <span class="doccomment">/// The votes&#39;s token
     </span><span class="kw">pub </span>vote_token: T,
     <span class="doccomment">/// View number for the vote

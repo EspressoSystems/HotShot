@@ -1092,7 +1092,6 @@
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1114,12 +1113,11 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
-<span class="doccomment">/// Data availability support
-</span><span class="comment">// pub mod da;
-</span><span class="doccomment">/// Contains structures and functions for committee election
+<span class="kw">pub mod </span>block_impl;
+<span class="doccomment">/// Contains structures and functions for committee election
 </span><span class="kw">pub mod </span>certificate;
 <span class="attr">#[cfg(feature = <span class="string">&quot;demo&quot;</span>)]
-</span><span class="kw">pub mod </span>demos;
+</span><span class="kw">pub mod </span>demo;
 <span class="doccomment">/// Contains traits consumed by [`HotShot`]
 </span><span class="kw">pub mod </span>traits;
 <span class="doccomment">/// Contains types used by the crate

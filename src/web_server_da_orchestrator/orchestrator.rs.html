@@ -42,7 +42,7 @@
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
+<span class="kw">use </span>hotshot::demo::DemoTypes;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>types::ThisMembership;
 
@@ -69,7 +69,7 @@
     <span class="kw">let </span>args = OrchestratorArgs::parse();
 
     run_orchestrator_da::&lt;
-        SDemoTypes,
+        DemoTypes,
         ThisMembership,
         DANetwork,
         QuorumNetwork,

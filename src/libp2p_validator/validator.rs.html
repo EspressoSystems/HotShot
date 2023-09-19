@@ -41,7 +41,7 @@
 <a href="#41" id="41">41</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
+<span class="kw">use </span>hotshot::demo::DemoTypes;
 <span class="kw">use </span>tracing::{info, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
@@ -70,7 +70,7 @@
         args.host, args.port
     );
     infra_da::main_entry_point::&lt;
-        SDemoTypes,
+        DemoTypes,
         ThisMembership,
         DANetwork,
         QuorumNetwork,
