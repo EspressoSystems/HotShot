@@ -103,9 +103,7 @@ where
             | ViewSyncFinalize(c) => *c,
         }
     }
-}
 
-impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
     /// Convert vote data into bytes.
     ///
