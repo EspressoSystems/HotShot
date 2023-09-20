@@ -671,7 +671,7 @@ where
 
                     let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
                     let message_bytes = bincode::serialize(&message).unwrap();
-                    let (shares, common) = vid.dispersal_data(&message_bytes).unwrap();
+                    let vid_disperse = vid.disperse(&message_bytes).unwrap();
                     // TODO for now reuse the same block commitment and signature as DA committee
                     // https://github.com/EspressoSystems/jellyfish/issues/369
 
@@ -681,8 +681,8 @@ where
                                 data: VidDisperse {
                                     view_number: view,
                                     commitment: block.commit(),
-                                    shares,
-                                    common,
+                                    shares: vid_disperse.shares,
+                                    common: vid_disperse.common,
                                 },
                                 signature: message.signature,
                             },

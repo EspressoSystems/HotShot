@@ -175,9 +175,9 @@ pub struct VidDisperse<TYPES: NodeType> {
     /// Block commitment
     pub commitment: Commitment<TYPES::BlockType>,
     /// VID shares dispersed among storage nodes
-    pub shares: Vec<<VidScheme as VidSchemeTrait>::StorageShare>,
+    pub shares: Vec<<VidScheme as VidSchemeTrait>::Share>,
     /// VID common data sent to all storage nodes
-    pub common: <VidScheme as VidSchemeTrait>::StorageCommon,
+    pub common: <VidScheme as VidSchemeTrait>::Common,
 }
 
 /// Trusted KZG setup for VID.
