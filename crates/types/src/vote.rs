@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
+    hash::Hash,
     marker::PhantomData,
     num::NonZeroU64,
 };
@@ -337,11 +338,11 @@ pub trait Accumulator2<
 /// Accumulates DA votes
 pub struct DAVoteAccumulator<
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all da signatures accumlated so far
-    pub da_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub da_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
     /// A list of valid signatures for certificate aggregation
@@ -354,10 +355,9 @@ pub struct DAVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
-    for DAVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType<TYPES, COMMITMENT>,
+    > Accumulator2<TYPES, COMMITMENT, VOTE> for DAVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         mut self,
