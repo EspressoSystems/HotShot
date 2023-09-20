@@ -341,7 +341,7 @@ pub struct DAVoteAccumulator<
     VOTE: VoteType<TYPES, COMMITTABLE>,
 > {
     /// Map of all da signatures accumlated so far
-    pub da_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub da_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
     /// A list of valid signatures for certificate aggregation
@@ -432,11 +432,11 @@ pub struct QuorumVoteAccumulator<
     VOTE: VoteType<TYPES, COMMITTABLE>,
 > {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub total_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub yes_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub no_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
 
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
@@ -563,11 +563,11 @@ pub struct ViewSyncVoteAccumulator<
     VOTE: VoteType<TYPES, COMMITTABLE>,
 > {
     /// Map of all pre_commit signatures accumlated so far
-    pub pre_commit_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub pre_commit_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
     /// Map of all ommit signatures accumlated so far
-    pub commit_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub commit_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
     /// Map of all finalize signatures accumlated so far
-    pub finalize_vote_outcomes: VoteMap<COMMITTABLE, TYPES::VoteTokenType>,
+    pub finalize_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
 
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
@@ -758,11 +758,11 @@ impl<
 
 /// Mapping of commitments to vote tokens by key.
 // TODO ED Remove this whole token generic
-type VoteMap<C, TOKEN> = HashMap<
-    Commitment<C>,
+type VoteMap<COMMITMENT, TOKEN> = HashMap<
+    COMMITMENT,
     (
         u64,
-        BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<Commitment<C>>, TOKEN)>,
+        BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<COMMITMENT>, TOKEN)>,
     ),
 >;
 
@@ -770,19 +770,19 @@ type VoteMap<C, TOKEN> = HashMap<
 /// respectively.
 pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone, TYPES: NodeType> {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub total_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all da signatures accumlated so far
-    pub da_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub da_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub yes_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub no_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
-    pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub viewsync_precommit_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all view sync commit votes accumulated thus far
-    pub viewsync_commit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub viewsync_commit_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// Map of all view sync finalize votes accumulated thus far
-    pub viewsync_finalize_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
+    pub viewsync_finalize_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
