@@ -783,28 +783,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-stream"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
-dependencies = [
- "async-stream-impl",
- "futures-core",
- "pin-project-lite 0.2.13",
-]
-
-[[package]]
-name = "async-stream-impl"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.31",
-]
-
-[[package]]
 name = "async-task"
 version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -988,12 +966,6 @@ checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "bit-vec"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
@@ -1578,12 +1550,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ct-codecs"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3b7eb4404b8195a9abb6356f4ac07d8ba267045c8d6d220ac4dc992e6cc75df"
-
-[[package]]
 name = "ctr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2028,16 +1994,6 @@ checksum = "60f6d271ca33075c88028be6f04d502853d63a5ece419d269c15315d4fc1cf1d"
 dependencies = [
  "pkcs8",
  "signature",
-]
-
-[[package]]
-name = "ed25519-compact"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a3d382e8464107391c8706b4c14b087808ecb909f6c15c34114bc42e53a9e4c"
-dependencies = [
- "ct-codecs",
- "getrandom 0.2.10",
 ]
 
 [[package]]
@@ -2649,7 +2605,6 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "libp2p-networking",
- "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -2685,7 +2640,6 @@ dependencies = [
  "libp2p",
  "libp2p-core",
  "libp2p-networking",
- "nll",
  "serde",
  "serde_json",
  "snafu",
@@ -2777,7 +2731,6 @@ dependencies = [
  "atomic_enum",
  "either",
  "futures",
- "nll",
  "pin-project",
  "serde",
  "snafu",
@@ -2792,7 +2745,6 @@ dependencies = [
  "async-compatibility-layer",
  "async-lock",
  "async-std",
- "async-stream",
  "async-trait",
  "atomic_enum",
  "bincode",
@@ -2805,7 +2757,6 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
- "nll",
  "pin-project",
  "rand_chacha 0.3.1",
  "serde",
@@ -2837,7 +2788,6 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
- "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -2859,7 +2809,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "bit-vec",
  "bitvec",
  "blake3",
  "commit",
@@ -2867,7 +2816,6 @@ dependencies = [
  "derivative",
  "digest 0.10.7",
  "displaydoc",
- "ed25519-compact",
  "either",
  "espresso-systems-common 0.4.1",
  "ethereum-types",
@@ -2880,7 +2828,6 @@ dependencies = [
  "jf-primitives",
  "jf-utils",
  "libp2p-networking",
- "nll",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -2917,13 +2864,10 @@ dependencies = [
  "hotshot-utils",
  "jf-primitives",
  "libp2p-core",
- "nll",
- "portpicker",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "snafu",
- "surf-disco",
  "tide",
  "tide-disco 0.4.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.1)",
  "tokio",
@@ -3788,7 +3732,6 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap",
  "color-eyre",
  "custom_debug",
  "dashmap",
@@ -4628,11 +4571,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nll"
-version = "1.0.0"
-source = "git+https://github.com/EspressoSystems/nll.git#c84499eb8de11beee5caa9390deff8a8ca3b9514"
-
-[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5026,15 +4964,6 @@ dependencies = [
  "cpufeatures",
  "opaque-debug",
  "universal-hash 0.4.0",
-]
-
-[[package]]
-name = "portpicker"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
-dependencies = [
- "rand 0.8.5",
 ]
 
 [[package]]
