@@ -67,7 +67,7 @@ surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = 
 time = "0.3.28"
 toml = "0.7.8"
 tracing = "0.1.37"
-typenum = "1.16.0"
+typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.52.3", features = [
         "macros",
         "autonat",
