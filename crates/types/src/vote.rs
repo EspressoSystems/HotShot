@@ -736,19 +736,18 @@ impl<
 /// Placeholder accumulator; will be replaced by accumulator for each certificate type
 pub struct AccumulatorPlaceholder<
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Phantom data to make compiler happy
-    pub phantom: PhantomData<(TYPES, VOTE, COMMITTABLE)>,
+    pub phantom: PhantomData<(TYPES, VOTE, COMMITMENT)>,
 }
 
 impl<
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
-    for AccumulatorPlaceholder<TYPES, COMMITTABLE, VOTE>
+        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+        VOTE: VoteType<TYPES, COMMITMENT>,
+    > Accumulator2<TYPES, COMMITMENT, VOTE> for AccumulatorPlaceholder<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         self,
