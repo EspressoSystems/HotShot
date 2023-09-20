@@ -680,7 +680,7 @@ where
                             Proposal {
                                 data: VidDisperse {
                                     view_number: view,
-                                    commitment: block.commit(),
+                                    commitment: block.commit(), // TODO GG should be vid_disperse.commit but that's a big change
                                     shares: vid_disperse.shares,
                                     common: vid_disperse.common,
                                 },
