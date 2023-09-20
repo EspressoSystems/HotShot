@@ -1434,7 +1434,7 @@
 
                     <span class="kw">let </span>vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, <span class="kw-2">&amp;</span>srs).unwrap();
                     <span class="kw">let </span>message_bytes = bincode::serialize(<span class="kw-2">&amp;</span>message).unwrap();
-                    <span class="kw">let </span>(shares, common) = vid.dispersal_data(<span class="kw-2">&amp;</span>message_bytes).unwrap();
+                    <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>message_bytes).unwrap();
                     <span class="comment">// TODO for now reuse the same block commitment and signature as DA committee
                     // https://github.com/EspressoSystems/jellyfish/issues/369
 
@@ -1443,9 +1443,9 @@
                             Proposal {
                                 data: VidDisperse {
                                     view_number: view,
-                                    commitment: block.commit(),
-                                    shares,
-                                    common,
+                                    commitment: block.commit(), <span class="comment">// TODO GG should be vid_disperse.commit but that&#39;s a big change
+                                    </span>shares: vid_disperse.shares,
+                                    common: vid_disperse.common,
                                 },
                                 signature: message.signature,
                             },
