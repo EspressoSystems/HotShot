@@ -768,21 +768,25 @@ type VoteMap<COMMITMENT, TOKEN> = HashMap<
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-pub struct VoteAccumulator<TOKEN, COMMITMENT: Committable + Serialize + Clone, TYPES: NodeType> {
+pub struct VoteAccumulator<
+    TOKEN,
+    COMMITMENT: Serialize + for<'a> Deserialize<'a> + Clone,
+    TYPES: NodeType,
+> {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all da signatures accumlated so far
-    pub da_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub da_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub yes_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub no_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync precommit votes accumulated thus far
-    pub viewsync_precommit_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub viewsync_precommit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync commit votes accumulated thus far
-    pub viewsync_commit_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub viewsync_commit_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all view sync finalize votes accumulated thus far
-    pub viewsync_finalize_vote_outcomes: VoteMap<Commitment<COMMITMENT>, TOKEN>,
+    pub viewsync_finalize_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// A quorum's worth of stake, generall 2f + 1
     pub success_threshold: NonZeroU64,
     /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
@@ -809,7 +813,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType>
             ),
         ),
         AssembledSignature<TYPES>,
-    > for VoteAccumulator<TOKEN, LEAF, TYPES>
+    > for VoteAccumulator<TOKEN, Commitment<LEAF>, TYPES>
 where
     TOKEN: Clone + VoteToken,
 {
