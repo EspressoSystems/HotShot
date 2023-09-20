@@ -574,7 +574,7 @@
     QuorumCertificate, SequencingQuorumEx,
 };
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
@@ -635,7 +635,7 @@
     &gt;,
     COMMITTABLE: Committable + Serialize + Clone,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, COMMITTABLE&gt;,
+    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -745,7 +745,7 @@
     &gt;,
     COMMITTABLE: Committable + Serialize + Clone,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, COMMITTABLE&gt;,
+    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,

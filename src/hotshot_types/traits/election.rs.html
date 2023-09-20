@@ -1609,7 +1609,7 @@
     TOKEN: VoteToken,
 {
     <span class="doccomment">/// `VoteType` that is used in this certificate
-    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, COMMITTABLE&gt;;
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;;
 
     <span class="doccomment">/// `Accumulator` type to accumulate votes.
     </span><span class="kw">type </span>VoteAccumulator: Accumulator2&lt;TYPES, COMMITTABLE, <span class="self">Self</span>::Vote&gt;;
@@ -1711,7 +1711,7 @@
     </span><span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
     <span class="doccomment">/// A vote on a [`Proposal`](Self::Proposal).
     </span><span class="comment">// TODO ED Make this equal Certificate vote (if possible?)
-    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, <span class="self">Self</span>::Commitment&gt;;
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;;
     <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
     </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
         + Hash
