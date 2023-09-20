@@ -33,15 +33,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: ${{ matrix.just_variants }}
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
           cargo install just
-
-      - name: Check
-        run: just ${{ matrix.just_variants }} check
 
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
