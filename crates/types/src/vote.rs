@@ -319,8 +319,8 @@ pub trait Accumulator<T, U>: Sized {
 /// Accumulator trait used to accumulate votes into an `AssembledSignature`
 pub trait Accumulator2<
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    VOTE: VoteType<TYPES, COMMITMENT>,
 >: Sized
 {
     /// Append 1 vote to the accumulator.  If the threshold is not reached, return
@@ -356,7 +356,8 @@ impl<
         TYPES: NodeType,
         COMMITTABLE: Committable + Serialize + Clone,
         VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, COMMITTABLE, VOTE> for DAVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
+    for DAVoteAccumulator<TYPES, COMMITTABLE, VOTE>
 {
     fn append(
         mut self,
@@ -454,7 +455,8 @@ impl<
         TYPES: NodeType,
         COMMITTABLE: Committable + Serialize + Clone,
         VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, COMMITTABLE, VOTE> for QuorumVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
+    for QuorumVoteAccumulator<TYPES, COMMITTABLE, VOTE>
 {
     fn append(
         mut self,
@@ -585,7 +587,8 @@ impl<
         TYPES: NodeType,
         COMMITTABLE: Committable + Serialize + Clone,
         VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, COMMITTABLE, VOTE> for ViewSyncVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
+    for ViewSyncVoteAccumulator<TYPES, COMMITTABLE, VOTE>
 {
     #[allow(clippy::too_many_lines)]
     fn append(
@@ -744,7 +747,8 @@ impl<
         TYPES: NodeType,
         COMMITTABLE: Committable + Serialize + Clone,
         VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, COMMITTABLE, VOTE> for AccumulatorPlaceholder<TYPES, COMMITTABLE, VOTE>
+    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
+    for AccumulatorPlaceholder<TYPES, COMMITTABLE, VOTE>
 {
     fn append(
         self,

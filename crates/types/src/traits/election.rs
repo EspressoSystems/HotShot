@@ -168,7 +168,7 @@ where
     type Vote: VoteType<TYPES, Commitment<COMMITTABLE>>;
 
     /// `Accumulator` type to accumulate votes.
-    type VoteAccumulator: Accumulator2<TYPES, COMMITTABLE, Self::Vote>;
+    type VoteAccumulator: Accumulator2<TYPES, Commitment<COMMITTABLE>, Self::Vote>;
 
     /// Build a QC from the threshold signature and commitment
     // TODO ED Rename this function and rework this function parameters
