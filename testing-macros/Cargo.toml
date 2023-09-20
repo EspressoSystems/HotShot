@@ -22,7 +22,6 @@ hotshot = { path = "../hotshot", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-testing = { path = "../testing", default-features = false }
 jf-primitives = { workspace = true }
-nll = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
