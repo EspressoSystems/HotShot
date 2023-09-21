@@ -435,7 +435,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     fn accumulate_internal(
         &self,
-        _vota_meta: VoteMetaData<Self::Commitment, TYPES::VoteTokenType, TYPES::Time>,
+        _vota_meta: VoteMetaData<Commitment<Self::Commitment>, TYPES::VoteTokenType, TYPES::Time>,
         _accumulator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>, Self::Certificate>
     {

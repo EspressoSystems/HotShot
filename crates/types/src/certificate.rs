@@ -138,15 +138,16 @@ pub enum AssembledSignature<TYPES: NodeType> {
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
-pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
+pub struct VoteMetaData<COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone, T: VoteToken, TIME>
+{
     /// Voter's public key
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
-    pub commitment: Commitment<COMMITTABLE>,
+    pub commitment: COMMITMENT,
     /// Data of the vote, yes, no, timeout, or DA
-    pub data: VoteData<Commitment<COMMITTABLE>>,
+    pub data: VoteData<COMMITMENT>,
     /// The votes's token
     pub vote_token: T,
     /// View number for the vote
