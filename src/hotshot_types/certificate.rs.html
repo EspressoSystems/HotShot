@@ -394,6 +394,8 @@
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides two types of cerrtificates and their accumulators.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::vote::DAVoteAccumulator;
@@ -553,11 +555,11 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;
-    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, LEAF&gt;
+    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;LEAF&gt;&gt;
     <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt;
 {
     <span class="kw">type </span>Vote = QuorumVote&lt;TYPES, LEAF&gt;;
-    <span class="kw">type </span>VoteAccumulator = QuorumVoteAccumulator&lt;TYPES, LEAF, <span class="self">Self</span>::Vote&gt;;
+    <span class="kw">type </span>VoteAccumulator = QuorumVoteAccumulator&lt;TYPES, Commitment&lt;LEAF&gt;, <span class="self">Self</span>::Vote&gt;;
 
     <span class="kw">fn </span>from_signatures_and_commitment(
         signatures: AssembledSignature&lt;TYPES&gt;,
@@ -630,11 +632,12 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt;
+    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;TYPES::BlockType&gt;&gt;
     <span class="kw">for </span>DACertificate&lt;TYPES&gt;
 {
     <span class="kw">type </span>Vote = DAVote&lt;TYPES&gt;;
-    <span class="kw">type </span>VoteAccumulator = DAVoteAccumulator&lt;TYPES, TYPES::BlockType, <span class="self">Self</span>::Vote&gt;;
+    <span class="kw">type </span>VoteAccumulator = DAVoteAccumulator&lt;TYPES, Commitment&lt;TYPES::BlockType&gt;, <span class="self">Self</span>::Vote&gt;;
 
     <span class="kw">fn </span>from_signatures_and_commitment(
         signatures: AssembledSignature&lt;TYPES&gt;,
@@ -719,11 +722,12 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt;
-    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;
+    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;&gt;
     <span class="kw">for </span>ViewSyncCertificate&lt;TYPES&gt;
 {
     <span class="kw">type </span>Vote = ViewSyncVote&lt;TYPES&gt;;
-    <span class="kw">type </span>VoteAccumulator = ViewSyncVoteAccumulator&lt;TYPES, ViewSyncData&lt;TYPES&gt;, <span class="self">Self</span>::Vote&gt;;
+    <span class="kw">type </span>VoteAccumulator =
+        ViewSyncVoteAccumulator&lt;TYPES, Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;, <span class="self">Self</span>::Vote&gt;;
     <span class="doccomment">/// Build a QC from the threshold signature and commitment
     </span><span class="kw">fn </span>from_signatures_and_commitment(
         signatures: AssembledSignature&lt;TYPES&gt;,

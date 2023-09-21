@@ -983,6 +983,7 @@
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -1007,6 +1008,7 @@
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
+    hash::Hash,
     marker::PhantomData,
     num::NonZeroU64,
 };
@@ -1304,8 +1306,8 @@
 <span class="doccomment">/// Accumulator trait used to accumulate votes into an `AssembledSignature`
 </span><span class="kw">pub trait </span>Accumulator2&lt;
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
 &gt;: Sized
 {
     <span class="doccomment">/// Append 1 vote to the accumulator.  If the threshold is not reached, return
@@ -1322,11 +1324,11 @@
 <span class="doccomment">/// Accumulates DA votes
 </span><span class="kw">pub struct </span>DAVoteAccumulator&lt;
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
 &gt; {
     <span class="doccomment">/// Map of all da signatures accumlated so far
-    </span><span class="kw">pub </span>da_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>da_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// A quorum&#39;s worth of stake, generally 2f + 1
     </span><span class="kw">pub </span>success_threshold: NonZeroU64,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
@@ -1339,9 +1341,9 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
-    &gt; Accumulator2&lt;TYPES, COMMITTABLE, VOTE&gt; <span class="kw">for </span>DAVoteAccumulator&lt;TYPES, COMMITTABLE, VOTE&gt;
+        COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    &gt; Accumulator2&lt;TYPES, COMMITMENT, VOTE&gt; <span class="kw">for </span>DAVoteAccumulator&lt;TYPES, COMMITMENT, VOTE&gt;
 {
     <span class="kw">fn </span>append(
         <span class="kw-2">mut </span><span class="self">self</span>,
@@ -1413,15 +1415,15 @@
 <span class="doccomment">/// Accumulate quorum votes
 </span><span class="kw">pub struct </span>QuorumVoteAccumulator&lt;
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
 &gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
-    </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// Map of all yes signatures accumlated so far
-    </span><span class="kw">pub </span>yes_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>yes_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// Map of all no signatures accumlated so far
-    </span><span class="kw">pub </span>no_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>no_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
 
     <span class="doccomment">/// A quorum&#39;s worth of stake, generally 2f + 1
     </span><span class="kw">pub </span>success_threshold: NonZeroU64,
@@ -1437,9 +1439,9 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
-    &gt; Accumulator2&lt;TYPES, COMMITTABLE, VOTE&gt; <span class="kw">for </span>QuorumVoteAccumulator&lt;TYPES, COMMITTABLE, VOTE&gt;
+        COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    &gt; Accumulator2&lt;TYPES, COMMITMENT, VOTE&gt; <span class="kw">for </span>QuorumVoteAccumulator&lt;TYPES, COMMITMENT, VOTE&gt;
 {
     <span class="kw">fn </span>append(
         <span class="kw-2">mut </span><span class="self">self</span>,
@@ -1544,15 +1546,15 @@
 <span class="doccomment">/// Accumulates view sync votes
 </span><span class="kw">pub struct </span>ViewSyncVoteAccumulator&lt;
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
 &gt; {
     <span class="doccomment">/// Map of all pre_commit signatures accumlated so far
-    </span><span class="kw">pub </span>pre_commit_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>pre_commit_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// Map of all ommit signatures accumlated so far
-    </span><span class="kw">pub </span>commit_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>commit_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// Map of all finalize signatures accumlated so far
-    </span><span class="kw">pub </span>finalize_vote_outcomes: VoteMap&lt;Commitment&lt;COMMITTABLE&gt;, TYPES::VoteTokenType&gt;,
+    </span><span class="kw">pub </span>finalize_vote_outcomes: VoteMap&lt;COMMITMENT, TYPES::VoteTokenType&gt;,
 
     <span class="doccomment">/// A quorum&#39;s worth of stake, generally 2f + 1
     </span><span class="kw">pub </span>success_threshold: NonZeroU64,
@@ -1568,9 +1570,9 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
-    &gt; Accumulator2&lt;TYPES, COMMITTABLE, VOTE&gt; <span class="kw">for </span>ViewSyncVoteAccumulator&lt;TYPES, COMMITTABLE, VOTE&gt;
+        COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    &gt; Accumulator2&lt;TYPES, COMMITMENT, VOTE&gt; <span class="kw">for </span>ViewSyncVoteAccumulator&lt;TYPES, COMMITMENT, VOTE&gt;
 {
     <span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">fn </span>append(
@@ -1718,18 +1720,18 @@
 <span class="doccomment">/// Placeholder accumulator; will be replaced by accumulator for each certificate type
 </span><span class="kw">pub struct </span>AccumulatorPlaceholder&lt;
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
 &gt; {
     <span class="doccomment">/// Phantom data to make compiler happy
-    </span><span class="kw">pub </span>phantom: PhantomData&lt;(TYPES, VOTE, COMMITTABLE)&gt;,
+    </span><span class="kw">pub </span>phantom: PhantomData&lt;(TYPES, VOTE, COMMITMENT)&gt;,
 }
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
-    &gt; Accumulator2&lt;TYPES, COMMITTABLE, VOTE&gt; <span class="kw">for </span>AccumulatorPlaceholder&lt;TYPES, COMMITTABLE, VOTE&gt;
+        COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+        VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    &gt; Accumulator2&lt;TYPES, COMMITMENT, VOTE&gt; <span class="kw">for </span>AccumulatorPlaceholder&lt;TYPES, COMMITMENT, VOTE&gt;
 {
     <span class="kw">fn </span>append(
         <span class="self">self</span>,

@@ -1303,7 +1303,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
@@ -1450,7 +1450,7 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            SequencingLeaf&lt;TYPES&gt;,
+            Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;&gt;::VoteAccumulator,
         QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,

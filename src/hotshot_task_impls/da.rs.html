@@ -766,7 +766,7 @@
 <span class="kw">use </span>async_lock::RwLock;
 
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
@@ -866,7 +866,7 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            TYPES::BlockType,
+            Commitment&lt;TYPES::BlockType&gt;,
         &gt;&gt;::VoteAccumulator,
         DACertificate&lt;TYPES&gt;,
     &gt;,

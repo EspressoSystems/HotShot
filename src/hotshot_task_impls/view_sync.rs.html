@@ -1056,7 +1056,7 @@
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
@@ -1283,7 +1283,7 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            ViewSyncData&lt;TYPES&gt;,
+            Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
         &gt;&gt;::VoteAccumulator,
         ViewSyncCertificate&lt;TYPES&gt;,
     &gt;,

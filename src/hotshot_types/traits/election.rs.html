@@ -1602,17 +1602,17 @@
 }
 
 <span class="doccomment">/// A certificate of some property which has been signed by a quroum of nodes.
-</span><span class="kw">pub trait </span>SignedCertificate&lt;TYPES: NodeType, TIME, TOKEN, COMMITTABLE&gt;
+</span><span class="kw">pub trait </span>SignedCertificate&lt;TYPES: NodeType, TIME, TOKEN, COMMITMENT&gt;
 <span class="kw">where
     </span><span class="self">Self</span>: Send + Sync + Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
-    COMMITTABLE: Committable + Serialize + Clone,
+    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
     TOKEN: VoteToken,
 {
     <span class="doccomment">/// `VoteType` that is used in this certificate
-    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;;
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, COMMITMENT&gt;;
 
     <span class="doccomment">/// `Accumulator` type to accumulate votes.
-    </span><span class="kw">type </span>VoteAccumulator: Accumulator2&lt;TYPES, COMMITTABLE, <span class="self">Self</span>::Vote&gt;;
+    </span><span class="kw">type </span>VoteAccumulator: Accumulator2&lt;TYPES, COMMITMENT, <span class="self">Self</span>::Vote&gt;;
 
     <span class="doccomment">/// Build a QC from the threshold signature and commitment
     </span><span class="comment">// TODO ED Rename this function and rework this function parameters
@@ -1633,10 +1633,10 @@
     // TODO ED Make an issue for this
 
     </span><span class="doccomment">/// Get the leaf commitment.
-    </span><span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;COMMITTABLE&gt;;
+    </span><span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; COMMITMENT;
 
     <span class="doccomment">/// Set the leaf commitment.
-    </span><span class="kw">fn </span>set_leaf_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: Commitment&lt;COMMITTABLE&gt;);
+    </span><span class="kw">fn </span>set_leaf_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: COMMITMENT);
 
     <span class="doccomment">/// Get whether the certificate is for the genesis block.
     </span><span class="kw">fn </span>is_genesis(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
@@ -1713,7 +1713,7 @@
     </span><span class="comment">// TODO ED Make this equal Certificate vote (if possible?)
     </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;;
     <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
-    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
+    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;
         + Hash
         + Eq;
     <span class="doccomment">/// The committee eligible to make decisions.
@@ -1912,13 +1912,13 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            <span class="self">Self</span>::Commitment,
+            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
         &gt;&gt;::VoteAccumulator,
         vote: <span class="kw-2">&amp;</span>&lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            <span class="self">Self</span>::Commitment,
+            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
         &gt;&gt;::Vote,
         _commit: <span class="kw-2">&amp;</span>Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
     ) -&gt; Either&lt;
@@ -1926,7 +1926,7 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            <span class="self">Self</span>::Commitment,
+            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
         &gt;&gt;::VoteAccumulator,
         <span class="self">Self</span>::Certificate,
     &gt; {
