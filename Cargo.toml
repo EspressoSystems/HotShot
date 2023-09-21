@@ -52,13 +52,12 @@ either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", rev = "2fc42af" }
-jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", rev = "2fc42af" }
-jf-utils = { git = "https://github.com/espressosystems/jellyfish", rev = "2fc42af" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
-nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -68,7 +67,7 @@ surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = 
 time = "0.3.28"
 toml = "0.7.8"
 tracing = "0.1.37"
-typenum = "1.16.0"
+typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.52.3", features = [
         "macros",
         "autonat",
@@ -119,9 +118,15 @@ tokio = { version = "1.32.0", features = [
 
 ## Apply some optimizations to test dependencies in debug/test builds
 
+[profile.dev]
+strip = true
+debug = 0
+
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
+strip = true
+debug = 0
 
 # The default release profile without LTO.
 [profile.release]
