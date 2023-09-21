@@ -161,7 +161,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     for QuorumCertificate<TYPES, LEAF>
 {
     type Vote = QuorumVote<TYPES, LEAF>;
-    type VoteAccumulator = QuorumVoteAccumulator<TYPES, LEAF, Self::Vote>;
+    type VoteAccumulator = QuorumVoteAccumulator<TYPES, Commitment<LEAF>, Self::Vote>;
 
     fn from_signatures_and_commitment(
         signatures: AssembledSignature<TYPES>,

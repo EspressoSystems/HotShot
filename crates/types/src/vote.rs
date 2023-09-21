@@ -429,15 +429,15 @@ impl<
 /// Accumulate quorum votes
 pub struct QuorumVoteAccumulator<
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all signatures accumlated so far
-    pub total_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub total_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
     /// Map of all yes signatures accumlated so far
-    pub yes_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub yes_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
     /// Map of all no signatures accumlated so far
-    pub no_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub no_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
 
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
@@ -453,10 +453,9 @@ pub struct QuorumVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
-    for QuorumVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType<TYPES, COMMITMENT>,
+    > Accumulator2<TYPES, COMMITMENT, VOTE> for QuorumVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         mut self,
