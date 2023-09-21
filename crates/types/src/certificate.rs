@@ -157,7 +157,7 @@ pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteTok
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
-    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, LEAF>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment<LEAF>>
     for QuorumCertificate<TYPES, LEAF>
 {
     type Vote = QuorumVote<TYPES, LEAF>;
@@ -234,7 +234,8 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     }
 }
 
-impl<TYPES: NodeType> SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
+impl<TYPES: NodeType>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment<TYPES::BlockType>>
     for DACertificate<TYPES>
 {
     type Vote = DAVote<TYPES>;
@@ -323,7 +324,7 @@ impl<TYPES: NodeType> Committable for ViewSyncCertificate<TYPES> {
 }
 
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment<ViewSyncData<TYPES>>>
     for ViewSyncCertificate<TYPES>
 {
     type Vote = ViewSyncVote<TYPES>;
