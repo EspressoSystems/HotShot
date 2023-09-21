@@ -1071,27 +1071,6 @@
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
 <a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1136,12 +1115,12 @@
 };
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
-    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+    async_primitives::broadcast::BroadcastSender,
     channel::UnboundedSender,
 };
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>custom_debug::Debug;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -1177,7 +1156,7 @@
 };
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
@@ -1225,11 +1204,6 @@
 
     <span class="doccomment">/// a reference to the metrics that the implementor is using.
     </span>_metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
-
-    <span class="doccomment">/// Transactions
-    /// (this is shared btwn hotshot and `Consensus`)
-    </span>transactions:
-        Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
 
     <span class="doccomment">/// The hotstuff implementation
     </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
@@ -1312,8 +1286,6 @@
             state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
-            transactions: Arc::default(),
-            seen_transactions: HashSet::new(),
             saved_leaves,
             saved_blocks,
             <span class="comment">// TODO this is incorrect
@@ -1324,18 +1296,15 @@
             invalid_qc: <span class="number">0</span>,
         };
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
-        <span class="kw">let </span>txns = consensus.read().<span class="kw">await</span>.get_transactions();
 
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
             id: nonce,
             channel_maps: I::new_channel_maps(start_view),
             consensus,
-            transactions: txns,
             public_key,
             private_key,
             config,
-            <span class="comment">// networking,
-            </span>storage,
+            storage,
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
             _metrics: metrics,
@@ -1639,11 +1608,6 @@
 <span class="doccomment">/// [`HotShot`] implementations that depend on [`TYPES::ConsensusType`].
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>HotShotType&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Get the [`transactions`] field of [`HotShot`].
-    </span><span class="kw">fn </span>transactions(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;;
-
     <span class="doccomment">/// Get the [`hotstuff`] field of [`HotShot`].
     </span><span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;;
 
@@ -1777,12 +1741,6 @@
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">fn </span>transactions(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.transactions
-    }
-
     <span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
     }

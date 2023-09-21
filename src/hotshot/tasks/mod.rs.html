@@ -567,6 +567,13 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{
@@ -612,7 +619,12 @@
     vote::{ViewSyncData, VoteType},
 };
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+    time::Duration,
+};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -1010,6 +1022,8 @@
         registry: registry.clone(),
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
+        transactions: Arc::default(),
+        seen_transactions: HashSet::new(),
         cur_view: TYPES::Time::new(<span class="number">0</span>),
         committee_exchange: committee_exchange.into(),
         event_stream: event_stream.clone(),
