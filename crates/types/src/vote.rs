@@ -560,15 +560,15 @@ impl<
 /// Accumulates view sync votes
 pub struct ViewSyncVoteAccumulator<
     TYPES: NodeType,
-    COMMITTABLE: Committable + Serialize + Clone,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all pre_commit signatures accumlated so far
-    pub pre_commit_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub pre_commit_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
     /// Map of all ommit signatures accumlated so far
-    pub commit_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub commit_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
     /// Map of all finalize signatures accumlated so far
-    pub finalize_vote_outcomes: VoteMap<Commitment<COMMITTABLE>, TYPES::VoteTokenType>,
+    pub finalize_vote_outcomes: VoteMap<COMMITMENT, TYPES::VoteTokenType>,
 
     /// A quorum's worth of stake, generally 2f + 1
     pub success_threshold: NonZeroU64,
@@ -584,10 +584,9 @@ pub struct ViewSyncVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITTABLE: Committable + Serialize + Clone,
-        VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
-    > Accumulator2<TYPES, Commitment<COMMITTABLE>, VOTE>
-    for ViewSyncVoteAccumulator<TYPES, COMMITTABLE, VOTE>
+        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        VOTE: VoteType<TYPES, COMMITMENT>,
+    > Accumulator2<TYPES, COMMITMENT, VOTE> for ViewSyncVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     #[allow(clippy::too_many_lines)]
     fn append(
