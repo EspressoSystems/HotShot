@@ -135,7 +135,6 @@ pub trait VoteToken:
     + PartialEq
     + Hash
     + Eq
-    + Committable
 {
     // type StakeTable;
     // type KeyPair: SignatureKey;
