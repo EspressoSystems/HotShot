@@ -663,7 +663,7 @@ where
             Message<TYPES, I>,
             Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
             Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-            Commitment = SequencingLeaf<TYPES>,
+            Commitment = Commitment<SequencingLeaf<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -671,7 +671,7 @@ where
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
-            Commitment = TYPES::BlockType,
+            Commitment = Commitment<TYPES::BlockType>,
             Membership = MEMBERSHIP,
         > + 'static,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -679,7 +679,7 @@ where
             Message<TYPES, I>,
             Proposal = ViewSyncCertificate<TYPES>,
             Certificate = ViewSyncCertificate<TYPES>,
-            Commitment = ViewSyncData<TYPES>,
+            Commitment = Commitment<ViewSyncData<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
 {

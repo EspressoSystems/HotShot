@@ -264,13 +264,13 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     let consensus = handle.hotshot.get_consensus();
@@ -360,7 +360,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     // build the da task
@@ -429,7 +429,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     // build the transactions task
@@ -501,7 +501,7 @@ where
         Message<TYPES, I>,
         Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
-        Commitment = ViewSyncData<TYPES>,
+        Commitment = Commitment<ViewSyncData<TYPES>>,
     >,
 {
     let api = HotShotSequencingConsensusApi {

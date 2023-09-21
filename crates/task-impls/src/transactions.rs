@@ -4,7 +4,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use bincode::config::Options;
-use commit::Committable;
+use commit::{Commitment, Committable};
 use either::{Either, Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -47,7 +47,7 @@ pub struct TransactionTaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     /// The state's api
@@ -85,7 +85,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     /// main task event handler
@@ -331,7 +331,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
 }

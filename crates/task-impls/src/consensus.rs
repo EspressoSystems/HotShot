@@ -65,13 +65,13 @@ pub struct SequencingConsensusTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     /// The global task registry
@@ -139,7 +139,7 @@ pub struct VoteCollectionTaskState<
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
 {
     /// the quorum exchange
@@ -171,7 +171,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
 {
 }
@@ -191,7 +191,7 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
 {
     match event {
@@ -273,13 +273,13 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
@@ -1214,13 +1214,13 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
 }
@@ -1263,13 +1263,13 @@ where
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        Commitment = SequencingLeaf<TYPES>,
+        Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment<TYPES::BlockType>,
     >,
 {
     if let SequencingHotShotEvent::Shutdown = event {
