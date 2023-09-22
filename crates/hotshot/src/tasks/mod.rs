@@ -263,7 +263,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
         Commitment = Commitment<SequencingLeaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<

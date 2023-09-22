@@ -662,7 +662,7 @@ where
             TYPES,
             Message<TYPES, I>,
             Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
             Commitment = Commitment<SequencingLeaf<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
@@ -1080,7 +1080,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES, LEAF>::genesis();
+        let justify_qc = QuorumCertificate::<TYPES, Commitment<LEAF>>::genesis();
 
         Ok(Self {
             inner: LEAF::new(time, justify_qc, genesis_block, state),

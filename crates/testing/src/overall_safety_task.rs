@@ -92,7 +92,7 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     // pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
     /// id -> (leaf, qc)
-    pub success_nodes: HashMap<u64, (Vec<LEAF>, QuorumCertificate<TYPES, LEAF>)>,
+    pub success_nodes: HashMap<u64, (Vec<LEAF>, QuorumCertificate<TYPES, Commitment<LEAF>>)>,
     /// Nodes that failed to commit this round
     pub failed_nodes: HashMap<u64, Vec<Arc<HotShotError<TYPES>>>>,
 
@@ -185,7 +185,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> RoundResult<TYPES, LEAF>
     pub fn insert_into_result(
         &mut self,
         idx: usize,
-        result: (Vec<LEAF>, QuorumCertificate<TYPES, LEAF>),
+        result: (Vec<LEAF>, QuorumCertificate<TYPES, Commitment<LEAF>>),
         maybe_block_size: Option<u64>,
     ) -> Option<LEAF> {
         self.success_nodes.insert(idx as u64, result.clone());

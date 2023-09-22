@@ -808,7 +808,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, Commitment<LEAF>>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -819,7 +819,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc: QuorumCertificate<TYPES, LEAF>,
+        justify_qc: QuorumCertificate<TYPES, Commitment<LEAF>>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
@@ -866,7 +866,7 @@ impl<
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, Commitment<LEAF>>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -945,7 +945,7 @@ impl<
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, Commitment<LEAF>>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -967,7 +967,7 @@ impl<
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
-        high_qc: QuorumCertificate<TYPES, LEAF>,
+        high_qc: QuorumCertificate<TYPES, Commitment<LEAF>>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I>
@@ -996,8 +996,8 @@ impl<
     for QuorumExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = PROPOSAL;
-    type Vote = QuorumVote<TYPES, LEAF>;
-    type Certificate = QuorumCertificate<TYPES, LEAF>;
+    type Vote = QuorumVote<TYPES, Commitment<LEAF>>;
+    type Certificate = QuorumCertificate<TYPES, Commitment<LEAF>>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
     type Commitment = Commitment<LEAF>;
