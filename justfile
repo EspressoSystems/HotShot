@@ -37,7 +37,7 @@ test_success:
 
 test_timeout:
   echo Testing timeout test
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture 
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture 
 
 test_web_server:
   echo Testing web server
