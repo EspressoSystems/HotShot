@@ -90,9 +90,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for OverallSafety
 pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     // pub txns: Vec<TYPES::Transaction>,
+
     /// Nodes that committed this round
     /// id -> (leaf, qc)
-    pub success_nodes: HashMap<u64, (Vec<LEAF>, QuorumCertificate<TYPES, Commitment<LEAF>>)>,
+    // TODO GG: isn't it infeasible to store a Vec<LEAF>?
+    #[allow(clippy::type_complexity)]
+    success_nodes: HashMap<u64, (Vec<LEAF>, QuorumCertificate<TYPES, Commitment<LEAF>>)>,
+
     /// Nodes that failed to commit this round
     pub failed_nodes: HashMap<u64, Vec<Arc<HotShotError<TYPES>>>>,
 
