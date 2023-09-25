@@ -128,7 +128,9 @@ pub trait NodeImplementation<TYPES: NodeType>:
         + Sync
         + 'static
         + for<'a> Deserialize<'a>
-        + Serialize;
+        + Serialize
+        + Hash
+        + Eq;
 
     /// Consensus type selected exchanges.
     ///

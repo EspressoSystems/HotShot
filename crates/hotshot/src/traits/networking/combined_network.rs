@@ -5,6 +5,10 @@ use crate::{
     traits::implementations::{Libp2pNetwork, WebServerNetwork},
     NodeImplementation,
 };
+use async_lock::RwLock;
+use hotshot_constants::COMBINED_NETWORK_CACHE_SIZE;
+use std::hash::Hasher;
+use tracing::error;
 
 use async_trait::async_trait;
 
@@ -25,8 +29,57 @@ use hotshot_types::{
         node_implementation::NodeType,
     },
 };
-use std::{marker::PhantomData, sync::Arc};
-use tracing::error;
+use std::{collections::hash_map::DefaultHasher, marker::PhantomData, sync::Arc};
+
+use std::collections::HashMap;
+use std::hash::Hash;
+
+/// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
+/// from multiple networks
+
+#[derive(Clone, Debug)]
+struct Cache {
+    capacity: usize,
+    cache: HashMap<u64, usize>,
+    hashes: Vec<u64>,
+}
+
+impl Cache {
+    fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            cache: HashMap::with_capacity(capacity),
+            hashes: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn insert(&mut self, hash: u64) {
+        if self.cache.contains_key(&hash) {
+            return;
+        }
+
+        if self.hashes.len() == self.capacity {
+            let oldest_message = self.hashes.remove(0);
+            self.cache.remove(&oldest_message);
+        }
+
+        let index = self.hashes.len();
+        self.cache.insert(hash, index);
+        self.hashes.push(hash);
+    }
+
+    fn contains(&self, hash: &u64) -> bool {
+        self.cache.contains_key(hash)
+    }
+}
+
+/// Helper function to calculate a hash of a type that implements Hash
+fn calculate_hash_of<T: Hash + Eq>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
@@ -37,6 +90,9 @@ pub struct CombinedCommChannel<
 > {
     /// The two networks we'll use for send/recv
     networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>,
+
+    /// Last 100 seen messages to prevent processing duplicates
+    message_cache: Arc<RwLock<Cache>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
@@ -45,18 +101,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
     /// Constructor
     #[must_use]
     pub fn new(networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>) -> Self {
-        Self { networks }
+        Self {
+            networks,
+            message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+        }
     }
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn network(&self) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES> {
+    pub fn primary(&self) -> &WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES> {
         &self.networks.0
     }
 
     /// Get a ref to the backup network
     #[must_use]
-    pub fn fallback(&self) -> &Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> {
+    pub fn secondary(&self) -> &Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> {
         &self.networks.1
     }
 }
@@ -143,6 +202,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         );
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),
+            message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
         })
     }
 
@@ -163,13 +223,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
     async fn wait_for_ready(&self) {
         join!(
-            self.network().wait_for_ready(),
-            self.fallback().wait_for_ready()
+            self.primary().wait_for_ready(),
+            self.secondary().wait_for_ready()
         );
     }
 
     async fn is_ready(&self) -> bool {
-        self.network().is_ready().await && self.fallback().is_ready().await
+        self.primary().is_ready().await && self.secondary().is_ready().await
     }
 
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
@@ -178,7 +238,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         Self: 'b,
     {
         let closure = async move {
-            join!(self.network().shut_down(), self.fallback().shut_down());
+            join!(self.primary().shut_down(), self.secondary().shut_down());
         };
         boxed_sync(closure)
     }
@@ -190,28 +250,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
     ) -> Result<(), NetworkError> {
         let recipients =
             <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
-        let fallback = self
-            .fallback()
-            .broadcast_message(message.clone(), recipients.clone());
-        let network = self.network().broadcast_message(message, recipients);
-        match join!(fallback, network) {
-            (Err(e1), Err(e2)) => {
-                error!(
-                    "Both network broadcasts failed primary error: {}, fallback error: {}",
-                    e1, e2
-                );
-                Err(e1)
-            }
-            (Err(e), _) => {
-                error!("Failed primary broadcast with error: {}", e);
-                Ok(())
-            }
-            (_, Err(e)) => {
-                error!("Failed backup broadcast with error: {}", e);
-                Ok(())
-            }
-            _ => Ok(()),
-        }
+
+        // broadcast to both networks because nodes may accessible only on either
+        self.primary()
+            .broadcast_message(message.clone(), recipients.clone())
+            .await?;
+        self.secondary()
+            .broadcast_message(message, recipients)
+            .await
     }
 
     async fn direct_message(
@@ -219,8 +265,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
+        // direct message on one network because successful direct message implies node is accessible on that network
         match self
-            .network()
+            .primary()
             .direct_message(message.clone(), recipient.clone())
             .await
         {
@@ -230,7 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                     "Falling back on direct message, error on primary network: {}",
                     e
                 );
-                self.fallback().direct_message(message, recipient).await
+                self.secondary().direct_message(message, recipient).await
             }
         }
     }
@@ -243,18 +290,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         'a: 'b,
         Self: 'b,
     {
+        // recv on both networks because nodes may be accessible only on either. discard duplicates
         let closure = async move {
-            match self.network().recv_msgs(transmit_type).await {
-                Ok(msgs) => Ok(msgs),
-                Err(e) => {
-                    error!(
-                        "Falling back on recv message, error on primary network: {}",
-                        e
-                    );
-                    self.fallback().recv_msgs(transmit_type).await
+            let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
+            let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
+
+            primary_msgs.extend(secondary_msgs.drain(..));
+
+            let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
+            for msg in primary_msgs {
+                if !self
+                    .message_cache
+                    .read()
+                    .await
+                    .contains(&calculate_hash_of(&msg))
+                {
+                    filtered_msgs.push(msg.clone());
+                    self.message_cache
+                        .write()
+                        .await
+                        .insert(calculate_hash_of(&msg));
                 }
             }
+
+            Ok(filtered_msgs)
         };
+
         boxed_sync(closure)
     }
 
@@ -263,10 +324,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
     ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        self.network()
+        self.primary()
             .queue_node_lookup(view_number, pk.clone())
             .await?;
-        self.fallback().queue_node_lookup(view_number, pk).await?;
+        self.secondary().queue_node_lookup(view_number, pk).await?;
 
         Ok(())
     }
@@ -275,13 +336,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         <WebServerNetwork<_, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(self.network(), event.clone())
+        >>::inject_consensus_info(self.primary(), event.clone())
         .await;
 
         <Libp2pNetwork<_, _> as ConnectedNetwork<
         Message<TYPES, I>,
         TYPES::SignatureKey,
-        >>::inject_consensus_info(self.fallback(), event)
+        >>::inject_consensus_info(self.secondary(), event)
     .await;
     }
 }

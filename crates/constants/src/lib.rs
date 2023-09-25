@@ -8,3 +8,6 @@ pub const LOOK_AHEAD: u64 = 5;
 
 /// the default kademlia record republication interval (in seconds)
 pub const KAD_DEFAULT_REPUB_INTERVAL_SEC: u64 = 28800;
+
+/// the number of messages to cache in the combined network
+pub const COMBINED_NETWORK_CACHE_SIZE: usize = 1000;
