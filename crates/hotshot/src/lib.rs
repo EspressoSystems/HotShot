@@ -47,7 +47,7 @@ use async_compatibility_layer::{
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use commit::Committable;
+use commit::{Committable, Commitment};
 use custom_debug::Debug;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
