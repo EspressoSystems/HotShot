@@ -1282,7 +1282,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "commit"
 version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit?tag=0.2.2#7e938186607f87da5fd642ce36313aaeab0cfaca"
+source = "git+https://github.com/EspressoSystems/commit#100cb8f402e32d794b4d2213356227b7bfeb0e92"
 dependencies = [
  "arbitrary",
  "ark-serialize 0.3.0",
@@ -1294,7 +1294,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.2.4",
+ "tagged-base64 0.3.1",
 ]
 
 [[package]]
@@ -6412,6 +6412,20 @@ dependencies = [
 
 [[package]]
 name = "tagged-base64"
+version = "0.3.1"
+source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.1#9207d39ba7a9c11801511a7077ea4330b6173e44"
+dependencies = [
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "base64 0.13.1",
+ "crc-any",
+ "serde",
+ "snafu",
+ "tagged-base64-macros 0.3.1",
+]
+
+[[package]]
+name = "tagged-base64"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
@@ -6440,6 +6454,15 @@ dependencies = [
 name = "tagged-base64-macros"
 version = "0.3.0"
 source = "git+https://github.com/espressosystems/tagged-base64?tag=0.3.0#19381b3f14b1f94269c8c783288a63694b6dd12a"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.3.1"
+source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.1#9207d39ba7a9c11801511a7077ea4330b6173e44"
 dependencies = [
  "quote",
  "syn 1.0.109",
