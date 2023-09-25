@@ -1,6 +1,6 @@
 use hotshot::{
     block_impl::{VIDBlockPayload, VIDTransaction},
-    traits::implementations::CombinedNetworks,
+    traits::implementations::{CombinedNetworks, CombinedCommChannel},
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -10,7 +10,7 @@ use hotshot::{
         election::static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
         implementations::{
             Libp2pCommChannel, Libp2pNetwork, MemoryCommChannel, MemoryNetwork, MemoryStorage,
-            WebCommChannel, WebServerNetwork, WebServerWithFallbackCommChannel,
+            WebCommChannel, WebServerNetwork,
         },
         NodeImplementation,
     },
@@ -62,7 +62,7 @@ pub struct SequencingLibp2pImpl;
 pub struct SequencingWebImpl;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-pub struct StaticFallbackImpl;
+pub struct StaticCombinedImpl;
 
 pub type StaticMembership =
     StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
@@ -75,8 +75,8 @@ type StaticLibp2pDAComm =
 
 type StaticWebDAComm = WebCommChannel<SequencingTestTypes, SequencingWebImpl, StaticMembership>;
 
-type StaticFallbackComm =
-    WebServerWithFallbackCommChannel<SequencingTestTypes, StaticFallbackImpl, StaticMembership>;
+type StaticCombinedComm =
+    CombinedCommChannel<SequencingTestTypes, StaticCombinedImpl, StaticMembership>;
 
 pub type StaticMemoryQuorumComm =
     MemoryCommChannel<SequencingTestTypes, SequencingMemoryImpl, StaticMembership>;
@@ -473,38 +473,38 @@ impl NodeImplementation<SequencingTestTypes> for SequencingWebImpl {
     }
 }
 
-pub type SequencingFallbackExchange = SequencingExchanges<
+pub type SequencingCombinedExchange = SequencingExchanges<
     SequencingTestTypes,
-    Message<SequencingTestTypes, StaticFallbackImpl>,
+    Message<SequencingTestTypes, StaticCombinedImpl>,
     QuorumExchange<
         SequencingTestTypes,
-        <StaticFallbackImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
+        <StaticCombinedImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
         QuorumProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
-        StaticFallbackComm,
-        Message<SequencingTestTypes, StaticFallbackImpl>,
+        StaticCombinedComm,
+        Message<SequencingTestTypes, StaticCombinedImpl>,
     >,
     CommitteeExchange<
         SequencingTestTypes,
         StaticMembership,
-        StaticFallbackComm,
-        Message<SequencingTestTypes, StaticFallbackImpl>,
+        StaticCombinedComm,
+        Message<SequencingTestTypes, StaticCombinedImpl>,
     >,
     ViewSyncExchange<
         SequencingTestTypes,
         ViewSyncCertificate<SequencingTestTypes>,
         StaticMembership,
-        StaticFallbackComm,
-        Message<SequencingTestTypes, StaticFallbackImpl>,
+        StaticCombinedComm,
+        Message<SequencingTestTypes, StaticCombinedImpl>,
     >,
 >;
 
 impl
     TestableExchange<
         SequencingTestTypes,
-        <StaticFallbackImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
-        Message<SequencingTestTypes, StaticFallbackImpl>,
-    > for SequencingFallbackExchange
+        <StaticCombinedImpl as NodeImplementation<SequencingTestTypes>>::Leaf,
+        Message<SequencingTestTypes, StaticCombinedImpl>,
+    > for SequencingCombinedExchange
 {
     #[allow(clippy::arc_with_non_send_sync)]
     fn gen_comm_channels(
@@ -517,24 +517,24 @@ impl
             ) -> (
                 <Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking,
                 <Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking,
                 <Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking,
             ) + 'static,
     > {
         let libp2p_generator = Arc::new(<Libp2pNetwork<
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
         >>::generator(
             expected_node_count,
             num_bootstrap,
@@ -543,12 +543,12 @@ impl
             true,
         ));
         let ws_generator = Arc::new(<WebServerNetwork<
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
             _,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
         >>::generator(
             expected_node_count,
             num_bootstrap,
@@ -557,12 +557,12 @@ impl
             false,
         ));
         let ws_da_generator = Arc::new(<WebServerNetwork<
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
             <SequencingTestTypes as NodeType>::SignatureKey,
             SequencingTestTypes,
         > as TestableNetworkingImplementation<
             SequencingTestTypes,
-            Message<SequencingTestTypes, StaticFallbackImpl>,
+            Message<SequencingTestTypes, StaticCombinedImpl>,
         >>::generator(
             expected_node_count,
             num_bootstrap,
@@ -583,19 +583,19 @@ impl
             let quorum_chan =
                 <<Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking as TestableChannelImplementation<_, _, _, _>>::generate_network(
                 )(network.clone());
             let committee_chan =
                 <<Self::CommitteeExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking as TestableChannelImplementation<_, _, _, _>>::generate_network(
                 )(network_da);
             let view_sync_chan =
                 <<Self::ViewSyncExchange as hotshot_types::traits::election::ConsensusExchange<
                     SequencingTestTypes,
-                    Message<SequencingTestTypes, StaticFallbackImpl>,
+                    Message<SequencingTestTypes, StaticCombinedImpl>,
                 >>::Networking as TestableChannelImplementation<_, _, _, _>>::generate_network(
                 )(network);
             (quorum_chan, committee_chan, view_sync_chan)
@@ -603,10 +603,10 @@ impl
     }
 }
 
-impl NodeImplementation<SequencingTestTypes> for StaticFallbackImpl {
+impl NodeImplementation<SequencingTestTypes> for StaticCombinedImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
-    type Exchanges = SequencingFallbackExchange;
+    type Exchanges = SequencingCombinedExchange;
     type ConsensusMessage = SequencingMessage<SequencingTestTypes, Self>;
 
     fn new_channel_maps(

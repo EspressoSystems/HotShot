@@ -7,7 +7,7 @@
 
 pub mod libp2p_network;
 pub mod memory_network;
-pub mod web_server_libp2p_fallback;
+pub mod combined_network;
 pub mod web_server_network;
 
 pub use hotshot_types::traits::network::{

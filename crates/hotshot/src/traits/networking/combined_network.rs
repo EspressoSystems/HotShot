@@ -30,7 +30,7 @@ use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
-pub struct WebServerWithFallbackCommChannel<
+pub struct CombinedCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
@@ -40,7 +40,7 @@ pub struct WebServerWithFallbackCommChannel<
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
-    WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
+CombinedCommChannel<TYPES, I, MEMBERSHIP>
 {
     /// Constructor
     #[must_use]
@@ -121,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
+    for CombinedCommChannel<TYPES, I, MEMBERSHIP>
 {
     fn generator(
         expected_node_count: usize,
@@ -157,7 +157,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
     CommunicationChannel<TYPES, Message<TYPES, I>, MEMBERSHIP>
-    for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
+    for CombinedCommChannel<TYPES, I, MEMBERSHIP>
 {
     type NETWORK = CombinedNetworks<TYPES, I, MEMBERSHIP>;
 
@@ -292,9 +292,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         Message<TYPES, I>,
         MEMBERSHIP,
         CombinedNetworks<TYPES, I, MEMBERSHIP>,
-    > for WebServerWithFallbackCommChannel<TYPES, I, MEMBERSHIP>
+    > for CombinedCommChannel<TYPES, I, MEMBERSHIP>
 {
     fn generate_network() -> Box<dyn Fn(Arc<Self::NETWORK>) -> Self + 'static> {
-        Box::new(move |network| WebServerWithFallbackCommChannel::new(network))
+        Box::new(move |network| CombinedCommChannel::new(network))
     }
 }
