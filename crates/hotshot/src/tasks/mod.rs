@@ -5,7 +5,7 @@ use crate::{
     QuorumCertificate, SequencingQuorumEx,
 };
 use async_compatibility_layer::art::async_sleep;
-use commit::{Commitment, Committable};
+use commit::{Commitment, CommitmentBounds};
 use futures::FutureExt;
 use hotshot_task::{
     boxed_sync,
@@ -42,7 +42,6 @@ use hotshot_types::{
     },
     vote::{ViewSyncData, VoteType},
 };
-use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -69,9 +68,9 @@ pub async fn add_network_message_task<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    COMMITTABLE: Committable + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    VOTE: VoteType<TYPES, COMMITMENT>,
     MEMBERSHIP: Membership<TYPES>,
     EXCHANGE: ConsensusExchange<
             TYPES,
@@ -179,9 +178,9 @@ pub async fn add_network_event_task<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    COMMITTABLE: Committable + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES, Commitment<COMMITTABLE>>,
+    VOTE: VoteType<TYPES, COMMITMENT>,
     MEMBERSHIP: Membership<TYPES>,
     EXCHANGE: ConsensusExchange<
             TYPES,

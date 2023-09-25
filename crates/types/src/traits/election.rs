@@ -34,7 +34,7 @@ use crate::{
     },
 };
 use bincode::Options;
-use commit::{Commitment, Committable};
+use commit::{Commitment, Committable, CommitmentBounds};
 use derivative::Derivative;
 use either::Either;
 use ethereum_types::U256;
@@ -76,7 +76,7 @@ pub enum Checked<T> {
 #[serde(bound(deserialize = ""))]
 pub enum VoteData<COMMITMENT>
 where
-    COMMITMENT: for<'a> Deserialize<'a>,
+    COMMITMENT: CommitmentBounds,
 {
     /// Vote to provide availability for a block.
     DA(COMMITMENT),
@@ -96,7 +96,7 @@ where
 
 impl<COMMITMENT> VoteData<COMMITMENT>
 where
-    COMMITMENT: for<'a> Deserialize<'a> + Clone,
+    COMMITMENT: CommitmentBounds,
 {
     /// Return the underlying commitment.
     #[must_use]
@@ -112,7 +112,7 @@ where
 
 impl<COMMITMENT> VoteData<COMMITMENT>
 where
-    COMMITMENT: Serialize + for<'a> Deserialize<'a>,
+    COMMITMENT: CommitmentBounds,
 {
     #[must_use]
     /// Convert vote data into bytes.
@@ -160,7 +160,7 @@ pub trait ElectionConfig:
 pub trait SignedCertificate<TYPES: NodeType, TIME, TOKEN, COMMITMENT>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     TOKEN: VoteToken,
 {
     /// `VoteType` that is used in this certificate
@@ -276,7 +276,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// Network used by [`Membership`](Self::Membership) to communicate.
     type Networking: CommunicationChannel<TYPES, M, Self::Membership>;
     /// Commitments to items which are the subject of proposals and decisions.
-    type Commitment: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq + Eq + AsRef<[u8]>;
+    type Commitment: CommitmentBounds;
 
     /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(

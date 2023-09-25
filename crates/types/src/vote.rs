@@ -13,7 +13,7 @@ use crate::{
 };
 use bincode::Options;
 use bitvec::prelude::*;
-use commit::{Commitment, Committable};
+use commit::{Commitment, CommitmentBounds, Committable};
 use either::Either;
 use ethereum_types::U256;
 use hotshot_utils::bincode::bincode_opts;
@@ -28,7 +28,7 @@ use std::{
 use tracing::error;
 
 /// The vote sent by consensus messages.
-pub trait VoteType<TYPES: NodeType, COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone>:
+pub trait VoteType<TYPES: NodeType, COMMITMENT: CommitmentBounds>:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
 {
     /// Get the view this vote was cast for
@@ -62,10 +62,7 @@ pub struct DAVote<TYPES: NodeType> {
 /// A positive or negative vote on validating or commitment proposal.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct YesOrNoVote<
-    TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + PartialEq + Eq + AsRef<[u8]>,
-> {
+pub struct YesOrNoVote<TYPES: NodeType, COMMITMENT: CommitmentBounds> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
@@ -85,7 +82,7 @@ pub struct YesOrNoVote<
 /// A timeout vote.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct TimeoutVote<TYPES: NodeType, COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone> {
+pub struct TimeoutVote<TYPES: NodeType, COMMITMENT: CommitmentBounds> {
     /// The highest valid QC this node knows about
     pub high_qc: QuorumCertificate<TYPES, COMMITMENT>,
     /// The signature share associated with this vote
@@ -190,10 +187,7 @@ impl<TYPES: NodeType> ViewSyncVote<TYPES> {
 /// Votes on validating or commitment proposal.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub enum QuorumVote<
-    TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + PartialEq + Eq + AsRef<[u8]>,
-> {
+pub enum QuorumVote<TYPES: NodeType, COMMITMENT: CommitmentBounds> {
     /// Posivite vote.
     Yes(YesOrNoVote<TYPES, COMMITMENT>),
     /// Negative vote.
@@ -229,19 +223,8 @@ impl<TYPES: NodeType> DAVote<TYPES> {
     }
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a>
-            + Serialize
-            + Clone
-            + PartialEq
-            + Eq
-            + Debug
-            + Send
-            + Sync
-            + 'static
-            + AsRef<[u8]>,
-    > VoteType<TYPES, COMMITMENT> for QuorumVote<TYPES, COMMITMENT>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds> VoteType<TYPES, COMMITMENT>
+    for QuorumVote<TYPES, COMMITMENT>
 {
     fn get_view(&self) -> TYPES::Time {
         match self {
@@ -270,11 +253,7 @@ impl<
     }
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + PartialEq + Eq + AsRef<[u8]>,
-    > QuorumVote<TYPES, COMMITMENT>
-{
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds> QuorumVote<TYPES, COMMITMENT> {
     /// Get the encoded signature.
 
     pub fn signature(&self) -> EncodedSignature {
@@ -340,7 +319,7 @@ pub trait Accumulator<T, U>: Sized {
 /// Accumulator trait used to accumulate votes into an `AssembledSignature`
 pub trait Accumulator2<
     TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     VOTE: VoteType<TYPES, COMMITMENT>,
 >: Sized
 {
@@ -358,7 +337,7 @@ pub trait Accumulator2<
 /// Accumulates DA votes
 pub struct DAVoteAccumulator<
     TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all da signatures accumlated so far
@@ -375,7 +354,7 @@ pub struct DAVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        COMMITMENT: CommitmentBounds,
         VOTE: VoteType<TYPES, COMMITMENT>,
     > Accumulator2<TYPES, COMMITMENT, VOTE> for DAVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
@@ -449,7 +428,7 @@ impl<
 /// Accumulate quorum votes
 pub struct QuorumVoteAccumulator<
     TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all signatures accumlated so far
@@ -473,7 +452,7 @@ pub struct QuorumVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        COMMITMENT: CommitmentBounds,
         VOTE: VoteType<TYPES, COMMITMENT>,
     > Accumulator2<TYPES, COMMITMENT, VOTE> for QuorumVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
@@ -580,7 +559,7 @@ impl<
 /// Accumulates view sync votes
 pub struct ViewSyncVoteAccumulator<
     TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Map of all pre_commit signatures accumlated so far
@@ -604,7 +583,7 @@ pub struct ViewSyncVoteAccumulator<
 
 impl<
         TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone + Copy + PartialEq + Eq + Hash,
+        COMMITMENT: CommitmentBounds,
         VOTE: VoteType<TYPES, COMMITMENT>,
     > Accumulator2<TYPES, COMMITMENT, VOTE> for ViewSyncVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
@@ -754,7 +733,7 @@ impl<
 /// Placeholder accumulator; will be replaced by accumulator for each certificate type
 pub struct AccumulatorPlaceholder<
     TYPES: NodeType,
-    COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     VOTE: VoteType<TYPES, COMMITMENT>,
 > {
     /// Phantom data to make compiler happy
@@ -763,7 +742,7 @@ pub struct AccumulatorPlaceholder<
 
 impl<
         TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
+        COMMITMENT: CommitmentBounds,
         VOTE: VoteType<TYPES, COMMITMENT>,
     > Accumulator2<TYPES, COMMITMENT, VOTE> for AccumulatorPlaceholder<TYPES, COMMITMENT, VOTE>
 {
@@ -793,7 +772,7 @@ type VoteMap<COMMITMENT, TOKEN> = HashMap<
 /// TODO GG used only in election.rs; move this to there and make it private?
 pub struct VoteAccumulator<
     TOKEN,
-    COMMITMENT: Serialize + for<'a> Deserialize<'a> + Clone,
+    COMMITMENT: CommitmentBounds,
     TYPES: NodeType,
 > {
     /// Map of all signatures accumlated so far
@@ -820,23 +799,23 @@ pub struct VoteAccumulator<
     pub signers: BitVec,
 }
 
-impl<TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType>
+impl<TOKEN, COMMITMENT: CommitmentBounds, TYPES: NodeType>
     Accumulator<
         (
-            Commitment<LEAF>,
+            COMMITMENT,
             (
                 EncodedPublicKey,
                 (
                     EncodedSignature,
                     Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
                     usize,
-                    VoteData<Commitment<LEAF>>,
+                    VoteData<COMMITMENT>,
                     TOKEN,
                 ),
             ),
         ),
         AssembledSignature<TYPES>,
-    > for VoteAccumulator<TOKEN, Commitment<LEAF>, TYPES>
+    > for VoteAccumulator<TOKEN, COMMITMENT, TYPES>
 where
     TOKEN: Clone + VoteToken,
 {
@@ -844,14 +823,14 @@ where
     fn append(
         mut self,
         val: (
-            Commitment<LEAF>,
+            COMMITMENT,
             (
                 EncodedPublicKey,
                 (
                     EncodedSignature,
                     Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
                     usize,
-                    VoteData<Commitment<LEAF>>,
+                    VoteData<COMMITMENT>,
                     TOKEN,
                 ),
             ),
