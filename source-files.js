@@ -13,7 +13,7 @@ var sourcesIndex = JSON.parse('{\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "hotshot_web_server":["",[],["config.rs","lib.rs"]],\
 "libp2p_multi_validator":["",[["infra",[],["mod.rs","modDA.rs"]]],["multi-validator.rs","types.rs"]],\
-"libp2p_networking":["",[["network",[["behaviours",[],["dht.rs","direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\
+"libp2p_networking":["",[["network",[["behaviours",[["dht",[],["cache.rs","mod.rs"]]],["direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\
 "libp2p_orchestrator":["",[["infra",[],["mod.rs","modDA.rs"]]],["orchestrator.rs","types.rs"]],\
 "libp2p_validator":["",[["infra",[],["mod.rs","modDA.rs"]]],["types.rs","validator.rs"]],\
 "multi_validator":["",[["infra",[],["mod.rs","modDA.rs"]]],["multi-validator.rs","types.rs"]],\

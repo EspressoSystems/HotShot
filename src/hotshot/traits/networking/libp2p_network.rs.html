@@ -883,31 +883,6 @@
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -915,14 +890,14 @@
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetrics;
 <span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
 <span class="kw">use </span>async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn, async_timeout},
+    art::{async_block_on, async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>hotshot_constants::{KAD_DEFAULT_REPUB_INTERVAL_SEC, LOOK_AHEAD};
+<span class="kw">use </span>hotshot_constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber,
@@ -992,7 +967,7 @@
     <span class="doccomment">/// this node&#39;s public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
-    </span>handle: Arc&lt;NetworkNodeHandle&lt;(), K&gt;&gt;,
+    </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
     <span class="doccomment">/// map of known replica peer ids to public keys
     </span>broadcast_recv: UnboundedReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for broadcast messages
@@ -1003,8 +978,6 @@
     </span>direct_recv: UnboundedReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
     </span>node_lookup_send: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
-    <span class="doccomment">/// Sender for shutdown of the peer cache&#39;s garbage collection task
-    </span>cache_gc_shutdown_send: UnboundedSender&lt;()&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -1110,6 +1083,8 @@
                         <span class="comment">// setting to sane defaults
                         </span>.ttl(<span class="prelude-val">None</span>)
                         .republication_interval(<span class="prelude-val">None</span>)
+                        <span class="comment">// this removes the cache for tests
+                        </span>.dht_cache_location(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 } <span class="kw">else </span>{
@@ -1130,6 +1105,8 @@
                         <span class="comment">// setting to sane defaults
                         </span>.ttl(<span class="prelude-val">None</span>)
                         .republication_interval(<span class="prelude-val">None</span>)
+                        <span class="comment">// this removes the cache for tests
+                        </span>.dht_cache_location(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 };
@@ -1197,7 +1174,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
         <span class="kw">let </span>network_handle = Arc::new(
-            NetworkNodeHandle::&lt;(), K&gt;::new(config, id)
+            Box::pin(NetworkNodeHandle::&lt;()&gt;::new(config, id))
                 .<span class="kw">await
                 </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>,
         );
@@ -1228,7 +1205,6 @@
         </span><span class="kw">let </span>(direct_send, direct_recv) = unbounded();
         <span class="kw">let </span>(broadcast_send, broadcast_recv) = unbounded();
         <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
-        <span class="kw">let </span>(cache_gc_shutdown_send, cache_gc_shutdown_recv) = unbounded::&lt;()&gt;();
 
         <span class="kw">let </span>result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
@@ -1246,7 +1222,6 @@
                 metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
                 topic_map,
                 node_lookup_send,
-                cache_gc_shutdown_send,
                 <span class="comment">// Start the latest view from 0. &quot;Latest&quot; refers to &quot;most recent view we are polling for
                 // proposals on&quot;. We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don&#39;t need.
@@ -1255,20 +1230,15 @@
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-        result.spawn_node_lookup(node_lookup_recv, cache_gc_shutdown_recv);
+        result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
         <span class="prelude-val">Ok</span>(result)
     }
 
     <span class="doccomment">/// Spawns task for looking up nodes pre-emptively
-    /// as well as garbage collecting the peer cache
     </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    </span><span class="kw">fn </span>spawn_node_lookup(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
-        cache_gc_shutdown_send: UnboundedReceiver&lt;()&gt;,
-    ) {
+    </span><span class="kw">fn </span>spawn_node_lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;) {
         <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
         <span class="kw">let </span>latest_seen_view = <span class="self">self</span>.inner.latest_seen_view.clone();
@@ -1285,29 +1255,10 @@
 
                 <span class="comment">// only run if we are not too close to the next view number
                 </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
-                    <span class="comment">// look up node, caching if applicable
+                    <span class="comment">// look up
                     </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle_.lookup_node::&lt;K&gt;(pk.clone(), dht_timeout).<span class="kw">await </span>{
                         <span class="macro">error!</span>(<span class="string">&quot;Failed to perform lookup for key {:?}: {}&quot;</span>, pk, err);
                     };
-                }
-            }
-        });
-
-        <span class="comment">// deals with garbage collecting the lookup queue
-        </span><span class="kw">let </span>handle_ = handle.clone();
-        async_spawn(<span class="kw">async move </span>{
-            <span class="kw">loop </span>{
-                <span class="kw">let </span>ttl = handle_
-                    .config()
-                    .ttl
-                    .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * <span class="number">8</span>));
-                <span class="kw">if </span>async_timeout(ttl, cache_gc_shutdown_send.recv())
-                    .<span class="kw">await
-                    </span>.is_err()
-                {
-                    handle_.prune_peer_cache().<span class="kw">await</span>;
-                } <span class="kw">else </span>{
-                    <span class="kw">break</span>;
                 }
             }
         });
@@ -1483,7 +1434,6 @@
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="self">self</span>.inner.node_lookup_send.send(<span class="prelude-val">None</span>).<span class="kw">await</span>.unwrap();
-            <span class="self">self</span>.inner.cache_gc_shutdown_send.send(()).<span class="kw">await</span>.unwrap();
             <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
                 <span class="macro">error!</span>(<span class="string">&quot;Called shut down when already shut down! Noop.&quot;</span>);
             } <span class="kw">else </span>{

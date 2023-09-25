@@ -621,6 +621,8 @@
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -892,7 +894,9 @@
                     config
                         .replication_factor
                         .unwrap_or_else(|| NonZeroUsize::new(<span class="number">4</span>).unwrap()),
-                ),
+                    config.dht_cache_location.clone(),
+                )
+                .<span class="kw">await</span>,
                 identify,
                 DMBehaviour::new(request_response),
             );
