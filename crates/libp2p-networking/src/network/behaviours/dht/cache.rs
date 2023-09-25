@@ -157,7 +157,6 @@ impl Cache {
             }
         }
 
-        // todo: test speed on this as opposed to inline
         if removed > 0 {
             self.disk_parity_delta.fetch_add(removed, Ordering::Relaxed);
         }
