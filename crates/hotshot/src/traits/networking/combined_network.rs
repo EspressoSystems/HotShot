@@ -40,7 +40,7 @@ pub struct CombinedCommChannel<
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
-CombinedCommChannel<TYPES, I, MEMBERSHIP>
+    CombinedCommChannel<TYPES, I, MEMBERSHIP>
 {
     /// Constructor
     #[must_use]

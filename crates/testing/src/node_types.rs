@@ -1,6 +1,6 @@
 use hotshot::{
     block_impl::{VIDBlockPayload, VIDTransaction},
-    traits::implementations::{CombinedNetworks, CombinedCommChannel},
+    traits::implementations::{CombinedCommChannel, CombinedNetworks},
 };
 use std::{marker::PhantomData, sync::Arc};
 
