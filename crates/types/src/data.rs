@@ -9,7 +9,6 @@ use crate::{
         ViewSyncCertificate,
     },
     traits::{
-        election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
@@ -934,7 +933,7 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
             .u64(*self.justify_qc.view_number)
             .field(
                 "justify_qc leaf commitment",
-                self.justify_qc.leaf_commitment(),
+                self.justify_qc.leaf_commitment,
             )
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
@@ -966,7 +965,7 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
             .u64(*self.justify_qc.view_number)
             .field(
                 "justify_qc leaf commitment",
-                self.justify_qc.leaf_commitment(),
+                self.justify_qc.leaf_commitment,
             )
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)

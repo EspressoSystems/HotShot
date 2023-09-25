@@ -1,6 +1,5 @@
 //! Provides two types of cerrtificates and their accumulators.
 
-use crate::data::fake_commitment;
 use crate::vote::DAVoteAccumulator;
 use crate::vote::QuorumVote;
 use crate::vote::QuorumVoteAccumulator;
@@ -17,7 +16,7 @@ use crate::{
     vote::{DAVote, ViewSyncData, ViewSyncVote},
 };
 use bincode::Options;
-use commit::{Commitment, Committable};
+use commit::{Commitment, CommitmentBounds, Committable};
 
 use espresso_systems_common::hotshot::tag;
 use hotshot_utils::bincode::bincode_opts;
@@ -164,21 +163,8 @@ pub struct VoteMetaData<COMMITMENT: for<'a> Deserialize<'a> + Serialize + Clone,
     pub relay: Option<u64>,
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: for<'a> Deserialize<'a>
-            + Serialize
-            + Clone
-            + PartialEq
-            + Eq
-            + Send
-            + Sync
-            + Debug
-            + 'static
-            + Copy
-            + Hash
-            + AsRef<[u8]>,
-    > SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, COMMITMENT>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds>
+    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, COMMITMENT>
     for QuorumCertificate<TYPES, COMMITMENT>
 {
     type Vote = QuorumVote<TYPES, COMMITMENT>;
@@ -227,7 +213,7 @@ impl<
     fn genesis() -> Self {
         // TODO GG need a new way to get fake commit now that we don't have Committable
         Self {
-            leaf_commitment: fake_commitment::<LEAF>(),
+            leaf_commitment: COMMITMENT::default_commitment_no_preimage(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: AssembledSignature::Genesis(),
             is_genesis: true,
