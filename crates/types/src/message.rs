@@ -21,15 +21,13 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Hash, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
-#[derivative(PartialEq)]
 pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
     /// The message kind
-    #[derivative(PartialEq = "ignore")]
     pub kind: MessageKind<TYPES, I>,
 
     /// Phantom data.

@@ -6,8 +6,14 @@ use crate::{
     NodeImplementation,
 };
 use async_lock::RwLock;
-use hotshot_constants::COMBINED_NETWORK_CACHE_SIZE;
-use std::hash::Hasher;
+use hotshot_constants::{
+    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+};
+use std::{
+    hash::Hasher,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use tracing::error;
 
 use async_trait::async_trait;
@@ -36,15 +42,18 @@ use std::hash::Hash;
 
 /// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
 /// from multiple networks
-
 #[derive(Clone, Debug)]
 struct Cache {
+    /// The maximum number of items to store in the cache
     capacity: usize,
+    /// The cache itself
     cache: HashMap<u64, usize>,
+    /// The hashes of the messages in the cache, in order of insertion
     hashes: Vec<u64>,
 }
 
 impl Cache {
+    /// Create a new cache with the given capacity
     fn new(capacity: usize) -> Self {
         Self {
             capacity,
@@ -53,6 +62,7 @@ impl Cache {
         }
     }
 
+    /// Insert a hash into the cache
     fn insert(&mut self, hash: u64) {
         if self.cache.contains_key(&hash) {
             return;
@@ -68,8 +78,9 @@ impl Cache {
         self.hashes.push(hash);
     }
 
-    fn contains(&self, hash: &u64) -> bool {
-        self.cache.contains_key(hash)
+    /// Check if the cache contains a hash
+    fn contains(&self, hash: u64) -> bool {
+        self.cache.contains_key(&hash)
     }
 }
 
@@ -91,8 +102,11 @@ pub struct CombinedCommChannel<
     /// The two networks we'll use for send/recv
     networks: Arc<CombinedNetworks<TYPES, I, MEMBERSHIP>>,
 
-    /// Last 100 seen messages to prevent processing duplicates
+    /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<Cache>>,
+
+    /// If the primary network is down (0) or not, and for how many messages
+    primary_down: Arc<AtomicU64>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
@@ -104,6 +118,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+            primary_down: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -203,6 +218,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+            primary_down: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -251,13 +267,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         let recipients =
             <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
 
-        // broadcast to both networks because nodes may accessible only on either
-        self.primary()
-            .broadcast_message(message.clone(), recipients.clone())
-            .await?;
+        // broadcast optimistically on both networks, but if the primary network is down, skip it
+        if self.primary_down.load(Ordering::Relaxed) < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || self.primary_down.load(Ordering::Relaxed) % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
+                == 0
+        {
+            // broadcast on the primary network as it is not down, or we are checking if it is back up
+            match self
+                .primary()
+                .broadcast_message(message.clone(), recipients.clone())
+                .await
+            {
+                Ok(_) => {
+                    self.primary_down.store(0, Ordering::Relaxed);
+                    return Ok(());
+                }
+                Err(e) => {
+                    error!("Error on primary network: {}", e);
+                    self.primary_down.fetch_add(1, Ordering::Relaxed);
+                }
+            };
+        }
+
         self.secondary()
             .broadcast_message(message, recipients)
-            .await
+            .await?;
+
+        Ok(())
     }
 
     async fn direct_message(
@@ -265,21 +301,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        // direct message on one network because successful direct message implies node is accessible on that network
-        match self
-            .primary()
-            .direct_message(message.clone(), recipient.clone())
-            .await
+        // direct message on the primary network, but if it fails or is down, fall back on the secondary
+        if self.primary_down.load(Ordering::Relaxed) < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || self.primary_down.load(Ordering::Relaxed) % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
+                == 0
         {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                error!(
-                    "Falling back on direct message, error on primary network: {}",
-                    e
-                );
-                self.secondary().direct_message(message, recipient).await
-            }
+            if let Err(e) = self
+                .primary()
+                .direct_message(message.clone(), recipient.clone())
+                .await
+            {
+                error!("Error on primary network: {}", e);
+                self.primary_down.fetch_add(1, Ordering::Relaxed);
+
+                // fall through to secondary
+                self.secondary()
+                    .direct_message(message.clone(), recipient.clone())
+                    .await?;
+            } else {
+                self.primary_down.store(0, Ordering::Relaxed);
+            };
+        } else {
+            // fall through to secondary
+            self.secondary()
+                .direct_message(message.clone(), recipient.clone())
+                .await?;
         }
+
+        Ok(())
     }
 
     fn recv_msgs<'a, 'b>(
@@ -295,7 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
             let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
             let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
 
-            primary_msgs.extend(secondary_msgs.drain(..));
+            primary_msgs.append(secondary_msgs.as_mut());
 
             let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
             for msg in primary_msgs {
@@ -303,7 +352,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                     .message_cache
                     .read()
                     .await
-                    .contains(&calculate_hash_of(&msg))
+                    .contains(calculate_hash_of(&msg))
                 {
                     filtered_msgs.push(msg.clone());
                     self.message_cache
