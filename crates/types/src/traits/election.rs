@@ -105,7 +105,7 @@ where
         use VoteData::*;
         match self {
             DA(c) | Yes(c) | No(c) | Timeout(c) | ViewSyncPreCommit(c) | ViewSyncCommit(c)
-            | ViewSyncFinalize(c) => c.clone(),
+            | ViewSyncFinalize(c) => *c,
         }
     }
 }
