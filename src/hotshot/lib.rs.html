@@ -1120,7 +1120,7 @@
 };
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>custom_debug::Debug;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -1720,8 +1720,8 @@
             TYPES,
             Message&lt;TYPES, I&gt;,
             Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            Commitment = SequencingLeaf&lt;TYPES&gt;,
+            Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+            Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -1729,7 +1729,7 @@
             Message&lt;TYPES, I&gt;,
             Proposal = DAProposal&lt;TYPES&gt;,
             Certificate = DACertificate&lt;TYPES&gt;,
-            Commitment = TYPES::BlockType,
+            Commitment = Commitment&lt;TYPES::BlockType&gt;,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
     ViewSyncEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -1737,7 +1737,7 @@
             Message&lt;TYPES, I&gt;,
             Proposal = ViewSyncCertificate&lt;TYPES&gt;,
             Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-            Commitment = ViewSyncData&lt;TYPES&gt;,
+            Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
 {
@@ -2132,7 +2132,7 @@
                 context: err.to_string(),
             })<span class="question-mark">?</span>;
         <span class="kw">let </span>time = TYPES::Time::genesis();
-        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES, LEAF&gt;::genesis();
+        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES, Commitment&lt;LEAF&gt;&gt;::genesis();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: LEAF::new(time, justify_qc, genesis_block, state),

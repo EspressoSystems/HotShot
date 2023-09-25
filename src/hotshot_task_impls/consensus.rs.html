@@ -1363,14 +1363,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="doccomment">/// The global task registry
@@ -1425,7 +1425,7 @@
     </span><span class="kw">pub </span>id: u64,
 
     <span class="doccomment">/// The most Recent QC we&#39;ve formed from votes, if we&#39;ve formed it.
-    </span><span class="kw">pub </span>qc: <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt;,
+    </span><span class="kw">pub </span>qc: <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// State for the vote collection task.  This handles the building of a QC from a votes received
@@ -1437,8 +1437,8 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="doccomment">/// the quorum exchange
@@ -1446,13 +1446,13 @@
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Accumulator for votes
     </span><span class="kw">pub </span>accumulator: Either&lt;
-        &lt;QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; <span class="kw">as </span>SignedCertificate&lt;
+        &lt;QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt; <span class="kw">as </span>SignedCertificate&lt;
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
             Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;&gt;::VoteAccumulator,
-        QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+        QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
     &gt;,
     <span class="doccomment">/// View which this vote collection task is collecting votes in
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
@@ -1469,8 +1469,8 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
 {
 }
@@ -1489,8 +1489,8 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="kw">match </span>event {
@@ -1571,14 +1571,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus genesis leaf&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -2386,7 +2386,7 @@
     <span class="doccomment">/// Sends a proposal if possible from the high qc we have
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _qc: QuorumCertificate&lt;TYPES, I::Leaf&gt;,
+        _qc: QuorumCertificate&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;,
         view: TYPES::Time,
     ) -&gt; bool {
         <span class="kw">if </span>!<span class="self">self</span>.quorum_exchange.is_leader(view) {
@@ -2512,14 +2512,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
 }
@@ -2561,14 +2561,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="kw">if let </span>SequencingHotShotEvent::Shutdown = event {

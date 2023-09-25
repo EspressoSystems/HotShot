@@ -379,7 +379,7 @@
     </span><span class="kw">pub </span>locked_view: TYPES::Time,
 
     <span class="doccomment">/// the highqc per spec
-    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="attr">#[debug(skip)]

@@ -353,7 +353,6 @@
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 <span class="kw">use </span>async_compatibility_layer::{
@@ -361,8 +360,7 @@
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bincode::config::Options;
-<span class="kw">use </span>commit::Commitment;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -412,7 +410,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="doccomment">/// The state&#39;s api
@@ -456,7 +454,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="doccomment">/// main task event handler
@@ -698,7 +696,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
 }

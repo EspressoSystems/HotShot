@@ -1130,7 +1130,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="doccomment">/// Registry to register sub tasks
@@ -1179,7 +1179,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
 }
@@ -1207,7 +1207,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="doccomment">/// Timeout for view sync rounds
@@ -1250,7 +1250,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
 }
@@ -1325,7 +1325,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -1675,7 +1675,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Replica Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -2006,7 +2006,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="doccomment">/// Handles incoming events for the view sync relay task

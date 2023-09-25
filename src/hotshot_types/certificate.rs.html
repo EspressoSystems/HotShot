@@ -396,6 +396,8 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides two types of cerrtificates and their accumulators.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::vote::DAVoteAccumulator;
@@ -404,7 +406,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncVoteAccumulator;
 <span class="kw">use </span><span class="kw">crate</span>::vote::VoteType;
 <span class="kw">use crate</span>::{
-    data::{fake_commitment, serialize_signature, LeafType},
+    data::serialize_signature,
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
@@ -414,13 +416,14 @@
     vote::{DAVote, ViewSyncData, ViewSyncVote},
 };
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::{Commitment, CommitmentBounds, Committable};
 
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
+    hash::Hash,
     ops::Deref,
 };
 <span class="kw">use </span>tracing::debug;
@@ -447,12 +450,12 @@
 ///
 /// A Quorum Certificate is a threshold signature of the `Leaf` being proposed, as well as some
 /// metadata, such as the `Stage` of consensus the quorum certificate was generated during.
-</span><span class="attr">#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+</span><span class="attr">#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>QuorumCertificate&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>QuorumCertificate&lt;TYPES: NodeType, COMMITMENT: CommitmentBounds&gt; {
     <span class="doccomment">/// commitment to previous leaf
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>leaf_commitment: Commitment&lt;LEAF&gt;,
+    </span><span class="kw">pub </span>leaf_commitment: COMMITMENT,
     <span class="doccomment">/// Which view this QC relates to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// assembled signature for certificate aggregation
@@ -461,7 +464,9 @@
     </span><span class="kw">pub </span>is_genesis: bool,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Display <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMITMENT: CommitmentBounds&gt; Display
+    <span class="kw">for </span>QuorumCertificate&lt;TYPES, COMMITMENT&gt;
+{
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
         <span class="macro">write!</span>(
             f,
@@ -536,15 +541,15 @@
 }
 
 <span class="doccomment">/// Data from a vote needed to accumulate into a `SignedCertificate`
-</span><span class="kw">pub struct </span>VoteMetaData&lt;COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME&gt; {
+</span><span class="kw">pub struct </span>VoteMetaData&lt;COMMITMENT: CommitmentBounds, T: VoteToken, TIME&gt; {
     <span class="doccomment">/// Voter&#39;s public key
     </span><span class="kw">pub </span>encoded_key: EncodedPublicKey,
     <span class="doccomment">/// Votes signature
     </span><span class="kw">pub </span>encoded_signature: EncodedSignature,
     <span class="doccomment">/// Commitment to what&#39;s voted on.  E.g. the leaf for a `QuorumCertificate`
-    </span><span class="kw">pub </span>commitment: Commitment&lt;COMMITTABLE&gt;,
+    </span><span class="kw">pub </span>commitment: COMMITMENT,
     <span class="doccomment">/// Data of the vote, yes, no, timeout, or DA
-    </span><span class="kw">pub </span>data: VoteData&lt;Commitment&lt;COMMITTABLE&gt;&gt;,
+    </span><span class="kw">pub </span>data: VoteData&lt;COMMITMENT&gt;,
     <span class="doccomment">/// The votes&#39;s token
     </span><span class="kw">pub </span>vote_token: T,
     <span class="doccomment">/// View number for the vote
@@ -554,12 +559,12 @@
     </span><span class="kw">pub </span>relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;
-    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;LEAF&gt;&gt;
-    <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMITMENT: CommitmentBounds&gt;
+    SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, COMMITMENT&gt;
+    <span class="kw">for </span>QuorumCertificate&lt;TYPES, COMMITMENT&gt;
 {
-    <span class="kw">type </span>Vote = QuorumVote&lt;TYPES, LEAF&gt;;
-    <span class="kw">type </span>VoteAccumulator = QuorumVoteAccumulator&lt;TYPES, Commitment&lt;LEAF&gt;, <span class="self">Self</span>::Vote&gt;;
+    <span class="kw">type </span>Vote = QuorumVote&lt;TYPES, COMMITMENT&gt;;
+    <span class="kw">type </span>VoteAccumulator = QuorumVoteAccumulator&lt;TYPES, COMMITMENT, <span class="self">Self</span>::Vote&gt;;
 
     <span class="kw">fn </span>from_signatures_and_commitment(
         signatures: AssembledSignature&lt;TYPES&gt;,
@@ -589,11 +594,11 @@
         <span class="self">self</span>.signatures.clone()
     }
 
-    <span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;LEAF&gt; {
+    <span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; COMMITMENT {
         <span class="self">self</span>.leaf_commitment
     }
 
-    <span class="kw">fn </span>set_leaf_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: Commitment&lt;LEAF&gt;) {
+    <span class="kw">fn </span>set_leaf_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: COMMITMENT) {
         <span class="self">self</span>.leaf_commitment = commitment;
     }
 
@@ -602,8 +607,9 @@
     }
 
     <span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            leaf_commitment: fake_commitment::&lt;LEAF&gt;(),
+        <span class="comment">// TODO GG need a new way to get fake commit now that we don&#39;t have Committable
+        </span><span class="self">Self </span>{
+            leaf_commitment: COMMITMENT::default_commitment_no_preimage(),
             view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
             signatures: AssembledSignature::Genesis(),
             is_genesis: <span class="bool-val">true</span>,
@@ -611,16 +617,14 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Eq <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt; {}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Committable
-    <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMITMENT: CommitmentBounds&gt; Committable
+    <span class="kw">for </span>QuorumCertificate&lt;TYPES, COMMITMENT&gt;
 {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>signatures_bytes = serialize_signature(<span class="kw-2">&amp;</span><span class="self">self</span>.signatures);
 
         commit::RawCommitmentBuilder::new(<span class="string">&quot;Quorum Certificate Commitment&quot;</span>)
-            .field(<span class="string">&quot;leaf commitment&quot;</span>, <span class="self">self</span>.leaf_commitment)
+            .var_size_field(<span class="string">&quot;leaf commitment&quot;</span>, <span class="self">self</span>.leaf_commitment.as_ref())
             .u64_field(<span class="string">&quot;view number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number.deref())
             .constant_str(<span class="string">&quot;justify_qc signatures&quot;</span>)
             .var_size_bytes(<span class="kw-2">&amp;</span>signatures_bytes)

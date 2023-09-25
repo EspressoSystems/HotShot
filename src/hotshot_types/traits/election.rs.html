@@ -1432,16 +1432,6 @@
 <a href="#1432" id="1432">1432</a>
 <a href="#1433" id="1433">1433</a>
 <a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-biding `let` warning.
@@ -1478,7 +1468,7 @@
     },
 };
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::{Commitment, CommitmentBounds, Committable};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
@@ -1520,7 +1510,7 @@
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>VoteData&lt;COMMITMENT&gt;
 <span class="kw">where
-    </span>COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
+    </span>COMMITMENT: CommitmentBounds,
 {
     <span class="doccomment">/// Vote to provide availability for a block.
     </span>DA(COMMITMENT),
@@ -1540,7 +1530,7 @@
 
 <span class="kw">impl</span>&lt;COMMITMENT&gt; VoteData&lt;COMMITMENT&gt;
 <span class="kw">where
-    </span>COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Clone,
+    </span>COMMITMENT: CommitmentBounds,
 {
     <span class="doccomment">/// Return the underlying commitment.
     </span><span class="attr">#[must_use]
@@ -1549,14 +1539,14 @@
         </span><span class="kw">use </span>VoteData::<span class="kw-2">*</span>;
         <span class="kw">match </span><span class="self">self </span>{
             DA(c) | Yes(c) | No(c) | Timeout(c) | ViewSyncPreCommit(c) | ViewSyncCommit(c)
-            | ViewSyncFinalize(c) =&gt; c.clone(),
+            | ViewSyncFinalize(c) =&gt; <span class="kw-2">*</span>c,
         }
     }
 }
 
 <span class="kw">impl</span>&lt;COMMITMENT&gt; VoteData&lt;COMMITMENT&gt;
 <span class="kw">where
-    </span>COMMITMENT: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
+    </span>COMMITMENT: CommitmentBounds,
 {
     <span class="attr">#[must_use]
     </span><span class="doccomment">/// Convert vote data into bytes.
@@ -1579,7 +1569,6 @@
     + PartialEq
     + Hash
     + Eq
-    + Committable
 {
     <span class="comment">// type StakeTable;
     // type KeyPair: SignatureKey;
@@ -1605,7 +1594,7 @@
 </span><span class="kw">pub trait </span>SignedCertificate&lt;TYPES: NodeType, TIME, TOKEN, COMMITMENT&gt;
 <span class="kw">where
     </span><span class="self">Self</span>: Send + Sync + Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
-    COMMITMENT: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     TOKEN: VoteToken,
 {
     <span class="doccomment">/// `VoteType` that is used in this certificate
@@ -1711,9 +1700,9 @@
     </span><span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
     <span class="doccomment">/// A vote on a [`Proposal`](Self::Proposal).
     </span><span class="comment">// TODO ED Make this equal Certificate vote (if possible?)
-    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;;
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES, <span class="self">Self</span>::Commitment&gt;;
     <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
-    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;
+    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
         + Hash
         + Eq;
     <span class="doccomment">/// The committee eligible to make decisions.
@@ -1721,7 +1710,7 @@
     <span class="doccomment">/// Network used by [`Membership`](Self::Membership) to communicate.
     </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, M, <span class="self">Self</span>::Membership&gt;;
     <span class="doccomment">/// Commitments to items which are the subject of proposals and decisions.
-    </span><span class="kw">type </span>Commitment: Committable + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Clone;
+    </span><span class="kw">type </span>Commitment: CommitmentBounds;
 
     <span class="doccomment">/// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     </span><span class="kw">fn </span>create(
@@ -1774,13 +1763,10 @@
     }
 
     <span class="doccomment">/// The contents of a vote on `commit`.
-    </span><span class="kw">fn </span>vote_data(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-    ) -&gt; VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;;
+    </span><span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: <span class="self">Self</span>::Commitment) -&gt; VoteData&lt;<span class="self">Self</span>::Commitment&gt;;
 
     <span class="doccomment">/// Validate a QC.
-    </span><span class="kw">fn </span>is_valid_cert(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Certificate, commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;) -&gt; bool {
+    </span><span class="kw">fn </span>is_valid_cert(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Certificate, commit: <span class="self">Self</span>::Commitment) -&gt; bool {
         <span class="kw">if </span>qc.is_genesis() &amp;&amp; qc.view_number() == TYPES::Time::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
@@ -1831,7 +1817,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        data: VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>is_valid_vote_token = <span class="bool-val">false</span>;
@@ -1856,7 +1842,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        data: <span class="kw-2">&amp;</span>VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        data: <span class="kw-2">&amp;</span>VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: <span class="kw-2">&amp;</span>Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; bool {
         <span class="kw">let </span>is_valid_signature = key.validate(encoded_signature, data.get_commit().as_ref());
@@ -1893,8 +1879,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        leaf_commitment: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-        vote_data: VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        leaf_commitment: <span class="self">Self</span>::Commitment,
+        vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;,
@@ -1912,21 +1898,21 @@
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
+            <span class="self">Self</span>::Commitment,
         &gt;&gt;::VoteAccumulator,
         vote: <span class="kw-2">&amp;</span>&lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
+            <span class="self">Self</span>::Commitment,
         &gt;&gt;::Vote,
-        _commit: <span class="kw-2">&amp;</span>Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
+        _commit: <span class="kw-2">&amp;</span><span class="self">Self</span>::Commitment,
     ) -&gt; Either&lt;
         &lt;&lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Certificate <span class="kw">as </span>SignedCertificate&lt;
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
+            <span class="self">Self</span>::Commitment,
         &gt;&gt;::VoteAccumulator,
         <span class="self">Self</span>::Certificate,
     &gt; {
@@ -2129,7 +2115,7 @@
     <span class="kw">type </span>Certificate = DACertificate&lt;TYPES&gt;;
     <span class="kw">type </span>Membership = MEMBERSHIP;
     <span class="kw">type </span>Networking = NETWORK;
-    <span class="kw">type </span>Commitment = TYPES::BlockType;
+    <span class="kw">type </span>Commitment = Commitment&lt;TYPES::BlockType&gt;;
 
     <span class="kw">fn </span>create(
         entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
@@ -2161,10 +2147,7 @@
             .make_vote_token(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.private_key)
     }
 
-    <span class="kw">fn </span>vote_data(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-    ) -&gt; VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt; {
+    <span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: <span class="self">Self</span>::Commitment) -&gt; VoteData&lt;<span class="self">Self</span>::Commitment&gt; {
         VoteData::DA(commit)
     }
 
@@ -2174,8 +2157,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        leaf_commitment: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-        vote_data: VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        leaf_commitment: <span class="self">Self</span>::Commitment,
+        vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
         accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment, TYPES&gt;,
@@ -2259,7 +2242,7 @@
     <span class="doccomment">/// Create a message with a negative vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;,
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -2270,7 +2253,7 @@
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+        justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
@@ -2317,7 +2300,7 @@
     <span class="doccomment">/// Create a message with a positive vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_yes_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;,
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -2396,7 +2379,7 @@
     <span class="doccomment">/// Create a message with a negative vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_no_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
+        justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;,
         leaf_commitment: Commitment&lt;LEAF&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -2418,7 +2401,7 @@
     <span class="doccomment">/// Create a message with a timeout vote on validating or commitment proposal.
     </span><span class="kw">fn </span>create_timeout_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+        high_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -&gt; GeneralConsensusMessage&lt;TYPES, I&gt;
@@ -2447,11 +2430,11 @@
     <span class="kw">for </span>QuorumExchange&lt;TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M&gt;
 {
     <span class="kw">type </span>Proposal = PROPOSAL;
-    <span class="kw">type </span>Vote = QuorumVote&lt;TYPES, LEAF&gt;;
-    <span class="kw">type </span>Certificate = QuorumCertificate&lt;TYPES, LEAF&gt;;
+    <span class="kw">type </span>Vote = QuorumVote&lt;TYPES, Commitment&lt;LEAF&gt;&gt;;
+    <span class="kw">type </span>Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;;
     <span class="kw">type </span>Membership = MEMBERSHIP;
     <span class="kw">type </span>Networking = NETWORK;
-    <span class="kw">type </span>Commitment = LEAF;
+    <span class="kw">type </span>Commitment = Commitment&lt;LEAF&gt;;
 
     <span class="kw">fn </span>create(
         entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
@@ -2477,10 +2460,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.network
     }
 
-    <span class="kw">fn </span>vote_data(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-    ) -&gt; VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt; {
+    <span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: <span class="self">Self</span>::Commitment) -&gt; VoteData&lt;<span class="self">Self</span>::Commitment&gt; {
         VoteData::Yes(commit)
     }
 
@@ -2491,12 +2471,13 @@
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
         leaf_commitment: Commitment&lt;LEAF&gt;,
-        vote_data: VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, LEAF, TYPES&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, Commitment&lt;LEAF&gt;, TYPES&gt;,
         _relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, LEAF, TYPES&gt;, <span class="self">Self</span>::Certificate&gt; {
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, Commitment&lt;LEAF&gt;, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;
+    {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
@@ -2813,7 +2794,7 @@
     <span class="kw">type </span>Certificate = ViewSyncCertificate&lt;TYPES&gt;;
     <span class="kw">type </span>Membership = MEMBERSHIP;
     <span class="kw">type </span>Networking = NETWORK;
-    <span class="kw">type </span>Commitment = ViewSyncData&lt;TYPES&gt;;
+    <span class="kw">type </span>Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;;
 
     <span class="kw">fn </span>create(
         entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
@@ -2839,10 +2820,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.network
     }
 
-    <span class="kw">fn </span>vote_data(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;,
-    ) -&gt; VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt; {
+    <span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, _commit: <span class="self">Self</span>::Commitment) -&gt; VoteData&lt;<span class="self">Self</span>::Commitment&gt; {
         <span class="macro">unimplemented!</span>()
     }
 
@@ -2851,13 +2829,15 @@
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
         leaf_commitment: Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
-        vote_data: VoteData&lt;Commitment&lt;<span class="self">Self</span>::Commitment&gt;&gt;,
+        vote_data: VoteData&lt;<span class="self">Self</span>::Commitment&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;, TYPES&gt;,
+        accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;, TYPES&gt;,
         relay: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;, TYPES&gt;, <span class="self">Self</span>::Certificate&gt;
-    {
+    ) -&gt; Either&lt;
+        VoteAccumulator&lt;TYPES::VoteTokenType, Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;, TYPES&gt;,
+        <span class="self">Self</span>::Certificate,
+    &gt; {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

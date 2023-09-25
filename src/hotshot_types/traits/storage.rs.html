@@ -311,7 +311,7 @@
     <span class="doccomment">/// The parent of this view
     </span><span class="kw">pub </span>parent: Commitment&lt;LEAF&gt;,
     <span class="doccomment">/// The justify QC of this view. See the hotstuff paper for more information on this.
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
     <span class="doccomment">/// The state of this view
     </span><span class="kw">pub </span>state: LEAF::MaybeState,
     <span class="doccomment">/// The deltas of this view
@@ -335,7 +335,7 @@
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     </span><span class="kw">pub fn </span>from_qc_block_and_state(
-        qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+        qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
         deltas: LEAF::DeltasType,
         state: LEAF::MaybeState,
         height: u64,

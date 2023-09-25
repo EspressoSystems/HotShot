@@ -1010,7 +1010,6 @@
 <a href="#1010" id="1010">1010</a>
 <a href="#1011" id="1011">1011</a>
 <a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1022,7 +1021,6 @@
         ViewSyncCertificate,
     },
     traits::{
-        election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
@@ -1145,7 +1143,7 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
 
     <span class="doccomment">/// The hash of the parent `Leaf`
     /// So we can ask if it extends
@@ -1228,7 +1226,7 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
 
     <span class="doccomment">/// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
     </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
@@ -1457,7 +1455,7 @@
     <span class="doccomment">/// Create a new leaf from its components.
     </span><span class="kw">fn </span>new(
         view_number: LeafTime&lt;<span class="self">Self</span>&gt;,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
+        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, Commitment&lt;<span class="self">Self</span>&gt;&gt;,
         deltas: LeafBlock&lt;<span class="self">Self</span>&gt;,
         state: LeafState&lt;<span class="self">Self</span>&gt;,
     ) -&gt; <span class="self">Self</span>;
@@ -1470,7 +1468,7 @@
     <span class="doccomment">/// Change the height of this leaf.
     </span><span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64);
     <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
-    </span><span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;;
+    </span><span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;<span class="self">Self</span>::NodeType, Commitment&lt;<span class="self">Self</span>&gt;&gt;;
     <span class="doccomment">/// Commitment to this leaf&#39;s parent.
     </span><span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt;;
     <span class="doccomment">/// The block contained in this leaf.
@@ -1544,11 +1542,11 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;<span class="self">Self</span>&gt;&gt;,
 
     <span class="doccomment">/// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;ValidatingLeaf&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;<span class="self">Self</span>&gt;,
 
     <span class="doccomment">/// BlockPayload leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
@@ -1583,11 +1581,11 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, Commitment&lt;<span class="self">Self</span>&gt;&gt;,
 
     <span class="doccomment">/// The hash of the parent `SequencingLeaf`
     /// So we can ask if it extends
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;<span class="self">Self</span>&gt;,
 
     <span class="doccomment">/// The block or block commitment to be applied
     </span><span class="kw">pub </span>deltas: Either&lt;TYPES::BlockType, Commitment&lt;TYPES::BlockType&gt;&gt;,
@@ -1657,7 +1655,7 @@
 
     <span class="kw">fn </span>new(
         view_number: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
+        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, Commitment&lt;<span class="self">Self</span>&gt;&gt;,
         deltas: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType,
         state: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::StateType,
     ) -&gt; <span class="self">Self </span>{
@@ -1686,7 +1684,7 @@
         <span class="self">self</span>.height = height;
     }
 
-    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, Commitment&lt;<span class="self">Self</span>&gt;&gt; {
         <span class="self">self</span>.justify_qc.clone()
     }
 
@@ -1774,7 +1772,7 @@
 
     <span class="kw">fn </span>new(
         view_number: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
+        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, Commitment&lt;<span class="self">Self</span>&gt;&gt;,
         deltas: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType,
         _state: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::StateType,
     ) -&gt; <span class="self">Self </span>{
@@ -1802,7 +1800,7 @@
         <span class="self">self</span>.height = height;
     }
 
-    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, Commitment&lt;<span class="self">Self</span>&gt;&gt; {
         <span class="self">self</span>.justify_qc.clone()
     }
 
@@ -1947,7 +1945,7 @@
             .u64(<span class="kw-2">*</span><span class="self">self</span>.justify_qc.view_number)
             .field(
                 <span class="string">&quot;justify_qc leaf commitment&quot;</span>,
-                <span class="self">self</span>.justify_qc.leaf_commitment(),
+                <span class="self">self</span>.justify_qc.leaf_commitment,
             )
             .constant_str(<span class="string">&quot;justify_qc signatures&quot;</span>)
             .var_size_bytes(<span class="kw-2">&amp;</span>signatures_bytes)
@@ -1979,7 +1977,7 @@
             .u64(<span class="kw-2">*</span><span class="self">self</span>.justify_qc.view_number)
             .field(
                 <span class="string">&quot;justify_qc leaf commitment&quot;</span>,
-                <span class="self">self</span>.justify_qc.leaf_commitment(),
+                <span class="self">self</span>.justify_qc.leaf_commitment,
             )
             .constant_str(<span class="string">&quot;justify_qc signatures&quot;</span>)
             .var_size_bytes(<span class="kw-2">&amp;</span>signatures_bytes)

@@ -573,7 +573,6 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{
@@ -581,7 +580,7 @@
     QuorumCertificate, SequencingQuorumEx,
 };
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::{Commitment, CommitmentBounds};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
@@ -618,7 +617,6 @@
     },
     vote::{ViewSyncData, VoteType},
 };
-<span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -645,9 +643,9 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-    COMMITTABLE: Committable + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -755,9 +753,9 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-    COMMITTABLE: Committable + Serialize + Clone,
+    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, Commitment&lt;COMMITTABLE&gt;&gt;,
+    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -844,14 +842,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Commitment = SequencingLeaf&lt;TYPES&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
+        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
@@ -941,7 +939,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="comment">// build the da task
@@ -1010,7 +1008,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
+        Commitment = Commitment&lt;TYPES::BlockType&gt;,
     &gt;,
 {
     <span class="comment">// build the transactions task
@@ -1084,7 +1082,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = ViewSyncData&lt;TYPES&gt;,
+        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
     &gt;,
 {
     <span class="kw">let </span>api = HotShotSequencingConsensusApi {

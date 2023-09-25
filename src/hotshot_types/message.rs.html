@@ -489,6 +489,7 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -506,6 +507,7 @@
     },
     vote::{DAVote, QuorumVote, ViewSyncVote, VoteType},
 };
+<span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -640,7 +642,7 @@
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Message with a quorum vote.
-    </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;, TYPES::SignatureKey),
+    </span>Vote(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Message with a view sync vote.
     </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),
     <span class="doccomment">/// Message with a view sync certificate.
@@ -805,7 +807,7 @@
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;),
 
     <span class="doccomment">/// Message with a quorum vote.
-    </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;),
+    </span>Vote(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;),
 
     <span class="doccomment">/// Message with a view sync vote.
     </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),

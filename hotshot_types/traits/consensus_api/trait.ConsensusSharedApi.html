@@ -51,7 +51,7 @@
         &amp;'life0 self,
         view_number: TYPES::<a class="associatedtype" href="../node_implementation/trait.NodeType.html#associatedtype.Time" title="type hotshot_types::traits::node_implementation::NodeType::Time">Time</a>,
         leaf_views: <a class="struct" href="https://doc.rust-lang.org/1.72.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;LEAF&gt;,
-        decide_qc: <a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot_types::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, LEAF&gt;
+        decide_qc: <a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot_types::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, Commitment&lt;LEAF&gt;&gt;
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.72.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.72.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.72.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.72.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.72.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
              'life0: 'async_trait</span> { ... }
@@ -114,7 +114,7 @@ If this time is reached, the leader has to send a propose without transactions.<
     &amp;'life0 self,
     view_number: TYPES::<a class="associatedtype" href="../node_implementation/trait.NodeType.html#associatedtype.Time" title="type hotshot_types::traits::node_implementation::NodeType::Time">Time</a>,
     leaf_views: <a class="struct" href="https://doc.rust-lang.org/1.72.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;LEAF&gt;,
-    decide_qc: <a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot_types::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, LEAF&gt;
+    decide_qc: <a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot_types::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, Commitment&lt;LEAF&gt;&gt;
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.72.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.72.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.72.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.72.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.72.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,
     'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>sends a decide event down the channel</p>

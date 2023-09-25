@@ -390,7 +390,7 @@
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]
 </span><span class="kw">pub fn </span>random_quorum_certificate&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;(
     rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; QuorumCertificate&lt;TYPES, LEAF&gt; {
+) -&gt; QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt; {
     QuorumCertificate {
         <span class="comment">// block_commitment: random_commitment(rng),
         </span>leaf_commitment: random_commitment(rng),
