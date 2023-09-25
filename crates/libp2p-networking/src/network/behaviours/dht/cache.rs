@@ -56,7 +56,7 @@ pub struct Config {
 
 impl Default for Cache {
     fn default() -> Self {
-        Self::new(Config::default())
+        async_block_on(Self::new(Config::default()))
     }
 }
 
@@ -74,7 +74,7 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(config: Config) -> Self {
+    pub async fn new(config: Config) -> Self {
         let cache = Self {
             cache: Arc::new(DashMap::new()),
             expiries: Arc::new(RwLock::new(BTreeMap::new())),
@@ -83,7 +83,7 @@ impl Cache {
         };
 
         // try loading from file
-        if let Err(err) = async_block_on(cache.load()) {
+        if let Err(err) = cache.load().await {
             tracing::warn!("failed to load cache from file: {}", err);
         };
 
@@ -189,7 +189,7 @@ impl Cache {
         let cur_disk_parity_delta = self.disk_parity_delta.load(Ordering::Relaxed);
         if cur_disk_parity_delta >= self.config.max_disk_parity_delta {
             if let Err(err) = self.save().await {
-                tracing::warn!("failed to save cache to file: {}", err);
+                tracing::error!("failed to save cache to file: {}", err);
             };
         }
     }
@@ -219,7 +219,8 @@ mod test {
             filename: None,
             expiry: Duration::from_secs(1),
             max_disk_parity_delta: 4,
-        });
+        })
+        .await;
 
         let (key, value) = (PeerId::random(), PeerId::random());
 
@@ -258,7 +259,8 @@ mod test {
             filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
-        });
+        })
+        .await;
 
         // add 10 key-value pairs to the cache
         for i in 0u8..10u8 {
@@ -274,7 +276,8 @@ mod test {
             filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
-        });
+        })
+        .await;
 
         // check that the cache has the 10 key-value pairs
         for i in 0u8..10u8 {
@@ -300,7 +303,8 @@ mod test {
             filename: Some("test.cache".to_string()),
             expiry: Duration::from_secs(600),
             max_disk_parity_delta: 4,
-        });
+        })
+        .await;
 
         // insert into cache
         for i in 0..3 {

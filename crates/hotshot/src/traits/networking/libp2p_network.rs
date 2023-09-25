@@ -289,7 +289,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
-            NetworkNodeHandle::<()>::new(config, id)
+            Box::pin(NetworkNodeHandle::<()>::new(config, id))
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );

@@ -113,7 +113,7 @@ impl DHTBehaviour {
 
     /// Create a new DHT behaviour
     #[must_use]
-    pub fn new(
+    pub async fn new(
         mut kadem: Kademlia<MemoryStore>,
         pid: PeerId,
         replication_factor: NonZeroUsize,
@@ -151,7 +151,8 @@ impl DHTBehaviour {
                     .filename(cache_location)
                     .build()
                     .unwrap_or_default(),
-            ),
+            )
+            .await,
         }
     }
 
