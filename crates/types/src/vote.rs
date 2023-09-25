@@ -352,11 +352,8 @@ pub struct DAVoteAccumulator<
     pub phantom: PhantomData<VOTE>,
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: CommitmentBounds,
-        VOTE: VoteType<TYPES, COMMITMENT>,
-    > Accumulator2<TYPES, COMMITMENT, VOTE> for DAVoteAccumulator<TYPES, COMMITMENT, VOTE>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds, VOTE: VoteType<TYPES, COMMITMENT>>
+    Accumulator2<TYPES, COMMITMENT, VOTE> for DAVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         mut self,
@@ -450,11 +447,8 @@ pub struct QuorumVoteAccumulator<
     pub phantom: PhantomData<VOTE>,
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: CommitmentBounds,
-        VOTE: VoteType<TYPES, COMMITMENT>,
-    > Accumulator2<TYPES, COMMITMENT, VOTE> for QuorumVoteAccumulator<TYPES, COMMITMENT, VOTE>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds, VOTE: VoteType<TYPES, COMMITMENT>>
+    Accumulator2<TYPES, COMMITMENT, VOTE> for QuorumVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         mut self,
@@ -581,11 +575,8 @@ pub struct ViewSyncVoteAccumulator<
     pub phantom: PhantomData<VOTE>,
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: CommitmentBounds,
-        VOTE: VoteType<TYPES, COMMITMENT>,
-    > Accumulator2<TYPES, COMMITMENT, VOTE> for ViewSyncVoteAccumulator<TYPES, COMMITMENT, VOTE>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds, VOTE: VoteType<TYPES, COMMITMENT>>
+    Accumulator2<TYPES, COMMITMENT, VOTE> for ViewSyncVoteAccumulator<TYPES, COMMITMENT, VOTE>
 {
     #[allow(clippy::too_many_lines)]
     fn append(
@@ -740,11 +731,8 @@ pub struct AccumulatorPlaceholder<
     pub phantom: PhantomData<(TYPES, VOTE, COMMITMENT)>,
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: CommitmentBounds,
-        VOTE: VoteType<TYPES, COMMITMENT>,
-    > Accumulator2<TYPES, COMMITMENT, VOTE> for AccumulatorPlaceholder<TYPES, COMMITMENT, VOTE>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds, VOTE: VoteType<TYPES, COMMITMENT>>
+    Accumulator2<TYPES, COMMITMENT, VOTE> for AccumulatorPlaceholder<TYPES, COMMITMENT, VOTE>
 {
     fn append(
         self,
@@ -770,11 +758,7 @@ type VoteMap<COMMITMENT, TOKEN> = HashMap<
 /// respectively.
 ///
 /// TODO GG used only in election.rs; move this to there and make it private?
-pub struct VoteAccumulator<
-    TOKEN,
-    COMMITMENT: CommitmentBounds,
-    TYPES: NodeType,
-> {
+pub struct VoteAccumulator<TOKEN, COMMITMENT: CommitmentBounds, TYPES: NodeType> {
     /// Map of all signatures accumlated so far
     pub total_vote_outcomes: VoteMap<COMMITMENT, TOKEN>,
     /// Map of all da signatures accumlated so far

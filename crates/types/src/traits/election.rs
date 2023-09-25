@@ -34,7 +34,7 @@ use crate::{
     },
 };
 use bincode::Options;
-use commit::{Commitment, Committable, CommitmentBounds};
+use commit::{Commitment, CommitmentBounds, Committable};
 use derivative::Derivative;
 use either::Either;
 use ethereum_types::U256;

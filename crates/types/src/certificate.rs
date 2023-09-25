@@ -52,10 +52,7 @@ pub struct DACertificate<TYPES: NodeType> {
 /// metadata, such as the `Stage` of consensus the quorum certificate was generated during.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
-pub struct QuorumCertificate<
-    TYPES: NodeType,
-    COMMITMENT: CommitmentBounds,
-> {
+pub struct QuorumCertificate<TYPES: NodeType, COMMITMENT: CommitmentBounds> {
     /// commitment to previous leaf
     #[debug(skip)]
     pub leaf_commitment: COMMITMENT,
@@ -67,8 +64,8 @@ pub struct QuorumCertificate<
     pub is_genesis: bool,
 }
 
-impl<TYPES: NodeType, COMMITMENT: CommitmentBounds>
-    Display for QuorumCertificate<TYPES, COMMITMENT>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds> Display
+    for QuorumCertificate<TYPES, COMMITMENT>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -144,8 +141,7 @@ pub enum AssembledSignature<TYPES: NodeType> {
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
-pub struct VoteMetaData<COMMITMENT: CommitmentBounds, T: VoteToken, TIME>
-{
+pub struct VoteMetaData<COMMITMENT: CommitmentBounds, T: VoteToken, TIME> {
     /// Voter's public key
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
@@ -221,10 +217,8 @@ impl<TYPES: NodeType, COMMITMENT: CommitmentBounds>
     }
 }
 
-impl<
-        TYPES: NodeType,
-        COMMITMENT: CommitmentBounds,
-    > Committable for QuorumCertificate<TYPES, COMMITMENT>
+impl<TYPES: NodeType, COMMITMENT: CommitmentBounds> Committable
+    for QuorumCertificate<TYPES, COMMITMENT>
 {
     fn commit(&self) -> Commitment<Self> {
         let signatures_bytes = serialize_signature(&self.signatures);
