@@ -256,10 +256,6 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -378,9 +374,7 @@
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.clone().is_some() {
             <span class="kw">let </span>libp2p_config_clone = <span class="self">self</span>.config.libp2p_config.clone().unwrap();
             <span class="comment">// Designate node as bootstrap node and store its identity information
-            </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len()
-                &lt; libp2p_config_clone.num_bootstrap_nodes.try_into().unwrap()
-            {
+            </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len() &lt; libp2p_config_clone.num_bootstrap_nodes {
                 <span class="kw">let </span>port_index = <span class="kw">match </span>libp2p_config_clone.index_ports {
                     <span class="bool-val">true </span>=&gt; node_index,
                     <span class="bool-val">false </span>=&gt; <span class="number">0</span>,
@@ -407,9 +401,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;, ServerError&gt; {
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.is_some() {
             <span class="kw">let </span>libp2p_config = <span class="self">self</span>.config.clone().libp2p_config.unwrap();
-            <span class="kw">if </span>libp2p_config.bootstrap_nodes.len()
-                &lt; libp2p_config.num_bootstrap_nodes.try_into().unwrap()
-            {
+            <span class="kw">if </span>libp2p_config.bootstrap_nodes.len() &lt; libp2p_config.num_bootstrap_nodes {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
                     message: <span class="string">&quot;Not enough bootstrap nodes have registered&quot;</span>.to_string(),
