@@ -879,10 +879,6 @@
 <a href="#879" id="879">879</a>
 <a href="#880" id="880">880</a>
 <a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1083,8 +1079,6 @@
                         <span class="comment">// setting to sane defaults
                         </span>.ttl(<span class="prelude-val">None</span>)
                         .republication_interval(<span class="prelude-val">None</span>)
-                        <span class="comment">// this removes the cache for tests
-                        </span>.dht_cache_location(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 } <span class="kw">else </span>{
@@ -1105,8 +1099,6 @@
                         <span class="comment">// setting to sane defaults
                         </span>.ttl(<span class="prelude-val">None</span>)
                         .republication_interval(<span class="prelude-val">None</span>)
-                        <span class="comment">// this removes the cache for tests
-                        </span>.dht_cache_location(<span class="prelude-val">None</span>)
                         .build()
                         .unwrap()
                 };

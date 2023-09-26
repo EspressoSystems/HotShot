@@ -67,7 +67,6 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -94,9 +93,8 @@
     </span><span class="attr">#[builder(setter(into, strip_option), default = <span class="string">&quot;DEFAULT_REPLICATION_FACTOR&quot;</span>)]
     </span><span class="kw">pub </span>replication_factor: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt;,
 
-    <span class="doccomment">/// location of the dht cache
-    /// default is &quot;dht.cache&quot; in the current directory
-    </span><span class="attr">#[builder(default = <span class="string">&quot;Some(\&quot;dht.cache\&quot;.to_string())&quot;</span>)]
+    <span class="doccomment">/// location of the dht cache, default is None
+    </span><span class="attr">#[builder(default = <span class="string">&quot;None&quot;</span>)]
     </span><span class="kw">pub </span>dht_cache_location: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="attr">#[builder(default)]
