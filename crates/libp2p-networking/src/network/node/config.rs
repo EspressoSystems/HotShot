@@ -26,7 +26,7 @@ pub struct NetworkNodeConfig {
 
     /// location of the dht cache
     /// default is "dht.cache" in the current directory
-    #[builder(default = "Some(\"dht.cache\".to_string())")]
+    #[builder(default = "None")]
     pub dht_cache_location: Option<String>,
 
     #[builder(default)]
