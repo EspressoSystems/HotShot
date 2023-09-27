@@ -68,8 +68,8 @@ impl Cache {
             return;
         }
 
-        // calculate how much we are over and remove that many elements from the cache
-        let over = self.hashes.len() + 1 - self.capacity;
+        // calculate how much we are over and remove that many elements from the cache. deal with overflow
+        let over = (self.hashes.len() + 1).saturating_sub(self.capacity);
         if over > 0 {
             for _ in 0..over {
                 let hash = self.hashes.remove(0);
@@ -283,7 +283,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
             {
                 Ok(_) => {
                     self.primary_down.store(0, Ordering::Relaxed);
-                    return Ok(());
                 }
                 Err(e) => {
                     error!("Error on primary network: {}", e);
@@ -304,32 +303,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        // direct message on the primary network, but if it fails or is down, fall back on the secondary
+        // DM optimistically on both networks, but if the primary network is down, skip it
         if self.primary_down.load(Ordering::Relaxed) < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             || self.primary_down.load(Ordering::Relaxed) % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
                 == 0
         {
-            if let Err(e) = self
+            // message on the primary network as it is not down, or we are checking if it is back up
+            match self
                 .primary()
                 .direct_message(message.clone(), recipient.clone())
                 .await
             {
-                error!("Error on primary network: {}", e);
-                self.primary_down.fetch_add(1, Ordering::Relaxed);
-
-                // fall through to secondary
-                self.secondary()
-                    .direct_message(message.clone(), recipient.clone())
-                    .await?;
-            } else {
-                self.primary_down.store(0, Ordering::Relaxed);
+                Ok(_) => {
+                    self.primary_down.store(0, Ordering::Relaxed);
+                }
+                Err(e) => {
+                    error!("Error on primary network: {}", e);
+                    self.primary_down.fetch_add(1, Ordering::Relaxed);
+                }
             };
-        } else {
-            // fall through to secondary
-            self.secondary()
-                .direct_message(message.clone(), recipient.clone())
-                .await?;
         }
+
+        self.secondary().direct_message(message, recipient).await?;
 
         Ok(())
     }
