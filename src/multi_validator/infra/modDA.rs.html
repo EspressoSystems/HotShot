@@ -855,6 +855,7 @@
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::{load_config_from_file, OrchestratorArgs};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -877,8 +878,8 @@
     config::{NetworkConfig, WebServerConfig},
 };
 <span class="kw">use </span>hotshot_task::task::FilterEvent;
-<span class="kw">use </span>hotshot_types::HotShotConfig;
 <span class="kw">use </span>hotshot_types::{
+    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::ViewSyncCertificate,
     data::{QuorumProposal, SequencingLeaf, TestableLeaf},
     event::{Event, EventType},
@@ -894,6 +895,7 @@
         },
         state::{ConsensusTime, TestableBlock, TestableState},
     },
+    HotShotConfig,
 };
 <span class="kw">use </span>libp2p_identity::{
     ed25519::{<span class="self">self</span>, SecretKey},
@@ -1264,7 +1266,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
+        TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
         NODE: NodeImplementation&lt;
             TYPES,
@@ -1408,7 +1410,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
+        TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
         NODE: NodeImplementation&lt;
             TYPES,
@@ -1622,7 +1624,7 @@
 
 <span class="doccomment">/// Main entry point for validators
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
-    TYPES: NodeType,
+    TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     DANETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,
     QUORUMNETWORK: CommunicationChannel&lt;TYPES, Message&lt;TYPES, NODE&gt;, MEMBERSHIP&gt; + Debug,

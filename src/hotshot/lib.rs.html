@@ -1092,7 +1092,6 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
-<span class="kw">pub mod </span>block_impl;
 <span class="doccomment">/// Contains structures and functions for committee election
 </span><span class="kw">pub mod </span>certificate;
 <span class="attr">#[cfg(feature = <span class="string">&quot;demo&quot;</span>)]
@@ -1129,6 +1128,7 @@
 <span class="kw">use </span>hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
 <span class="kw">use </span>hotshot_types::{
+    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
     data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
@@ -1707,7 +1707,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
+        TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,

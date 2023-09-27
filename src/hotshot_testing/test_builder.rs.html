@@ -401,7 +401,7 @@
         }
     }
 
-    <span class="doccomment">/// Default setting with 20 nodes and 10 views of successful views.
+    <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
     </span><span class="kw">pub fn </span>default_more_nodes_less_success() -&gt; TestMetadata {
         TestMetadata {
             total_nodes: <span class="number">20</span>,
@@ -416,11 +416,11 @@
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     <span class="comment">// Increase the duration to get the expected number of successful views.
-                    </span>duration: Duration::new(<span class="number">40</span>, <span class="number">0</span>),
+                    </span>duration: Duration::new(<span class="number">200</span>, <span class="number">0</span>),
                 },
             ),
             overall_safety_properties: OverallSafetyPropertiesDescription {
-                num_successful_views: <span class="number">10</span>,
+                num_successful_views: <span class="number">8</span>,
                 ..Default::default()
             },
             ..TestMetadata::default()

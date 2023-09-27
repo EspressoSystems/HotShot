@@ -723,44 +723,6 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
@@ -781,7 +743,7 @@
 <span class="kw">use </span>hotshot_types::{
     certificate::DACertificate,
     consensus::{Consensus, View},
-    data::{DAProposal, ProposalType, SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
+    data::{DAProposal, ProposalType, SequencingLeaf},
     message::{Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
@@ -1409,51 +1371,13 @@
                 </span><span class="self">self</span>.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .<span class="kw">await</span>;
-                <span class="comment">// if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
-                //     consensus.metrics.failed_to_send_messages.add(1);
-                //     warn!(?message, ?e, &quot;Could not broadcast leader proposal&quot;);
-                // } else {
-                //     consensus.metrics.outgoing_broadcast_messages.add(1);
-                // }
-                </span><span class="self">self</span>.event_stream
+
+                <span class="self">self</span>.event_stream
                     .publish(SequencingHotShotEvent::DAProposalSend(
                         message.clone(),
                         <span class="self">self</span>.committee_exchange.public_key().clone(),
                     ))
                     .<span class="kw">await</span>;
-
-                <span class="macro">debug!</span>(<span class="string">&quot;Prepare VID shares&quot;</span>);
-                {
-                    <span class="doccomment">/// TODO https://github.com/EspressoSystems/HotShot/issues/1693
-                    </span><span class="kw">const </span>NUM_STORAGE_NODES: usize = <span class="number">10</span>;
-                    <span class="doccomment">/// TODO https://github.com/EspressoSystems/HotShot/issues/1693
-                    </span><span class="kw">const </span>NUM_CHUNKS: usize = <span class="number">5</span>;
-
-                    <span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/1686
-                    </span><span class="kw">let </span>srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
-
-                    <span class="kw">let </span>vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, <span class="kw-2">&amp;</span>srs).unwrap();
-                    <span class="kw">let </span>message_bytes = bincode::serialize(<span class="kw-2">&amp;</span>message).unwrap();
-                    <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>message_bytes).unwrap();
-                    <span class="comment">// TODO for now reuse the same block commitment and signature as DA committee
-                    // https://github.com/EspressoSystems/jellyfish/issues/369
-
-                    </span><span class="self">self</span>.event_stream
-                        .publish(SequencingHotShotEvent::VidDisperseSend(
-                            Proposal {
-                                data: VidDisperse {
-                                    view_number: view,
-                                    commitment: block.commit(), <span class="comment">// TODO GG should be vid_disperse.commit but that&#39;s a big change
-                                    </span>shares: vid_disperse.shares,
-                                    common: vid_disperse.common,
-                                },
-                                signature: message.signature,
-                            },
-                            <span class="comment">// TODO don&#39;t send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
-                            </span><span class="self">self</span>.committee_exchange.public_key().clone(),
-                        ))
-                        .<span class="kw">await</span>;
-                }
             }
 
             SequencingHotShotEvent::Timeout(view) =&gt; {

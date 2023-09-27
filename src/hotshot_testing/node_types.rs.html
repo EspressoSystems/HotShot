@@ -619,12 +619,7 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
-    traits::implementations::CombinedNetworks,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::implementations::CombinedNetworks;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>hotshot::{
@@ -640,6 +635,7 @@
     types::bn254::BLSPubKey,
 };
 <span class="kw">use </span>hotshot_types::{
+    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::ViewSyncCertificate,
     data::{QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, SequencingMessage},

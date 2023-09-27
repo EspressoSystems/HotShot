@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_HotShotConfig"],"enum":["ExecutionType"],"mod":["certificate","consensus","data","error","event","message","traits","utils","vote"],"struct":["HotShotConfig"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_HotShotConfig"],"enum":["ExecutionType"],"mod":["block_impl","certificate","consensus","data","error","event","message","traits","utils","vote"],"struct":["HotShotConfig"]};

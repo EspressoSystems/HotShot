@@ -1008,8 +1008,6 @@
 <a href="#1008" id="1008">1008</a>
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
-<a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1184,8 +1182,6 @@
     <span class="doccomment">/// The view number for which this VID data is intended
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// Block commitment
-    ///
-    /// TODO GG type should be `&lt;VidScheme as VidSchemeTrait&gt;::Common` but that&#39;s a big change.
     </span><span class="kw">pub </span>commitment: Commitment&lt;TYPES::BlockType&gt;,
     <span class="doccomment">/// VID shares dispersed among storage nodes
     </span><span class="kw">pub </span>shares: Vec&lt;&lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Share&gt;,
