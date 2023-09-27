@@ -453,7 +453,7 @@ impl<
                 CommitteeConsensusMessage::VidVote(_) => MessagePurpose::VidVote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
-                CommitteeConsensusMessage::VidCertificate(_) => todo!(),
+                CommitteeConsensusMessage::VidCertificate(_) => MessagePurpose::VidCert,
             },
         }
     }
