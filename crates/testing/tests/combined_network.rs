@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    node_types::{SequencingLibp2pImpl, SequencingTestTypes},
+    node_types::{SequencingTestTypes, StaticCombinedImpl},
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TestMetadata,
 };
@@ -15,7 +15,7 @@ use tracing::instrument;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
-async fn webserver_libp2p_network() {
+async fn test_combined_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
@@ -32,7 +32,7 @@ async fn webserver_libp2p_network() {
     };
 
     metadata
-        .gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
+        .gen_launcher::<SequencingTestTypes, StaticCombinedImpl>()
         .launch()
         .run_test()
         .await
@@ -46,12 +46,12 @@ async fn webserver_libp2p_network() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_stress_webserver_libp2p_network() {
+async fn test_stress_combined_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata::default_stress();
     metadata
-        .gen_launcher::<SequencingTestTypes, SequencingLibp2pImpl>()
+        .gen_launcher::<SequencingTestTypes, StaticCombinedImpl>()
         .launch()
         .run_test()
         .await
