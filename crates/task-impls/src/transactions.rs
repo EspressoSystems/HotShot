@@ -6,7 +6,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
-use either::{Either, Left, Right};
+use either::{Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -14,15 +14,16 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::{
+    block_impl::{VIDBlockPayload, VIDTransaction, NUM_CHUNKS, NUM_STORAGE_NODES},
     certificate::DACertificate,
     consensus::Consensus,
-    data::SequencingLeaf,
-    message::{Message, SequencingMessage},
+    data::{SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
+    message::{Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
-        election::ConsensusExchange,
+        election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType},
-        BlockPayload, State,
+        BlockPayload,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -85,8 +86,11 @@ pub struct TransactionTaskState<
     pub id: u64,
 }
 
+// We have two `TransactionTaskState` implementations with different bounds. The implementation
+// here requires `TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>`,
+// whereas it's just `TYPES: NodeType` in the second implementation.
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
@@ -232,17 +236,46 @@ where
 
                 drop(consensus);
 
-                let mut block = <TYPES as NodeType>::StateType::next_block(None);
                 let txns = self.wait_for_transactions(parent_leaf).await?;
+                // TODO (Keyao) Determine whether to allow empty transaction when proposing a block.
+                // <https://github.com/EspressoSystems/HotShot/issues/1822>
 
-                for txn in txns {
-                    if let Ok(new_block) = block.add_transaction_raw(&txn) {
-                        block = new_block;
-                        continue;
-                    }
+                debug!("Prepare VID shares");
+                // TODO https://github.com/EspressoSystems/HotShot/issues/1686
+                let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
+                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
+                // TODO https://github.com/EspressoSystems/jellyfish/issues/375
+                let mut txns_flatten = Vec::new();
+                for txn in &txns {
+                    txns_flatten.extend(txn.0.clone());
                 }
+                let vid_disperse = vid.disperse(&txns_flatten).unwrap();
+                let block = VIDBlockPayload {
+                    transactions: txns,
+                    commitment: vid_disperse.commit,
+                };
+
                 self.event_stream
-                    .publish(SequencingHotShotEvent::BlockReady(block, view + 1))
+                    .publish(SequencingHotShotEvent::BlockReady(block.clone(), view + 1))
+                    .await;
+
+                // TODO (Keyao) Determine and update where to publish VidDisperseSend.
+                // <https://github.com/EspressoSystems/HotShot/issues/1817>
+                self.event_stream
+                    .publish(SequencingHotShotEvent::VidDisperseSend(
+                        Proposal {
+                            data: VidDisperse {
+                                view_number: view + 1,
+                                commitment: block.commit(),
+                                shares: vid_disperse.shares,
+                                common: vid_disperse.common,
+                            },
+                            // TODO (Keyao) This is also signed in DA task.
+                            signature: self.committee_exchange.sign_da_proposal(&block.commit()),
+                        },
+                        // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
+                        self.committee_exchange.public_key().clone(),
+                    ))
                     .await;
                 return None;
             }
@@ -253,29 +286,55 @@ where
         }
         None
     }
+}
 
+// We have two `TransactionTaskState` implementations with different bounds. The implementation
+// above requires `TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>`,
+// whereas here it's just `TYPES: NodeType`.
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    > TransactionTaskState<TYPES, I, A>
+where
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = Commitment<TYPES::BlockType>,
+    >,
+{
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
     async fn wait_for_transactions(
         &self,
-        parent_leaf: SequencingLeaf<TYPES>,
+        _parent_leaf: SequencingLeaf<TYPES>,
     ) -> Option<Vec<TYPES::Transaction>> {
         let task_start_time = Instant::now();
 
+        // TODO (Keyao) Investigate the use of transaction hash
+        // <https://github.com/EspressoSystems/HotShot/issues/1811>
         // let parent_leaf = self.parent_leaf().await?;
-        let previous_used_txns = match parent_leaf.deltas {
-            Either::Left(block) => block.contained_transactions(),
-            Either::Right(_commitment) => HashSet::new(),
-        };
+        // let previous_used_txns = match parent_leaf.deltas {
+        //     Either::Left(block) => block.contained_transactions(),
+        //     Either::Right(_commitment) => HashSet::new(),
+        // };
 
         let receiver = self.transactions.subscribe().await;
 
         loop {
             let all_txns = self.transactions.cloned().await;
             debug!("Size of transactions: {}", all_txns.len());
-            let unclaimed_txns: Vec<_> = all_txns
-                .iter()
-                .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-                .collect();
+            // TODO (Keyao) Investigate the use of transaction hash
+            // <https://github.com/EspressoSystems/HotShot/issues/1811>
+            // let unclaimed_txns: Vec<_> = all_txns
+            //     .iter()
+            //     .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
+            //     .collect();
+            let unclaimed_txns = all_txns;
 
             let time_past = task_start_time.elapsed();
             if unclaimed_txns.len() < self.api.min_transactions()
@@ -301,16 +360,19 @@ where
             break;
         }
         let all_txns = self.transactions.cloned().await;
-        let txns: Vec<TYPES::Transaction> = all_txns
-            .iter()
-            .filter_map(|(txn_hash, txn)| {
-                if previous_used_txns.contains(txn_hash) {
-                    None
-                } else {
-                    Some(txn.clone())
-                }
-            })
-            .collect();
+        // TODO (Keyao) Investigate the use of transaction hash
+        // <https://github.com/EspressoSystems/HotShot/issues/1811>
+        let txns: Vec<TYPES::Transaction> = all_txns.values().cloned().collect();
+        // let txns: Vec<TYPES::Transaction> = all_txns
+        //     .iter()
+        //     .filter_map(|(txn_hash, txn)| {
+        //         if previous_used_txns.contains(txn_hash) {
+        //             None
+        //         } else {
+        //             Some(txn.clone())
+        //         }
+        //     })
+        //     .collect();
         Some(txns)
     }
 
