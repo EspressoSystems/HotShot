@@ -61,14 +61,8 @@ impl Committable for VIDBlockPayload {
     fn commit(&self) -> Commitment<Self> {
         // TODO: Use use VID block commitment.
         // <https://github.com/EspressoSystems/HotShot/issues/1730>
-        // below is a temporary fix for the examples
         let builder = commit::RawCommitmentBuilder::new("BlockPayload Comm");
-        let mut hasher = Keccak256::new();
-        for txn in &self.0 {
-            hasher.update(txn.commit());
-        }
-        let generic_array = hasher.finalize();
-        builder.generic_byte_array(&generic_array).finalize()
+        builder.finalize()
     }
 
     fn tag() -> String {
