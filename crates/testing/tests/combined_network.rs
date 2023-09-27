@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    node_types::{SequencingTestTypes, SequencingCombinedImpl},
+    node_types::{SequencingCombinedImpl, SequencingTestTypes},
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::{TestMetadata, TimingData},
 };

@@ -605,8 +605,16 @@ impl
 
             let libp2p_network = libp2p_network_generator(id);
 
-            let network = Arc::new(CombinedNetworks(web_server_network, libp2p_network.clone(), PhantomData));
-            let network_da = Arc::new(CombinedNetworks(web_server_network_da, libp2p_network, PhantomData));
+            let network = Arc::new(CombinedNetworks(
+                web_server_network,
+                libp2p_network.clone(),
+                PhantomData,
+            ));
+            let network_da = Arc::new(CombinedNetworks(
+                web_server_network_da,
+                libp2p_network,
+                PhantomData,
+            ));
 
             let quorum_chan =
                 <<Self::QuorumExchange as hotshot_types::traits::election::ConsensusExchange<
