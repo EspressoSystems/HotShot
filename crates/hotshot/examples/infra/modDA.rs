@@ -284,6 +284,8 @@ pub trait RunDA<
 
         let total_nodes_u64 = total_nodes.get() as u64;
         let mut total_transactions_sent = 0;
+        let transactions_to_send_per_round =
+            (transactions_per_round as f64 / total_nodes_u64 as f64).ceil() as u64;
 
         context.hotshot.start_consensus().await;
 
@@ -314,7 +316,7 @@ pub trait RunDA<
                             }
 
                             // send transactions
-                            for _ in 0..(total_nodes_u64 / transactions_per_round as u64) {
+                            for _ in 0..transactions_to_send_per_round {
                                 let txn = txns.pop_front().unwrap();
                                 _ = context.submit_transaction(txn).await.unwrap();
                                 total_transactions_sent += 1;
