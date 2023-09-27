@@ -71,7 +71,7 @@ impl Default for TimingData {
             round_start_delay: 1,
             start_delay: 1,
             propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::new(5, 0), 
+            propose_max_round_time: Duration::new(5, 0),
         }
     }
 }
