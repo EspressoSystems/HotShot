@@ -273,7 +273,6 @@ pub trait RunDA<
         debug!("Generated {} transactions", tx_to_gen);
 
         debug!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut round = 0;
         let mut total_transactions = 0;
 
         let start = Instant::now();
@@ -284,6 +283,7 @@ pub trait RunDA<
         let mut num_successful_commits = 0;
 
         let total_nodes_u64 = total_nodes.get() as u64;
+        let mut total_transactions_sent = 0;
 
         context.hotshot.start_consensus().await;
 
@@ -313,6 +313,13 @@ pub trait RunDA<
                                 }
                             }
 
+                            // send transactions
+                            for _ in 0..(total_nodes_u64 / transactions_per_round as u64) {
+                                let txn = txns.pop_front().unwrap();
+                                _ = context.submit_transaction(txn).await.unwrap();
+                                total_transactions_sent += 1;
+                            }
+
                             if let Some(size) = block_size {
                                 total_transactions += size;
                             }
@@ -333,39 +340,16 @@ pub trait RunDA<
                         EventType::NextLeaderViewTimeout { view_number } => {
                             warn!("Timed out as the next leader in view {:?}", view_number);
                         }
-                        EventType::ViewFinished { view_number } => {
-                            if *view_number > round {
-                                round = *view_number;
-                                info!("view finished: {:?}", view_number);
-                                for _ in 0..transactions_per_round {
-                                    if node_index >= total_nodes_u64 - 10 {
-                                        let txn = txns.pop_front().unwrap();
-
-                                        debug!("Submitting txn on round {}", round);
-
-                                        let result = context.submit_transaction(txn).await;
-
-                                        if result.is_err() {
-                                            error! (
-                                            "Could not send transaction to web server on round {}",
-                                            round
-                                        )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        EventType::ViewFinished { view_number: _ } => {}
                         _ => unimplemented!(),
                     }
                 }
             }
-
-            round += 1;
         }
 
         // Output run results
         let total_time_elapsed = start.elapsed();
-        error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
+        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run

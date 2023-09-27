@@ -106,10 +106,13 @@ impl State for SDemoState {
 impl TestableState for SDemoState {
     fn create_random_transaction(
         _state: Option<&Self>,
-        _rng: &mut dyn rand::RngCore,
+        rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as BlockPayload>::Transaction {
-        VIDTransaction(vec![0; padding as usize])
+        // random bytes with padding length
+        let mut bytes = vec![0; padding as usize];
+        rng.fill_bytes(&mut bytes);
+        VIDTransaction(bytes)
     }
 }
 /// Implementation of [`NodeType`] for [`VDemoNode`]
