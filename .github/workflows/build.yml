@@ -1,4 +1,4 @@
-name: Build and Test Workflow
+name: Build, Lint, and Test
 
 on:
   push:
