@@ -124,6 +124,19 @@ pub async fn run_orchestrator_da<
     .await;
 }
 
+/// Helper function to calculate the nuymber of transactions to send per node per round
+fn calculate_num_tx_per_round(
+    node_index: u64,
+    total_num_nodes: usize,
+    transactions_per_round: usize,
+) -> usize {
+    if node_index == 0 {
+        transactions_per_round / total_num_nodes + transactions_per_round % total_num_nodes
+    } else {
+        transactions_per_round / total_num_nodes
+    }
+}
+
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
@@ -273,19 +286,18 @@ pub trait RunDA<
         debug!("Generated {} transactions", tx_to_gen);
 
         debug!("Adjusted padding size is {:?} bytes", adjusted_padding);
-        let mut total_transactions = 0;
 
-        let start = Instant::now();
+        let mut total_transactions_committed = 0;
+        let mut total_transactions_sent = 0;
+        let transactions_to_send_per_round =
+            calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
 
         info!("Starting hotshot!");
+        let start = Instant::now();
+
         let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
-
-        let total_nodes_u64 = total_nodes.get() as u64;
-        let mut total_transactions_sent = 0;
-        let transactions_to_send_per_round =
-            (transactions_per_round as f64 / total_nodes_u64 as f64).ceil() as u64;
 
         context.hotshot.start_consensus().await;
 
@@ -323,7 +335,7 @@ pub trait RunDA<
                             }
 
                             if let Some(size) = block_size {
-                                total_transactions += size;
+                                total_transactions_committed += size;
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -351,7 +363,7 @@ pub trait RunDA<
 
         // Output run results
         let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
+        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run
