@@ -47,6 +47,8 @@ use libp2p_networking::{
     network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType},
     reexport::Multiaddr,
 };
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use std::{collections::BTreeSet, sync::Arc};
 use std::{num::NonZeroUsize, str::FromStr};
 // use libp2p::{
@@ -59,9 +61,9 @@ use std::{num::NonZeroUsize, str::FromStr};
 // };
 use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use std::{fmt::Debug, net::Ipv4Addr};
 use std::{
     //collections::{BTreeSet, VecDeque},
-    collections::VecDeque,
     //fs,
     mem,
     net::IpAddr,
@@ -71,7 +73,6 @@ use std::{
     //time::{Duration, Instant},
     time::Instant,
 };
-use std::{fmt::Debug, net::Ipv4Addr};
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
 use tracing::{debug, error, info, warn};
@@ -267,26 +268,10 @@ pub trait RunDA<
         } = self.get_config();
 
         let size = mem::size_of::<TYPES::Transaction>();
-        let adjusted_padding = if padding < size { 0 } else { padding - size };
-        let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
+        let padding = padding.saturating_sub(size);
+        let mut txn_rng = StdRng::seed_from_u64(node_index);
 
-        // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
-        let tx_to_gen = transactions_per_round * rounds * 3;
-        {
-            let mut txn_rng = rand::thread_rng();
-            for _ in 0..tx_to_gen {
-                let txn =
-                    <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
-                        None,
-                        &mut txn_rng,
-                        padding as u64,
-                    );
-                txns.push_back(txn);
-            }
-        }
-        debug!("Generated {} transactions", tx_to_gen);
-
-        debug!("Adjusted padding size is {:?} bytes", adjusted_padding);
+        debug!("Adjusted padding size is {:?} bytes", padding);
 
         let mut total_transactions_committed = 0;
         let mut total_transactions_sent = 0;
@@ -330,7 +315,12 @@ pub trait RunDA<
 
                             // send transactions
                             for _ in 0..transactions_to_send_per_round {
-                                let txn = txns.pop_front().unwrap();
+                                let txn =
+                                <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
+                                    None,
+                                    &mut txn_rng,
+                                    padding as u64,
+                                );
                                 _ = context.submit_transaction(txn).await.unwrap();
                                 total_transactions_sent += 1;
                             }
