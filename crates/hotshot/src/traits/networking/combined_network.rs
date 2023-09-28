@@ -94,7 +94,7 @@ impl Cache {
 }
 
 /// Helper function to calculate a hash of a type that implements Hash
-fn calculate_hash_of<T: Hash + Eq>(t: &T) -> u64 {
+fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
@@ -415,7 +415,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
 #[cfg(test)]
 mod test {
-    use crate::block_impl::VIDTransaction;
+    use hotshot_types::block_impl::VIDTransaction;
 
     use super::*;
     use tracing::instrument;
