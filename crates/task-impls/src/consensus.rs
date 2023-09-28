@@ -1151,9 +1151,6 @@ where
         }
 
         let block_commitment = self.block.commit();
-        if block_commitment == TYPES::BlockType::new().commit() {
-            debug!("BlockPayload is generic block! {:?}", self.cur_view);
-        }
 
         let leaf = SequencingLeaf {
             view_number: view,
