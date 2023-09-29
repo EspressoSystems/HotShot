@@ -308,9 +308,9 @@ impl TestData {
                 impl hotshot_types::traits::node_implementation::NodeType for TestTypes {
                     type ConsensusType = #consensus_type;
                     type Time = #time_type;
-                    type BlockType = <#demo_state as hotshot_types::traits::State>::BlockType;
+                    type BlockPayload = <#demo_state as hotshot_types::traits::State>::BlockPayload;
                     type SignatureKey = #signature_key_type;
-                    type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockType as hotshot_types::traits::BlockPayload>::Transaction;
+                    type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockPayload as hotshot_types::traits::BlockPayload>::Transaction;
                     type StateType = #demo_state;
                     type VoteTokenType = hotshot::traits::election::static_committee::StaticVoteToken<Self::SignatureKey>;
                     type ElectionConfigType = hotshot::traits::election::static_committee::StaticElectionConfig;
