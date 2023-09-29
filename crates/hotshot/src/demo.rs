@@ -100,7 +100,7 @@ impl State for SDemoState {
 impl TestableState for SDemoState {
     fn create_random_transaction(
         _state: Option<&Self>,
-        rng: &mut dyn rand::RngCore,
+        _rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as BlockPayload>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
