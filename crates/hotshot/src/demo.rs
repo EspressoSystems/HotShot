@@ -105,9 +105,7 @@ impl TestableState for SDemoState {
     ) -> <Self::BlockType as BlockPayload>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
-        let mut bytes = vec![0; RANDOM_TX_BASE_SIZE + (padding as usize)];
-        rng.fill_bytes(&mut bytes);
-        VIDTransaction(bytes)
+        VIDTransaction(vec![0; RANDOM_TX_BASE_SIZE + (padding as usize)])
     }
 }
 /// Implementation of [`NodeType`] for [`VDemoNode`]
