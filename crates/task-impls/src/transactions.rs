@@ -236,19 +236,31 @@ where
 
                 drop(consensus);
 
-                let txns = self.wait_for_transactions(parent_leaf).await?;
-                // TODO (Keyao) Determine whether to allow empty transaction when proposing a block.
+                // TODO (Keyao) Determine whether to allow empty blocks.
                 // <https://github.com/EspressoSystems/HotShot/issues/1822>
+                let txns = self.wait_for_transactions(parent_leaf).await?;
 
+                // TODO GG discuss: Normally we'd simply publish the BlockReady event here
+                // but we need to prepare the VID committment.
+                // VID commitment is expensive but comes free with VID disperse
+                // so do all VID disperse computation here, too.
                 debug!("Prepare VID shares");
-                // TODO https://github.com/EspressoSystems/HotShot/issues/1686
+
+                // TODO Secure SRS for VID
+                // https://github.com/EspressoSystems/HotShot/issues/1686
                 let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
+
+                // TODO Proper source for VID number of storage nodes
+                // https://github.com/EspressoSystems/HotShot/issues/1693
                 let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
-                // TODO https://github.com/EspressoSystems/jellyfish/issues/375
+
+                // TODO Wasteful flattening of tx bytes to accommodate VID API
+                // https://github.com/EspressoSystems/jellyfish/issues/375
                 let mut txns_flatten = Vec::new();
                 for txn in &txns {
                     txns_flatten.extend(txn.0.clone());
                 }
+
                 let vid_disperse = vid.disperse(&txns_flatten).unwrap();
                 let block = VIDBlockPayload {
                     transactions: txns,
@@ -273,7 +285,7 @@ where
                             // TODO (Keyao) This is also signed in DA task.
                             signature: self.committee_exchange.sign_da_proposal(&block.commit()),
                         },
-                        // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1696
+                        // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1731
                         self.committee_exchange.public_key().clone(),
                     ))
                     .await;
