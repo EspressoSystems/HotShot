@@ -244,6 +244,7 @@ where
                 // but we need to prepare the VID committment.
                 // VID commitment is expensive but comes free with VID disperse
                 // so do all VID disperse computation here, too.
+                // https://github.com/EspressoSystems/HotShot/issues/1817
                 debug!("Prepare VID shares");
 
                 // TODO Secure SRS for VID
