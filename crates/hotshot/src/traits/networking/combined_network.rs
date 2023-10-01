@@ -299,9 +299,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
         self.secondary()
             .broadcast_message(message, recipients)
-            .await?;
-
-        Ok(())
+            .await
     }
 
     async fn direct_message(
@@ -330,9 +328,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
             };
         }
 
-        self.secondary().direct_message(message, recipient).await?;
-
-        Ok(())
+        self.secondary().direct_message(message, recipient).await
     }
 
     fn recv_msgs<'a, 'b>(
@@ -380,23 +376,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         self.primary()
             .queue_node_lookup(view_number, pk.clone())
             .await?;
-        self.secondary().queue_node_lookup(view_number, pk).await?;
-
-        Ok(())
+        self.secondary().queue_node_lookup(view_number, pk).await
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_, _, _> as ConnectedNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-        >>::inject_consensus_info(self.primary(), event.clone())
-        .await;
+        <WebServerNetwork<_, _, _> as ConnectedNetwork<Message<TYPES, I>,TYPES::SignatureKey>>::
+            inject_consensus_info(self.primary(), event.clone()).await;
 
-        <Libp2pNetwork<_, _> as ConnectedNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        >>::inject_consensus_info(self.secondary(), event)
-    .await;
+        <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES, I>,TYPES::SignatureKey>>::
+            inject_consensus_info(self.secondary(), event).await;
     }
 }
 
