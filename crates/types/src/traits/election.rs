@@ -620,6 +620,8 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
+            // TODO GG why create a VoteData::DA only to discard it immediately?
+            // Why not just have a `sign_commitment()` member?
             VoteData::DA(block_commitment).get_commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
@@ -899,12 +901,16 @@ impl<
     /// of information necessary for any user of the subsequently constructed QC to check that this
     /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
     /// information in the yes vote.
+    ///
+    /// TODO GG: why return the pubkey? Some other sign_xxx methods do not return the pubkey.
     fn sign_yes_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
+            // TODO GG why create a VoteData::Yes only to discard it?
+            // why not just have a sign_commit() method?
             VoteData::Yes(leaf_commitment).get_commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
@@ -915,12 +921,15 @@ impl<
     /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
     /// of information necessary for any user of the subsequently constructed QC to check that this
     /// node voted `No` on that leaf.
+    /// TODO GG: why return the pubkey? Some other sign_xxx methods do not return the pubkey.
     fn sign_no_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
+            // TODO GG why create a VoteData::No only to discard it?
+            // why not just have a sign_commit() method?
             VoteData::No(leaf_commitment).get_commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
@@ -933,9 +942,12 @@ impl<
     ///
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
+    /// TODO GG: why return the pubkey? Some other sign_xxx methods do not return the pubkey.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
+            // TODO GG why create a VoteData::Timeout only to discard it?
+            // why not just have a sign_commit() method?
             VoteData::Timeout(view_number.commit())
                 .get_commit()
                 .as_ref(),
