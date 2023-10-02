@@ -1282,7 +1282,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "commit"
 version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit#100cb8f402e32d794b4d2213356227b7bfeb0e92"
+source = "git+https://github.com/EspressoSystems/commit#5f1c28f1a109f2b36cf597e61a222614958db3b2"
 dependencies = [
  "arbitrary",
  "ark-serialize 0.3.0",
@@ -1290,7 +1290,6 @@ dependencies = [
  "derivative",
  "derive_more",
  "funty",
- "generic-array",
  "hex",
  "serde",
  "sha3",
@@ -3270,7 +3269,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1626a8448e7af8ea153241004375deff9fd961da"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3294,7 +3293,6 @@ dependencies = [
  "digest 0.10.7",
  "displaydoc",
  "espresso-systems-common 0.4.0",
- "generic-array",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
  "jf-relation",
@@ -3315,7 +3313,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1626a8448e7af8ea153241004375deff9fd961da"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3341,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1626a8448e7af8ea153241004375deff9fd961da"
 dependencies = [
  "ark-ec",
  "ark-ff",
