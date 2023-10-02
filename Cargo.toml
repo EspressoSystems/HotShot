@@ -52,6 +52,11 @@ either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
+
+# TODO generic-array should not be a direct dependency
+# https://github.com/EspressoSystems/HotShot/issues/1850
+generic-array = { version = "0.14.7", features = ["serde"] }
+
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
