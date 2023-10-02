@@ -15,14 +15,14 @@ use hotshot_task::{
 };
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction, NUM_CHUNKS, NUM_STORAGE_NODES},
-    certificate::DACertificate,
+    certificate::QuorumCertificate,
     consensus::Consensus,
     data::{SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
     message::{Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
-        election::{CommitteeExchangeType, ConsensusExchange},
-        node_implementation::{CommitteeEx, NodeImplementation, NodeType},
+        election::{ConsensusExchange, QuorumExchangeType},
+        node_implementation::{NodeImplementation, NodeType, QuorumEx},
         BlockPayload,
     },
 };
@@ -52,11 +52,10 @@ pub struct TransactionTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Certificate = QuorumCertificate<TYPES, Commitment<I::Leaf>>,
     >,
 {
     /// The state's api
@@ -77,7 +76,7 @@ pub struct TransactionTaskState<
     pub seen_transactions: HashSet<Commitment<TYPES::Transaction>>,
 
     /// the committee exchange
-    pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+    pub quorum_exchange: Arc<QuorumEx<TYPES, I>>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
@@ -99,11 +98,10 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TransactionTaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Certificate = QuorumCertificate<TYPES, Commitment<I::Leaf>>,
     >,
 {
     /// main task event handler
@@ -203,7 +201,7 @@ where
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if !self.committee_exchange.is_leader(self.cur_view + 1) {
+                if !self.quorum_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
@@ -284,10 +282,10 @@ where
                                 common: vid_disperse.common,
                             },
                             // TODO (Keyao) This is also signed in DA task.
-                            signature: self.committee_exchange.sign_da_proposal(&block.commit()),
+                            signature: self.quorum_exchange.sign_block_commitment(block.commit()),
                         },
                         // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1731
-                        self.committee_exchange.public_key().clone(),
+                        self.quorum_exchange.public_key().clone(),
                     ))
                     .await;
                 return None;
@@ -314,11 +312,10 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TransactionTaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Certificate = QuorumCertificate<TYPES, Commitment<I::Leaf>>,
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
@@ -412,11 +409,10 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for TransactionTaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Certificate = QuorumCertificate<TYPES, Commitment<I::Leaf>>,
     >,
 {
 }
