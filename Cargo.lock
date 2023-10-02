@@ -1282,7 +1282,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "commit"
 version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit#18ba00eb598e417ed86ff2594c362adeff7fc1cf"
+source = "git+https://github.com/EspressoSystems/commit#5f1c28f1a109f2b36cf597e61a222614958db3b2"
 dependencies = [
  "arbitrary",
  "ark-serialize 0.3.0",
@@ -1290,7 +1290,6 @@ dependencies = [
  "derivative",
  "derive_more",
  "funty",
- "generic-array",
  "hex",
  "serde",
  "sha3",
