@@ -777,6 +777,15 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         leaf_commitment: &Commitment<LEAF>,
     ) -> EncodedSignature;
 
+    /// Sign a block commitment.
+    ///
+    /// TODO GG: `sign_block_commitment` and `sign_validating_or_commitment_proposal` should be the same function.
+    /// `Commitment<LEAF>` should equal `Commitment<TYPES::BlockType>`.
+    fn sign_block_commitment(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature;
+
     /// Sign a positive vote on validating or commitment proposal.
     ///
     /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
@@ -893,6 +902,13 @@ impl<
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(&self.private_key, leaf_commitment.as_ref());
         signature
+    }
+
+    fn sign_block_commitment(
+        &self,
+        block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
+    ) -> EncodedSignature {
+        TYPES::SignatureKey::sign(&self.private_key, block_commitment.as_ref())
     }
 
     /// Sign a positive vote on validating or commitment proposal.
