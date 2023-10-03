@@ -25,6 +25,11 @@ docs = []
 doc-images = []
 hotshot-testing = []
 
+[[example]]
+name = "webserver-all"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server-da/all.rs"
+
 # [[example]]
 # name = "libp2p-validator"
 # required-features = ["demo", "libp2p/rsa"]
