@@ -44,14 +44,19 @@ bitvec = { version = "1.0.1", default-features = false, features = [
         "atomic",
         "serde",
 ] }
-blake3 = "1.4"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+blake3 = "1.5"
+commit = { git = "https://github.com/EspressoSystems/commit" }
 custom_debug = "0.5"
 digest = "0.10"
 either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
+
+# TODO generic-array should not be a direct dependency
+# https://github.com/EspressoSystems/HotShot/issues/1850
+generic-array = { version = "0.14.7", features = ["serde"] }
+
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
@@ -64,7 +69,7 @@ serde = { version = "1.0.188", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
-time = "0.3.28"
+time = "0.3.29"
 toml = "0.7.8"
 tracing = "0.1.37"
 typenum = "1.17.0"
