@@ -14,14 +14,14 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction, NUM_CHUNKS, NUM_STORAGE_NODES},
+    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::QuorumCertificate,
     consensus::Consensus,
     data::{SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
     message::{Message, Proposal, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
-        election::{ConsensusExchange, QuorumExchangeType},
+        election::{ConsensusExchange, Membership, QuorumExchangeType},
         node_implementation::{NodeImplementation, NodeType, QuorumEx},
         BlockPayload,
     },
@@ -201,6 +201,8 @@ where
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
+                //
+                // TODO GG is it okay to use quorum_exchange.is_leader instead of committee_exchange.is_leader? If we keep committee_exchange in this task then this is the only place where it would be used.
                 if !self.quorum_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
@@ -243,15 +245,18 @@ where
                 // VID commitment is expensive but comes free with VID disperse
                 // so do all VID disperse computation here, too.
                 // https://github.com/EspressoSystems/HotShot/issues/1817
-                debug!("Prepare VID shares");
+                let num_storage_nodes = self.quorum_exchange.membership().total_nodes();
+                debug!("Prepare VID shares for {} storage nodes", num_storage_nodes);
 
                 // TODO Secure SRS for VID
                 // https://github.com/EspressoSystems/HotShot/issues/1686
-                let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
+                let srs = hotshot_types::data::test_srs(num_storage_nodes);
 
-                // TODO Proper source for VID number of storage nodes
-                // https://github.com/EspressoSystems/HotShot/issues/1693
-                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
+                // TODO proper source for VID erasure code rate
+                // https://github.com/EspressoSystems/HotShot/issues/1734
+                let num_chunks = num_storage_nodes / 2;
+
+                let vid = VidScheme::new(num_chunks, num_storage_nodes, &srs).unwrap();
 
                 // TODO Wasteful flattening of tx bytes to accommodate VID API
                 // https://github.com/EspressoSystems/jellyfish/issues/375
@@ -266,6 +271,8 @@ where
                     commitment: vid_disperse.commit,
                 };
 
+                // TODO never clone a block
+                // https://github.com/EspressoSystems/HotShot/issues/1858
                 self.event_stream
                     .publish(SequencingHotShotEvent::BlockReady(block.clone(), view + 1))
                     .await;
@@ -284,7 +291,6 @@ where
                             // TODO (Keyao) This is also signed in DA task.
                             signature: self.quorum_exchange.sign_block_commitment(block.commit()),
                         },
-                        // TODO don't send to committee, send to quorum (consensus.rs) https://github.com/EspressoSystems/HotShot/issues/1731
                         self.quorum_exchange.public_key().clone(),
                     ))
                     .await;
