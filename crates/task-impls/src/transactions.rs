@@ -240,11 +240,8 @@ where
                 // <https://github.com/EspressoSystems/HotShot/issues/1822>
                 let txns = self.wait_for_transactions(parent_leaf).await?;
 
-                // TODO GG discuss: Normally we'd simply publish the BlockReady event here
-                // but we need to prepare the VID committment.
-                // VID commitment is expensive but comes free with VID disperse
-                // so do all VID disperse computation here, too.
-                // https://github.com/EspressoSystems/HotShot/issues/1817
+                // TODO move all VID stuff to a new VID task
+                // details here: https://github.com/EspressoSystems/HotShot/issues/1817#issuecomment-1747143528
                 let num_storage_nodes = self.quorum_exchange.membership().total_nodes();
                 debug!("Prepare VID shares for {} storage nodes", num_storage_nodes);
 
