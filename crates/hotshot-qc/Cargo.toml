@@ -19,7 +19,7 @@ ark-std = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
-generic-array = { workspace = true }
+generic-array = "0.14.7"
 hotshot-types = { path = "../types" }
 jf-primitives = { workspace = true }
 jf-relation = { workspace = true }

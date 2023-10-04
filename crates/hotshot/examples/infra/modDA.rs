@@ -47,8 +47,6 @@ use libp2p_networking::{
     network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType},
     reexport::Multiaddr,
 };
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 use std::{collections::BTreeSet, sync::Arc};
 use std::{num::NonZeroUsize, str::FromStr};
 // use libp2p::{
@@ -61,9 +59,9 @@ use std::{num::NonZeroUsize, str::FromStr};
 // };
 use libp2p_identity::PeerId;
 // use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use std::{fmt::Debug, net::Ipv4Addr};
 use std::{
     //collections::{BTreeSet, VecDeque},
+    collections::VecDeque,
     //fs,
     mem,
     net::IpAddr,
@@ -73,6 +71,7 @@ use std::{
     //time::{Duration, Instant},
     time::Instant,
 };
+use std::{fmt::Debug, net::Ipv4Addr};
 //use surf_disco::error::ClientError;
 //use surf_disco::Client;
 use tracing::{debug, error, info, warn};
@@ -124,19 +123,6 @@ pub async fn run_orchestrator_da<
         TYPES::ElectionConfigType,
     >(run_config, host, port)
     .await;
-}
-
-/// Helper function to calculate the nuymber of transactions to send per node per round
-fn calculate_num_tx_per_round(
-    node_index: u64,
-    total_num_nodes: usize,
-    transactions_per_round: usize,
-) -> usize {
-    if node_index == 0 {
-        transactions_per_round / total_num_nodes + transactions_per_round % total_num_nodes
-    } else {
-        transactions_per_round / total_num_nodes
-    }
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -268,22 +254,37 @@ pub trait RunDA<
         } = self.get_config();
 
         let size = mem::size_of::<TYPES::Transaction>();
-        let padding = padding.saturating_sub(size);
-        let mut txn_rng = StdRng::seed_from_u64(node_index);
+        let adjusted_padding = if padding < size { 0 } else { padding - size };
+        let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
 
-        debug!("Adjusted padding size is {:?} bytes", padding);
+        // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
+        let tx_to_gen = transactions_per_round * rounds * 3;
+        {
+            let mut txn_rng = rand::thread_rng();
+            for _ in 0..tx_to_gen {
+                let txn =
+                    <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
+                        None,
+                        &mut txn_rng,
+                        padding as u64,
+                    );
+                txns.push_back(txn);
+            }
+        }
+        debug!("Generated {} transactions", tx_to_gen);
 
-        let mut total_transactions_committed = 0;
-        let mut total_transactions_sent = 0;
-        let transactions_to_send_per_round =
-            calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
+        debug!("Adjusted padding size is {:?} bytes", adjusted_padding);
+        let mut round = 0;
+        let mut total_transactions = 0;
 
-        info!("Starting hotshot!");
         let start = Instant::now();
 
+        info!("Starting hotshot!");
         let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
+
+        let total_nodes_u64 = total_nodes.get() as u64;
 
         context.hotshot.start_consensus().await;
 
@@ -313,20 +314,8 @@ pub trait RunDA<
                                 }
                             }
 
-                            // send transactions
-                            for _ in 0..transactions_to_send_per_round {
-                                let txn =
-                                <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
-                                    None,
-                                    &mut txn_rng,
-                                    padding as u64,
-                                );
-                                _ = context.submit_transaction(txn).await.unwrap();
-                                total_transactions_sent += 1;
-                            }
-
                             if let Some(size) = block_size {
-                                total_transactions_committed += size;
+                                total_transactions += size;
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -345,16 +334,39 @@ pub trait RunDA<
                         EventType::NextLeaderViewTimeout { view_number } => {
                             warn!("Timed out as the next leader in view {:?}", view_number);
                         }
-                        EventType::ViewFinished { view_number: _ } => {}
+                        EventType::ViewFinished { view_number } => {
+                            if *view_number > round {
+                                round = *view_number;
+                                info!("view finished: {:?}", view_number);
+                                for _ in 0..transactions_per_round {
+                                    if node_index >= total_nodes_u64 - 10 {
+                                        let txn = txns.pop_front().unwrap();
+
+                                        debug!("Submitting txn on round {}", round);
+
+                                        let result = context.submit_transaction(txn).await;
+
+                                        if result.is_err() {
+                                            error! (
+                                            "Could not send transaction to web server on round {}",
+                                            round
+                                        )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         _ => unimplemented!(),
                     }
                 }
             }
+
+            round += 1;
         }
 
         // Output run results
         let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        error!("{rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run

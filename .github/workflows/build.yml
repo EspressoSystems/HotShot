@@ -1,4 +1,4 @@
-name: Build, Lint, and Test
+name: Build and Test Workflow
 
 on:
   push:
@@ -42,10 +42,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
           cargo install just
-
-      - name: Run linting
-        run: |
-          just ${{ matrix.just_variants }} lint
 
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
