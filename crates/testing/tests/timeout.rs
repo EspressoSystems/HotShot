@@ -18,7 +18,7 @@ async fn test_timeout() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 500,
+        next_view_timeout: 1000,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
