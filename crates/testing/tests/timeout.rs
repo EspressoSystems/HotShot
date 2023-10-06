@@ -4,7 +4,6 @@
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-#[ignore]
 async fn test_timeout() {
     use std::time::Duration;
 
@@ -12,13 +11,13 @@ async fn test_timeout() {
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         node_types::{SequencingMemoryImpl, SequencingTestTypes},
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-        test_builder::{TestMetadata, TimingData},
+        test_builder::{TestMetadata, TimingData}, overall_safety_task::OverallSafetyPropertiesDescription,
     };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 1000,
+        next_view_timeout: 500,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
@@ -41,6 +40,12 @@ async fn test_timeout() {
                 duration: Duration::from_millis(10000),
             },
         );
+
+    metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+        check_leaf: true,
+        ..Default::default()
+    };
+
     metadata
         .gen_launcher::<SequencingTestTypes, SequencingMemoryImpl>()
         .launch()
