@@ -10,8 +10,9 @@ async fn test_timeout() {
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         node_types::{SequencingMemoryImpl, SequencingTestTypes},
+        overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-        test_builder::{TestMetadata, TimingData}, overall_safety_task::OverallSafetyPropertiesDescription,
+        test_builder::{TestMetadata, TimingData},
     };
 
     async_compatibility_layer::logging::setup_logging();
