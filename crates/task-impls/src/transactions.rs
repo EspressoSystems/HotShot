@@ -201,8 +201,6 @@ where
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                //
-                // TODO GG is it okay to use quorum_exchange.is_leader instead of committee_exchange.is_leader? If we keep committee_exchange in this task then this is the only place where it would be used.
                 if !self.quorum_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;

@@ -947,7 +947,6 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         // Commit the block commitment, rather than the block, so that the replicas can reconstruct
         // the leaf.
-        // TODO GG why can't we use block.commit() here?
         let block_commitment = match &self.deltas {
             Either::Left(block) => block.commit(),
             Either::Right(commitment) => *commitment,
