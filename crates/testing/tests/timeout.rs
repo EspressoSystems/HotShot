@@ -38,7 +38,7 @@ async fn test_timeout() {
     metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(10000),
+                duration: Duration::from_millis(2000),
             },
         );
 
