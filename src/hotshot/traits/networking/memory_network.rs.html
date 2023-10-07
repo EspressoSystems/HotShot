@@ -569,11 +569,6 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -582,7 +577,7 @@
 </span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetrics};
 <span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
 <span class="kw">use </span>async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
+    art::async_spawn,
     channel::{bounded, Receiver, SendError, Sender},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
@@ -617,18 +612,6 @@
     },
 };
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
-<span class="attr">#[derive(Debug, Clone, Copy)]
-</span><span class="doccomment">/// dummy implementation of network reliability
-</span><span class="kw">pub struct </span>DummyReliability {}
-<span class="kw">impl </span>NetworkReliability <span class="kw">for </span>DummyReliability {
-    <span class="kw">fn </span>sample_keep(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="bool-val">true
-    </span>}
-    <span class="kw">fn </span>sample_delay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::time::Duration {
-        std::time::Duration::ZERO
-    }
-}
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///
@@ -680,6 +663,9 @@
 
     <span class="doccomment">/// The networking metrics we&#39;re keeping track of
     </span>metrics: NetworkingMetrics,
+
+    <span class="doccomment">/// config to introduce unreliability to the network
+    </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// In memory only network simulator.
@@ -710,7 +696,7 @@
         pub_key: K,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
-        reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;M, K&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Attaching new MemoryNetwork&quot;</span>);
         <span class="kw">let </span>(broadcast_input, broadcast_task_recv) = bounded(<span class="number">128</span>);
@@ -741,30 +727,11 @@
                             <span class="kw">match </span>x {
                                 <span class="prelude-val">Ok</span>(x) =&gt; {
                                     <span class="kw">let </span>dts = direct_task_send.clone();
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = reliability_config.clone() {
-                                        async_spawn(<span class="kw">async move </span>{
-                                            <span class="kw">if </span>r.sample_keep() {
-                                                <span class="kw">let </span>delay = r.sample_delay();
-                                                <span class="kw">if </span>delay &gt; std::time::Duration::ZERO {
-                                                    async_sleep(delay).<span class="kw">await</span>;
-                                                }
-                                                <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
-                                                <span class="kw">if </span>res.is_ok() {
-                                                    <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                                } <span class="kw">else </span>{
-                                                    <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
-                                                }
-                                            } <span class="kw">else </span>{
-                                                <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                            }
-                                        });
+                                    <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
+                                    <span class="kw">if </span>res.is_ok() {
+                                        <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                     } <span class="kw">else </span>{
-                                        <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
-                                        <span class="kw">if </span>res.is_ok() {
-                                            <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                        } <span class="kw">else </span>{
-                                            <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
-                                        }
+                                        <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
                                     }
                                 }
                                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -779,28 +746,11 @@
                             <span class="kw">match </span>x {
                                 <span class="prelude-val">Ok</span>(x) =&gt; {
                                     <span class="kw">let </span>bts = broadcast_task_send.clone();
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = reliability_config.clone() {
-                                        async_spawn(<span class="kw">async move </span>{
-                                            <span class="kw">if </span>r.sample_keep() {
-                                                <span class="kw">let </span>delay = r.sample_delay();
-                                                <span class="kw">if </span>delay &gt; std::time::Duration::ZERO {
-                                                    async_sleep(delay).<span class="kw">await</span>;
-                                                }
-                                                <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
-                                                <span class="kw">if </span>res.is_ok() {
-                                                    <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                                } <span class="kw">else </span>{
-                                                    <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                                }
-                                            }
-                                        });
+                                    <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
+                                    <span class="kw">if </span>res.is_ok() {
+                                        <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                     } <span class="kw">else </span>{
-                                        <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
-                                        <span class="kw">if </span>res.is_ok() {
-                                            <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                        } <span class="kw">else </span>{
-                                            <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                        }
+                                        <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
                                     }
                                 }
                                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -825,6 +775,7 @@
                 master_map: master_map.clone(),
                 in_flight_message_count,
                 metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
+                reliability_config,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -923,20 +874,40 @@
             .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, sending&quot;</span>);
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.master_map.map {
-            <span class="kw">let </span>(key, node) = node.pair();
+            <span class="comment">// TODO delay/drop etc here
+            </span><span class="kw">let </span>(key, node) = node.pair();
             <span class="kw">if </span>!recipients.contains(key) {
                 <span class="kw">continue</span>;
             }
             <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Sending message to node&quot;</span>);
-            <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
-            <span class="kw">match </span>res {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
-                    <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+                {
+                    <span class="kw">let </span>node2 = node.clone();
+                    <span class="kw">let </span>fut = config.chaos_send_msg(
+                        vec.clone(),
+                        Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                            <span class="kw">let </span>node3 = (node2).clone();
+                            boxed_sync(<span class="kw">async move </span>{
+                                <span class="kw">let </span>_res = node3.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="comment">// NOTE we&#39;re dropping metrics here but this is only for testing
+                                // purposes. I think that should be okay
+                            </span>})
+                        }),
+                    );
+                    async_spawn(fut);
                 }
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
+                <span class="kw">match </span>res {
+                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>);
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                        <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
+                    }
                 }
             }
         }
@@ -952,18 +923,37 @@
             .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, finding recipient&quot;</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.inner.master_map.map.get(<span class="kw-2">&amp;</span>recipient) {
-            <span class="kw">let </span>node = node.value();
-            <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
-            <span class="kw">match </span>res {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
-                    <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">&quot;Delivered message to remote&quot;</span>);
-                    <span class="prelude-val">Ok</span>(())
+            <span class="kw">let </span>node = node.value().clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+                {
+                    <span class="kw">let </span>fut = config.chaos_send_msg(
+                        vec.clone(),
+                        Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                            <span class="kw">let </span>node2 = node.clone();
+                            boxed_sync(<span class="kw">async move </span>{
+                                <span class="kw">let </span>_res = node2.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="comment">// NOTE we&#39;re dropping metrics here but this is only for testing
+                                // purposes. I think that should be okay
+                            </span>})
+                        }),
+                    );
+                    async_spawn(fut);
                 }
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">&quot;Error delivering direct message&quot;</span>);
-                    <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
+                <span class="prelude-val">Ok</span>(())
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
+                <span class="kw">match </span>res {
+                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">&quot;Delivered message to remote&quot;</span>);
+                        <span class="prelude-val">Ok</span>(())
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                        <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">&quot;Error delivering direct message&quot;</span>);
+                        <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
+                    }
                 }
             }
         } <span class="kw">else </span>{
