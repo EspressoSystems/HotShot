@@ -310,7 +310,7 @@ impl TestData {
                     type Time = #time_type;
                     type BlockType = <#demo_state as hotshot_types::traits::State>::BlockType;
                     type SignatureKey = #signature_key_type;
-                    type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockType as hotshot_types::traits::Block>::Transaction;
+                    type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockType as hotshot_types::traits::BlockPayload>::Transaction;
                     type StateType = #demo_state;
                     type VoteTokenType = hotshot::traits::election::static_committee::StaticVoteToken<Self::SignatureKey>;
                     type ElectionConfigType = hotshot::traits::election::static_committee::StaticElectionConfig;
@@ -616,8 +616,8 @@ pub fn cross_all_types(input: TokenStream) -> TokenStream {
         slow,
     } = parse_macro_input!(input as CrossAllTypesSpec);
     let tokens = quote! {
-            DemoType: [ /* (SequencingConsensus, hotshot::demos::sdemo::SDemoState), */ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
-            SignatureKey: [ hotshot_types::traits::signature_key::bn254::BN254Pub ],
+            DemoType: [ /* (SequencingConsensus, hotshot::demo::SDemoState), */ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+            SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
             CommChannel: [ hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
             Time: [ hotshot_types::data::ViewNumber ],
             Storage: [ hotshot::traits::implementations::MemoryStorage ],

@@ -17,13 +17,14 @@ members = [
         "crates/testing",
         "crates/types",
         "crates/utils",
+        "crates/constants",
         # "testing-macros",
         "crates/task",
         "crates/task-impls",
         "crates/hotshot-qc",
         "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
-        "crates/hotshot"
+        "crates/hotshot",
 ]
 resolver = "2"
 
@@ -43,71 +44,76 @@ bitvec = { version = "1.0.1", default-features = false, features = [
         "atomic",
         "serde",
 ] }
-blake3 = "1.4"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+blake3 = "1.5"
+commit = { git = "https://github.com/EspressoSystems/commit" }
 custom_debug = "0.5"
 digest = "0.10"
 either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.28"
+
+# TODO generic-array should not be a direct dependency
+# https://github.com/EspressoSystems/HotShot/issues/1850
+generic-array = { version = "0.14.7", features = ["serde"] }
+
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "=0.33.0" }
-nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.188", features = ["derive"] }
+sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
-time = "0.3.28"
+time = "0.3.29"
 toml = "0.7.8"
 tracing = "0.1.37"
-typenum = "1.16.0"
+typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.52.3", features = [
-    "macros",
-    "autonat",
-    "deflate",
-    "dns",
-    "floodsub",
-    "gossipsub",
-    "identify",
-    "kad",
-    "mdns",
-    "noise",
-    "ping",
-    "plaintext",
-    "pnet",
-    "quic",
-    "relay",
-    "request-response",
-    "rendezvous",
-    "secp256k1",
-    "serde",
-    "tcp",
-    "uds",
-    "wasm-ext",
-    "websocket",
-    "yamux",
+        "macros",
+        "autonat",
+        "deflate",
+        "dns",
+        "floodsub",
+        "gossipsub",
+        "identify",
+        "kad",
+        "mdns",
+        "noise",
+        "ping",
+        "plaintext",
+        "pnet",
+        "quic",
+        "relay",
+        "request-response",
+        "rendezvous",
+        "secp256k1",
+        "serde",
+        "tcp",
+        "uds",
+        "wasm-ext",
+        "websocket",
+        "yamux",
 ] }
 async-std = { version = "1.12.0", features = ["attributes"] }
 tokio = { version = "1.32.0", features = [
-  "fs",
-  "io-util",
-  "io-std",
-  "macros",
-  "net",
-  "parking_lot",
-  "process",
-  "rt",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time",
-  "tracing",
+        "fs",
+        "io-util",
+        "io-std",
+        "macros",
+        "net",
+        "parking_lot",
+        "process",
+        "rt",
+        "rt-multi-thread",
+        "signal",
+        "sync",
+        "time",
+        "tracing",
 ] }
 
 ### Profiles
@@ -117,9 +123,15 @@ tokio = { version = "1.32.0", features = [
 
 ## Apply some optimizations to test dependencies in debug/test builds
 
+[profile.dev]
+strip = true
+debug = 0
+
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
+strip = true
+debug = 0
 
 # The default release profile without LTO.
 [profile.release]

@@ -1,4 +1,4 @@
-name: Build and Test Workflow
+name: Build, Lint, and Test
 
 on:
   push:
@@ -33,6 +33,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: ${{ matrix.just_variants }}
 
       - name: Install dependencies
         run: |
@@ -40,8 +43,9 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           cargo install just
 
-      - name: Check
-        run: just ${{ matrix.just_variants }} check
+      - name: Run linting
+        run: |
+          just ${{ matrix.just_variants }} lint
 
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
@@ -53,32 +57,32 @@ jobs:
         env:
           RUST_BACKTRACE: full
 
-      - name: Setup Docker BuildKit (buildx)
-        if: matrix.just_variants == 'async_std'
-        uses: docker/setup-buildx-action@v2
+      # - name: Setup Docker BuildKit (buildx)
+      #   if: matrix.just_variants == 'async_std'
+      #   uses: docker/setup-buildx-action@v3
 
-      - name: Login to Github Container Repo
-        uses: docker/login-action@v2
-        if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Login to Github Container Repo
+      #   uses: docker/login-action@v3
+      #   if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.repository_owner }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate docker metadata (web-server)
-        uses: docker/metadata-action@v4
-        if: matrix.just_variants == 'async_std'
-        id: web-server
-        with:
-          images: ghcr.io/espressosystems/hotshot/web-server
+      # - name: Generate docker metadata (web-server)
+      #   uses: docker/metadata-action@v5
+      #   if: matrix.just_variants == 'async_std'
+      #   id: web-server
+      #   with:
+      #     images: ghcr.io/espressosystems/hotshot/web-server
 
-      - name: Build and push web-server docker
-        uses: docker/build-push-action@v4
-        if: matrix.just_variants == 'async_std'
-        with:
-          context: ./
-          file: ./deploy/web-server.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server.outputs.tags }}
-          labels: ${{ steps.web-server.outputs.labels }}
+      # - name: Build and push web-server docker
+      #   uses: docker/build-push-action@v5
+      #   if: matrix.just_variants == 'async_std'
+      #   with:
+      #     context: ./
+      #     file: ./deploy/web-server.Dockerfile
+      #     platforms: linux/amd64
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: ${{ steps.web-server.outputs.tags }}
+      #     labels: ${{ steps.web-server.outputs.labels }}
