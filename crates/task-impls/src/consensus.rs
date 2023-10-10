@@ -1152,7 +1152,7 @@ where
     /// Sends a proposal if possible from the high qc we have
     pub async fn publish_proposal_if_able(
         &mut self,
-        _qc: QuorumCertificate<TYPES, I::Leaf>,
+        _qc: QuorumCertificate<TYPES, Commitment<I::Leaf>>,
         view: TYPES::Time,
     ) -> bool {
         if !self.quorum_exchange.is_leader(view) {
@@ -1215,11 +1215,9 @@ where
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
+        // let block_commitment = Some(self.block.commit());
         if let Some(block) = &self.block {
             let block_commitment = block.commit();
-            if block_commitment == TYPES::BlockType::new().commit() {
-                debug!("Block is generic block! {:?}", self.cur_view);
-            }
 
             let leaf = SequencingLeaf {
                 view_number: view,
