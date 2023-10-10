@@ -51,6 +51,11 @@ test_network_task:
   echo Testing the DA task with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
 
+test_memory_network:
+  echo Testing the DA task with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
+
+
 test_consensus_task:
   echo Testing with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
