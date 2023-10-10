@@ -2867,6 +2867,7 @@ dependencies = [
  "hotshot-constants",
  "hotshot-task",
  "hotshot-utils",
+ "jf-plonk",
  "jf-primitives",
  "jf-utils",
  "libp2p-networking",
