@@ -275,6 +275,7 @@
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, Membership};
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -401,7 +402,7 @@
         }
     }
 
-    <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
+    <span class="doccomment">/// Default setting with 20 nodes and 10 views of successful views.
     </span><span class="kw">pub fn </span>default_more_nodes_less_success() -&gt; TestMetadata {
         TestMetadata {
             total_nodes: <span class="number">20</span>,
@@ -416,11 +417,11 @@
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     <span class="comment">// Increase the duration to get the expected number of successful views.
-                    </span>duration: Duration::new(<span class="number">200</span>, <span class="number">0</span>),
+                    </span>duration: Duration::new(<span class="number">40</span>, <span class="number">0</span>),
                 },
             ),
             overall_safety_properties: OverallSafetyPropertiesDescription {
-                num_successful_views: <span class="number">8</span>,
+                num_successful_views: <span class="number">10</span>,
                 ..Default::default()
             },
             ..TestMetadata::default()
@@ -496,6 +497,7 @@
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
             max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
+            known_nodes,
             known_nodes_with_stake,
             da_committee_size,
             next_view_timeout: <span class="number">500</span>,
@@ -523,7 +525,7 @@
         } = timing_data;
         <span class="kw">let </span>mod_config =
             <span class="comment">// TODO this should really be using the timing config struct
-            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry, TYPES::ElectionConfigType&gt;| {
+            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry, TYPES::ElectionConfigType&gt;| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;

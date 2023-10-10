@@ -204,6 +204,10 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
@@ -289,6 +293,8 @@
     </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
         &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
     &gt;,
 {
@@ -298,6 +304,7 @@
     </span><span class="kw">pub </span>storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
     </span><span class="kw">pub </span>config: HotShotConfig&lt;
+        TYPES::SignatureKey,
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         TYPES::ElectionConfigType,
     &gt;,
@@ -401,6 +408,7 @@
         <span class="kw-2">mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>f: <span class="kw">impl </span>FnMut(
             <span class="kw-2">&amp;mut </span>HotShotConfig&lt;
+                TYPES::SignatureKey,
                 &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
                 TYPES::ElectionConfigType,
             &gt;,

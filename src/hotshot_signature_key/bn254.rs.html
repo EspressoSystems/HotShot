@@ -8,10 +8,10 @@
 <a href="#8" id="8">8</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Demonstration implementation of the [`SignatureKey`] trait using BN254
 </span><span class="kw">use </span>hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey};
-<span class="doccomment">/// `BLSPrivKey` implementation
+<span class="doccomment">/// `BN254Priv` implementation
 </span><span class="kw">mod </span>bn254_priv;
-<span class="doccomment">/// `BLSPubKey` implementation
+<span class="doccomment">/// `BN254Pub` implementation
 </span><span class="kw">mod </span>bn254_pub;
 
-<span class="kw">pub use </span><span class="self">self</span>::{bn254_priv::BLSPrivKey, bn254_pub::BLSPubKey};
+<span class="kw">pub use </span><span class="self">self</span>::{bn254_priv::BN254Priv, bn254_pub::BN254Pub};
 </code></pre></div></section></main></body></html>

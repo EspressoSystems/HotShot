@@ -282,6 +282,13 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
@@ -325,6 +332,8 @@
     </span>QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
         &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
     &gt;,
 {
@@ -341,6 +350,8 @@
     QuorumCommChannel&lt;TYPES, I&gt;: CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+        &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
         &lt;QuorumEx&lt;TYPES, I&gt; <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
     &gt;,
 {
@@ -482,8 +493,8 @@
         &gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
-        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;launch node {}&quot;</span>, i);
+        <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..total {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;running node{}&quot;</span>, _i);
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
@@ -514,6 +525,7 @@
         storage: I::Storage,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         config: HotShotConfig&lt;
+            TYPES::SignatureKey,
             &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
             TYPES::ElectionConfigType,
         &gt;,
@@ -529,6 +541,7 @@
         <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
         <span class="self">self</span>.next_node_id += <span class="number">1</span>;
 
+        <span class="kw">let </span>known_nodes = config.known_nodes.clone();
         <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
         <span class="comment">// Generate key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
@@ -543,6 +556,7 @@
         <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
         <span class="kw">let </span>exchanges = I::Exchanges::create(
             known_nodes_with_stake.clone(),
+            known_nodes.clone(),
             (
                 quorum_election_config,
                 committee_election_config(config.da_committee_size <span class="kw">as </span>u64),

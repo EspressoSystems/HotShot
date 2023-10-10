@@ -63,45 +63,17 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
-<span class="kw">use </span>commit::Commitment;
-<span class="kw">use </span>hotshot_types::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{DAProposal, VidDisperse},
+    data::DAProposal,
     message::Proposal,
     traits::node_implementation::{
         NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
     },
     vote::{DAVote, QuorumVote, ViewSyncVote},
 };
+
+<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="doccomment">/// All of the possible events that can be passed between Sequecning `HotShot` tasks
 </span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -111,7 +83,7 @@
     <span class="doccomment">/// A quorum proposal has been received from the network; handled by the consensus task
     </span>QuorumProposalRecv(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A quorum vote has been received from the network; handled by the consensus task
-    </span>QuorumVoteRecv(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;),
+    </span>QuorumVoteRecv(QuorumVote&lt;TYPES, I::Leaf&gt;),
     <span class="doccomment">/// A DA proposal has been received from the network; handled by the DA task
     </span>DAProposalRecv(Proposal&lt;DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A DA vote has been received by the network; handled by the DA task
@@ -121,13 +93,13 @@
     <span class="doccomment">/// Send a quorum proposal to the network; emitted by the leader in the consensus task
     </span>QuorumProposalSend(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
-    </span>QuorumVoteSend(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;),
+    </span>QuorumVoteSend(QuorumVote&lt;TYPES, I::Leaf&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DAProposalSend(Proposal&lt;DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
     </span>DAVoteSend(DAVote&lt;TYPES&gt;),
     <span class="doccomment">/// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
-    </span>QCFormed(QuorumCertificate&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;),
+    </span>QCFormed(QuorumCertificate&lt;TYPES, I::Leaf&gt;),
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DACSend(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -155,33 +127,5 @@
     </span>TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     <span class="doccomment">/// Event to send DA block data from DA leader to next quorum leader (which should always be the same node); internal event only
     </span>SendDABlockData(TYPES::BlockType),
-    <span class="doccomment">/// Event when the transactions task has a block formed
-    </span>BlockReady(TYPES::BlockType, TYPES::Time),
-    <span class="doccomment">/// Event when consensus decided on a leaf
-    </span>LeafDecided(Vec&lt;I::Leaf&gt;),
-    <span class="doccomment">/// Send VID shares to VID storage nodes; emitted by the DA leader
-    ///
-    /// Like [`DAProposalSend`].
-    </span>VidDisperseSend(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Vid disperse data has been received from the network; handled by the DA task
-    ///
-    /// Like [`DAProposalRecv`].
-    </span>VidDisperseRecv(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Send a VID vote to the VID leader; emitted by VID storage nodes in the DA task after seeing a valid VID dispersal
-    ///
-    /// Like [`DAVoteSend`]
-    </span>VidVoteSend(DAVote&lt;TYPES&gt;),
-    <span class="doccomment">/// A VID vote has been received by the network; handled by the DA task
-    ///
-    /// Like [`DAVoteRecv`]
-    </span>VidVoteRecv(DAVote&lt;TYPES&gt;),
-    <span class="doccomment">/// The VID leader has collected enough votes to form a VID cert; emitted by the VID leader in the DA task; sent to the entire network via the networking task
-    ///
-    /// Like [`DACSend`]
-    </span>VidCertSend(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// A VID cert has been recieved by the network; handled by the consensus task
-    ///
-    /// Like [`DACRecv`]
-    </span>VidCertRecv(DACertificate&lt;TYPES&gt;),
 }
 </code></pre></div></section></main></body></html>

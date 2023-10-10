@@ -66,6 +66,8 @@
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="attr">#![warn(
     clippy::all,
@@ -79,9 +81,9 @@
 
 </span><span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
 
-<span class="kw">pub mod </span>block_impl;
 <span class="kw">pub mod </span>certificate;
 <span class="kw">pub mod </span>consensus;
+<span class="kw">pub mod </span>constants;
 <span class="kw">pub mod </span>data;
 <span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>event;
@@ -104,7 +106,7 @@
 
 <span class="doccomment">/// Holds configuration for a `HotShot`
 </span><span class="attr">#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
-</span><span class="kw">pub struct </span>HotShotConfig&lt;ENTRY, ELECTIONCONFIG&gt; {
+</span><span class="kw">pub struct </span>HotShotConfig&lt;K, ENTRY, ELECTIONCONFIG&gt; {
     <span class="doccomment">/// Whether to run one view or continuous views
     </span><span class="kw">pub </span>execution_type: ExecutionType,
     <span class="doccomment">/// Total number of nodes in the network
@@ -113,6 +115,8 @@
     </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// Maximum transactions per block
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
+    <span class="doccomment">/// List of known node&#39;s public keys, including own, sorted by nonce ()
+    </span><span class="kw">pub </span>known_nodes: Vec&lt;K&gt;,
     <span class="doccomment">/// List of known node&#39;s public keys and stake value for certificate aggregation, serving as public parameter
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;ENTRY&gt;,
     <span class="doccomment">/// List of DA committee nodes for static DA committe

@@ -1053,10 +1053,36 @@
 <a href="#1053" id="1053">1053</a>
 <a href="#1054" id="1054">1054</a>
 <a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
@@ -1064,13 +1090,7 @@
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-<span class="kw">use </span>hotshot_types::{
-    traits::{
-        election::{Membership, SignedCertificate},
-        network::ConsensusIntentEvent,
-    },
-    vote::ViewSyncVoteAccumulator,
-};
+<span class="kw">use </span>hotshot_types::traits::{election::Membership, network::ConsensusIntentEvent};
 
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>hotshot_task::global_registry::GlobalRegistry;
@@ -1086,10 +1106,10 @@
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
-    vote::{ViewSyncData, ViewSyncVote},
+    vote::{ViewSyncData, ViewSyncVote, VoteAccumulator},
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{debug, error, instrument};
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="doccomment">/// Phases of view sync
@@ -1130,7 +1150,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="doccomment">/// Registry to register sub tasks
@@ -1179,7 +1199,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
 }
@@ -1207,7 +1227,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="doccomment">/// Timeout for view sync rounds
@@ -1250,7 +1270,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
 }
@@ -1277,14 +1297,8 @@
     <span class="doccomment">/// View sync exchange
     </span><span class="kw">pub </span>exchange: Arc&lt;ViewSyncEx&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// Vote accumulator
-    </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub </span>accumulator: Either&lt;
-        &lt;ViewSyncCertificate&lt;TYPES&gt; <span class="kw">as </span>SignedCertificate&lt;
-            TYPES,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
-        &gt;&gt;::VoteAccumulator,
+        VoteAccumulator&lt;TYPES::VoteTokenType, ViewSyncData&lt;TYPES&gt;&gt;,
         ViewSyncCertificate&lt;TYPES&gt;,
     &gt;,
     <span class="doccomment">/// Our node id; for logging
@@ -1325,7 +1339,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -1344,7 +1358,7 @@
                         (certificate_internal, ViewSyncPhase::Finalize)
                     }
                 };
-                <span class="macro">debug!</span>(
+                <span class="macro">error!</span>(
                     <span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>,
                     last_seen_certificate
                 );
@@ -1366,19 +1380,20 @@
                 }
 
                 <span class="comment">// We do not have a replica task already running, so start one
-                </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state = ViewSyncReplicaTaskState {
-                    current_view: certificate_internal.round,
-                    next_view: certificate_internal.round,
-                    relay: <span class="number">0</span>,
-                    finalized: <span class="bool-val">false</span>,
-                    sent_view_change_event: <span class="bool-val">false</span>,
-                    phase: ViewSyncPhase::None,
-                    exchange: <span class="self">self</span>.exchange.clone(),
-                    api: <span class="self">self</span>.api.clone(),
-                    event_stream: <span class="self">self</span>.event_stream.clone(),
-                    view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
-                    id: <span class="self">self</span>.id,
-                };
+                </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, A&gt; =
+                    ViewSyncReplicaTaskState {
+                        current_view: certificate_internal.round,
+                        next_view: certificate_internal.round,
+                        relay: <span class="number">0</span>,
+                        finalized: <span class="bool-val">false</span>,
+                        sent_view_change_event: <span class="bool-val">false</span>,
+                        phase: ViewSyncPhase::None,
+                        exchange: <span class="self">self</span>.exchange.clone(),
+                        api: <span class="self">self</span>.api.clone(),
+                        event_stream: <span class="self">self</span>.event_stream.clone(),
+                        view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
+                        id: <span class="self">self</span>.id,
+                    };
 
                 <span class="kw">let </span>result = replica_state.handle_event(event.clone()).<span class="kw">await</span>;
 
@@ -1447,23 +1462,24 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>new_accumulator = ViewSyncVoteAccumulator {
-                    pre_commit_vote_outcomes: HashMap::new(),
-                    commit_vote_outcomes: HashMap::new(),
-                    finalize_vote_outcomes: HashMap::new(),
-
+                <span class="kw">let </span>accumulator = VoteAccumulator {
+                    total_vote_outcomes: HashMap::new(),
+                    da_vote_outcomes: HashMap::new(),
+                    yes_vote_outcomes: HashMap::new(),
+                    no_vote_outcomes: HashMap::new(),
+                    viewsync_precommit_vote_outcomes: HashMap::new(),
+                    viewsync_commit_vote_outcomes: HashMap::new(),
+                    viewsync_finalize_vote_outcomes: HashMap::new(),
                     success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                     failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
-
                     sig_lists: Vec::new(),
                     signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
-                    phantom: PhantomData,
                 };
 
                 <span class="kw">let </span><span class="kw-2">mut </span>relay_state = ViewSyncRelayTaskState {
                     event_stream: <span class="self">self</span>.event_stream.clone(),
                     exchange: <span class="self">self</span>.exchange.clone(),
-                    accumulator: either::Left(new_accumulator),
+                    accumulator: either::Left(accumulator),
                     id: <span class="self">self</span>.id,
                 };
 
@@ -1549,7 +1565,10 @@
                 }
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
-                <span class="macro">error!</span>(<span class="string">&quot;Num timeouts tracked is {}&quot;</span>, <span class="self">self</span>.num_timeouts_tracked);
+                <span class="macro">error!</span>(
+                    <span class="string">&quot;Num timeouts tracked is {}. View {} timed out&quot;</span>,
+                    <span class="self">self</span>.num_timeouts_tracked, <span class="kw-2">*</span>view_number
+                );
 
                 <span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked &gt; <span class="number">2 </span>{
                     <span class="macro">error!</span>(<span class="string">&quot;Too many timeouts!  This shouldn&#39;t happen&quot;</span>);
@@ -1557,6 +1576,10 @@
 
                 <span class="comment">// TODO ED Make this a configurable variable
                 </span><span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked == <span class="number">2 </span>{
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Starting view sync protocol; attempting to sync on view {}&quot;</span>,
+                        <span class="kw-2">*</span>view_number + <span class="number">1
+                    </span>);
                     <span class="comment">// Start polling for view sync certificates
                     </span><span class="self">self</span>.exchange
                         .network()
@@ -1573,10 +1596,29 @@
                         .<span class="kw">await</span>;
                     <span class="comment">// panic!(&quot;Starting view sync!&quot;);
                     // Spawn replica task
+                    </span><span class="kw">let </span>next_view = <span class="kw-2">*</span>view_number + <span class="number">1</span>;
+                    <span class="comment">// Subscribe to the view after we are leader since we know we won&#39;t propose in the next view if we are leader.
+                    </span><span class="kw">let </span>subscribe_view = <span class="kw">if </span><span class="self">self</span>.exchange.is_leader(TYPES::Time::new(next_view)) {
+                        next_view + <span class="number">1
+                    </span>} <span class="kw">else </span>{
+                        next_view
+                    };
+                    <span class="comment">// Subscribe to the next view just in case there is progress being made
+                    </span><span class="self">self</span>.exchange
+                        .network()
+                        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
+                            subscribe_view,
+                        ))
+                        .<span class="kw">await</span>;
 
-                    </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state = ViewSyncReplicaTaskState {
+                    <span class="self">self</span>.exchange
+                        .network()
+                        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(subscribe_view))
+                        .<span class="kw">await</span>;
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>replica_state = ViewSyncReplicaTaskState {
                         current_view: <span class="self">self</span>.current_view,
-                        next_view: TYPES::Time::new(<span class="kw-2">*</span>view_number + <span class="number">1</span>),
+                        next_view: TYPES::Time::new(next_view),
                         relay: <span class="number">0</span>,
                         finalized: <span class="bool-val">false</span>,
                         sent_view_change_event: <span class="bool-val">false</span>,
@@ -1602,7 +1644,8 @@
 
                     <span class="kw">let </span>name = <span class="macro">format!</span>(
                         <span class="string">&quot;View Sync Replica Task: Attempting to enter view {:?} from view {:?}&quot;</span>,
-                        <span class="self">self</span>.next_view, <span class="self">self</span>.current_view
+                        <span class="kw-2">*</span>view_number + <span class="number">1</span>,
+                        <span class="kw-2">*</span>view_number
                     );
 
                     <span class="kw">let </span>replica_handle_event = HandleEvent(Arc::new(
@@ -1675,7 +1718,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Replica Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -1703,7 +1746,7 @@
 
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate_internal.round &lt; <span class="self">self</span>.next_view {
-                    <span class="macro">debug!</span>(<span class="string">&quot;We&#39;re already in a higher round&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;We&#39;re already in a higher round&quot;</span>);
 
                     <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                 }
@@ -1720,9 +1763,9 @@
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!<span class="self">self
                     </span>.exchange
-                    .is_valid_view_sync_cert(message.data, certificate_internal.round)
+                    .is_valid_view_sync_cert(message.data.clone(), certificate_internal.round)
                 {
-                    <span class="macro">error!</span>(<span class="string">&quot;Not valid view sync cert!&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Not valid view sync cert! {:?}&quot;</span>, message.data);
 
                     <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                 }
@@ -1840,6 +1883,7 @@
                             <span class="kw">let </span>phase = <span class="self">self</span>.phase.clone();
                             <span class="kw">async move </span>{
                                 async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
+                                <span class="macro">error!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncCertificateRecv&quot;</span>);
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                         TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
@@ -1901,6 +1945,7 @@
                             <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
                             <span class="kw">async move </span>{
                                 async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
+                                <span class="macro">error!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncTrigger&quot;</span>);
                                 stream
                                     .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                         TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
@@ -1971,6 +2016,7 @@
                                 <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
                                 <span class="kw">async move </span>{
                                     async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
+                                    <span class="macro">error!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncTimeout&quot;</span>);
                                     stream
                                         .publish(SequencingHotShotEvent::ViewSyncTimeout(
                                             TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
@@ -2006,7 +2052,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="doccomment">/// Handles incoming events for the view sync relay task
@@ -2024,7 +2070,7 @@
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);
                 }
 
-                <span class="kw">let </span>(vote_internal, phase) = <span class="kw">match </span>vote.clone() {
+                <span class="kw">let </span>(vote_internal, phase) = <span class="kw">match </span>vote {
                     ViewSyncVote::PreCommit(vote_internal) =&gt; {
                         (vote_internal, ViewSyncPhase::PreCommit)
                     }
@@ -2059,10 +2105,15 @@
                     <span class="kw-2">*</span>vote_internal.round, vote_internal.relay
                 );
 
-                <span class="kw">let </span>accumulator = <span class="self">self</span>.exchange.accumulate_vote_2(
+                <span class="kw">let </span>accumulator = <span class="self">self</span>.exchange.accumulate_vote(
+                    <span class="kw-2">&amp;</span>vote_internal.signature.<span class="number">0</span>,
+                    <span class="kw-2">&amp;</span>vote_internal.signature.<span class="number">1</span>,
+                    view_sync_data,
+                    vote_internal.vote_data,
+                    vote_internal.vote_token.clone(),
+                    vote_internal.round,
                     <span class="self">self</span>.accumulator.left().unwrap(),
-                    <span class="kw-2">&amp;</span>vote,
-                    <span class="kw-2">&amp;</span>view_sync_data,
+                    <span class="prelude-val">Some</span>(vote_internal.relay),
                 );
 
                 <span class="self">self</span>.accumulator = <span class="kw">match </span>accumulator {
@@ -2074,7 +2125,8 @@
                             data: certificate.clone(),
                             signature,
                         };
-                        <span class="self">self</span>.event_stream
+                        <span class="comment">// error!(&quot;Sending view sync cert {:?}&quot;, message.clone());
+                        </span><span class="self">self</span>.event_stream
                             .publish(SequencingHotShotEvent::ViewSyncCertificateSend(
                                 message,
                                 <span class="self">self</span>.exchange.public_key().clone(),
@@ -2082,19 +2134,19 @@
                             .<span class="kw">await</span>;
 
                         <span class="comment">// Reset accumulator for new certificate
-                        </span><span class="kw">let </span>new_accumulator = ViewSyncVoteAccumulator {
-                            pre_commit_vote_outcomes: HashMap::new(),
-                            commit_vote_outcomes: HashMap::new(),
-                            finalize_vote_outcomes: HashMap::new(),
-
+                        </span>either::Left(VoteAccumulator {
+                            total_vote_outcomes: HashMap::new(),
+                            da_vote_outcomes: HashMap::new(),
+                            yes_vote_outcomes: HashMap::new(),
+                            no_vote_outcomes: HashMap::new(),
+                            viewsync_precommit_vote_outcomes: HashMap::new(),
+                            viewsync_commit_vote_outcomes: HashMap::new(),
+                            viewsync_finalize_vote_outcomes: HashMap::new(),
                             success_threshold: <span class="self">self</span>.exchange.success_threshold(),
                             failure_threshold: <span class="self">self</span>.exchange.failure_threshold(),
-
                             sig_lists: Vec::new(),
                             signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.exchange.total_nodes()],
-                            phantom: PhantomData,
-                        };
-                        either::Left(new_accumulator)
+                        })
                     }
                 };
 

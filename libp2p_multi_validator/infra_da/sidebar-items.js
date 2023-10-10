@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_num_tx_per_round","libp2p_generate_indexed_identity","main_entry_point","run_orchestrator_da"],"struct":["Libp2pDARun","WebServerDARun"],"trait":["RunDA"]};

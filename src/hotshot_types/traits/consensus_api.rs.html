@@ -162,11 +162,18 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingConsensusApi`] and [`ValidatingConsensusApi`] traits.
 
 </span><span class="kw">use crate</span>::{
     certificate::QuorumCertificate,
-    data::LeafType,
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     message::{DataMessage, SequencingMessage},
@@ -176,9 +183,10 @@
         signature_key::SignatureKey,
         storage::StorageError,
     },
+    vote::VoteType,
 };
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>commit::Commitment;
+
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="doccomment">/// The API that [`HotStuff`] needs to talk to the system, implemented for both validating and
@@ -261,7 +269,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
         leaf_views: Vec&lt;LEAF&gt;,
-        decide_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
+        decide_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
     ) {
         <span class="self">self</span>.send_event(Event {
             view_number,
@@ -293,21 +301,27 @@
 &gt;: ConsensusSharedApi&lt;TYPES, LEAF, I&gt;
 {
     <span class="doccomment">/// Send a direct message to the given recipient
-    </span><span class="kw">async fn </span>send_direct_message(
+    </span><span class="kw">async fn </span>send_direct_message&lt;PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// send a direct message using the DA communication channel
-    </span><span class="kw">async fn </span>send_direct_da_message(
+    </span><span class="kw">async fn </span>send_direct_da_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Send a broadcast message to the entire network.
-    </span><span class="kw">async fn </span>send_broadcast_message(
+    </span><span class="kw">async fn </span>send_broadcast_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt;;

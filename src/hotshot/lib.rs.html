@@ -1071,6 +1071,38 @@
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
 <a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1092,10 +1124,12 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
-<span class="doccomment">/// Contains structures and functions for committee election
+<span class="doccomment">/// Data availability support
+</span><span class="comment">// pub mod da;
+</span><span class="doccomment">/// Contains structures and functions for committee election
 </span><span class="kw">pub mod </span>certificate;
 <span class="attr">#[cfg(feature = <span class="string">&quot;demo&quot;</span>)]
-</span><span class="kw">pub mod </span>demo;
+</span><span class="kw">pub mod </span>demos;
 <span class="doccomment">/// Contains traits consumed by [`HotShot`]
 </span><span class="kw">pub mod </span>traits;
 <span class="doccomment">/// Contains types used by the crate
@@ -1107,17 +1141,17 @@
     certificate::QuorumCertificate,
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_view_sync_task,
+        add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
-    async_primitives::broadcast::BroadcastSender,
-    channel::UnboundedSender,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
-<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+<span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>custom_debug::Debug;
@@ -1128,10 +1162,9 @@
 <span class="kw">use </span>hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 
 <span class="kw">use </span>hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
-    data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, DeltasType, LeafType, ProposalType, QuorumProposal, SequencingLeaf},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -1151,12 +1184,12 @@
         storage::StoredView,
         State,
     },
-    vote::ViewSyncData,
+    vote::{ViewSyncData, VoteType},
     HotShotConfig,
 };
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
@@ -1186,6 +1219,7 @@
 
     <span class="doccomment">/// Configuration items for this hotshot instance
     </span>config: HotShotConfig&lt;
+        TYPES::SignatureKey,
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
         TYPES::ElectionConfigType,
     &gt;,
@@ -1205,12 +1239,20 @@
     <span class="doccomment">/// a reference to the metrics that the implementor is using.
     </span>_metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
 
+    <span class="doccomment">/// Transactions
+    /// (this is shared btwn hotshot and `Consensus`)
+    </span>transactions:
+        Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
+
     <span class="doccomment">/// The hotstuff implementation
     </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
 
     <span class="doccomment">/// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
     </span>channel_maps: (ChannelMaps&lt;TYPES, I&gt;, <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;TYPES, I&gt;&gt;),
+
+    <span class="doccomment">/// for receiving messages in the network lookup task
+    </span>recv_network_lookup: Arc&lt;Mutex&lt;UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;&gt;&gt;,
 
     <span class="comment">// global_registry: GlobalRegistry,
     </span><span class="doccomment">/// Access to the output event stream.
@@ -1241,6 +1283,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;
+            TYPES::SignatureKey,
             &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
             TYPES::ElectionConfigType,
         &gt;,
@@ -1286,6 +1329,8 @@
             state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
+            transactions: Arc::default(),
+            seen_transactions: HashSet::new(),
             saved_leaves,
             saved_blocks,
             <span class="comment">// TODO this is incorrect
@@ -1296,15 +1341,20 @@
             invalid_qc: <span class="number">0</span>,
         };
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
+        <span class="kw">let </span>txns = consensus.read().<span class="kw">await</span>.get_transactions();
 
+        <span class="kw">let </span>(_send_network_lookup, recv_network_lookup) = unbounded();
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             id: nonce,
             channel_maps: I::new_channel_maps(start_view),
             consensus,
+            transactions: txns,
             public_key,
             private_key,
             config,
-            storage,
+            <span class="comment">// networking,
+            </span>storage,
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
             _metrics: metrics,
@@ -1460,6 +1510,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         node_id: u64,
         config: HotShotConfig&lt;
+            TYPES::SignatureKey,
             &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry,
             TYPES::ElectionConfigType,
         &gt;,
@@ -1608,6 +1659,11 @@
 <span class="doccomment">/// [`HotShot`] implementations that depend on [`TYPES::ConsensusType`].
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>HotShotType&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Get the [`transactions`] field of [`HotShot`].
+    </span><span class="kw">fn </span>transactions(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;;
+
     <span class="doccomment">/// Get the [`hotstuff`] field of [`HotShot`].
     </span><span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;;
 
@@ -1707,7 +1763,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
+        TYPES: NodeType,
         I: NodeImplementation&lt;
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -1720,8 +1776,8 @@
             TYPES,
             Message&lt;TYPES, I&gt;,
             Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
-            Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
+            Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+            Commitment = SequencingLeaf&lt;TYPES&gt;,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -1729,7 +1785,7 @@
             Message&lt;TYPES, I&gt;,
             Proposal = DAProposal&lt;TYPES&gt;,
             Certificate = DACertificate&lt;TYPES&gt;,
-            Commitment = Commitment&lt;TYPES::BlockType&gt;,
+            Commitment = TYPES::BlockType,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
     ViewSyncEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
@@ -1737,10 +1793,16 @@
             Message&lt;TYPES, I&gt;,
             Proposal = ViewSyncCertificate&lt;TYPES&gt;,
             Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-            Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+            Commitment = ViewSyncData&lt;TYPES&gt;,
             Membership = MEMBERSHIP,
         &gt; + <span class="lifetime">&#39;static</span>,
 {
+    <span class="kw">fn </span>transactions(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.transactions
+    }
+
     <span class="kw">fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
     }
@@ -1812,13 +1874,6 @@
         )
         .<span class="kw">await</span>;
         <span class="kw">let </span>task_runner = add_da_task(
-            task_runner,
-            internal_event_stream.clone(),
-            committee_exchange.clone(),
-            handle.clone(),
-        )
-        .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_transaction_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
@@ -1986,7 +2041,10 @@
         I: NodeImplementation&lt;TYPES, ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;&gt;,
     &gt; SequencingConsensusApi&lt;TYPES, I::Leaf, I&gt; <span class="kw">for </span>HotShotSequencingConsensusApi&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>send_direct_message(
+    <span class="kw">async fn </span>send_direct_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
@@ -2011,7 +2069,10 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>send_direct_da_message(
+    <span class="kw">async fn </span>send_direct_da_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
         message: SequencingMessage&lt;TYPES, I&gt;,
@@ -2038,7 +2099,10 @@
 
     <span class="comment">// TODO (DA) Refactor ConsensusApi and HotShot to use SystemContextInner directly.
     // &lt;https://github.com/EspressoSystems/HotShot/issues/1194&gt;
-    </span><span class="kw">async fn </span>send_broadcast_message(
+    </span><span class="kw">async fn </span>send_broadcast_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: SequencingMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
@@ -2132,7 +2196,7 @@
                 context: err.to_string(),
             })<span class="question-mark">?</span>;
         <span class="kw">let </span>time = TYPES::Time::genesis();
-        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES, Commitment&lt;LEAF&gt;&gt;::genesis();
+        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES, LEAF&gt;::genesis();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: LEAF::new(time, justify_qc, genesis_block, state),

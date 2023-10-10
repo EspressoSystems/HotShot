@@ -619,11 +619,37 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::implementations::CombinedNetworks;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>hotshot::{
-    demo::SDemoState,
+    demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
         election::static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
         implementations::{
@@ -632,18 +658,18 @@
         },
         NodeImplementation,
     },
-    types::bn254::BLSPubKey,
+    types::bn254::BN254Pub,
 };
 <span class="kw">use </span>hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::ViewSyncCertificate,
-    data::{QuorumProposal, SequencingLeaf, ViewNumber},
+    data::{DAProposal, QuorumProposal, SequencingLeaf, ViewNumber},
     message::{Message, SequencingMessage},
     traits::{
         election::{CommitteeExchange, QuorumExchange, ViewSyncExchange},
         network::{TestableChannelImplementation, TestableNetworkingImplementation},
         node_implementation::{ChannelMaps, NodeType, SequencingExchanges, TestableExchange},
     },
+    vote::{DAVote, QuorumVote, ViewSyncVote},
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -663,10 +689,10 @@
 </span><span class="kw">pub struct </span>SequencingTestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>SequencingTestTypes {
     <span class="kw">type </span>Time = ViewNumber;
-    <span class="kw">type </span>BlockType = VIDBlockPayload;
-    <span class="kw">type </span>SignatureKey = BLSPubKey;
+    <span class="kw">type </span>BlockType = SDemoBlock;
+    <span class="kw">type </span>SignatureKey = BN254Pub;
     <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;<span class="self">Self</span>::SignatureKey&gt;;
-    <span class="kw">type </span>Transaction = VIDTransaction;
+    <span class="kw">type </span>Transaction = SDemoTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
     <span class="kw">type </span>StateType = SDemoState;
 }
@@ -686,33 +712,80 @@
 <span class="kw">pub type </span>StaticMembership =
     StaticCommittee&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;;
 
-<span class="kw">pub type </span>StaticMemoryDAComm =
-    MemoryCommChannel&lt;SequencingTestTypes, SequencingMemoryImpl, StaticMembership&gt;;
+<span class="kw">pub type </span>StaticMemoryDAComm = MemoryCommChannel&lt;
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    DAProposal&lt;SequencingTestTypes&gt;,
+    DAVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticLibp2pDAComm =
-    Libp2pCommChannel&lt;SequencingTestTypes, SequencingLibp2pImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticLibp2pDAComm = Libp2pCommChannel&lt;
+    SequencingTestTypes,
+    SequencingLibp2pImpl,
+    DAProposal&lt;SequencingTestTypes&gt;,
+    DAVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticWebDAComm = WebCommChannel&lt;SequencingTestTypes, SequencingWebImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticWebDAComm = WebCommChannel&lt;
+    SequencingTestTypes,
+    SequencingWebImpl,
+    DAProposal&lt;SequencingTestTypes&gt;,
+    DAVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
 <span class="kw">type </span>StaticFallbackComm =
     WebServerWithFallbackCommChannel&lt;SequencingTestTypes, StaticFallbackImpl, StaticMembership&gt;;
 
-<span class="kw">pub type </span>StaticMemoryQuorumComm =
-    MemoryCommChannel&lt;SequencingTestTypes, SequencingMemoryImpl, StaticMembership&gt;;
+<span class="kw">pub type </span>StaticMemoryQuorumComm = MemoryCommChannel&lt;
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    QuorumVote&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticLibp2pQuorumComm =
-    Libp2pCommChannel&lt;SequencingTestTypes, SequencingLibp2pImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticLibp2pQuorumComm = Libp2pCommChannel&lt;
+    SequencingTestTypes,
+    SequencingLibp2pImpl,
+    QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    QuorumVote&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticWebQuorumComm = WebCommChannel&lt;SequencingTestTypes, SequencingWebImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticWebQuorumComm = WebCommChannel&lt;
+    SequencingTestTypes,
+    SequencingWebImpl,
+    QuorumProposal&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    QuorumVote&lt;SequencingTestTypes, SequencingLeaf&lt;SequencingTestTypes&gt;&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">pub type </span>StaticMemoryViewSyncComm =
-    MemoryCommChannel&lt;SequencingTestTypes, SequencingMemoryImpl, StaticMembership&gt;;
+<span class="kw">pub type </span>StaticMemoryViewSyncComm = MemoryCommChannel&lt;
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    ViewSyncCertificate&lt;SequencingTestTypes&gt;,
+    ViewSyncVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticLibp2pViewSyncComm =
-    Libp2pCommChannel&lt;SequencingTestTypes, SequencingLibp2pImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticLibp2pViewSyncComm = Libp2pCommChannel&lt;
+    SequencingTestTypes,
+    SequencingLibp2pImpl,
+    ViewSyncCertificate&lt;SequencingTestTypes&gt;,
+    ViewSyncVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
-<span class="kw">type </span>StaticWebViewSyncComm =
-    WebCommChannel&lt;SequencingTestTypes, SequencingWebImpl, StaticMembership&gt;;
+<span class="kw">type </span>StaticWebViewSyncComm = WebCommChannel&lt;
+    SequencingTestTypes,
+    SequencingWebImpl,
+    ViewSyncCertificate&lt;SequencingTestTypes&gt;,
+    ViewSyncVote&lt;SequencingTestTypes&gt;,
+    StaticMembership,
+&gt;;
 
 <span class="kw">pub type </span>SequencingLibp2pExchange = SequencingExchanges&lt;
     SequencingTestTypes,
@@ -805,24 +878,9 @@
 
         Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>network = Arc::new(network_generator(id));
-            <span class="kw">let </span>quorum_chan =
-                &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network.clone());
-            <span class="kw">let </span>committee_chan =
-                &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network.clone());
-            <span class="kw">let </span>view_sync_chan =
-                &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network);
+            <span class="kw">let </span>quorum_chan = &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network.clone());
+            <span class="kw">let </span>committee_chan = &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network.clone());
+            <span class="kw">let </span>view_sync_chan = &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingLibp2pImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network);
 
             (quorum_chan, committee_chan, view_sync_chan)
         })
@@ -914,24 +972,9 @@
         Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>network = Arc::new(network_generator(id));
             <span class="kw">let </span>network_da = Arc::new(network_da_generator(id));
-            <span class="kw">let </span>quorum_chan =
-                &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network.clone());
-            <span class="kw">let </span>committee_chan =
-                &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network_da);
-            <span class="kw">let </span>view_sync_chan =
-                &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network);
+            <span class="kw">let </span>quorum_chan = &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network.clone());
+            <span class="kw">let </span>committee_chan = &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network_da);
+            <span class="kw">let </span>view_sync_chan = &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingMemoryImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network);
 
             (quorum_chan, committee_chan, view_sync_chan)
         })
@@ -1049,24 +1092,9 @@
         Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>network = Arc::new(network_generator(id));
             <span class="kw">let </span>network_da = Arc::new(network_da_generator(id));
-            <span class="kw">let </span>quorum_chan =
-                &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network.clone());
-            <span class="kw">let </span>committee_chan =
-                &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network_da);
-            <span class="kw">let </span>view_sync_chan =
-                &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
-                    SequencingTestTypes,
-                    Message&lt;SequencingTestTypes, SequencingWebImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network);
+            <span class="kw">let </span>quorum_chan = &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingWebImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network.clone());
+            <span class="kw">let </span>committee_chan = &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingWebImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network_da);
+            <span class="kw">let </span>view_sync_chan = &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;SequencingTestTypes, Message&lt;SequencingTestTypes, SequencingWebImpl&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()(network);
 
             (quorum_chan, committee_chan, view_sync_chan)
         })
@@ -1203,20 +1231,44 @@
                 &lt;&lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
                     SequencingTestTypes,
                     Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network.clone());
+                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                    QuorumProposal&lt;
+                        SequencingTestTypes,
+                        &lt;StaticFallbackImpl <span class="kw">as </span>NodeImplementation&lt;SequencingTestTypes&gt;&gt;::Leaf,
+                    &gt;,
+                    QuorumVote&lt;
+                        SequencingTestTypes,
+                        &lt;StaticFallbackImpl <span class="kw">as </span>NodeImplementation&lt;SequencingTestTypes&gt;&gt;::Leaf,
+                    &gt;,
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                &gt;&gt;::generate_network()(network.clone());
             <span class="kw">let </span>committee_chan =
                 &lt;&lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
                     SequencingTestTypes,
                     Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network_da);
+                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                    DAProposal&lt;SequencingTestTypes&gt;,
+                    DAVote&lt;SequencingTestTypes&gt;,
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                &gt;&gt;::generate_network()(network_da);
             <span class="kw">let </span>view_sync_chan =
                 &lt;&lt;<span class="self">Self</span>::ViewSyncExchange <span class="kw">as </span>hotshot_types::traits::election::ConsensusExchange&lt;
                     SequencingTestTypes,
                     Message&lt;SequencingTestTypes, StaticFallbackImpl&gt;,
-                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network(
-                )(network);
+                &gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                    ViewSyncCertificate&lt;SequencingTestTypes&gt;,
+                    ViewSyncVote&lt;SequencingTestTypes&gt;,
+                    <span class="kw">_</span>,
+                    <span class="kw">_</span>,
+                &gt;&gt;::generate_network()(network);
             (quorum_chan, committee_chan, view_sync_chan)
         })
     }

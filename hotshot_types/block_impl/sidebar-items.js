@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["NUM_CHUNKS","NUM_STORAGE_NODES"],"enum":["BlockPayloadError"],"struct":["GenesisAfterStartSnafu","GenesisFailedSnafu","InvalidBlockSnafu","PreviousStateMismatchSnafu","ReusedTxnSnafu","VIDBlockPayload","VIDTransaction"]};

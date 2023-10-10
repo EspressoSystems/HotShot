@@ -324,10 +324,26 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">pub use </span><span class="kw">crate</span>::traits::node_implementation::ViewQueue;
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
+<span class="kw">use </span>async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+<span class="kw">use </span>std::collections::HashSet;
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::Terminator;
 <span class="kw">use crate</span>::{
@@ -365,6 +381,12 @@
     <span class="doccomment">/// last view had a successful decide event
     </span><span class="kw">pub </span>last_decided_view: TYPES::Time,
 
+    <span class="doccomment">/// A list of undecided transactions
+    </span><span class="kw">pub </span>transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
+
+    <span class="doccomment">/// A list of transactions we&#39;ve seen decided, but didn&#39;t receive
+    </span><span class="kw">pub </span>seen_transactions: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
+
     <span class="doccomment">/// Map of leaf hash -&gt; leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
@@ -379,7 +401,7 @@
     </span><span class="kw">pub </span>locked_view: TYPES::Time,
 
     <span class="doccomment">/// the highqc per spec
-    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="attr">#[debug(skip)]
@@ -580,6 +602,12 @@
                 }
             });
         <span class="self">self</span>.state_map = <span class="self">self</span>.state_map.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
+    }
+
+    <span class="doccomment">/// return a clone of the internal storage of unclaimed transactions
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt; {
+        <span class="self">self</span>.transactions.clone()
     }
 
     <span class="doccomment">/// Gets the last decided state

@@ -62,14 +62,12 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
 </span><span class="kw">use crate</span>::{
     certificate::QuorumCertificate, data::LeafType, error::HotShotError,
     traits::node_implementation::NodeType,
 };
-<span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>std::sync::Arc;
 <span class="doccomment">/// A status event emitted by a `HotShot` instance
 ///
@@ -108,7 +106,7 @@
         ///
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
-        </span>qc: Arc&lt;QuorumCertificate&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;,
+        </span>qc: Arc&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
         <span class="doccomment">/// Optional information of the number of transactions in the block, for logging purposes.
         </span>block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     },

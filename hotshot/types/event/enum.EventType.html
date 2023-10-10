@@ -6,7 +6,7 @@
     },
     Decide {
         leaf_chain: <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;LEAF, <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;,
-        qc: <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;,
+        qc: <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, LEAF&gt;&gt;,
         block_size: <a class="enum" href="https://doc.rust-lang.org/1.72.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.72.1/std/primitive.u64.html">u64</a>&gt;,
     },
     ReplicaViewTimeout {
@@ -27,7 +27,7 @@ number, and is thus always returned wrapped in an <a href="../struct.Event.html"
 <p>This list is sorted in reverse view number order, with the newest (highest view number)
 block first in the list.</p>
 <p>This list may be incomplete if the node is currently performing catchup.</p>
-</div></div><div class="sub-variant-field"><span id="variant.Decide.field.qc" class="small-section-header"><a href="#variant.Decide.field.qc" class="anchor field">§</a><code>qc: <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, Commitment&lt;LEAF&gt;&gt;&gt;</code></span><div class="docblock"><p>The QC signing the most recent leaf in <code>leaf_chain</code>.</p>
+</div></div><div class="sub-variant-field"><span id="variant.Decide.field.qc" class="small-section-header"><a href="#variant.Decide.field.qc" class="anchor field">§</a><code>qc: <a class="struct" href="https://doc.rust-lang.org/1.72.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../../certificate/struct.QuorumCertificate.html" title="struct hotshot::certificate::QuorumCertificate">QuorumCertificate</a>&lt;TYPES, LEAF&gt;&gt;</code></span><div class="docblock"><p>The QC signing the most recent leaf in <code>leaf_chain</code>.</p>
 <p>Note that the QC for each additional leaf in the chain can be obtained from the leaf
 before it using</p>
 </div></div><div class="sub-variant-field"><span id="variant.Decide.field.block_size" class="small-section-header"><a href="#variant.Decide.field.block_size" class="anchor field">§</a><code>block_size: <a class="enum" href="https://doc.rust-lang.org/1.72.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.72.1/std/primitive.u64.html">u64</a>&gt;</code></span><div class="docblock"><p>Optional information of the number of transactions in the block, for logging purposes.</p>

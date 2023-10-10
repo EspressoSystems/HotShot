@@ -73,9 +73,12 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra_da::WebServerDARun;
 <span class="kw">use </span>hotshot::{
-    demo::DemoTypes,
+    demos::sdemo::SDemoTypes,
     traits::{
         election::static_committee::GeneralStaticCommittee,
         implementations::{MemoryStorage, WebCommChannel},
@@ -97,55 +100,58 @@
 <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>NodeImpl {}
 
-<span class="kw">pub type </span>ThisLeaf = SequencingLeaf&lt;DemoTypes&gt;;
+<span class="kw">pub type </span>ThisLeaf = SequencingLeaf&lt;SDemoTypes&gt;;
 <span class="kw">pub type </span>ThisMembership =
-    GeneralStaticCommittee&lt;DemoTypes, ThisLeaf, &lt;DemoTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
-<span class="kw">pub type </span>DANetwork = WebCommChannel&lt;DemoTypes, NodeImpl, ThisMembership&gt;;
-<span class="kw">pub type </span>QuorumNetwork = WebCommChannel&lt;DemoTypes, NodeImpl, ThisMembership&gt;;
-<span class="kw">pub type </span>ViewSyncNetwork = WebCommChannel&lt;DemoTypes, NodeImpl, ThisMembership&gt;;
+    GeneralStaticCommittee&lt;SDemoTypes, ThisLeaf, &lt;SDemoTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
+<span class="kw">pub type </span>DANetwork =
+    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisDAProposal, ThisDAVote, ThisMembership&gt;;
+<span class="kw">pub type </span>QuorumNetwork =
+    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisQuorumProposal, ThisQuorumVote, ThisMembership&gt;;
+<span class="kw">pub type </span>ViewSyncNetwork =
+    WebCommChannel&lt;SDemoTypes, NodeImpl, ThisViewSyncProposal, ThisViewSyncVote, ThisMembership&gt;;
 
-<span class="kw">pub type </span>ThisDAProposal = DAProposal&lt;DemoTypes&gt;;
-<span class="kw">pub type </span>ThisDAVote = DAVote&lt;DemoTypes&gt;;
+<span class="kw">pub type </span>ThisDAProposal = DAProposal&lt;SDemoTypes&gt;;
+<span class="kw">pub type </span>ThisDAVote = DAVote&lt;SDemoTypes&gt;;
 
-<span class="kw">pub type </span>ThisQuorumProposal = QuorumProposal&lt;DemoTypes, ThisLeaf&gt;;
-<span class="kw">pub type </span>ThisQuorumVote = QuorumVote&lt;DemoTypes, ThisLeaf&gt;;
+<span class="kw">pub type </span>ThisQuorumProposal = QuorumProposal&lt;SDemoTypes, ThisLeaf&gt;;
+<span class="kw">pub type </span>ThisQuorumVote = QuorumVote&lt;SDemoTypes, ThisLeaf&gt;;
 
-<span class="kw">pub type </span>ThisViewSyncProposal = ViewSyncCertificate&lt;DemoTypes&gt;;
-<span class="kw">pub type </span>ThisViewSyncVote = ViewSyncVote&lt;DemoTypes&gt;;
+<span class="kw">pub type </span>ThisViewSyncProposal = ViewSyncCertificate&lt;SDemoTypes&gt;;
+<span class="kw">pub type </span>ThisViewSyncVote = ViewSyncVote&lt;SDemoTypes&gt;;
 
-<span class="kw">impl </span>NodeImplementation&lt;DemoTypes&gt; <span class="kw">for </span>NodeImpl {
-    <span class="kw">type </span>Storage = MemoryStorage&lt;DemoTypes, <span class="self">Self</span>::Leaf&gt;;
-    <span class="kw">type </span>Leaf = SequencingLeaf&lt;DemoTypes&gt;;
+<span class="kw">impl </span>NodeImplementation&lt;SDemoTypes&gt; <span class="kw">for </span>NodeImpl {
+    <span class="kw">type </span>Storage = MemoryStorage&lt;SDemoTypes, <span class="self">Self</span>::Leaf&gt;;
+    <span class="kw">type </span>Leaf = SequencingLeaf&lt;SDemoTypes&gt;;
     <span class="kw">type </span>Exchanges = SequencingExchanges&lt;
-        DemoTypes,
-        Message&lt;DemoTypes, <span class="self">Self</span>&gt;,
+        SDemoTypes,
+        Message&lt;SDemoTypes, <span class="self">Self</span>&gt;,
         QuorumExchange&lt;
-            DemoTypes,
+            SDemoTypes,
             <span class="self">Self</span>::Leaf,
             ThisQuorumProposal,
             ThisMembership,
             QuorumNetwork,
-            Message&lt;DemoTypes, <span class="self">Self</span>&gt;,
+            Message&lt;SDemoTypes, <span class="self">Self</span>&gt;,
         &gt;,
-        CommitteeExchange&lt;DemoTypes, ThisMembership, DANetwork, Message&lt;DemoTypes, <span class="self">Self</span>&gt;&gt;,
+        CommitteeExchange&lt;SDemoTypes, ThisMembership, DANetwork, Message&lt;SDemoTypes, <span class="self">Self</span>&gt;&gt;,
         ViewSyncExchange&lt;
-            DemoTypes,
+            SDemoTypes,
             ThisViewSyncProposal,
             ThisMembership,
             ViewSyncNetwork,
-            Message&lt;DemoTypes, <span class="self">Self</span>&gt;,
+            Message&lt;SDemoTypes, <span class="self">Self</span>&gt;,
         &gt;,
     &gt;;
-    <span class="kw">type </span>ConsensusMessage = SequencingMessage&lt;DemoTypes, <span class="self">Self</span>&gt;;
+    <span class="kw">type </span>ConsensusMessage = SequencingMessage&lt;SDemoTypes, <span class="self">Self</span>&gt;;
 
     <span class="kw">fn </span>new_channel_maps(
-        start_view: &lt;DemoTypes <span class="kw">as </span>NodeType&gt;::Time,
+        start_view: &lt;SDemoTypes <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; (
-        ChannelMaps&lt;DemoTypes, <span class="self">Self</span>&gt;,
-        <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;DemoTypes, <span class="self">Self</span>&gt;&gt;,
+        ChannelMaps&lt;SDemoTypes, <span class="self">Self</span>&gt;,
+        <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;SDemoTypes, <span class="self">Self</span>&gt;&gt;,
     ) {
         (ChannelMaps::new(start_view), <span class="prelude-val">None</span>)
     }
 }
-<span class="kw">pub type </span>ThisRun = WebServerDARun&lt;DemoTypes, NodeImpl, ThisMembership&gt;;
+<span class="kw">pub type </span>ThisRun = WebServerDARun&lt;SDemoTypes, NodeImpl, ThisMembership&gt;;
 </code></pre></div></section></main></body></html>

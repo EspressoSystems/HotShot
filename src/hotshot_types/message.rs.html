@@ -432,64 +432,6 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -497,7 +439,7 @@
 
 </span><span class="kw">use crate</span>::{
     certificate::DACertificate,
-    data::{DAProposal, ProposalType, VidDisperse},
+    data::{DAProposal, ProposalType},
     traits::{
         network::{NetworkMsg, ViewMessage},
         node_implementation::{
@@ -507,7 +449,6 @@
     },
     vote::{DAVote, QuorumVote, ViewSyncVote, VoteType},
 };
-<span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -545,13 +486,11 @@
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>Messages&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(<span class="kw">pub </span>Vec&lt;Message&lt;TYPES, I&gt;&gt;);
 
-<span class="doccomment">/// A message type agnostic description of a message&#39;s purpose
+<span class="doccomment">/// A message type agnostic description of a messages purpose
 </span><span class="attr">#[derive(PartialEq, Copy, Clone)]
 </span><span class="kw">pub enum </span>MessagePurpose {
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal,
-    <span class="doccomment">/// Message with most recent proposal the server has
-    </span>CurrentProposal,
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote,
     <span class="doccomment">/// Message with a view sync vote.
@@ -564,12 +503,6 @@
     </span>Internal,
     <span class="doccomment">/// Data message
     </span>Data,
-    <span class="doccomment">/// VID disperse, like [`Proposal`].
-    </span>VidDisperse,
-    <span class="doccomment">/// VID vote, like [`Vote`].
-    </span>VidVote,
-    <span class="doccomment">/// VID certificate, like [`DAC`].
-    </span>VidCert,
 }
 
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -642,7 +575,7 @@
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Message with a quorum vote.
-    </span>Vote(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;, TYPES::SignatureKey),
+    </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Message with a view sync vote.
     </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),
     <span class="doccomment">/// Message with a view sync certificate.
@@ -708,12 +641,6 @@
     </span>DAVote(DAVote&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Certificate for the DA.
     </span>DACertificate(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// VID dispersal data. Like [`DAProposal`]
-    </span>VidDisperseMsg(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Vote from VID storage node. Like [`DAVote`]
-    </span>VidVote(DAVote&lt;TYPES&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Certificate for VID. Like [`DACertificate`]
-    </span>VidCertificate(DACertificate&lt;TYPES&gt;, TYPES::SignatureKey),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;ProcessedCommitteeConsensusMessage&lt;TYPES&gt;&gt;
@@ -729,15 +656,6 @@
             }
             ProcessedCommitteeConsensusMessage::DACertificate(cert, <span class="kw">_</span>) =&gt; {
                 CommitteeConsensusMessage::DACertificate(cert)
-            }
-            ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, <span class="kw">_</span>) =&gt; {
-                CommitteeConsensusMessage::VidDisperseMsg(disperse)
-            }
-            ProcessedCommitteeConsensusMessage::VidVote(v, <span class="kw">_</span>) =&gt; {
-                CommitteeConsensusMessage::VidVote(v)
-            }
-            ProcessedCommitteeConsensusMessage::VidCertificate(cert, <span class="kw">_</span>) =&gt; {
-                CommitteeConsensusMessage::VidCertificate(cert)
             }
         }
     }
@@ -755,15 +673,6 @@
             }
             CommitteeConsensusMessage::DACertificate(cert) =&gt; {
                 ProcessedCommitteeConsensusMessage::DACertificate(cert, sender)
-            }
-            CommitteeConsensusMessage::VidDisperseMsg(disperse) =&gt; {
-                ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
-            }
-            CommitteeConsensusMessage::VidVote(v) =&gt; {
-                ProcessedCommitteeConsensusMessage::VidVote(v, sender)
-            }
-            CommitteeConsensusMessage::VidCertificate(cert) =&gt; {
-                ProcessedCommitteeConsensusMessage::VidCertificate(cert, sender)
             }
         }
     }
@@ -807,7 +716,7 @@
     </span>Proposal(Proposal&lt;QuorumProposalType&lt;TYPES, I&gt;&gt;),
 
     <span class="doccomment">/// Message with a quorum vote.
-    </span>Vote(QuorumVote&lt;TYPES, Commitment&lt;I::Leaf&gt;&gt;),
+    </span>Vote(QuorumVote&lt;TYPES, I::Leaf&gt;),
 
     <span class="doccomment">/// Message with a view sync vote.
     </span>ViewSyncVote(ViewSyncVote&lt;TYPES&gt;),
@@ -832,23 +741,6 @@
 
     <span class="doccomment">/// Certificate data is available
     </span>DACertificate(DACertificate&lt;TYPES&gt;),
-
-    <span class="doccomment">/// Initiate VID dispersal.
-    ///
-    /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from [`VidDisperse`].
-    /// TODO this variant should not be a [`CommitteeConsensusMessage`] because &lt;https://github.com/EspressoSystems/HotShot/issues/1696&gt;
-    </span>VidDisperseMsg(Proposal&lt;VidDisperse&lt;TYPES&gt;&gt;),
-
-    <span class="doccomment">/// Vote for VID disperse data
-    ///
-    /// Like [`DAVote`].
-    /// TODO currently re-using [`DAVote`]; do we need a separate VID vote? &lt;https://github.com/EspressoSystems/HotShot/issues/1703&gt;
-    </span>VidVote(DAVote&lt;TYPES&gt;),
-    <span class="doccomment">/// VID certificate data is available
-    ///
-    /// Like [`DACertificate`]
-    /// TODO currently re-using [`DACertificate`]; do we need a separate VID cert? &lt;https://github.com/EspressoSystems/HotShot/issues/1716&gt;
-    </span>VidCertificate(DACertificate&lt;TYPES&gt;),
 }
 
 <span class="doccomment">/// Messages related to the consensus protocol.
@@ -901,7 +793,7 @@
                         // this should match replica upon receipt
                         </span>p.data.get_view_number()
                     }
-                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.get_view(),
+                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.current_view(),
                     GeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                         InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
                     },
@@ -918,13 +810,8 @@
                         // this should match replica upon receipt
                         </span>p.data.get_view_number()
                     }
-                    CommitteeConsensusMessage::DAVote(vote_message) =&gt; vote_message.get_view(),
-                    CommitteeConsensusMessage::DACertificate(cert)
-                    | CommitteeConsensusMessage::VidCertificate(cert) =&gt; cert.view_number,
-                    CommitteeConsensusMessage::VidDisperseMsg(disperse) =&gt; {
-                        disperse.data.get_view_number()
-                    }
-                    CommitteeConsensusMessage::VidVote(vote) =&gt; vote.get_view(),
+                    CommitteeConsensusMessage::DAVote(vote_message) =&gt; vote_message.current_view(),
+                    CommitteeConsensusMessage::DACertificate(cert) =&gt; cert.view_number,
                 }
             }
         }
@@ -944,10 +831,7 @@
             Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
                 CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
-                CommitteeConsensusMessage::VidVote(<span class="kw">_</span>) =&gt; MessagePurpose::VidVote,
                 CommitteeConsensusMessage::DACertificate(<span class="kw">_</span>) =&gt; MessagePurpose::DAC,
-                CommitteeConsensusMessage::VidDisperseMsg(<span class="kw">_</span>) =&gt; MessagePurpose::VidDisperse,
-                CommitteeConsensusMessage::VidCertificate(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
             },
         }
     }

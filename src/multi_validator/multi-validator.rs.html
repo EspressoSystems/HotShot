@@ -72,7 +72,7 @@
     logging::{setup_backtrace, setup_logging},
 };
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::demo::DemoTypes;
+<span class="kw">use </span>hotshot::demos::sdemo::SDemoTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>std::net::IpAddr;
 <span class="kw">use </span>tracing::instrument;
@@ -118,7 +118,7 @@
     <span class="kw">for _ in </span><span class="number">0</span>..args.num_nodes {
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
             infra_da::main_entry_point::&lt;
-                DemoTypes,
+                SDemoTypes,
                 ThisMembership,
                 DANetwork,
                 QuorumNetwork,

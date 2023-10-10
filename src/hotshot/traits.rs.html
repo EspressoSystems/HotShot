@@ -32,7 +32,7 @@
 <span class="kw">mod </span>node_implementation;
 <span class="kw">mod </span>storage;
 
-<span class="kw">pub use </span>hotshot_types::traits::{BlockPayload, State};
+<span class="kw">pub use </span>hotshot_types::traits::{Block, State};
 <span class="kw">pub use </span>networking::{NetworkError, NetworkReliability};
 <span class="kw">pub use </span>node_implementation::{NodeImplementation, TestableNodeImplementation};
 <span class="kw">pub use </span>storage::{<span class="prelude-ty">Result </span><span class="kw">as </span>StorageResult, Storage};
@@ -42,7 +42,7 @@
     <span class="kw">pub use super</span>::{
         networking::{
             libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
-            memory_network::{MasterMap, MemoryCommChannel, MemoryNetwork},
+            memory_network::{DummyReliability, MasterMap, MemoryCommChannel, MemoryNetwork},
             web_server_libp2p_fallback::{CombinedNetworks, WebServerWithFallbackCommChannel},
             web_server_network::{WebCommChannel, WebServerNetwork},
         },

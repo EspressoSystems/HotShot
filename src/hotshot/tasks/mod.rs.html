@@ -563,24 +563,13 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{
     async_spawn, types::SystemContextHandle, DACertificate, HotShotSequencingConsensusApi,
-    QuorumCertificate, SequencingQuorumEx,
+    QuorumCertificate, SequencingQuorumEx, SystemContext,
 };
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>commit::{Commitment, CommitmentBounds};
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn_local};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     boxed_sync,
@@ -598,12 +587,11 @@
         NetworkEventTaskState, NetworkEventTaskTypes, NetworkMessageTaskState,
         NetworkMessageTaskTypes, NetworkTaskKind,
     },
-    transactions::{TransactionTaskState, TransactionsTaskTypes},
     view_sync::{ViewSyncTaskState, ViewSyncTaskStateTypes},
 };
 <span class="kw">use </span>hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::ViewSyncCertificate,
+    constants::LOOK_AHEAD,
     data::{ProposalType, QuorumProposal, SequencingLeaf},
     event::Event,
     message::{Message, Messages, SequencingMessage},
@@ -614,15 +602,79 @@
             CommitteeEx, ExchangesType, NodeImplementation, NodeType, ViewSyncEx,
         },
         state::ConsensusTime,
+        Block,
     },
     vote::{ViewSyncData, VoteType},
 };
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     marker::PhantomData,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
+<span class="kw">use </span>tracing::info;
+
+<span class="doccomment">/// Task to look up a node in the future as needed
+</span><span class="kw">pub async fn </span>network_lookup_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+    hotshot: SystemContext&lt;TYPES, I&gt;,
+    shut_down: Arc&lt;AtomicBool&gt;,
+) {
+    <span class="macro">info!</span>(<span class="string">&quot;Launching network lookup task&quot;</span>);
+    <span class="kw">let </span>networking = hotshot.inner.exchanges.quorum_exchange().network().clone();
+
+    <span class="kw">let </span>inner = hotshot.inner.clone();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>completion_map: HashMap&lt;TYPES::Time, Arc&lt;AtomicBool&gt;&gt; = HashMap::default();
+
+    <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) {
+        <span class="kw">let </span>lock = hotshot.inner.recv_network_lookup.lock().<span class="kw">await</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cur_view)) = lock.recv().<span class="kw">await </span>{
+            <span class="kw">let </span>view_to_lookup = cur_view + LOOK_AHEAD;
+
+            <span class="comment">// perform pruning
+            // TODO in the future btreemap would be better
+            </span>completion_map = completion_map
+                .drain()
+                .filter(|(view, is_done)| {
+                    <span class="kw">if </span>!is_done.load(Ordering::Relaxed) {
+                        <span class="comment">// we are past the view where this is useful
+                        </span><span class="kw">if </span>cur_view &gt;= <span class="kw-2">*</span>view {
+                            is_done.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+                            <span class="kw">return </span><span class="bool-val">true</span>;
+                        }
+                        <span class="comment">// we aren&#39;t done
+                        </span><span class="kw">return </span><span class="bool-val">false</span>;
+                    }
+                    <span class="bool-val">true
+                </span>})
+                .collect();
+
+            <span class="comment">// logic to look ahead
+            </span><span class="kw">if </span>!inner.exchanges.quorum_exchange().is_leader(view_to_lookup) {
+                <span class="kw">let </span>is_done = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
+                completion_map.insert(view_to_lookup, is_done.clone());
+                <span class="kw">let </span>inner = inner.clone();
+                <span class="kw">let </span>networking = networking.clone();
+                async_spawn_local(<span class="kw">async move </span>{
+                    <span class="macro">info!</span>(<span class="string">&quot;starting lookup for {:?}&quot;</span>, view_to_lookup);
+                    <span class="kw">let </span>_result = networking
+                        .lookup_node(inner.exchanges.quorum_exchange().get_leader(view_to_lookup))
+                        .<span class="kw">await</span>;
+                    <span class="macro">info!</span>(<span class="string">&quot;finished lookup for {:?}&quot;</span>, view_to_lookup);
+                });
+            }
+        }
+    }
+
+    <span class="comment">// shut down all child tasks
+    </span><span class="kw">for </span>(<span class="kw">_</span>, is_done) <span class="kw">in </span>completion_map {
+        is_done.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+    }
+}
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -643,9 +695,8 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -661,7 +712,8 @@
 ) -&gt; TaskRunner
 <span class="comment">// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 </span><span class="kw">where
-    </span>EXCHANGE::Networking: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
+    </span>EXCHANGE::Networking:
+        CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
 {
     <span class="kw">let </span>channel = exchange.network().clone();
     <span class="kw">let </span>broadcast_stream = GeneratedStream::&lt;Messages&lt;TYPES, I&gt;&gt;::new(Arc::new(<span class="kw">move </span>|| {
@@ -675,7 +727,7 @@
                         </span>.expect(<span class="string">&quot;Failed to receive broadcast messages&quot;</span>),
                 );
                 <span class="kw">if </span>msgs.<span class="number">0</span>.is_empty() {
-                    async_sleep(Duration::new(<span class="number">0</span>, <span class="number">500</span>)).<span class="kw">await</span>;
+                    async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">break </span>msgs;
                 }
@@ -695,7 +747,7 @@
                         </span>.expect(<span class="string">&quot;Failed to receive direct messages&quot;</span>),
                 );
                 <span class="kw">if </span>msgs.<span class="number">0</span>.is_empty() {
-                    async_sleep(Duration::new(<span class="number">0</span>, <span class="number">500</span>)).<span class="kw">await</span>;
+                    async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">break </span>msgs;
                 }
@@ -753,9 +805,8 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
-    COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES, COMMITMENT&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     EXCHANGE: ConsensusExchange&lt;
             TYPES,
@@ -772,16 +823,19 @@
 ) -&gt; TaskRunner
 <span class="comment">// This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
 </span><span class="kw">where
-    </span>EXCHANGE::Networking: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
+    </span>EXCHANGE::Networking:
+        CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
 {
     <span class="kw">let </span>filter = NetworkEventTaskState::&lt;
         TYPES,
         I,
+        PROPOSAL,
+        VOTE,
         MEMBERSHIP,
         &lt;EXCHANGE <span class="kw">as </span>ConsensusExchange&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::Networking,
     &gt;::filter(task_kind);
     <span class="kw">let </span>channel = exchange.network().clone();
-    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
+    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         channel,
         event_stream: event_stream.clone(),
         view: TYPES::Time::genesis(),
@@ -789,7 +843,7 @@
     };
     <span class="kw">let </span>registry = task_runner.registry.clone();
     <span class="kw">let </span>network_event_handler = HandleEvent(Arc::new(
-        <span class="kw">move </span>|event, <span class="kw-2">mut </span>state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, MEMBERSHIP, <span class="kw">_</span>&gt;| {
+        <span class="kw">move </span>|event, <span class="kw-2">mut </span>state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, MEMBERSHIP, <span class="kw">_</span>&gt;| {
             <span class="kw">let </span>membership = exchange.membership().clone();
             <span class="kw">async move </span>{
                 <span class="kw">let </span>completion_status = state.handle_event(event, <span class="kw-2">&amp;</span>membership).<span class="kw">await</span>;
@@ -801,7 +855,7 @@
     <span class="kw">let </span>networking_name = <span class="string">&quot;Networking Task&quot;</span>;
 
     <span class="kw">let </span>networking_task_builder =
-        TaskBuilder::&lt;NetworkEventTaskTypes&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::new(networking_name.to_string())
+        TaskBuilder::&lt;NetworkEventTaskTypes&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::new(networking_name.to_string())
             .register_event_stream(event_stream.clone(), filter)
             .<span class="kw">await
             </span>.register_registry(<span class="kw-2">&amp;mut </span>registry.clone())
@@ -825,7 +879,7 @@
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 </span><span class="kw">pub async fn </span>add_consensus_task&lt;
-    TYPES: NodeType&lt;BlockType = VIDBlockPayload&gt;,
+    TYPES: NodeType,
     I: NodeImplementation&lt;
         TYPES,
         Leaf = SequencingLeaf&lt;TYPES&gt;,
@@ -842,14 +896,14 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Proposal = QuorumProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        Certificate = QuorumCertificate&lt;TYPES, Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;&gt;,
-        Commitment = Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
+        Certificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+        Commitment = SequencingLeaf&lt;TYPES&gt;,
     &gt;,
     CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;TYPES::BlockType&gt;,
+        Commitment = TYPES::BlockType,
     &gt;,
 {
     <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
@@ -863,7 +917,7 @@
         consensus,
         timeout: handle.hotshot.inner.config.next_view_timeout,
         cur_view: TYPES::Time::new(<span class="number">0</span>),
-        block: VIDBlockPayload::genesis(),
+        block: <span class="prelude-val">Some</span>(TYPES::BlockType::new()),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
         committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
@@ -939,7 +993,7 @@
         TYPES,
         Message&lt;TYPES, I&gt;,
         Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;TYPES::BlockType&gt;,
+        Commitment = TYPES::BlockType,
     &gt;,
 {
     <span class="comment">// build the da task
@@ -987,80 +1041,6 @@
     task_runner.add_task(da_task_id, da_name.to_string(), da_task)
 }
 
-<span class="doccomment">/// add the Transaction Handling task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
-</span><span class="kw">pub async fn </span>add_transaction_task&lt;
-    TYPES: NodeType&lt;Transaction = VIDTransaction, BlockType = VIDBlockPayload&gt;,
-    I: NodeImplementation&lt;
-        TYPES,
-        Leaf = SequencingLeaf&lt;TYPES&gt;,
-        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
-    &gt;,
-&gt;(
-    task_runner: TaskRunner,
-    event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    committee_exchange: CommitteeEx&lt;TYPES, I&gt;,
-    handle: SystemContextHandle&lt;TYPES, I&gt;,
-) -&gt; TaskRunner
-<span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;TYPES::BlockType&gt;,
-    &gt;,
-{
-    <span class="comment">// build the transactions task
-    </span><span class="kw">let </span>c_api: HotShotSequencingConsensusApi&lt;TYPES, I&gt; = HotShotSequencingConsensusApi {
-        inner: handle.hotshot.inner.clone(),
-    };
-    <span class="kw">let </span>registry = task_runner.registry.clone();
-    <span class="kw">let </span>transactions_state = TransactionTaskState {
-        registry: registry.clone(),
-        api: c_api.clone(),
-        consensus: handle.hotshot.get_consensus(),
-        transactions: Arc::default(),
-        seen_transactions: HashSet::new(),
-        cur_view: TYPES::Time::new(<span class="number">0</span>),
-        committee_exchange: committee_exchange.into(),
-        event_stream: event_stream.clone(),
-        id: handle.hotshot.inner.id,
-    };
-    <span class="kw">let </span>transactions_event_handler = HandleEvent(Arc::new(
-        <span class="kw">move </span>|event,
-              <span class="kw-2">mut </span>state: TransactionTaskState&lt;
-            TYPES,
-            I,
-            HotShotSequencingConsensusApi&lt;TYPES, I&gt;,
-        &gt;| {
-            <span class="kw">async move </span>{
-                <span class="kw">let </span>completion_status = state.handle_event(event).<span class="kw">await</span>;
-                (completion_status, state)
-            }
-            .boxed()
-        },
-    ));
-    <span class="kw">let </span>transactions_name = <span class="string">&quot;Transactions Task&quot;</span>;
-    <span class="kw">let </span>transactions_event_filter = FilterEvent(Arc::new(
-        TransactionTaskState::&lt;TYPES, I, HotShotSequencingConsensusApi&lt;TYPES, I&gt;&gt;::filter,
-    ));
-
-    <span class="kw">let </span>transactions_task_builder = TaskBuilder::&lt;
-        TransactionsTaskTypes&lt;TYPES, I, HotShotSequencingConsensusApi&lt;TYPES, I&gt;&gt;,
-    &gt;::new(transactions_name.to_string())
-    .register_event_stream(event_stream.clone(), transactions_event_filter)
-    .<span class="kw">await
-    </span>.register_registry(<span class="kw-2">&amp;mut </span>registry.clone())
-    .<span class="kw">await
-    </span>.register_state(transactions_state)
-    .register_event_handler(transactions_event_handler);
-    <span class="comment">// impossible for unwrap to fail
-    // we *just* registered
-    </span><span class="kw">let </span>da_task_id = transactions_task_builder.get_task_id().unwrap();
-    <span class="kw">let </span>da_task = TransactionsTaskTypes::build(transactions_task_builder).launch();
-    task_runner.add_task(da_task_id, transactions_name.to_string(), da_task)
-}
 <span class="doccomment">/// add the view sync task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
@@ -1082,7 +1062,7 @@
         Message&lt;TYPES, I&gt;,
         Proposal = ViewSyncCertificate&lt;TYPES&gt;,
         Certificate = ViewSyncCertificate&lt;TYPES&gt;,
-        Commitment = Commitment&lt;ViewSyncData&lt;TYPES&gt;&gt;,
+        Commitment = ViewSyncData&lt;TYPES&gt;,
     &gt;,
 {
     <span class="kw">let </span>api = HotShotSequencingConsensusApi {

@@ -167,7 +167,8 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::{BLSPrivKey, EncodedPublicKey, EncodedSignature, SignatureKey};
+<a href="#170" id="170">170</a>
+</pre></div><pre class="rust"><code><span class="kw">use super</span>::{BN254Priv, EncodedPublicKey, EncodedSignature, SignatureKey};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>blake3::traits::digest::generic_array::GenericArray;
@@ -191,12 +192,12 @@
 /// This type makes use of noise for non-determinisitc signatures.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Hash, Copy, Serialize, Deserialize, Debug)]
 
-</span><span class="kw">pub struct </span>BLSPubKey {
+</span><span class="kw">pub struct </span>BN254Pub {
     <span class="doccomment">/// The public key for this keypair
     </span>pub_key: VerKey,
 }
 
-<span class="kw">impl </span>PartialOrd <span class="kw">for </span>BLSPubKey {
+<span class="kw">impl </span>PartialOrd <span class="kw">for </span>BN254Pub {
     <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
         <span class="kw">let </span>self_bytes = <span class="kw-2">&amp;</span><span class="self">self</span>.pub_key.to_string();
         <span class="kw">let </span>other_bytes = <span class="kw-2">&amp;</span>other.pub_key.to_string();
@@ -204,7 +205,7 @@
     }
 }
 
-<span class="kw">impl </span>Ord <span class="kw">for </span>BLSPubKey {
+<span class="kw">impl </span>Ord <span class="kw">for </span>BN254Pub {
     <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Ordering {
         <span class="kw">let </span>self_bytes = <span class="kw-2">&amp;</span><span class="self">self</span>.pub_key.to_string();
         <span class="kw">let </span>other_bytes = <span class="kw-2">&amp;</span>other.pub_key.to_string();
@@ -212,18 +213,20 @@
     }
 }
 
-<span class="kw">impl </span>SignatureKey <span class="kw">for </span>BLSPubKey {
-    <span class="kw">type </span>PrivateKey = BLSPrivKey;
+<span class="kw">impl </span>SignatureKey <span class="kw">for </span>BN254Pub {
+    <span class="kw">type </span>PrivateKey = BN254Priv;
     <span class="kw">type </span>StakeTableEntry = JFStakeTableEntry&lt;VerKey&gt;;
     <span class="kw">type </span>QCParams = JFQCParams&lt;
         &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::VerificationKey,
         &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::PublicParameter,
     &gt;;
-    <span class="kw">type </span>PureAssembledSignatureType =
-        &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature;
-    <span class="kw">type </span>QCType = (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
+    <span class="kw">type </span>QCType = (
+        &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature,
+        BitVec,
+    );
+    <span class="comment">// &lt;BitVectorQC&lt;BLSOverBN254CurveSignatureScheme&gt; as AssembledQuorumCertificate&lt;BLSOverBN254CurveSignatureScheme&gt;&gt;::QC;
 
-    <span class="attr">#[instrument(skip(<span class="self">self</span>))]
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>EncodedSignature, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
         <span class="kw">let </span>ver_key = <span class="self">self</span>.pub_key;
         <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature, <span class="kw">_</span>&gt; =
@@ -281,7 +284,7 @@
     </span><span class="kw">fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>EncodedPublicKey) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;VerKey, <span class="kw">_</span>&gt; = bincode_opts().deserialize(<span class="kw-2">&amp;</span>bytes.<span class="number">0</span>);
         <span class="kw">match </span>x {
-            <span class="prelude-val">Ok</span>(pub_key) =&gt; <span class="prelude-val">Some</span>(BLSPubKey { pub_key }),
+            <span class="prelude-val">Ok</span>(pub_key) =&gt; <span class="prelude-val">Some</span>(BN254Pub { pub_key }),
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">debug!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Failed to deserialize public key&quot;</span>);
                 <span class="prelude-val">None
@@ -301,12 +304,6 @@
         }
     }
 
-    <span class="kw">fn </span>get_public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            pub_key: entry.stake_key,
-        }
-    }
-
     <span class="kw">fn </span>get_public_parameter(
         stake_entries: Vec&lt;<span class="self">Self</span>::StakeTableEntry&gt;,
         threshold: U256,
@@ -323,14 +320,19 @@
         BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).is_ok()
     }
 
-    <span class="kw">fn </span>get_sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {
+    <span class="kw">fn </span>get_sig_proof(
+        signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType,
+    ) -&gt; (
+        &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature,
+        BitVec,
+    ) {
         signature.clone()
     }
 
     <span class="kw">fn </span>assemble(
         real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
-        sigs: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::PureAssembledSignatureType],
+        sigs: <span class="kw-2">&amp;</span>[&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature],
     ) -&gt; <span class="self">Self</span>::QCType {
         BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::assemble(real_qc_pp, signers, sigs)
             .expect(<span class="string">&quot;this assembling shouldn&#39;t fail&quot;</span>)

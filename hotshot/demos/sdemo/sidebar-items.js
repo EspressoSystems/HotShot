@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SDemoBlock","SDemoError"],"fn":["random_quorum_certificate","random_sequencing_leaf"],"struct":["GenesisAfterStartSnafu","GenesisCantHaveTransactionsSnafu","GenesisFailedSnafu","InvalidBlockSnafu","PreviousStateMismatchSnafu","ReusedTxnSnafu","SDemoGenesisBlock","SDemoNode","SDemoNormalBlock","SDemoState","SDemoTransaction","SDemoTypes"]};

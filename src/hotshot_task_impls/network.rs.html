@@ -354,36 +354,6 @@
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
@@ -393,7 +363,7 @@
     GeneratedStream, Merge,
 };
 <span class="kw">use </span>hotshot_types::{
-    data::SequencingLeaf,
+    data::{ProposalType, SequencingLeaf},
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
         SequencingMessage,
@@ -492,15 +462,6 @@
                                 <span class="comment">// panic!(&quot;Recevid DA C! &quot;);
                                 </span>SequencingHotShotEvent::DACRecv(cert)
                             }
-                            CommitteeConsensusMessage::VidDisperseMsg(proposal) =&gt; {
-                                SequencingHotShotEvent::VidDisperseRecv(proposal, sender)
-                            }
-                            CommitteeConsensusMessage::VidVote(vote) =&gt; {
-                                SequencingHotShotEvent::VidVoteRecv(vote.clone())
-                            }
-                            CommitteeConsensusMessage::VidCertificate(cert) =&gt; {
-                                SequencingHotShotEvent::VidCertRecv(cert)
-                            }
                         },
                     };
                     <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
@@ -532,8 +493,10 @@
         Leaf = SequencingLeaf&lt;TYPES&gt;,
         ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
     &gt;,
+    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
-    COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
+    COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
 &gt; {
     <span class="doccomment">/// comm channel
     </span><span class="kw">pub </span>channel: COMMCHANNEL,
@@ -542,7 +505,7 @@
     <span class="doccomment">/// view number
     </span><span class="kw">pub </span>view: TYPES::Time,
     <span class="doccomment">/// phantom data
-    </span><span class="kw">pub </span>phantom: PhantomData&lt;MEMBERSHIP&gt;,
+    </span><span class="kw">pub </span>phantom: PhantomData&lt;(PROPOSAL, VOTE, MEMBERSHIP)&gt;,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?
 </span>}
 
@@ -553,9 +516,11 @@
             Leaf = SequencingLeaf&lt;TYPES&gt;,
             ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
         &gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
-    &gt; TS <span class="kw">for </span>NetworkEventTaskState&lt;TYPES, I, MEMBERSHIP, COMMCHANNEL&gt;
+        COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
+    &gt; TS <span class="kw">for </span>NetworkEventTaskState&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt;
 {
 }
 
@@ -566,16 +531,17 @@
             Leaf = SequencingLeaf&lt;TYPES&gt;,
             ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
         &gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-        COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, MEMBERSHIP&gt;,
-    &gt; NetworkEventTaskState&lt;TYPES, I, MEMBERSHIP, COMMCHANNEL&gt;
+        COMMCHANNEL: CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;,
+    &gt; NetworkEventTaskState&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt;
 {
     <span class="doccomment">/// Handle the given event.
     ///
     /// Returns the completion status.
     /// # Panics
     /// Panic sif a direct message event is received with no recipient
-    </span><span class="attr">#[allow(clippy::too_many_lines)] </span><span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/1704
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: SequencingHotShotEvent&lt;TYPES, I&gt;,
@@ -598,16 +564,9 @@
                     GeneralConsensusMessage::Vote(vote.clone()),
                 ))),
                 TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view() + <span class="number">1</span>)),
+                <span class="prelude-val">Some</span>(membership.get_leader(vote.current_view() + <span class="number">1</span>)),
             ),
-            SequencingHotShotEvent::VidDisperseSend(proposal, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidDisperseMsg(proposal),
-                ))), <span class="comment">// TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-                </span>TransmitType::Broadcast, <span class="comment">// TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
-                </span><span class="prelude-val">None</span>,
-            ),
+
             SequencingHotShotEvent::DAProposalSend(proposal, sender) =&gt; (
                 sender,
                 MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Right(
@@ -616,14 +575,6 @@
                 TransmitType::Broadcast,
                 <span class="prelude-val">None</span>,
             ),
-            SequencingHotShotEvent::VidVoteSend(vote) =&gt; (
-                vote.signature_key(),
-                MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.current_view)), <span class="comment">// TODO who is VID leader? https://github.com/EspressoSystems/HotShot/issues/1699
-            </span>),
             SequencingHotShotEvent::DAVoteSend(vote) =&gt; (
                 vote.signature_key(),
                 MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Right(
@@ -631,14 +582,6 @@
                 ))),
                 TransmitType::Direct,
                 <span class="prelude-val">Some</span>(membership.get_leader(vote.current_view)),
-            ),
-            SequencingHotShotEvent::VidCertSend(certificate, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES, I&gt;::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidCertificate(certificate),
-                ))),
-                TransmitType::Broadcast,
-                <span class="prelude-val">None</span>,
             ),
             <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             </span>SequencingHotShotEvent::DACSend(certificate, sender) =&gt; (
@@ -720,7 +663,6 @@
                 | SequencingHotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::DACSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | SequencingHotShotEvent::VidCertSend(<span class="kw">_</span>, <span class="kw">_</span>)
                 | SequencingHotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }
@@ -732,8 +674,6 @@
             SequencingHotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
                 | SequencingHotShotEvent::DAVoteSend(<span class="kw">_</span>)
                 | SequencingHotShotEvent::Shutdown
-                | SequencingHotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | SequencingHotShotEvent::VidVoteSend(<span class="kw">_</span>)
                 | SequencingHotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }
@@ -764,10 +704,10 @@
 &gt;;
 
 <span class="doccomment">/// network event task types
-</span><span class="kw">pub type </span>NetworkEventTaskTypes&lt;TYPES, I, MEMBERSHIP, COMMCHANNEL&gt; = HSTWithEvent&lt;
+</span><span class="kw">pub type </span>NetworkEventTaskTypes&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt; = HSTWithEvent&lt;
     NetworkTaskError,
     SequencingHotShotEvent&lt;TYPES, I&gt;,
     ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    NetworkEventTaskState&lt;TYPES, I, MEMBERSHIP, COMMCHANNEL&gt;,
+    NetworkEventTaskState&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP, COMMCHANNEL&gt;,
 &gt;;
 </code></pre></div></section></main></body></html>
