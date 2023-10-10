@@ -20,7 +20,7 @@ jobs:
       volumes:
         - github_nix:/nix
     steps:
-      - uses: styfle/cancel-workflow-action@0.11.0
+      - uses: styfle/cancel-workflow-action@0.12.0
         name: Cancel Outdated Builds
         with:
           all_but_latest: true
