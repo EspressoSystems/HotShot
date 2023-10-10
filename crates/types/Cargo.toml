@@ -31,7 +31,7 @@ ed25519-compact = { version = "2.0.4", optional = true }
 either = { workspace = true, features = ["serde"] }
 espresso-systems-common = { workspace = true }
 futures = { workspace = true }
-generic-array = "0.14.7"
+generic-array = "1.0.0"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 hotshot-task = { path = "../task", default-features = false }
