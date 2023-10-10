@@ -100,7 +100,7 @@ where
                         .expect("Failed to receive broadcast messages"),
                 );
                 if msgs.0.is_empty() {
-                    async_sleep(Duration::new(0, 500)).await;
+                    async_sleep(Duration::from_millis(100)).await;
                 } else {
                     break msgs;
                 }
@@ -120,7 +120,7 @@ where
                         .expect("Failed to receive direct messages"),
                 );
                 if msgs.0.is_empty() {
-                    async_sleep(Duration::new(0, 500)).await;
+                    async_sleep(Duration::from_millis(100)).await;
                 } else {
                     break msgs;
                 }
@@ -288,7 +288,7 @@ where
         consensus,
         timeout: handle.hotshot.inner.config.next_view_timeout,
         cur_view: TYPES::Time::new(0),
-        block: VIDBlockPayload::genesis(),
+        block: Some(VIDBlockPayload::genesis()),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         api: c_api.clone(),
         committee_exchange: c_api.inner.exchanges.committee_exchange().clone().into(),
