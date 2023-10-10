@@ -15,7 +15,7 @@ pub mod implementations {
         networking::{
             combined_network::{CombinedCommChannel, CombinedNetworks},
             libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
-            memory_network::{DummyReliability, MasterMap, MemoryCommChannel, MemoryNetwork},
+            memory_network::{MasterMap, MemoryCommChannel, MemoryNetwork},
             web_server_network::{WebCommChannel, WebServerNetwork},
         },
         storage::memory_storage::MemoryStorage, // atomic_storage::AtomicStorage,
