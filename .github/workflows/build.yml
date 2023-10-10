@@ -3,7 +3,7 @@ name: Build, Lint, and Test
 on:
   push:
     branches:
-      - 'benchmarking_*'
+      - 'develop'
       - 'main'
   pull_request:
     branches:
