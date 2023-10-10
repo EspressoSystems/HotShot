@@ -68,9 +68,10 @@ where
             .try_iter(SnapshotVersion::LastEpochStart)?
             .map(|((_bls_ver_key, schnorr_ver_key), amount)| {
                 // TODO(Chengyu): create variable for bls_key_var
-                let schnorr_ver_key =
-                    VerKeyVar(circuit.create_point_variable(schnorr_ver_key.to_affine().into())?);
-                let stake_amount = circuit.create_variable(u256_to_field::<F>(&amount))?;
+                let schnorr_ver_key = VerKeyVar(
+                    circuit.create_public_point_variable(schnorr_ver_key.to_affine().into())?,
+                );
+                let stake_amount = circuit.create_public_variable(u256_to_field::<F>(&amount))?;
                 Ok(StakeTableEntryVar {
                     bls_ver_key: (0, 0), // TODO(Chengyu)
                     schnorr_ver_key,
@@ -78,7 +79,8 @@ where
                 })
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
-        let dummy_ver_key_var = VerKeyVar(circuit.create_point_variable(TEPoint::default())?);
+        let dummy_ver_key_var =
+            VerKeyVar(circuit.create_public_point_variable(TEPoint::default())?);
         stake_table_var.resize(
             NUM_ENTRIES,
             StakeTableEntryVar {
@@ -90,7 +92,7 @@ where
 
         let mut signer_bit_vec_var = signer_bit_vec
             .into_iter()
-            .map(|&b| circuit.create_boolean_variable(b))
+            .map(|&b| circuit.create_public_boolean_variable(b))
             .collect::<Result<Vec<_>, CircuitError>>()?;
         signer_bit_vec_var.resize(NUM_ENTRIES, BoolVar(circuit.zero()));
 
