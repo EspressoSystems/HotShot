@@ -2776,6 +2776,7 @@ dependencies = [
  "displaydoc",
  "ethereum-types",
  "generic-array",
+ "hotshot-stake-table",
  "hotshot-types",
  "jf-plonk",
  "jf-primitives",

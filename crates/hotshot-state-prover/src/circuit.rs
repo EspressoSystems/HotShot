@@ -3,6 +3,7 @@
 use std::marker::PhantomData;
 
 use ark_ec::twisted_edwards::TECurveConfig;
+use ark_ff::PrimeField;
 use ethereum_types::U256;
 use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableScheme};
 use jf_plonk::errors::PlonkError;
@@ -14,18 +15,49 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::gadgets::ecc::TEPoint;
 use jf_relation::{
     errors::CircuitError, gadgets::ecc::SWToTEConParam, BoolVar, Circuit, PlonkCircuit,
 };
+use jf_relation::{gadgets::ecc::TEPoint, Variable};
+use serde::{Deserialize, Serialize};
 
-use self::{
-    config::{u256_to_field, NUM_ENTRIES},
-    types::{HotShotState, StakeTableEntryVar},
-};
+/// Number of entries/keys in the stake table
+pub const NUM_ENTRIES: usize = 1000;
 
-pub mod config;
-pub mod types;
+/// convert a U256 to a field element.
+pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
+    let mut bytes = vec![0u8; 32];
+    v.to_little_endian(&mut bytes);
+    F::from_le_bytes_mod_order(&bytes)
+}
+
+/// Variable for stake table entry
+#[derive(Clone, Debug)]
+pub struct StakeTableEntryVar {
+    pub bls_ver_key: (Variable, Variable),
+    pub schnorr_ver_key: VerKeyVar,
+    pub stake_amount: Variable,
+}
+
+/// HotShot state Variable
+#[derive(Clone, Debug)]
+pub struct HotShotStateVar {
+    pub view_number_var: Variable,
+    pub block_height_var: Variable,
+    pub block_comm_var: Variable,
+    pub fee_ledger_comm_var: Variable,
+    pub stake_table_comm_var: Variable,
+}
+
+/// HotShot state
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HotShotState<F: PrimeField> {
+    pub view_number: usize,
+    pub block_height: usize,
+    pub block_comm: F,
+    pub fee_ledger_comm: F,
+    pub stake_table_comm: F,
+}
 
 #[derive(Clone, Debug)]
 pub struct StateUpdateBuilder<F: RescueParameter>(PhantomData<F>);
@@ -68,10 +100,9 @@ where
             .try_iter(SnapshotVersion::LastEpochStart)?
             .map(|((_bls_ver_key, schnorr_ver_key), amount)| {
                 // TODO(Chengyu): create variable for bls_key_var
-                let schnorr_ver_key = VerKeyVar(
-                    circuit.create_public_point_variable(schnorr_ver_key.to_affine().into())?,
-                );
-                let stake_amount = circuit.create_public_variable(u256_to_field::<F>(&amount))?;
+                let schnorr_ver_key =
+                    VerKeyVar(circuit.create_point_variable(schnorr_ver_key.to_affine().into())?);
+                let stake_amount = circuit.create_variable(u256_to_field::<F>(&amount))?;
                 Ok(StakeTableEntryVar {
                     bls_ver_key: (0, 0), // TODO(Chengyu)
                     schnorr_ver_key,
@@ -80,7 +111,7 @@ where
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
         let dummy_ver_key_var =
-            VerKeyVar(circuit.create_public_point_variable(TEPoint::default())?);
+            VerKeyVar(circuit.create_constant_point_variable(TEPoint::default())?);
         stake_table_var.resize(
             NUM_ENTRIES,
             StakeTableEntryVar {
@@ -91,8 +122,8 @@ where
         );
 
         let mut signer_bit_vec_var = signer_bit_vec
-            .into_iter()
-            .map(|&b| circuit.create_public_boolean_variable(b))
+            .iter()
+            .map(|&b| circuit.create_boolean_variable(b))
             .collect::<Result<Vec<_>, CircuitError>>()?;
         signer_bit_vec_var.resize(NUM_ENTRIES, BoolVar(circuit.zero()));
 
@@ -121,3 +152,22 @@ where
         Ok(circuit)
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use ark_ed_on_bn254::EdwardsConfig as Config;
+//     use hotshot_stake_table::mt_based::StakeTable;
+//     use jf_primitives::{
+//         rescue::RescueParameter,
+//         signatures::{
+//             bls_over_bn254::VerKey as BLSVerKey,
+//             schnorr::{Signature, VerKey as SchnorrVerKey},
+//         },
+//     };
+
+//     type Key = (BLSVerKey, SchnorrVerKey<Config>);
+//     #[test]
+//     fn test_circuit_building() {
+//         let stake_table = StakeTable::<Key>::new(10);
+//     }
+// }

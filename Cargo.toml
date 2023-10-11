@@ -116,7 +116,9 @@ tokio = { version = "1.32.0", features = [
         "time",
         "tracing",
 ] }
-### Profiles###### Note: these only apply to example executables or tests built from within this crate. They have
+### Profiles
+###
+### Note: these only apply to example executables or tests built from within this crate. They have
 ### no effect on crates that depend on this crate.
 
 ## Apply some optimizations to test dependencies in debug/test builds
