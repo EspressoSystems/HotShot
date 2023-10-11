@@ -544,6 +544,15 @@ where
                         .await;
                 }
             });
+            let consensus = self.consensus.read().await;
+            consensus
+                .metrics
+                .current_view
+                .set(usize::try_from(self.cur_view.get_u64()).unwrap());
+            consensus.metrics.number_of_views_since_last_decide.set(
+                usize::try_from(self.cur_view.get_u64()).unwrap()
+                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+            );
 
             return true;
         }
@@ -590,7 +599,7 @@ where
                         // TODO ED Insert TC logic here
 
                         // Construct the leaf.
-                        let justify_qc = proposal.data.justify_qc;
+                        let justify_qc = proposal.clone().data.justify_qc;
                         let parent = if justify_qc.is_genesis() {
                             self.genesis_leaf().await
                         } else {
@@ -623,7 +632,7 @@ where
 
                             if invalid {
                                 error!("Invalid justify_qc in proposal! parent commitment is {:?} justify qc is {:?}", parent_commitment, justify_qc.clone());
-
+                                consensus.metrics.invalid_qc.update(1);
                                 message = self.quorum_exchange.create_no_message::<I>(
                                     justify_qc_commitment,
                                     leaf_commitment,
@@ -807,7 +816,10 @@ where
                                         // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                                         if new_decide_reached {
                                             let mut leaf = leaf.clone();
-
+                                            consensus
+                                                .metrics
+                                                .last_synced_block_height
+                                                .set(usize::try_from(leaf.height).unwrap_or(0));
                                             // If the full block is available for this leaf, include it in the leaf
                                             // chain that we send to the client.
                                             if let Some(block) =
@@ -884,7 +896,16 @@ where
                                 .collect_garbage(old_anchor_view, new_anchor_view)
                                 .await;
                             consensus.last_decided_view = new_anchor_view;
-                            consensus.invalid_qc = 0;
+                            consensus.metrics.invalid_qc.set(0);
+                            consensus.metrics.last_decided_view.set(
+                                usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                            );
+                            let cur_number_of_views_per_decide_event =
+                                *self.cur_view - consensus.last_decided_view.get_u64();
+                            consensus
+                                .metrics
+                                .number_of_views_per_decide_event
+                                .add_point(cur_number_of_views_per_decide_event as f64);
 
                             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
                             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
@@ -1033,7 +1054,6 @@ where
 
                 let mut consensus = self.consensus.write().await;
                 consensus.high_qc = qc.clone();
-
                 drop(consensus);
 
                 // View may have already been updated by replica if they voted for this QC
@@ -1139,6 +1159,8 @@ where
                     "We received a timeout event in the consensus task for view {}!",
                     *view
                 );
+                let consensus = self.consensus.read().await;
+                consensus.metrics.number_of_timeouts.add(1);
             }
             SequencingHotShotEvent::SendDABlockData(block) => {
                 // ED TODO Should make sure this is actually the most recent block
