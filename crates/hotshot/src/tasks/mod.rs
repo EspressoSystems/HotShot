@@ -37,7 +37,7 @@ use hotshot_types::{
         election::{ConsensusExchange, Membership},
         network::{CommunicationChannel, TransmitType},
         node_implementation::{
-            CommitteeEx, ExchangesType, NodeImplementation, NodeType, QuorumEx, ViewSyncEx,
+            CommitteeEx, ExchangesType, NodeImplementation, NodeType, QuorumEx, VIDEx, ViewSyncEx,
         },
         state::ConsensusTime,
     },
@@ -357,11 +357,11 @@ pub async fn add_vid_task<
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    committee_exchange: CommitteeEx<TYPES, I>,
+    vid_exchange: VIDEx<TYPES, I>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -378,7 +378,7 @@ where
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
         cur_view: TYPES::Time::new(0),
-        committee_exchange: committee_exchange.into(),
+        vid_exchange: vid_exchange.into(),
         vote_collector: None,
         event_stream: event_stream.clone(),
         id: handle.hotshot.inner.id,

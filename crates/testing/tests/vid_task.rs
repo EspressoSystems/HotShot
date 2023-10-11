@@ -36,7 +36,7 @@ async fn test_vid_task() {
         HotShotSequencingConsensusApi {
             inner: handle.hotshot.inner.clone(),
         };
-    let committee_exchange = api.inner.exchanges.committee_exchange().clone();
+    let vid_exchange = api.inner.exchanges.vid_exchange().clone();
     let pub_key = *api.public_key();
     let vid = vid_init();
     let txn = vec![0u8];
@@ -47,7 +47,7 @@ async fn test_vid_task() {
         commitment: block_commitment,
     };
 
-    let signature = committee_exchange.sign_da_proposal(&block.commit());
+    let signature = vid_exchange.sign_da_proposal(&block.commit());
     let proposal: DAProposal<SequencingTestTypes> = DAProposal {
         deltas: block.clone(),
         view_number: ViewNumber::new(2),
@@ -107,9 +107,8 @@ async fn test_vid_task() {
     output.insert(SequencingHotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(SequencingHotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_vid_task(task_runner, event_stream, committee_exchange, handle)
-    };
+    let build_fn =
+        |task_runner, event_stream| add_vid_task(task_runner, event_stream, vid_exchange, handle);
 
     run_harness(input, output, None, build_fn).await;
 }

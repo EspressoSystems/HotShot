@@ -22,9 +22,9 @@ use hotshot_types::{
     message::{Message, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
-        election::{CommitteeExchangeType, ConsensusExchange, Membership},
+        election::{ConsensusExchange, Membership, VIDExchangeType},
         network::{CommunicationChannel, ConsensusIntentEvent},
-        node_implementation::{CommitteeEx, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, VIDEx},
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
@@ -50,7 +50,7 @@ pub struct VIDTaskState<
     >,
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -68,8 +68,8 @@ pub struct VIDTaskState<
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
 
-    /// the committee exchange
-    pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+    /// the VID exchange
+    pub vid_exchange: Arc<VIDEx<TYPES, I>>,
 
     /// The view and ID of the current vote collection task, if there is one.
     pub vote_collector: Option<(TYPES::Time, usize, usize)>,
@@ -82,21 +82,21 @@ pub struct VIDTaskState<
 }
 
 /// Struct to maintain DA Vote Collection task state
-pub struct DAVoteCollectionTaskState<
+pub struct VIDVoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
 > where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
-    /// the committee exchange
-    pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
+    /// the vid exchange
+    pub vid_exchange: Arc<VIDEx<TYPES, I>>,
     #[allow(clippy::type_complexity)]
-    /// Accumulates DA votes
+    /// Accumulates VID votes
     pub accumulator: Either<
         <DACertificate<TYPES> as SignedCertificate<
             TYPES,
@@ -115,9 +115,9 @@ pub struct DAVoteCollectionTaskState<
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
-    for DAVoteCollectionTaskState<TYPES, I>
+    for VIDVoteCollectionTaskState<TYPES, I>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -126,16 +126,16 @@ where
 {
 }
 
-#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "DA Vote Collection Task", level = "error")]
+#[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "VID Vote Collection Task", level = "error")]
 async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>>(
-    mut state: DAVoteCollectionTaskState<TYPES, I>,
+    mut state: VIDVoteCollectionTaskState<TYPES, I>,
     event: SequencingHotShotEvent<TYPES, I>,
 ) -> (
     std::option::Option<HotShotTaskCompleted>,
-    DAVoteCollectionTaskState<TYPES, I>,
+    VIDVoteCollectionTaskState<TYPES, I>,
 )
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -151,11 +151,10 @@ where
 
             let accumulator = state.accumulator.left().unwrap();
 
-            match state.committee_exchange.accumulate_vote_2(
-                accumulator,
-                &vote,
-                &vote.block_commitment,
-            ) {
+            match state
+                .vid_exchange
+                .accumulate_vote_2(accumulator, &vote, &vote.block_commitment)
+            {
                 Left(new_accumulator) => {
                     state.accumulator = either::Left(new_accumulator);
                 }
@@ -166,13 +165,13 @@ where
                         .event_stream
                         .publish(SequencingHotShotEvent::VidCertSend(
                             vid_cert.clone(),
-                            state.committee_exchange.public_key().clone(),
+                            state.vid_exchange.public_key().clone(),
                         ))
                         .await;
 
                     state.accumulator = Right(vid_cert.clone());
                     state
-                        .committee_exchange
+                        .vid_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
                             *vid_cert.view_number,
@@ -202,7 +201,7 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > VIDTaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -222,15 +221,15 @@ where
                 // warn!(
                 //     "VID vote recv, Main Task {:?}, key: {:?}",
                 //     vote.current_view,
-                //     self.committee_exchange.public_key()
+                //     self.vid_exchange.public_key()
                 // );
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.current_view;
-                if !self.committee_exchange.is_leader(view) {
+                if !self.vid_exchange.is_leader(view) {
                     error!(
                         "We are not the VID leader for view {} are we leader for next view? {}",
                         *view,
-                        self.committee_exchange.is_leader(view + 1)
+                        self.vid_exchange.is_leader(view + 1)
                     );
                     return None;
                 }
@@ -252,21 +251,21 @@ where
 
                 let new_accumulator = DAVoteAccumulator {
                     da_vote_outcomes: HashMap::new(),
-                    success_threshold: self.committee_exchange.success_threshold(),
+                    success_threshold: self.vid_exchange.success_threshold(),
                     sig_lists: Vec::new(),
-                    signers: bitvec![0; self.committee_exchange.total_nodes()],
+                    signers: bitvec![0; self.vid_exchange.total_nodes()],
                     phantom: PhantomData,
                 };
 
-                let accumulator = self.committee_exchange.accumulate_vote_2(
+                let accumulator = self.vid_exchange.accumulate_vote_2(
                     new_accumulator,
                     &vote,
                     &vote.clone().block_commitment,
                 );
 
                 if view > collection_view {
-                    let state = DAVoteCollectionTaskState {
-                        committee_exchange: self.committee_exchange.clone(),
+                    let state = VIDVoteCollectionTaskState {
+                        vid_exchange: self.vid_exchange.clone(),
 
                         accumulator,
                         cur_view: view,
@@ -278,7 +277,7 @@ where
                         matches!(event, SequencingHotShotEvent::VidVoteRecv(_))
                     }));
                     let builder =
-                        TaskBuilder::<DAVoteCollectionTypes<TYPES, I>>::new(name.to_string())
+                        TaskBuilder::<VIDVoteCollectionTypes<TYPES, I>>::new(name.to_string())
                             .register_event_stream(self.event_stream.clone(), filter)
                             .await
                             .register_registry(&mut self.registry.clone())
@@ -287,10 +286,9 @@ where
                             .register_event_handler(handle_event);
                     let id = builder.get_task_id().unwrap();
                     let stream_id = builder.get_stream_id().unwrap();
-                    let _task =
-                        async_spawn(
-                            async move { DAVoteCollectionTypes::build(builder).launch().await },
-                        );
+                    let _task = async_spawn(async move {
+                        VIDVoteCollectionTypes::build(builder).launch().await
+                    });
                     self.vote_collector = Some((view, id, stream_id));
                 } else if let Some((_, _, stream_id)) = self.vote_collector {
                     self.event_stream
@@ -322,7 +320,7 @@ where
                 let block_commitment = disperse.data.commitment;
 
                 // ED Is this the right leader?
-                let view_leader_key = self.committee_exchange.get_leader(view);
+                let view_leader_key = self.vid_exchange.get_leader(view);
                 if view_leader_key != sender {
                     error!("VID proposal doesn't have expected leader key for view {} \n DA proposal is: [N/A for VID]", *view);
                     return None;
@@ -333,7 +331,7 @@ where
                     return None;
                 }
 
-                let vote_token = self.committee_exchange.make_vote_token(view);
+                let vote_token = self.vid_exchange.make_vote_token(view);
                 match vote_token {
                     Err(e) => {
                         error!("Failed to generate vote token for {:?} {:?}", view, e);
@@ -343,7 +341,7 @@ where
                     }
                     Ok(Some(vote_token)) => {
                         // Generate and send vote
-                        let vote = self.committee_exchange.create_vid_message(
+                        let vote = self.vid_exchange.create_vid_message(
                             block_commitment,
                             view,
                             vote_token,
@@ -386,23 +384,23 @@ where
                 // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
 
                 let is_da = self
-                    .committee_exchange
+                    .vid_exchange
                     .membership()
                     .get_committee(self.cur_view + 1)
-                    .contains(self.committee_exchange.public_key());
+                    .contains(self.vid_exchange.public_key());
 
                 if is_da {
                     debug!("Polling for DA proposals for view {}", *self.cur_view + 1);
-                    self.committee_exchange
+                    self.vid_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
                             *self.cur_view + 1,
                         ))
                         .await;
                 }
-                if self.committee_exchange.is_leader(self.cur_view + 3) {
+                if self.vid_exchange.is_leader(self.cur_view + 3) {
                     debug!("Polling for transactions for view {}", *self.cur_view + 3);
-                    self.committee_exchange
+                    self.vid_exchange
                         .network()
                         .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
                             *self.cur_view + 3,
@@ -411,14 +409,14 @@ where
                 }
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if !self.committee_exchange.is_leader(self.cur_view + 1) {
+                if !self.vid_exchange.is_leader(self.cur_view + 1) {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
                 debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 // Start polling for DA votes for the "next view"
-                self.committee_exchange
+                self.vid_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
                     .await;
@@ -427,7 +425,7 @@ where
             }
 
             SequencingHotShotEvent::Timeout(view) => {
-                self.committee_exchange
+                self.vid_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
@@ -467,7 +465,7 @@ impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for VIDTaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
+    VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
@@ -477,11 +475,11 @@ where
 }
 
 /// Type alias for VID Vote Collection Types
-pub type DAVoteCollectionTypes<TYPES, I> = HSTWithEvent<
+pub type VIDVoteCollectionTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    DAVoteCollectionTaskState<TYPES, I>,
+    VIDVoteCollectionTaskState<TYPES, I>,
 >;
 
 /// Type alias for VID Task Types

@@ -71,7 +71,7 @@ use hotshot_types::{
         network::{CommunicationChannel, NetworkError},
         node_implementation::{
             ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
-            ViewSyncEx,
+            VIDEx, ViewSyncEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -668,11 +668,20 @@ where
             Commitment = Commitment<ViewSyncData<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
+    VIDEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Commitment = Commitment<TYPES::BlockType>,
+            Membership = MEMBERSHIP,
+        > + 'static,
 {
     fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
         &self.inner.consensus
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
@@ -684,6 +693,7 @@ where
         let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
         let committee_exchange = self.inner.exchanges.committee_exchange().clone();
         let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
+        let vid_exchange = self.inner.exchanges.vid_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
@@ -711,6 +721,12 @@ where
             view_sync_exchange.clone(),
         )
         .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            vid_exchange.clone(),
+        )
+        .await;
         let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
@@ -732,6 +748,13 @@ where
             NetworkTaskKind::ViewSync,
         )
         .await;
+        let task_runner = add_network_event_task(
+            task_runner,
+            internal_event_stream.clone(),
+            vid_exchange.clone(),
+            NetworkTaskKind::VID,
+        )
+        .await;
         let task_runner = add_consensus_task(
             task_runner,
             internal_event_stream.clone(),
@@ -749,7 +772,7 @@ where
         let task_runner = add_vid_task(
             task_runner,
             internal_event_stream.clone(),
-            committee_exchange.clone(),
+            vid_exchange.clone(),
             handle.clone(),
         )
         .await;
@@ -770,7 +793,6 @@ where
             task_runner.launch().await;
             info!("Task runner exited!");
         });
-
         handle
     }
 }

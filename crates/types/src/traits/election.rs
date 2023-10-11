@@ -757,6 +757,166 @@ impl<
     }
 }
 
+/// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
+pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYPES, M> {
+    /// Create a message with a vote on VID disperse data.
+    fn create_vid_message(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> DAVote<TYPES>;
+
+    /// Sign a vote on VID proposal.
+    fn sign_vid_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature);
+}
+
+/// Standard implementation of [`VIDExchangeType`] utilizing a DA committee.
+#[derive(Derivative)]
+#[derivative(Clone, Debug)]
+pub struct VIDExchange<
+    TYPES: NodeType,
+    MEMBERSHIP: Membership<TYPES>,
+    NETWORK: CommunicationChannel<TYPES, M, MEMBERSHIP>,
+    M: NetworkMsg,
+> {
+    /// The network being used by this exchange.
+    network: NETWORK,
+    /// The committee which votes on proposals.
+    membership: MEMBERSHIP,
+    /// This participant's public key.
+    public_key: TYPES::SignatureKey,
+    /// Entry with public key and staking value for certificate aggregation
+    entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+    /// This participant's private key.
+    #[derivative(Debug = "ignore")]
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    #[doc(hidden)]
+    _pd: PhantomData<(TYPES, MEMBERSHIP, M)>,
+}
+
+impl<
+        TYPES: NodeType,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<TYPES, M, MEMBERSHIP>,
+        M: NetworkMsg,
+    > VIDExchangeType<TYPES, M> for VIDExchange<TYPES, MEMBERSHIP, NETWORK, M>
+{
+    fn create_vid_message(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: <TYPES as NodeType>::Time,
+        vote_token: <TYPES as NodeType>::VoteTokenType,
+    ) -> DAVote<TYPES> {
+        let signature = self.sign_vid_vote(block_commitment);
+        DAVote {
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+            vote_data: VoteData::DA(block_commitment),
+        }
+    }
+
+    fn sign_vid_vote(
+        &self,
+        block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            VoteData::DA(block_commitment).commit().as_ref(),
+        );
+        (self.public_key.to_bytes(), signature)
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<TYPES, M, MEMBERSHIP>,
+        M: NetworkMsg,
+    > ConsensusExchange<TYPES, M> for VIDExchange<TYPES, MEMBERSHIP, NETWORK, M>
+{
+    type Proposal = DAProposal<TYPES>;
+    type Vote = DAVote<TYPES>;
+    type Certificate = DACertificate<TYPES>;
+    type Membership = MEMBERSHIP;
+    type Networking = NETWORK;
+    type Commitment = Commitment<TYPES::BlockType>;
+
+    fn create(
+        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
+        config: TYPES::ElectionConfigType,
+        network: Self::Networking,
+        pk: TYPES::SignatureKey,
+        entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self {
+        let membership =
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(entries, config);
+        Self {
+            network,
+            membership,
+            public_key: pk,
+            entry,
+            private_key: sk,
+            _pd: PhantomData,
+        }
+    }
+    fn network(&self) -> &NETWORK {
+        &self.network
+    }
+    fn make_vote_token(
+        &self,
+        view_number: TYPES::Time,
+    ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
+        self.membership
+            .make_vote_token(view_number, &self.private_key)
+    }
+
+    fn vote_data(&self, commit: Self::Commitment) -> VoteData<Self::Commitment> {
+        VoteData::DA(commit)
+    }
+
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
+    fn accumulate_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Self::Commitment,
+        vote_data: VoteData<Self::Commitment>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>,
+        _relay: Option<u64>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>, Self::Certificate>
+    {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: leaf_commitment,
+            data: vote_data,
+            vote_token,
+            view_number,
+            relay: None,
+        };
+        self.accumulate_internal(meta, accumlator)
+    }
+    fn membership(&self) -> &Self::Membership {
+        &self.membership
+    }
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.public_key
+    }
+    fn private_key(&self) -> &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey {
+        &self.private_key
+    }
+}
+
 /// A [`ConsensusExchange`] where participants vote to append items to a log.
 pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>

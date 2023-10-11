@@ -7,7 +7,7 @@ use super::{
     block_contents::Transaction,
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType,
-        ViewSyncExchangeType, VoteToken,
+        VIDExchangeType, ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -153,8 +153,8 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
     /// Protocol for exchanging data availability proposals and votes.
     type CommitteeExchange: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug;
 
-    /// Get the committee exchange.
-    fn committee_exchange(&self) -> &Self::CommitteeExchange;
+    /// Protocol for exchanging VID proposals and votes
+    type VIDExchange: VIDExchangeType<TYPES, MESSAGE> + Clone + Debug;
 
     /// Protocol for exchanging quorum proposals and votes.
     type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
@@ -173,17 +173,24 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
             <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::VIDExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
         entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
+    /// Get the committee exchange.
+    fn committee_exchange(&self) -> &Self::CommitteeExchange;
+
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
     /// Get the view sync exchange.
     fn view_sync_exchange(&self) -> &Self::ViewSyncExchange;
+
+    /// Get the VID exchange
+    fn vid_exchange(&self) -> &Self::VIDExchange;
 
     /// BlockPayload the underlying networking interfaces until node is successfully initialized into the
     /// networks.
@@ -210,6 +217,7 @@ pub trait TestableExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, ME
                 <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
                 <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
                 <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+                <Self::VIDExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             ) + 'static,
     >;
 }
@@ -222,6 +230,7 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE>,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE>,
     VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE>,
+    VIDEXCHANGE: VIDExchangeType<TYPES, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -232,24 +241,36 @@ pub struct SequencingExchanges<
     /// Committee exchange.
     committee_exchange: COMMITTEEEXCHANGE,
 
+    /// VID exchange
+    vid_exchange: VIDEXCHANGE,
+
     /// Phantom data.
     _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
 #[async_trait]
-impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE>
     ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>
-    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE>
+    for SequencingExchanges<
+        TYPES,
+        MESSAGE,
+        QUORUMEXCHANGE,
+        COMMITTEEEXCHANGE,
+        VIEWSYNCEXCHANGE,
+        VIDEXCHANGE,
+    >
 where
     TYPES: NodeType,
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
     VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
+    VIDEXCHANGE: VIDExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
     type QuorumExchange = QUORUMEXCHANGE;
     type ViewSyncExchange = VIEWSYNCEXCHANGE;
+    type VIDExchange = VIDEXCHANGE;
     type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
     fn committee_exchange(&self) -> &COMMITTEEEXCHANGE {
@@ -263,6 +284,7 @@ where
             <Self::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::CommitteeExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
             <Self::ViewSyncExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
+            <Self::VIDExchange as ConsensusExchange<TYPES, MESSAGE>>::Networking,
         ),
         pk: TYPES::SignatureKey,
         entry: <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
@@ -284,13 +306,24 @@ where
             entry.clone(),
             sk.clone(),
         );
-        let committee_exchange =
-            COMMITTEEEXCHANGE::create(entries, configs.1, networks.1, pk, entry, sk);
+
+        let committee_exchange = COMMITTEEEXCHANGE::create(
+            entries.clone(),
+            configs.1.clone(),
+            networks.1,
+            pk.clone(),
+            entry.clone(),
+            sk.clone(),
+        );
+
+        // RM TODO: figure out if this is the proper config
+        let vid_exchange = VIDEXCHANGE::create(entries, configs.1, networks.3, pk, entry, sk);
 
         Self {
             quorum_exchange,
             committee_exchange,
             view_sync_exchange,
+            vid_exchange,
             _phantom: PhantomData,
         }
     }
@@ -301,6 +334,10 @@ where
 
     fn view_sync_exchange(&self) -> &Self::ViewSyncExchange {
         &self.view_sync_exchange
+    }
+
+    fn vid_exchange(&self) -> &Self::VIDExchange {
+        &self.vid_exchange
     }
 
     async fn wait_for_networks_ready(&self) {
@@ -335,6 +372,13 @@ pub type CommitteeEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as
     <I as NodeImplementation<TYPES>>::Leaf,
     Message<TYPES, I>,
 >>::CommitteeExchange;
+
+/// Alias for the [`VIDExchange`] type.
+pub type VIDEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::VIDExchange;
 
 /// Alias for the [`ViewSyncExchange`] type.
 pub type ViewSyncEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
