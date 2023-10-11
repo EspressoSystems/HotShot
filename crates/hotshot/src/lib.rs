@@ -89,6 +89,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tasks::add_vid_task;
 use tracing::{debug, error, info, instrument, trace, warn};
 // -- Rexports
 // External
@@ -739,6 +740,13 @@ where
         )
         .await;
         let task_runner = add_da_task(
+            task_runner,
+            internal_event_stream.clone(),
+            committee_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_vid_task(
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
