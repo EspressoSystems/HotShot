@@ -13,7 +13,7 @@ run_ci: lint build test
 
 @async_std target *ARGS:
   echo setting executor to async-std
-  export RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
+  export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
   cargo build --verbose --workspace --examples --bins --tests --lib --benches
@@ -50,6 +50,11 @@ test_with_failures:
 test_network_task:
   echo Testing the DA task with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
+
+test_memory_network:
+  echo Testing the DA task with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
+
 
 test_consensus_task:
   echo Testing with async std executor
