@@ -53,6 +53,9 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
+use hotshot_types::{
+    certificate::TimeoutCertificate, traits::node_implementation::SequencingTimeoutEx,
+};
 
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction},
@@ -239,22 +242,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(Self { inner })
     }
 
-    /// "Starts" consensus by sending a `ViewChange` event
+    /// "Starts" consensus by sending a `QCFormed` event
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(1)))
+            .publish(SequencingHotShotEvent::QCFormed(either::Left(
+                QuorumCertificate::genesis(),
+            )))
             .await;
-
-        // ED This isn't ideal...
-        // async_sleep(Duration::new(1, 0)).await;
-
-        // self.inner
-        //     .internal_event_stream
-        //     .publish(SequencingHotShotEvent::QCFormed(
-        //         QuorumCertificate::genesis(),
-        //     ))
-        //     .await;
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -670,6 +665,14 @@ where
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
             Commitment = Commitment<TYPES::BlockType>,
+            Membership = MEMBERSHIP,
+        > + 'static,
+    SequencingTimeoutEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            Certificate = TimeoutCertificate<TYPES>,
+            Commitment = Commitment<TYPES::Time>,
             Membership = MEMBERSHIP,
         > + 'static,
 {

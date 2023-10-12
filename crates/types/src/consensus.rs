@@ -1,10 +1,11 @@
 //! Provides the core consensus types
 
-pub use crate::traits::node_implementation::ViewQueue;
-pub use crate::utils::{View, ViewInner};
+pub use crate::{
+    traits::node_implementation::ViewQueue,
+    utils::{View, ViewInner},
+};
 use displaydoc::Display;
 
-use crate::utils::Terminator;
 use crate::{
     certificate::QuorumCertificate,
     data::LeafType,
@@ -13,6 +14,7 @@ use crate::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics},
         node_implementation::NodeType,
     },
+    utils::Terminator,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
