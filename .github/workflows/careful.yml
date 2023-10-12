@@ -11,11 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
+      - name: Cancel Outdated Builds
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
       - name: Install Nix
         uses: cachix/install-nix-action@v23
 
+      - name: Nix Caching
+        uses: cachix/cachix-action@v12
+        with:
+          name: espresso-systems-private
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # See how long just nix setup takes
+      - name: Initialize nix
+        run: nix develop -c echo Finished
 
       - name: Run careful tests
         run: |

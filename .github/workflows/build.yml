@@ -5,40 +5,45 @@ on:
     branches:
       - 'benchmarking_*'
       - 'main'
+      - 'develop'
   pull_request:
-    branches:
-      - 'main'
-      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
 
 jobs:
   build:
+    runs-on: ubuntu-latest
+
     strategy:
       matrix:
         just_variants:
           - async_std
           - tokio
-    runs-on: ubuntu-latest
+
     steps:
-      - uses: styfle/cancel-workflow-action@0.11.0
-        name: Cancel Outdated Builds
+      - name: Cancel Outdated Builds
+        uses: styfle/cancel-workflow-action@0.11.0
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v4
-        name: Checkout Repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
+      - name: Enable Rust Caching
+        uses: Swatinem/rust-cache@v2
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-          cargo install just
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
 
       - name: Check
         run: just ${{ matrix.just_variants }} check

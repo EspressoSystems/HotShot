@@ -4,10 +4,8 @@ on:
   push:
     branches:
       - 'main'
+      - 'develop'
   pull_request:
-    branches:
-      - 'main'
-      - '*/*'
   workflow_dispatch:
 
 jobs:
@@ -15,22 +13,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: styfle/cancel-workflow-action@0.11.0
-        name: Cancel Outdated Builds
+      - name: Cancel Outdated Builds
+        uses: styfle/cancel-workflow-action@0.11.0
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v23
-
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - name: Format Check
-        run: cargo fmt -- --check
-
-      - name: Clippy
+      - name: Install dependencies
         run: |
-          nix develop -c just async_std lint
-          nix develop -c just tokio lint
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Clippy async_std
+        run: just async_std lint
+
+      - name: Clippy tokio
+        run: just tokio lint

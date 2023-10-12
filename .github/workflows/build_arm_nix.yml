@@ -1,13 +1,6 @@
 name: Build Workflow for ARM
 
 on:
-  push:
-    branches:
-      - 'main'
-  pull_request:
-    branches:
-      - 'main'
-      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -34,7 +27,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # See how long just nix setup takes
+      - name: Initialize nix
+        run: nix develop -c echo Finished
+
       # sanity check that repository builds with nix
       - name: Build
-        run: |
-          nix develop -c just async_std build
+        run: nix develop -c just async_std build
