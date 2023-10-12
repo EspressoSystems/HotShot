@@ -8,7 +8,7 @@ use hotshot::traits::election::static_committee::{
     GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
 };
 use hotshot::traits::implementations::{
-    MasterMap, MemoryCommChannel, MemoryNetwork, MemoryStorage,
+    MasterMap, MemoryCommChannel, MemoryNetwork, MemoryStorage, NetworkingMetricsValue,
 };
 use hotshot::traits::NodeImplementation;
 use hotshot::types::bn254::{BLSPrivKey, BLSPubKey};
@@ -20,7 +20,6 @@ use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::traits::election::{
     CommitteeExchange, QuorumExchange, VIDExchange, ViewSyncExchange,
 };
-use hotshot_types::traits::metrics::NoMetrics;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::{ConnectedNetwork, TransmitType};
 use hotshot_types::traits::node_implementation::{ChannelMaps, NodeType, SequencingExchanges};
@@ -171,8 +170,7 @@ async fn memory_network_spawn_single() {
     let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
         MasterMap::new();
     trace!(?group);
-    let pub_key = get_pubkey();
-    let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
+    let _pub_key = get_pubkey();
 }
 
 // // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -187,10 +185,8 @@ async fn memory_network_spawn_double() {
     let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
         MasterMap::new();
     trace!(?group);
-    let pub_key_1 = get_pubkey();
-    let _network_1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    let pub_key_2 = get_pubkey();
-    let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    let _pub_key_1 = get_pubkey();
+    let _pub_key_2 = get_pubkey();
 }
 
 // Check to make sure direct queue works
@@ -210,10 +206,20 @@ async fn memory_network_direct_queue() {
     trace!(?group);
 
     let pub_key_1 = get_pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(
+        pub_key_1,
+        NetworkingMetricsValue::new(),
+        group.clone(),
+        Option::None,
+    );
 
     let pub_key_2 = get_pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    let network2 = MemoryNetwork::new(
+        pub_key_2,
+        NetworkingMetricsValue::new(),
+        group,
+        Option::None,
+    );
 
     let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
@@ -266,9 +272,19 @@ async fn memory_network_broadcast_queue() {
         MasterMap::new();
     trace!(?group);
     let pub_key_1 = get_pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(
+        pub_key_1,
+        NetworkingMetricsValue::new(),
+        group.clone(),
+        Option::None,
+    );
     let pub_key_2 = get_pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    let network2 = MemoryNetwork::new(
+        pub_key_2,
+        NetworkingMetricsValue::new(),
+        group,
+        Option::None,
+    );
 
     let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
@@ -327,9 +343,19 @@ async fn memory_network_test_in_flight_message_count() {
         MasterMap::new();
     trace!(?group);
     let pub_key_1 = get_pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(
+        pub_key_1,
+        NetworkingMetricsValue::new(),
+        group.clone(),
+        Option::None,
+    );
     let pub_key_2 = get_pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    let network2 = MemoryNetwork::new(
+        pub_key_2,
+        NetworkingMetricsValue::new(),
+        group,
+        Option::None,
+    );
 
     // Create some dummy messages
     let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);

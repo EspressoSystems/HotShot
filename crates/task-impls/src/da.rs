@@ -447,7 +447,6 @@ where
                 self.event_stream
                     .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
                     .await;
-
                 self.event_stream
                     .publish(SequencingHotShotEvent::DAProposalSend(
                         message.clone(),
