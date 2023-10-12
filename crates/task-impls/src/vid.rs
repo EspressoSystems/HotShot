@@ -22,8 +22,7 @@ use hotshot_types::{
     message::{Message, SequencingMessage},
     traits::{
         consensus_api::SequencingConsensusApi,
-        election::{ConsensusExchange, Membership, VIDExchangeType},
-        network::{CommunicationChannel, ConsensusIntentEvent},
+        election::{ConsensusExchange, VIDExchangeType},
         node_implementation::{NodeImplementation, NodeType, VIDEx},
         signature_key::SignatureKey,
         state::ConsensusTime,
