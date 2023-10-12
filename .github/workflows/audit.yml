@@ -1,6 +1,10 @@
 name: Run Cargo Audit
 
 on:
+  push:
+    branches:
+      - 'develop'
+      - 'main'
   schedule:
     - cron: '0 0 * * 1' # Run on Mondays
   workflow_dispatch:
