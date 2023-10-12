@@ -5,6 +5,8 @@ use hotshot_testing::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
     task_helpers::vid_init,
 };
+use hotshot_types::traits::election::CommitteeExchangeType;
+use hotshot_types::traits::election::VIDExchangeType;
 use hotshot_types::{
     block_impl::VIDTransaction,
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
@@ -23,9 +25,7 @@ use std::collections::HashMap;
 async fn test_vid_task() {
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{
-        block_impl::VIDBlockPayload, message::Proposal, traits::election::CommitteeExchangeType,
-    };
+    use hotshot_types::{block_impl::VIDBlockPayload, message::Proposal};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -37,6 +37,7 @@ async fn test_vid_task() {
             inner: handle.hotshot.inner.clone(),
         };
     let vid_exchange = api.inner.exchanges.vid_exchange().clone();
+    let commmittee_exchange = api.inner.exchanges.committee_exchange().clone();
     let pub_key = *api.public_key();
     let vid = vid_init();
     let txn = vec![0u8];
@@ -47,7 +48,7 @@ async fn test_vid_task() {
         commitment: block_commitment,
     };
 
-    let signature = vid_exchange.sign_da_proposal(&block.commit());
+    let signature = commmittee_exchange.sign_da_proposal(&block.commit());
     let proposal: DAProposal<SequencingTestTypes> = DAProposal {
         deltas: block.clone(),
         view_number: ViewNumber::new(2),
@@ -92,12 +93,11 @@ async fn test_vid_task() {
         1,
     );
 
-    let vote_token = committee_exchange
+    let vote_token = vid_exchange
         .make_vote_token(ViewNumber::new(2))
         .unwrap()
         .unwrap();
-    let vid_vote =
-        committee_exchange.create_vid_message(block.commit(), ViewNumber::new(2), vote_token);
+    let vid_vote = vid_exchange.create_vid_message(block.commit(), ViewNumber::new(2), vote_token);
     output.insert(SequencingHotShotEvent::VidVoteSend(vid_vote), 1);
 
     output.insert(
