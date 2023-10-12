@@ -170,13 +170,6 @@ where
                         .await;
 
                     state.accumulator = Right(vid_cert.clone());
-                    state
-                        .vid_exchange
-                        .network()
-                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *vid_cert.view_number,
-                        ))
-                        .await;
 
                     // Return completed at this point
                     return (Some(HotShotTaskCompleted::ShutDown), state);
@@ -380,55 +373,8 @@ where
                     error!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-                // Inject view info into network
-                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
-
-                let is_da = self
-                    .vid_exchange
-                    .membership()
-                    .get_committee(self.cur_view + 1)
-                    .contains(self.vid_exchange.public_key());
-
-                if is_da {
-                    debug!("Polling for DA proposals for view {}", *self.cur_view + 1);
-                    self.vid_exchange
-                        .network()
-                        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
-                            *self.cur_view + 1,
-                        ))
-                        .await;
-                }
-                if self.vid_exchange.is_leader(self.cur_view + 3) {
-                    debug!("Polling for transactions for view {}", *self.cur_view + 3);
-                    self.vid_exchange
-                        .network()
-                        .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
-                            *self.cur_view + 3,
-                        ))
-                        .await;
-                }
-
-                // If we are not the next leader (DA leader for this view) immediately exit
-                if !self.vid_exchange.is_leader(self.cur_view + 1) {
-                    // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
-                    return None;
-                }
-                debug!("Polling for DA votes for view {}", *self.cur_view + 1);
-
-                // Start polling for DA votes for the "next view"
-                self.vid_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
-                    .await;
 
                 return None;
-            }
-
-            SequencingHotShotEvent::Timeout(view) => {
-                self.vid_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
             }
 
             SequencingHotShotEvent::Shutdown => {
@@ -446,7 +392,6 @@ where
         matches!(
             event,
             SequencingHotShotEvent::Shutdown
-                | SequencingHotShotEvent::Timeout(_)
                 | SequencingHotShotEvent::VidDisperseRecv(_, _)
                 | SequencingHotShotEvent::VidVoteRecv(_)
                 | SequencingHotShotEvent::ViewChange(_)

@@ -37,7 +37,7 @@ async fn test_vid_task() {
             inner: handle.hotshot.inner.clone(),
         };
     let vid_exchange = api.inner.exchanges.vid_exchange().clone();
-    let commmittee_exchange = api.inner.exchanges.committee_exchange().clone();
+    let committee_exchange = api.inner.exchanges.committee_exchange().clone();
     let pub_key = *api.public_key();
     let vid = vid_init();
     let txn = vec![0u8];
@@ -48,7 +48,7 @@ async fn test_vid_task() {
         commitment: block_commitment,
     };
 
-    let signature = commmittee_exchange.sign_da_proposal(&block.commit());
+    let signature = committee_exchange.sign_da_proposal(&block.commit());
     let proposal: DAProposal<SequencingTestTypes> = DAProposal {
         deltas: block.clone(),
         view_number: ViewNumber::new(2),
