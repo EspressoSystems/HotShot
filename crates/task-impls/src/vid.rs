@@ -152,7 +152,7 @@ where
 
             match state
                 .vid_exchange
-                .accumulate_vote_2(accumulator, &vote, &vote.block_commitment)
+                .accumulate_vote(accumulator, &vote, &vote.block_commitment)
             {
                 Left(new_accumulator) => {
                     state.accumulator = either::Left(new_accumulator);
@@ -249,7 +249,7 @@ where
                     phantom: PhantomData,
                 };
 
-                let accumulator = self.vid_exchange.accumulate_vote_2(
+                let accumulator = self.vid_exchange.accumulate_vote(
                     new_accumulator,
                     &vote,
                     &vote.clone().block_commitment,

@@ -7,7 +7,7 @@ use super::{
     block_contents::Transaction,
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType,
-        VIDExchangeType, ViewSyncExchangeType, VoteToken, TimeoutExchangeType, TimeoutExchange
+        TimeoutExchange, TimeoutExchangeType, VIDExchangeType, ViewSyncExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -189,9 +189,6 @@ pub trait ExchangesType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MESSA
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
-    /// Get the committee exchange.
-    fn committee_exchange(&self) -> &Self::CommitteeExchange;
-
     /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
@@ -239,7 +236,7 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
     VIEWSYNCEXCHANGE: ViewSyncExchangeType<TYPES, MESSAGE> + Clone + Debug,
-    VIDEXCHANGE: VIDExchangeType<TYPES, MESSAGE>,
+    VIDEXCHANGE: VIDExchangeType<TYPES, MESSAGE> + Clone + Debug,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -259,7 +256,7 @@ pub struct SequencingExchanges<
     // https://github.com/EspressoSystems/HotShot/issues/1799
     #[allow(clippy::type_complexity)]
 
-    pub timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>,
+    pub timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>,
 
     /// Phantom data
     _phantom: PhantomData<(TYPES, MESSAGE)>,
@@ -289,7 +286,7 @@ where
     type ViewSyncExchange = VIEWSYNCEXCHANGE;
     type VIDExchange = VIDEXCHANGE;
     #[allow(clippy::type_complexity)]
-    type TimeoutExchange = TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>;
+    type TimeoutExchange = TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>;
 
     type ElectionConfigs = (TYPES::ElectionConfigType, TYPES::ElectionConfigType);
 
@@ -323,7 +320,7 @@ where
             sk.clone(),
         );
         #[allow(clippy::type_complexity)]
-        let timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE> = TimeoutExchange::create(
+        let timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE> = TimeoutExchange::create(
             entries.clone(),
             configs.0.clone(),
             networks.0,

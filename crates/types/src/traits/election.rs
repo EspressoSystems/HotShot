@@ -497,22 +497,6 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> DAVote<TYPES>;
-
-    // TODO temporary vid methods, move to quorum https://github.com/EspressoSystems/HotShot/issues/1696
-
-    /// Create a message with a vote on VID disperse data.
-    fn create_vid_message(
-        &self,
-        block_commitment: Commitment<TYPES::BlockType>,
-        current_view: TYPES::Time,
-        vote_token: TYPES::VoteTokenType,
-    ) -> DAVote<TYPES>;
-
-    /// Sign a vote on VID proposal.
-    fn sign_vid_vote(
-        &self,
-        block_commitment: Commitment<TYPES::BlockType>,
-    ) -> (EncodedPublicKey, EncodedSignature);
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -583,33 +567,6 @@ impl<
             vote_token,
             vote_data: VoteData::DA(block_commitment),
         }
-    }
-
-    fn create_vid_message(
-        &self,
-        block_commitment: Commitment<TYPES::BlockType>,
-        current_view: <TYPES as NodeType>::Time,
-        vote_token: <TYPES as NodeType>::VoteTokenType,
-    ) -> DAVote<TYPES> {
-        let signature = self.sign_vid_vote(block_commitment);
-        DAVote {
-            signature,
-            block_commitment,
-            current_view,
-            vote_token,
-            vote_data: VoteData::DA(block_commitment),
-        }
-    }
-
-    fn sign_vid_vote(
-        &self,
-        block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
-            VoteData::DA(block_commitment).commit().as_ref(),
-        );
-        (self.public_key.to_bytes(), signature)
     }
 }
 
@@ -685,7 +642,7 @@ pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYP
     ) -> (EncodedPublicKey, EncodedSignature);
 }
 
-/// Standard implementation of [`VIDExchangeType`] utilizing a DA committee.
+/// Standard implementation of [`VIDExchangeType`]
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
 pub struct VIDExchange<
@@ -788,35 +745,6 @@ impl<
             .make_vote_token(view_number, &self.private_key)
     }
 
-    fn vote_data(&self, commit: Self::Commitment) -> VoteData<Self::Commitment> {
-        VoteData::DA(commit)
-    }
-
-    /// Add a vote to the accumulating signature.  Return The certificate if the vote
-    /// brings us over the threshould, Else return the accumulator.
-    fn accumulate_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        leaf_commitment: Self::Commitment,
-        vote_data: VoteData<Self::Commitment>,
-        vote_token: TYPES::VoteTokenType,
-        view_number: TYPES::Time,
-        accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>,
-        _relay: Option<u64>,
-    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment, TYPES>, Self::Certificate>
-    {
-        let meta = VoteMetaData {
-            encoded_key: encoded_key.clone(),
-            encoded_signature: encoded_signature.clone(),
-            commitment: leaf_commitment,
-            data: vote_data,
-            vote_token,
-            view_number,
-            relay: None,
-        };
-        self.accumulate_internal(meta, accumlator)
-    }
     fn membership(&self) -> &Self::Membership {
         &self.membership
     }
