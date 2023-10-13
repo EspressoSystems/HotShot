@@ -61,7 +61,48 @@ jobs:
       - name: Upload Binaries
         uses: actions/upload-artifact@v3
         with:
-          name: binaries-${{ matrix.just_variants }}
+          name: binaries-amd64-${{ matrix.just_variants }}
+          path: |
+            target/debug/examples/counter
+            target/debug/examples/libp2p-multi-validator
+            target/debug/examples/libp2p-orchestrator
+            target/debug/examples/libp2p-validator
+            target/debug/examples/multi-validator
+            target/debug/examples/multi-web-server
+            target/debug/examples/web-server
+            target/debug/examples/web-server-da-orchestrator
+            target/debug/examples/web-server-da-validator
+
+  build-arm:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
+    runs-on: [self-hosted, arm64]
+    steps:
+      - name: Fix permissions
+        run: sudo chown -R runner1 /home/runner1/actions-runner/_work/HotShot
+
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: arm-${{ matrix.just_variants }}
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-aarch64-${{ matrix.just_variants }}
           path: |
             target/debug/examples/counter
             target/debug/examples/libp2p-multi-validator
