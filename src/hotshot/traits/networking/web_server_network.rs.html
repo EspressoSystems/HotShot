@@ -1110,6 +1110,37 @@
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
 <a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1273,6 +1304,7 @@
         <span class="kw">while </span><span class="self">self</span>.running.load(Ordering::Relaxed) {
             <span class="kw">let </span>endpoint = <span class="kw">match </span>message_purpose {
                 MessagePurpose::Proposal =&gt; config::get_proposal_route(view_number),
+                MessagePurpose::CurrentProposal =&gt; config::get_recent_proposal_route(),
                 MessagePurpose::Vote =&gt; config::get_vote_route(view_number, vote_index),
                 MessagePurpose::Data =&gt; config::get_transactions_route(tx_index),
                 MessagePurpose::Internal =&gt; <span class="macro">unimplemented!</span>(),
@@ -1333,6 +1365,15 @@
                                 //     }
                                 // }
                             </span>}
+                            MessagePurpose::CurrentProposal =&gt; {
+                                <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                                </span><span class="self">self</span>.broadcast_poll_queue
+                                    .write()
+                                    .<span class="kw">await
+                                    </span>.push(deserialized_messages[<span class="number">0</span>].clone());
+
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                            }
                             MessagePurpose::Vote =&gt; {
                                 <span class="comment">// error!(
                                 //     &quot;Received {} votes from web server for view {} is da {}&quot;,
@@ -1612,7 +1653,9 @@
             MessagePurpose::Proposal =&gt; config::post_proposal_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::Vote =&gt; config::post_vote_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::Data =&gt; config::post_transactions_route(),
-            MessagePurpose::Internal =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError),
+            MessagePurpose::Internal | MessagePurpose::CurrentProposal =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError)
+            }
             MessagePurpose::ViewSyncProposal =&gt; {
                 <span class="comment">// error!(&quot;Posting view sync proposal route is: {}&quot;, config::post_view_sync_proposal_route(*view_number));
                 </span>config::post_view_sync_proposal_route(<span class="kw-2">*</span>view_number)
@@ -1894,6 +1937,25 @@
                         ))
                         .<span class="kw">await</span>;
                 }
+            }
+            ConsensusIntentEvent::PollForCurrentProposal =&gt; {
+                <span class="comment">// create new task
+                </span><span class="kw">let </span>(<span class="kw">_</span>, receiver) = unbounded();
+
+                async_spawn({
+                    <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                    <span class="kw">async move </span>{
+                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
+                            .poll_web_server(receiver, MessagePurpose::CurrentProposal, <span class="number">1</span>)
+                            .<span class="kw">await
+                        </span>{
+                            <span class="macro">error!</span>(
+                                <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                e
+                            );
+                        }
+                    }
+                });
             }
             ConsensusIntentEvent::PollForVotes(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.vote_task_map.write().<span class="kw">await</span>;

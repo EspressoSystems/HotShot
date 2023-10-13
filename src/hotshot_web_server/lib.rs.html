@@ -653,6 +653,21 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
@@ -688,6 +703,8 @@
     </span>da_certificates: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
     <span class="doccomment">/// view for oldest proposals in memory
     </span>oldest_proposal: u64,
+    <span class="doccomment">/// view for the most recent proposal to help nodes catchup
+    </span>recent_proposal: u64,
     <span class="doccomment">/// view for teh oldest DA certificate
     </span>oldest_certificate: u64,
 
@@ -729,6 +746,7 @@
             num_txns: <span class="number">0</span>,
             oldest_vote: <span class="number">0</span>,
             oldest_proposal: <span class="number">0</span>,
+            recent_proposal: <span class="number">0</span>,
             oldest_certificate: <span class="number">0</span>,
             shutdown: <span class="prelude-val">None</span>,
             stake_table: Vec::new(),
@@ -756,6 +774,7 @@
 <span class="doccomment">/// Trait defining methods needed for the `WebServerState`
 </span><span class="kw">pub trait </span>WebServerDataSource&lt;KEY&gt; {
     <span class="kw">fn </span>get_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="kw">fn </span>get_recent_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
     <span class="kw">fn </span>get_view_sync_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: u64,
@@ -809,6 +828,10 @@
                 message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {view_number}&quot;</span>),
             }),
         }
+    }
+
+    <span class="kw">fn </span>get_recent_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
+        <span class="self">self</span>.get_proposal(<span class="self">self</span>.recent_proposal)
     }
 
     <span class="kw">fn </span>get_view_sync_proposal(
@@ -970,6 +993,10 @@
     <span class="doccomment">/// Stores a received proposal in the `WebServerState`
     </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="macro">debug!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
+
+        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.recent_proposal {
+            <span class="self">self</span>.recent_proposal = view_number;
+        }
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.proposals.len() &gt;= MAX_VIEWS {
@@ -1149,6 +1176,9 @@
             state.get_proposal(view_number)
         }
         .boxed()
+    })<span class="question-mark">?
+    </span>.get(<span class="string">&quot;getrecentproposal&quot;</span>, |_req, state| {
+        <span class="kw">async move </span>{ state.get_recent_proposal() }.boxed()
     })<span class="question-mark">?
     </span>.get(<span class="string">&quot;getviewsyncproposal&quot;</span>, |req, state| {
         <span class="kw">async move </span>{
