@@ -256,7 +256,12 @@ pub struct SequencingExchanges<
     // https://github.com/EspressoSystems/HotShot/issues/1799
     #[allow(clippy::type_complexity)]
 
-    pub timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE> as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>,
+    pub timeout_exchange: TimeoutExchange<TYPES, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE>
+        as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange
+        as ConsensusExchange<TYPES, MESSAGE>>::Proposal, <<SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE, VIEWSYNCEXCHANGE, VIDEXCHANGE>
+        as ExchangesType<TYPES, SequencingLeaf<TYPES>, MESSAGE>>::QuorumExchange
+        as ConsensusExchange<TYPES, MESSAGE>>::Membership, <QUORUMEXCHANGE
+        as ConsensusExchange<TYPES, MESSAGE>>::Networking, MESSAGE>,
 
     /// Phantom data
     _phantom: PhantomData<(TYPES, MESSAGE)>,
@@ -348,6 +353,7 @@ where
         );
 
         // RM TODO: figure out if this is the proper config
+        // issue: https://github.com/EspressoSystems/HotShot/issues/1918
         let vid_exchange = VIDEXCHANGE::create(entries, configs.1, networks.3, pk, entry, sk);
 
         Self {

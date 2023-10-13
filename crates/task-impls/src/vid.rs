@@ -126,7 +126,7 @@ where
 }
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "VID Vote Collection Task", level = "error")]
-async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>>(
+async fn vote_handle<TYPES, I>(
     mut state: VIDVoteCollectionTaskState<TYPES, I>,
     event: SequencingHotShotEvent<TYPES, I>,
 ) -> (
@@ -134,6 +134,8 @@ async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Sequen
     VIDVoteCollectionTaskState<TYPES, I>,
 )
 where
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
