@@ -9,17 +9,15 @@ on:
     - cron: '0 0 * * 1'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: styfle/cancel-workflow-action@0.12.0
-        name: Cancel Outdated Builds
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - name: Install Nix
         uses: cachix/install-nix-action@v23
 
@@ -28,6 +26,7 @@ jobs:
         with:
           name: espresso-systems-private
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          skipPush: ${{ github.actor == 'dependabot[bot]' }}
 
       - name: Checkout Repository
         uses: actions/checkout@v4
