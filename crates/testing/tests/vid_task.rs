@@ -66,8 +66,6 @@ async fn test_vid_task() {
         },
         signature: message.signature.clone(),
     };
-    // TODO for now reuse the same block commitment and signature as DA committee
-    // https://github.com/EspressoSystems/jellyfish/issues/369
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
