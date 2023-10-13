@@ -130,7 +130,7 @@ async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Sequen
     mut state: VIDVoteCollectionTaskState<TYPES, I>,
     event: SequencingHotShotEvent<TYPES, I>,
 ) -> (
-    std::option::Option<HotShotTaskCompleted>,
+    Option<HotShotTaskCompleted>,
     VIDVoteCollectionTaskState<TYPES, I>,
 )
 where
