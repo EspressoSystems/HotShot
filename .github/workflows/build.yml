@@ -6,13 +6,13 @@ on:
       - 'develop'
       - 'main'
   pull_request:
-    branches:
-      - 'develop'
-      - 'main'
-      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -23,12 +23,6 @@ jobs:
           - tokio
     runs-on: ubuntu-latest
     steps:
-      - uses: styfle/cancel-workflow-action@0.12.0
-        name: Cancel Outdated Builds
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v4
         name: Checkout Repository
 
@@ -42,7 +36,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-          cargo install just
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
 
       - name: Run linting
         run: |
@@ -61,7 +60,48 @@ jobs:
       - name: Upload Binaries
         uses: actions/upload-artifact@v3
         with:
-          name: binaries-${{ matrix.just_variants }}
+          name: binaries-amd64-${{ matrix.just_variants }}
+          path: |
+            target/debug/examples/counter
+            target/debug/examples/libp2p-multi-validator
+            target/debug/examples/libp2p-orchestrator
+            target/debug/examples/libp2p-validator
+            target/debug/examples/multi-validator
+            target/debug/examples/multi-web-server
+            target/debug/examples/web-server
+            target/debug/examples/web-server-da-orchestrator
+            target/debug/examples/web-server-da-validator
+
+  build-arm:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
+    runs-on: [self-hosted, arm64]
+    steps:
+      - name: Fix permissions
+        run: sudo chown -R runner1 /home/runner1/actions-runner/_work/HotShot
+
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: arm-${{ matrix.just_variants }}
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-aarch64-${{ matrix.just_variants }}
           path: |
             target/debug/examples/counter
             target/debug/examples/libp2p-multi-validator
