@@ -69,7 +69,7 @@ serde = { version = "1.0.188", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
-time = "0.3.29"
+time = "0.3.30"
 toml = "0.7.8"
 tracing = "0.1.39"
 typenum = "1.17.0"
