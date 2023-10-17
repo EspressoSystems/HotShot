@@ -190,8 +190,8 @@ jobs:
           file: ./docker/libp2p-orchestrator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
+          tags: ${{ steps.libp2p-orchestrator.outputs.tags }}
+          labels: ${{ steps.libp2p-orchestrator.outputs.labels }}
 
       - name: Build and push libp2p-validator docker
         uses: docker/build-push-action@v5
@@ -200,8 +200,8 @@ jobs:
           file: ./docker/libp2p-validator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
+          tags: ${{ steps.libp2p-validator.outputs.tags }}
+          labels: ${{ steps.libp2p-validator.outputs.labels }}
 
       - name: Build and push web-server docker
         uses: docker/build-push-action@v5
@@ -210,8 +210,8 @@ jobs:
           file: ./docker/web-server.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
+          tags: ${{ steps.web-server.outputs.tags }}
+          labels: ${{ steps.web-server.outputs.labels }}
 
       - name: Build and push web-server-da-orchestrator docker
         uses: docker/build-push-action@v5
@@ -220,8 +220,8 @@ jobs:
           file: ./docker/web-server-da-orchestrator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
+          tags: ${{ steps.web-server-da-orchestrator.outputs.tags }}
+          labels: ${{ steps.web-server-da-orchestrator.outputs.labels }}
 
       - name: Build and push web-server-da-validator docker
         uses: docker/build-push-action@v5
@@ -230,5 +230,5 @@ jobs:
           file: ./docker/web-server-da-validator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
+          tags: ${{ steps.web-server-da-validator.outputs.tags }}
+          labels: ${{ steps.web-server-da-validator.outputs.labels }}
