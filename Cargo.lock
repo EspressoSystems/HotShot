@@ -3668,9 +3668,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identity"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57bf6e730ec5e7022958da53ffb03b326e681b7316939012ae9b3c7449a812d4"
+checksum = "31e6cc3b46b1183c2de7c452efbc64813389036be632aaae71de2f15f1994fad"
 dependencies = [
  "asn1_der",
  "bs58",
