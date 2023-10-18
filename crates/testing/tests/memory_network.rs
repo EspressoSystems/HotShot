@@ -69,6 +69,7 @@ pub type ThisMembership = GeneralStaticCommittee<Test, ThisLeaf, <Test as NodeTy
 pub type DANetwork = MemoryCommChannel<Test, TestImpl, ThisMembership>;
 pub type QuorumNetwork = MemoryCommChannel<Test, TestImpl, ThisMembership>;
 pub type ViewSyncNetwork = MemoryCommChannel<Test, TestImpl, ThisMembership>;
+pub type VIDNetwork = MemoryCommChannel<Test, TestImpl, ThisMembership>;
 
 pub type ThisDAProposal = DAProposal<Test>;
 pub type ThisDAVote = DAVote<Test>;
@@ -101,7 +102,7 @@ impl NodeImplementation<Test> for TestImpl {
             ViewSyncNetwork,
             Message<Test, Self>,
         >,
-        VIDExchange<Test, ThisMembership, DANetwork, Message<Test, Self>>,
+        VIDExchange<Test, ThisMembership, VIDNetwork, Message<Test, Self>>,
     >;
     type ConsensusMessage = SequencingMessage<Test, Self>;
 

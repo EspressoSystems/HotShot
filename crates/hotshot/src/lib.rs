@@ -54,7 +54,9 @@ use hotshot_task::{
 };
 use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
 use hotshot_types::{
-    certificate::TimeoutCertificate, traits::node_implementation::SequencingTimeoutEx,
+    certificate::{TimeoutCertificate, VIDCertificate},
+    data::VidDisperse,
+    traits::node_implementation::SequencingTimeoutEx,
 };
 
 use hotshot_types::{
@@ -662,8 +664,8 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = DAProposal<TYPES>,
-            Certificate = DACertificate<TYPES>,
+            Proposal = VidDisperse<TYPES>,
+            Certificate = VIDCertificate<TYPES>,
             Commitment = Commitment<TYPES::BlockType>,
             Membership = MEMBERSHIP,
         > + 'static,

@@ -9,11 +9,11 @@ use super::{
 };
 use crate::{
     certificate::{
-        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
+        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate, VIDCertificate,
         ViewSyncCertificate,
     },
-    data::{DAProposal, ProposalType},
-    vote::TimeoutVote,
+    data::{DAProposal, ProposalType, VidDisperse},
+    vote::{TimeoutVote, VIDVote},
 };
 
 use crate::{
@@ -84,6 +84,8 @@ where
     No(COMMITMENT),
     /// Vote to time out and proceed to the next view.
     Timeout(COMMITMENT),
+    /// Vote for VID proposal
+    VID(COMMITMENT),
     /// Vote to pre-commit the view sync.
     ViewSyncPreCommit(COMMITMENT),
     /// Vote to commit the view sync.
@@ -100,6 +102,7 @@ where
     fn commit(&self) -> Commitment<Self> {
         let (tag, commit) = match self {
             VoteData::DA(c) => ("DA BlockPayload Commit", c),
+            VoteData::VID(c) => ("VID Proposal Commit", c),
             VoteData::Yes(c) => ("Yes Vote Commit", c),
             VoteData::No(c) => ("No Vote Commit", c),
             VoteData::Timeout(c) => ("Timeout View Number Commit", c),
@@ -339,6 +342,14 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         match qc.signatures() {
             AssembledSignature::DA(qc) => {
                 let real_commit = VoteData::DA(leaf_commitment).commit();
+                let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+                    self.membership().get_committee_qc_stake_table(),
+                    U256::from(self.membership().success_threshold().get()),
+                );
+                <TYPES::SignatureKey as SignatureKey>::check(&real_qc_pp, real_commit.as_ref(), &qc)
+            }
+            AssembledSignature::VID(qc) => {
+                let real_commit = VoteData::VID(leaf_commitment).commit();
                 let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
                     self.membership().get_committee_qc_stake_table(),
                     U256::from(self.membership().success_threshold().get()),
@@ -633,7 +644,7 @@ pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYP
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> DAVote<TYPES>;
+    ) -> VIDVote<TYPES>;
 
     /// Sign a vote on VID proposal.
     fn sign_vid_vote(
@@ -678,9 +689,9 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: <TYPES as NodeType>::Time,
         vote_token: <TYPES as NodeType>::VoteTokenType,
-    ) -> DAVote<TYPES> {
+    ) -> VIDVote<TYPES> {
         let signature = self.sign_vid_vote(block_commitment);
-        DAVote {
+        VIDVote {
             signature,
             block_commitment,
             current_view,
@@ -708,9 +719,9 @@ impl<
         M: NetworkMsg,
     > ConsensusExchange<TYPES, M> for VIDExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
-    type Proposal = DAProposal<TYPES>;
-    type Vote = DAVote<TYPES>;
-    type Certificate = DACertificate<TYPES>;
+    type Proposal = VidDisperse<TYPES>;
+    type Vote = VIDVote<TYPES>;
+    type Certificate = VIDCertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
     type Commitment = Commitment<TYPES::BlockType>;

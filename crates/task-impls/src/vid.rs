@@ -12,11 +12,11 @@ use hotshot_task::{
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::vote::DAVoteAccumulator;
 use hotshot_types::vote::VoteType;
 use hotshot_types::{
-    certificate::DACertificate,
+    certificate::VIDCertificate, traits::election::SignedCertificate, vote::VIDVoteAccumulator,
+};
+use hotshot_types::{
     consensus::{Consensus, View},
     data::{ProposalType, SequencingLeaf},
     message::{Message, SequencingMessage},
@@ -52,7 +52,7 @@ pub struct VIDTaskState<
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
@@ -88,7 +88,7 @@ pub struct VIDVoteCollectionTaskState<
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
@@ -97,13 +97,13 @@ pub struct VIDVoteCollectionTaskState<
     #[allow(clippy::type_complexity)]
     /// Accumulates VID votes
     pub accumulator: Either<
-        <DACertificate<TYPES> as SignedCertificate<
+        <VIDCertificate<TYPES> as SignedCertificate<
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
             Commitment<TYPES::BlockType>,
         >>::VoteAccumulator,
-        DACertificate<TYPES>,
+        VIDCertificate<TYPES>,
     >,
     /// the current view
     pub cur_view: TYPES::Time,
@@ -119,7 +119,7 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
@@ -139,7 +139,7 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
@@ -198,7 +198,7 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
@@ -243,8 +243,8 @@ where
                         TYPES::Time::new(0)
                     };
 
-                let new_accumulator = DAVoteAccumulator {
-                    da_vote_outcomes: HashMap::new(),
+                let new_accumulator = VIDVoteAccumulator {
+                    vid_vote_outcomes: HashMap::new(),
                     success_threshold: self.vid_exchange.success_threshold(),
                     sig_lists: Vec::new(),
                     signers: bitvec![0; self.vid_exchange.total_nodes()],
@@ -414,7 +414,7 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {

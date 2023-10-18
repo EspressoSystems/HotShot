@@ -29,7 +29,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction},
-    certificate::{TimeoutCertificate, ViewSyncCertificate},
+    certificate::{TimeoutCertificate, VIDCertificate, ViewSyncCertificate},
     data::{ProposalType, QuorumProposal, SequencingLeaf},
     event::Event,
     message::{Message, Messages, SequencingMessage},
@@ -307,7 +307,8 @@ where
         timeout_task: async_spawn(async move {}),
         event_stream: event_stream.clone(),
         output_event_stream: output_stream,
-        certs: HashMap::new(),
+        da_certs: HashMap::new(),
+        vid_certs: HashMap::new(),
         current_proposal: None,
         id: handle.hotshot.inner.id,
         qc: None,
@@ -363,7 +364,7 @@ where
     )
 }
 
-/// add the vidta Availability task
+/// add the VID task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_vid_task<
@@ -383,7 +384,7 @@ where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
+        Certificate = VIDCertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
 {
