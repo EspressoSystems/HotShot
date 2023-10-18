@@ -16,7 +16,7 @@ run_ci: lint build test
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --verbose --workspace --examples --bins --tests --lib --benches
+  cargo build --workspace --examples --bins --tests --lib --benches
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
