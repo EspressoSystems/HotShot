@@ -16,7 +16,7 @@ run_ci: lint build test
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --verbose --workspace --examples --bins --tests --lib --benches
+  cargo build --workspace --examples --bins --tests --lib --benches
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
@@ -29,7 +29,7 @@ test_basic: test_success test_with_failures test_network_task test_consensus_tas
 
 test_catchup:
     echo Testing with async std executor
-    cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+    ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
 
 test_success:
   echo Testing success test
@@ -37,7 +37,7 @@ test_success:
 
 test_timeout:
   echo Testing timeout test
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture --ignored
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture 
 
 test_web_server:
   echo Testing web server
