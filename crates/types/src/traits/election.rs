@@ -651,6 +651,12 @@ pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYP
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Sign a VID proposal.
+    fn sign_vid_proposal(
+        &self,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature;
 }
 
 /// Standard implementation of [`VIDExchangeType`]
@@ -709,6 +715,15 @@ impl<
             VoteData::DA(block_commitment).commit().as_ref(),
         );
         (self.public_key.to_bytes(), signature)
+    }
+
+    /// Sign a VID proposal.
+    fn sign_vid_proposal(
+        &self,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(&self.private_key, block_commitment.as_ref());
+        signature
     }
 }
 

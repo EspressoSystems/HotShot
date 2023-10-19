@@ -1,9 +1,5 @@
 use commit::Committable;
-use hotshot::{
-    tasks::add_vid_task,
-    types::{bn254::BLSPubKey, SignatureKey},
-    HotShotSequencingConsensusApi,
-};
+use hotshot::{tasks::add_vid_task, HotShotSequencingConsensusApi};
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
@@ -41,7 +37,7 @@ async fn test_vid_task() {
         };
     let vid_exchange = api.inner.exchanges.vid_exchange().clone();
     let pub_key = *api.public_key();
-    let priv_key = api.private_key();
+
     let vid = vid_init();
     let txn = vec![0u8];
     let vid_disperse = vid.disperse(&txn).unwrap();
@@ -51,7 +47,7 @@ async fn test_vid_task() {
         commitment: block_commitment,
     };
 
-    let signature = BLSPubKey::sign(priv_key, block.commit().as_ref());
+    let signature = vid_exchange.sign_vid_proposal(&block.commit());
     let proposal: DAProposal<SequencingTestTypes> = DAProposal {
         deltas: block.clone(),
         view_number: ViewNumber::new(2),
