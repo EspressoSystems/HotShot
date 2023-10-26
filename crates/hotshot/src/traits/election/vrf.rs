@@ -881,7 +881,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
 //     )]
 //     struct TestTypes;
 //     impl NodeType for TestTypes {
-//         // TODO (da) can this be SequencingConsensus?
+//         // TODO (da) can this be Consensus?
 //         type ConsensusType = ValidatingConsensus;
 //         type Time = ViewNumber;
 //         type BlockType = DummyBlock;

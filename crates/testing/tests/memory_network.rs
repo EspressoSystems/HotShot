@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
-use hotshot::demo::SDemoState;
+use hotshot::demo::DemoState;
 use hotshot::traits::election::static_committee::{
     GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
 };
@@ -58,7 +58,7 @@ impl NodeType for Test {
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VIDTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = SDemoState;
+    type StateType = DemoState;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]

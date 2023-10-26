@@ -2,7 +2,7 @@ use hotshot::traits::implementations::CombinedNetworks;
 use std::{marker::PhantomData, sync::Arc};
 
 use hotshot::{
-    demo::SDemoState,
+    demo::DemoState,
     traits::{
         election::static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
         implementations::{
@@ -47,7 +47,7 @@ impl NodeType for SequencingTestTypes {
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VIDTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = SDemoState;
+    type StateType = DemoState;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]

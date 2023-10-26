@@ -70,7 +70,7 @@ use hotshot_types::{
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
     traits::{
-        consensus_api::{ConsensusSharedApi, SequencingConsensusApi},
+        consensus_api::{ConsensusApi, ConsensusSharedApi},
         election::{ConsensusExchange, Membership, SignedCertificate},
         network::{CommunicationChannel, NetworkError},
         node_implementation::{
@@ -799,85 +799,15 @@ where
 }
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
-#[derive(Clone)]
-struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`SystemContextInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
-    for HotShotValidatingConsensusApi<TYPES, I>
-{
-    fn total_nodes(&self) -> NonZeroUsize {
-        self.inner.config.total_nodes
-    }
-
-    fn propose_min_round_time(&self) -> Duration {
-        self.inner.config.propose_min_round_time
-    }
-
-    fn propose_max_round_time(&self) -> Duration {
-        self.inner.config.propose_max_round_time
-    }
-
-    fn max_transactions(&self) -> NonZeroUsize {
-        self.inner.config.max_transactions
-    }
-
-    fn min_transactions(&self) -> usize {
-        self.inner.config.min_transactions
-    }
-
-    /// Generates and encodes a vote token
-
-    async fn should_start_round(&self, _: TYPES::Time) -> bool {
-        false
-    }
-
-    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
-        debug!(?event, "send_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
-        }
-    }
-
-    fn public_key(&self) -> &TYPES::SignatureKey {
-        &self.inner.public_key
-    }
-
-    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        &self.inner.private_key
-    }
-
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: I::Leaf,
-    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
-        let view_to_insert = StoredView::from(leaf);
-        let storage = &self.inner.storage;
-        storage.append_single_view(view_to_insert).await?;
-        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
-        storage.commit().await?;
-        Ok(())
-    }
-}
-
-/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]
     pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
-    for HotShotSequencingConsensusApi<TYPES, I>
+    for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -942,7 +872,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I:
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingConsensusApi<TYPES, I::Leaf, I> for HotShotSequencingConsensusApi<TYPES, I>
+    > ConsensusApi<TYPES, I::Leaf, I> for HotShotConsensusApi<TYPES, I>
 {
     async fn send_direct_message(
         &self,

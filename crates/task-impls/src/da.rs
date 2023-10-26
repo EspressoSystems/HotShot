@@ -19,7 +19,7 @@ use hotshot_types::{
     data::{DAProposal, ProposalType, SequencingLeaf},
     message::{Message, Proposal, SequencingMessage},
     traits::{
-        consensus_api::SequencingConsensusApi,
+        consensus_api::ConsensusApi,
         election::{CommitteeExchangeType, ConsensusExchange, Membership, SignedCertificate},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType},
@@ -46,7 +46,7 @@ pub struct DATaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -201,7 +201,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > DATaskState<TYPES, I, A>
 where
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -489,7 +489,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for DATaskState<TYPES, I, A>
 where
     CommitteeEx<TYPES, I>: ConsensusExchange<

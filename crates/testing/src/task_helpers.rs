@@ -8,7 +8,7 @@ use hotshot::{
     certificate::QuorumCertificate,
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{bn254::BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotInitializer, HotShotSequencingConsensusApi, SystemContext,
+    HotShotConsensusApi, HotShotInitializer, SystemContext,
 };
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
@@ -98,10 +98,9 @@ async fn build_quorum_proposal_and_signature(
 ) {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
-        HotShotSequencingConsensusApi {
-            inner: handle.hotshot.inner.clone(),
-        };
+    let api: HotShotConsensusApi<SequencingTestTypes, SequencingMemoryImpl> = HotShotConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let _quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
 
     let parent_view_number = &consensus.high_qc.view_number();

@@ -20,7 +20,7 @@ use hotshot_types::{
     data::{SequencingLeaf, VidDisperse, VidScheme, VidSchemeTrait},
     message::{Message, Proposal, SequencingMessage},
     traits::{
-        consensus_api::SequencingConsensusApi,
+        consensus_api::ConsensusApi,
         election::{ConsensusExchange, Membership, QuorumExchangeType},
         node_implementation::{NodeImplementation, NodeType, QuorumEx},
         BlockPayload,
@@ -50,7 +50,7 @@ pub struct TransactionTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -95,7 +95,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TransactionTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<
@@ -310,7 +310,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TransactionTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<
@@ -407,7 +407,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for TransactionTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<

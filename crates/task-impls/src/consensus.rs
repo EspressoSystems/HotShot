@@ -22,7 +22,7 @@ use hotshot_types::{
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
     traits::{
-        consensus_api::SequencingConsensusApi,
+        consensus_api::ConsensusApi,
         election::{ConsensusExchange, QuorumExchangeType, SignedCertificate, TimeoutExchangeType},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{
@@ -54,14 +54,14 @@ pub struct ConsensusTaskError {}
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-pub struct SequencingConsensusTaskState<
+pub struct ConsensusTaskState<
     TYPES: NodeType,
     I: NodeImplementation<
         TYPES,
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -365,8 +365,8 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
-    > SequencingConsensusTaskState<TYPES, I, A>
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    > ConsensusTaskState<TYPES, I, A>
 where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -1458,8 +1458,8 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    > TS for SequencingConsensusTaskState<TYPES, I, A>
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    > TS for ConsensusTaskState<TYPES, I, A>
 where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -1497,7 +1497,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
     SequencingHotShotEvent<TYPES, I>,
     ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    SequencingConsensusTaskState<TYPES, I, A>,
+    ConsensusTaskState<TYPES, I, A>,
 >;
 
 /// Event handle for consensus
@@ -1508,13 +1508,13 @@ pub async fn sequencing_consensus_handle<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 >(
     event: SequencingHotShotEvent<TYPES, I>,
-    mut state: SequencingConsensusTaskState<TYPES, I, A>,
+    mut state: ConsensusTaskState<TYPES, I, A>,
 ) -> (
     std::option::Option<HotShotTaskCompleted>,
-    SequencingConsensusTaskState<TYPES, I, A>,
+    ConsensusTaskState<TYPES, I, A>,
 )
 where
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<

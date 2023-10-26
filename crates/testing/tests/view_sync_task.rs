@@ -1,5 +1,5 @@
 use commit::Committable;
-use hotshot::{types::SignatureKey, HotShotSequencingConsensusApi};
+use hotshot::{types::SignatureKey, HotShotConsensusApi};
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::node_types::{SequencingMemoryImpl, SequencingTestTypes};
 use hotshot_types::{
@@ -35,10 +35,9 @@ async fn test_view_sync_task() {
 
     // Build the API for node 3.
     let handle = build_system_handle(5).await.0;
-    let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
-        HotShotSequencingConsensusApi {
-            inner: handle.hotshot.inner.clone(),
-        };
+    let api: HotShotConsensusApi<SequencingTestTypes, SequencingMemoryImpl> = HotShotConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let view_sync_exchange = api.inner.exchanges.view_sync_exchange().clone();
     let relay_pub_key = api.public_key().to_bytes();
     let vote_token = view_sync_exchange

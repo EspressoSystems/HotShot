@@ -21,7 +21,7 @@ use hotshot_types::{
     data::{ProposalType, SequencingLeaf},
     message::{Message, SequencingMessage},
     traits::{
-        consensus_api::SequencingConsensusApi,
+        consensus_api::ConsensusApi,
         election::{ConsensusExchange, VIDExchangeType},
         node_implementation::{NodeImplementation, NodeType, VIDEx},
         signature_key::SignatureKey,
@@ -47,7 +47,7 @@ pub struct VIDTaskState<
         Leaf = SequencingLeaf<TYPES>,
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
 > where
     VIDEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -192,7 +192,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>: ConsensusExchange<
@@ -408,7 +408,7 @@ impl<
             Leaf = SequencingLeaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
     > TS for VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>: ConsensusExchange<

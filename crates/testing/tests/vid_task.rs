@@ -1,5 +1,5 @@
 use commit::Committable;
-use hotshot::{tasks::add_vid_task, HotShotSequencingConsensusApi};
+use hotshot::{tasks::add_vid_task, HotShotConsensusApi};
 use hotshot_task_impls::events::SequencingHotShotEvent;
 use hotshot_testing::{
     node_types::{SequencingMemoryImpl, SequencingTestTypes},
@@ -31,10 +31,9 @@ async fn test_vid_task() {
 
     // Build the API for node 2.
     let handle = build_system_handle(2).await.0;
-    let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
-        HotShotSequencingConsensusApi {
-            inner: handle.hotshot.inner.clone(),
-        };
+    let api: HotShotConsensusApi<SequencingTestTypes, SequencingMemoryImpl> = HotShotConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let vid_exchange = api.inner.exchanges.vid_exchange().clone();
     let pub_key = *api.public_key();
 

@@ -4,7 +4,7 @@ use either::Right;
 use hotshot::{
     tasks::add_consensus_task,
     types::{SignatureKey, SystemContextHandle},
-    HotShotSequencingConsensusApi,
+    HotShotConsensusApi,
 };
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::SequencingHotShotEvent;
@@ -31,10 +31,9 @@ async fn build_vote(
 ) -> GeneralConsensusMessage<SequencingTestTypes, SequencingMemoryImpl> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let api: HotShotSequencingConsensusApi<SequencingTestTypes, SequencingMemoryImpl> =
-        HotShotSequencingConsensusApi {
-            inner: handle.hotshot.inner.clone(),
-        };
+    let api: HotShotConsensusApi<SequencingTestTypes, SequencingMemoryImpl> = HotShotConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
     let quorum_exchange = api.inner.exchanges.quorum_exchange().clone();
     let vote_token = quorum_exchange.make_vote_token(view).unwrap().unwrap();
 
