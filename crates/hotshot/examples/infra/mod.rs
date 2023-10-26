@@ -103,25 +103,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
         toml::from_str::<NetworkConfigFile<TYPES::SignatureKey>>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
 
-    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
-        config_toml.into();
-
-    // Generate network's public keys
-    let mut known_nodes_sk = Vec::new();
-    let known_nodes: Vec<_> = (0..config.config.total_nodes.get())
-        .map(|node_id| {
-            let (key_pair, sk) = TYPES::SignatureKey::generated_from_seed_indexed(
-                config.seed,
-                node_id.try_into().unwrap(),
-            );
-            known_nodes_sk.push(sk);
-            key_pair
-        })
-        .collect();
-
-    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
-        .map(|node_id| known_nodes[node_id].get_stake_table_entry(1u64))
-        .collect();
+    let config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = config_toml.into();
     config
 }
 
@@ -252,8 +234,8 @@ pub trait RunDA<
         let config = self.get_config();
 
         // Get KeyPair for certificate Aggregation
-        let (pk, sk) =
-            TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let pk = config.config.my_own_validator_config.public_key.clone();
+        let sk = config.config.my_own_validator_config.private_key.clone();
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
         let entry = pk.get_stake_table_entry(1u64);
 
@@ -498,12 +480,8 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> WebServerDARun<TYPES, NODE, MEMBERSHIP> {
-        // Generate our own key
-        let (pub_key, _priv_key) =
-            <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                config.seed,
-                config.node_index,
-            );
+        // Get our own key
+        let pub_key = config.config.my_own_validator_config.public_key.clone();
 
         // Get the configuration for the web server
         let WebServerConfig {
@@ -652,11 +630,7 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Libp2pDARun<TYPES, NODE, MEMBERSHIP> {
-        let (pubkey, _privkey) =
-            <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                config.seed,
-                config.node_index,
-            );
+        let pubkey = config.config.my_own_validator_config.public_key.clone();
         let mut config = config;
         let libp2p_config = config
             .libp2p_config
@@ -737,8 +711,13 @@ where
         let mut all_keys = BTreeSet::new();
         let mut da_keys = BTreeSet::new();
         for i in 0..config.config.total_nodes.get() as u64 {
-            let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
-            let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            let pubkey = <<TYPES as NodeType>::SignatureKey>::get_public_key(
+                config
+                    .config
+                    .known_nodes_with_stake
+                    .get(i as usize)
+                    .expect("node_id should be within the range of known_nodes"),
+            );
             if i < config.config.da_committee_size as u64 {
                 da_keys.insert(pubkey.clone());
             }
