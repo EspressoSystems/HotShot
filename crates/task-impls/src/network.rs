@@ -351,7 +351,6 @@ impl<
                 | SequencingHotShotEvent::QuorumVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::DACSend(_, _)
-                | SequencingHotShotEvent::VidCertSend(_, _)
                 | SequencingHotShotEvent::ViewChange(_)
                 | SequencingHotShotEvent::TimeoutVoteSend(_)
         )
@@ -364,8 +363,6 @@ impl<
             SequencingHotShotEvent::DAProposalSend(_, _)
                 | SequencingHotShotEvent::DAVoteSend(_)
                 | SequencingHotShotEvent::Shutdown
-                | SequencingHotShotEvent::VidDisperseSend(_, _)
-                | SequencingHotShotEvent::VidVoteSend(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )
     }
@@ -376,6 +373,7 @@ impl<
             event,
             SequencingHotShotEvent::Shutdown
                 | SequencingHotShotEvent::VidDisperseSend(_, _)
+                | SequencingHotShotEvent::VidCertSend(_, _)
                 | SequencingHotShotEvent::VidVoteSend(_)
                 | SequencingHotShotEvent::ViewChange(_)
         )
