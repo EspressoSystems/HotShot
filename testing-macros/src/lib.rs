@@ -12,8 +12,7 @@ use syn::{
 /// Supported consensus types by macro
 #[derive(Debug, Clone)]
 enum SupportedConsensusTypes {
-    ValidatingConsensus,
-    SequencingConsensus,
+    Consensus,
 }
 
 /// description of a crosstest
@@ -168,10 +167,8 @@ impl TestData {
 
             let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
             let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
-            let consensus_type = if ident == "SequencingConsensus" {
-                SupportedConsensusTypes::SequencingConsensus
-            } else if ident == "ValidatingConsensus" {
-                SupportedConsensusTypes::ValidatingConsensus
+            let consensus_type = if ident == "Consensus" {
+                SupportedConsensusTypes::Consensus
             } else {
                 panic!("Unsupported consensus type: {ident:?}")
             };
@@ -190,9 +187,9 @@ impl TestData {
 
         let (consensus_type, leaf, vote, proposal, consensus_message, exchanges) =
             match supported_consensus_type {
-                SupportedConsensusTypes::SequencingConsensus => {
+                SupportedConsensusTypes::Consensus => {
                     let consensus_type = quote! {
-                        hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus
+                        hotshot_types::traits::consensus_type::sequencing_consensus::Consensus
                     };
                     let leaf = quote! {
                         hotshot_types::data::SequencingLeaf<TestTypes>
@@ -229,38 +226,6 @@ impl TestData {
                         >
                     };
 
-                    (
-                        consensus_type,
-                        leaf,
-                        vote,
-                        proposal,
-                        consensus_message,
-                        exchanges,
-                    )
-                }
-                SupportedConsensusTypes::ValidatingConsensus => {
-                    let consensus_type = quote! {
-                        hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus
-                    };
-                    let leaf = quote! {
-                        hotshot_types::data::ValidatingLeaf<TestTypes>
-                    };
-                    let vote = quote! {
-                        hotshot_types::vote::QuorumVote<TestTypes, #leaf>
-                    };
-                    let proposal = quote! {
-                        hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
-                    };
-                    let consensus_message = quote! {
-                        hotshot_types::message::ValidatingMessage<TestTypes, TestNodeImpl>
-                    };
-                    let exchanges = quote! {
-                        hotshot_types::traits::node_implementation::ValidatingExchanges<
-                            TestTypes,
-                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
-                            TestQuorumExchange
-                        >
-                    };
                     (
                         consensus_type,
                         leaf,
@@ -616,7 +581,7 @@ pub fn cross_all_types(input: TokenStream) -> TokenStream {
         slow,
     } = parse_macro_input!(input as CrossAllTypesSpec);
     let tokens = quote! {
-            DemoType: [ /* (SequencingConsensus, hotshot::demo::SDemoState), */ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+            DemoType: [ /* (Consensus, hotshot::demo::DemoState), */ (hotshot::demos::vdemo::VDemoState) ],
             SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
             CommChannel: [ hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
             Time: [ hotshot_types::data::ViewNumber ],
