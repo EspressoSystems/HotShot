@@ -1,7 +1,7 @@
 use hotshot_testing_macros::cross_tests;
 
 cross_tests!(
-     DemoType: [ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+     DemoType: [ (hotshot::demos::vdemo::VDemoState) ],
      SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
      CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
      Storage: [ hotshot::traits::implementations::MemoryStorage ],
@@ -36,7 +36,7 @@ cross_tests!(
 );
 
 cross_tests!(
-     DemoType: [ (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+     DemoType: [ (hotshot::demos::vdemo::VDemoState) ],
      SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
      CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
      Storage: [ hotshot::traits::implementations::MemoryStorage ],
