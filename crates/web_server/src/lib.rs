@@ -357,7 +357,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 if vid_cert.1.is_empty() {
                     Err(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: format!("DA Certificate not found for view {index}"),
+                        message: format!("VID Certificate not found for view {index}"),
                     })
                 } else {
                     Ok(Some(vec![vid_cert.1.clone()]))
@@ -365,7 +365,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             }
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
-                message: format!("Proposal not found for view {index}"),
+                message: format!("VID certificate not found for view {index}"),
             }),
         }
     }
@@ -399,7 +399,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 self.oldest_vid_vote += 1;
             }
         }
-        let next_index = self.vote_index.entry(view_number).or_insert(0);
+        let next_index = self.vid_vote_index.entry(view_number).or_insert(0);
         self.vid_votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push((*next_index, vote.clone())))
@@ -667,7 +667,7 @@ where
     .get("getviddisperse", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
-            state.get_proposal(view_number)
+            state.get_vid_disperse(view_number)
         }
         .boxed()
     })?
