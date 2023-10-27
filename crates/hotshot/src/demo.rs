@@ -13,10 +13,7 @@ use hotshot_signature_key::bn254::BLSPubKey;
 use hotshot_types::{
     block_impl::{BlockPayloadError, VIDBlockPayload, VIDTransaction},
     certificate::{AssembledSignature, QuorumCertificate},
-    data::{
-        fake_commitment, genesis_proposer_id, random_commitment, LeafType, SequencingLeaf,
-        ViewNumber,
-    },
+    data::{fake_commitment, genesis_proposer_id, random_commitment, Leaf, LeafType, ViewNumber},
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -185,16 +182,16 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
     }
 }
 
-/// Provides a random [`SequencingLeaf`]
-pub fn random_sequencing_leaf<TYPES: NodeType>(
+/// Provides a random [`Leaf`]
+pub fn random_leaf<TYPES: NodeType>(
     deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
     rng: &mut dyn rand::RngCore,
-) -> SequencingLeaf<TYPES> {
+) -> Leaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
     // let state = TYPES::StateType::default()
     //     .append(&deltas, &TYPES::Time::new(42))
     //     .unwrap_or_default();
-    SequencingLeaf {
+    Leaf {
         view_number: justify_qc.view_number,
         height: rng.next_u64(),
         justify_qc,

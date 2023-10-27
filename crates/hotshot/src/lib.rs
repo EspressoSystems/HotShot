@@ -52,18 +52,18 @@ use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task_launcher::TaskRunner,
 };
-use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
+use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 use hotshot_types::{
     certificate::{TimeoutCertificate, VIDCertificate},
     data::VidDisperse,
-    traits::node_implementation::SequencingTimeoutEx,
+    traits::node_implementation::TimeoutEx,
 };
 
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockStore, Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
-    data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
+    data::{DAProposal, DeltasType, Leaf, LeafType, QuorumProposal},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
@@ -74,8 +74,8 @@ use hotshot_types::{
         election::{ConsensusExchange, Membership, SignedCertificate},
         network::{CommunicationChannel, NetworkError},
         node_implementation::{
-            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
-            VIDEx, ViewSyncEx,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumEx, SendToTasks, VIDEx,
+            ViewSyncEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
@@ -149,7 +149,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// access to the internal event stream, in case we need to, say, shut something down
-    internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    internal_event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
 
     /// uid for instrumentation
     id: u64,
@@ -248,7 +248,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::QCFormed(either::Left(
+            .publish(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
             .await;
@@ -391,7 +391,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
-            ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+            ChannelStream<HotShotEvent<TYPES, I>>,
         ),
         HotShotError<TYPES>,
     >
@@ -631,18 +631,18 @@ impl<
         TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>,
         I: NodeImplementation<
             TYPES,
-            Leaf = SequencingLeaf<TYPES>,
+            Leaf = Leaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
         MEMBERSHIP: Membership<TYPES>,
     > HotShotType<TYPES, I> for SystemContext<TYPES, I>
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-            Commitment = Commitment<SequencingLeaf<TYPES>>,
+            Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+            Commitment = Commitment<Leaf<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -669,10 +669,10 @@ where
             Commitment = Commitment<TYPES::BlockType>,
             Membership = MEMBERSHIP,
         > + 'static,
-    SequencingTimeoutEx<TYPES, I>: ConsensusExchange<
+    TimeoutEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+            Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
             Certificate = TimeoutCertificate<TYPES>,
             Commitment = Commitment<TYPES::Time>,
             Membership = MEMBERSHIP,

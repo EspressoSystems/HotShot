@@ -2,7 +2,6 @@
 
 use crate::{
     async_spawn, types::SystemContextHandle, DACertificate, HotShotConsensusApi, QuorumCertificate,
-    SequencingQuorumEx,
 };
 use async_compatibility_layer::art::async_sleep;
 use commit::{Commitment, CommitmentBounds};
@@ -18,7 +17,7 @@ use hotshot_task::{
 use hotshot_task_impls::{
     consensus::{consensus_event_filter, ConsensusTaskState, ConsensusTaskTypes},
     da::{DATaskState, DATaskTypes},
-    events::SequencingHotShotEvent,
+    events::HotShotEvent,
     network::{
         NetworkEventTaskState, NetworkEventTaskTypes, NetworkMessageTaskState,
         NetworkMessageTaskTypes, NetworkTaskKind,
@@ -30,15 +29,15 @@ use hotshot_task_impls::{
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::{TimeoutCertificate, VIDCertificate, ViewSyncCertificate},
-    data::{ProposalType, QuorumProposal, SequencingLeaf},
+    data::{Leaf, ProposalType, QuorumProposal},
     event::Event,
     message::{Message, Messages, SequencingMessage},
     traits::{
         election::{ConsensusExchange, Membership},
         network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
         node_implementation::{
-            CommitteeEx, ExchangesType, NodeImplementation, NodeType, QuorumEx,
-            SequencingTimeoutEx, VIDEx, ViewSyncEx,
+            CommitteeEx, ExchangesType, NodeImplementation, NodeType, QuorumEx, TimeoutEx, VIDEx,
+            ViewSyncEx,
         },
         state::ConsensusTime,
     },
@@ -65,11 +64,7 @@ pub enum GlobalEvent {
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_message_task<
     TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
     COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES, COMMITMENT>,
@@ -83,7 +78,7 @@ pub async fn add_network_message_task<
         > + 'static,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
 ) -> TaskRunner
 // This bound is required so that we can call the `recv_msgs` function of `CommunicationChannel`.
@@ -175,11 +170,7 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_event_task<
     TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
     COMMITMENT: CommitmentBounds,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES, COMMITMENT>,
@@ -193,7 +184,7 @@ pub async fn add_network_event_task<
         > + 'static,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     exchange: EXCHANGE,
     task_kind: NetworkTaskKind,
 ) -> TaskRunner
@@ -253,24 +244,20 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<
     TYPES: NodeType<BlockType = VIDBlockPayload>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     output_stream: ChannelStream<Event<TYPES, I::Leaf>>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -278,10 +265,10 @@ where
         Certificate = DACertificate<TYPES>,
         Commitment = Commitment<TYPES::BlockType>,
     >,
-    SequencingTimeoutEx<TYPES, I>: ConsensusExchange<
+    TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
         Certificate = TimeoutCertificate<TYPES>,
         Commitment = Commitment<TYPES::Time>,
     >,
@@ -328,7 +315,7 @@ where
     let consensus_event_handler = HandleEvent(Arc::new(
         move |event, mut state: ConsensusTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>>| {
             async move {
-                if let SequencingHotShotEvent::Shutdown = event {
+                if let HotShotEvent::Shutdown = event {
                     (Some(HotShotTaskCompleted::ShutDown), state)
                 } else {
                     state.handle_event(event).await;
@@ -364,14 +351,10 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_vid_task<
     TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     vid_exchange: VIDEx<TYPES, I>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
@@ -434,14 +417,10 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_da_task<
     TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     committee_exchange: CommitteeEx<TYPES, I>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
@@ -503,14 +482,10 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_transaction_task<
     TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     quorum_exchange: QuorumEx<TYPES, I>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
@@ -571,14 +546,10 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_view_sync_task<
     TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
-    event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
@@ -612,7 +583,7 @@ where
     let view_sync_event_handler = HandleEvent(Arc::new(
         move |event, mut state: ViewSyncTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>>| {
             async move {
-                if let SequencingHotShotEvent::Shutdown = event {
+                if let HotShotEvent::Shutdown = event {
                     (Some(HotShotTaskCompleted::ShutDown), state)
                 } else {
                     state.handle_event(event).await;
