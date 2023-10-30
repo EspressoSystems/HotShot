@@ -70,9 +70,9 @@ snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
 time = "0.3.30"
 toml = "0.7.8"
-tracing = "0.1.39"
+tracing = "0.1.40"
 typenum = "1.17.0"
-libp2p = { package = "libp2p", version = "0.52.3", features = [
+libp2p = { package = "libp2p", version = "0.52.4", features = [
         "macros",
         "autonat",
         "deflate",
