@@ -1071,31 +1071,6 @@ impl<
                 }
             }
 
-            // ConsensusIntentEvent::CancelPollForVIDDisperse(view_number) => {
-            //     let mut task_map = self.inner.vid_disperse_task_map.write().await;
-
-            //     if let Some((_, sender)) = task_map.remove_entry(&(view_number)) {
-            //         // Send task cancel message to old task
-
-            //         // If task already exited we expect an error
-            //         let _res = sender
-            //             .send(ConsensusIntentEvent::CancelPollForVIDDisperse(view_number))
-            //             .await;
-            //     }
-            // }
-
-            // ConsensusIntentEvent::CancelPollForVIDCertificate(view_number) => {
-            //     let mut task_map = self.inner.vid_cert_task_map.write().await;
-
-            //     if let Some((_, sender)) = task_map.remove_entry(&(view_number)) {
-            //         // Send task cancel message to old task
-
-            //         // If task already exited we expect an error
-            //         let _res = sender
-            //             .send(ConsensusIntentEvent::CancelPollForVIDCertificate(view_number))
-            //             .await;
-            //     }
-            // }
             ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => {
                 let mut task_map = self.inner.view_sync_cert_task_map.write().await;
                 if let Entry::Vacant(e) = task_map.entry(view_number) {
