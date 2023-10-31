@@ -6,7 +6,6 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
-use either::{Left, Right};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -82,10 +81,10 @@ pub struct TransactionTaskState<
 }
 
 // We have two `TransactionTaskState` implementations with different bounds. The implementation
-// here requires `TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>`,
+// here requires `TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>`,
 // whereas it's just `TYPES: NodeType` in the second implementation.
 impl<
-        TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>,
+        TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>,
         I: NodeImplementation<
             TYPES,
             Leaf = Leaf<TYPES>,
@@ -139,14 +138,10 @@ where
                 let mut included_txn_size = 0;
                 let mut included_txn_count = 0;
                 for leaf in leaf_chain {
-                    match &leaf.deltas {
-                        Left(block) => {
-                            let txns = block.contained_transactions();
-                            for txn in txns {
-                                included_txns.insert(txn);
-                            }
+                    if let Some(payload) = leaf.block_payload {
+                        for txn in payload.transaction_commitments() {
+                            included_txns.insert(txn);
                         }
-                        Right(_) => {}
                     }
                 }
                 let consensus = self.consensus.read().await;
@@ -259,7 +254,7 @@ where
                 let vid_disperse = vid.disperse(&txns_flatten).unwrap();
                 let block = VIDBlockPayload {
                     transactions: txns,
-                    commitment: vid_disperse.commit,
+                    payload_commitment: vid_disperse.commit,
                 };
 
                 // TODO never clone a block
@@ -276,12 +271,12 @@ where
                         Proposal {
                             data: VidDisperse {
                                 view_number: view + 1,
-                                commitment: block.commit(),
+                                payload_commitment: block.commit(),
                                 shares: vid_disperse.shares,
                                 common: vid_disperse.common,
                             },
                             // TODO (Keyao) This is also signed in DA task.
-                            signature: self.quorum_exchange.sign_block_commitment(block.commit()),
+                            signature: self.quorum_exchange.sign_payload_commitment(block.commit()),
                         },
                         self.quorum_exchange.public_key().clone(),
                     ))
@@ -298,7 +293,7 @@ where
 }
 
 // We have two `TransactionTaskState` implementations with different bounds. The implementation
-// above requires `TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>`,
+// above requires `TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>`,
 // whereas here it's just `TYPES: NodeType`.
 impl<
         TYPES: NodeType,
@@ -326,9 +321,9 @@ where
         // TODO (Keyao) Investigate the use of transaction hash
         // <https://github.com/EspressoSystems/HotShot/issues/1811>
         // let parent_leaf = self.parent_leaf().await?;
-        // let previous_used_txns = match parent_leaf.deltas {
-        //     Either::Left(block) => block.contained_transactions(),
-        //     Either::Right(_commitment) => HashSet::new(),
+        // let previous_used_txns = match parent_leaf.tarnsaction_commitments {
+        //     Some(txns) => txns,
+        //     None => HashSet::new(),
         // };
 
         let receiver = self.transactions.subscribe().await;
