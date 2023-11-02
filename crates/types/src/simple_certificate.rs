@@ -12,7 +12,7 @@ use commit::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
 
 use crate::{
-    simple_vote::{Voteable, YesData},
+    simple_vote::{Voteable, YesData, ViewSyncCommitData, ViewSyncPreCommitData, ViewSyncFinalizeData},
     traits::{
         election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
         state::ConsensusTime,
@@ -127,3 +127,10 @@ impl<
 
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 pub type QuorumCertificate2<TYPES, LEAF> = SimpleCertificate<TYPES, YesData<LEAF>>;
+// TODO ED The ViewSyncPreCommitCertificate needs to use a different threshold; fix after making is_valid_cert 
+// function generic over the threshold. For now we'll use the SimpleCertificate for this certificate type
+pub type ViewSyncPreCommitCertificate2<TYPES> = SimpleCertificate<TYPES, ViewSyncPreCommitData<TYPES>>;
+pub type ViewSyncCommitCertificate2<TYPES> = SimpleCertificate<TYPES, ViewSyncCommitData<TYPES>>;
+pub type ViewSyncFinalizeCertificate2<TYPES> = SimpleCertificate<TYPES, ViewSyncFinalizeData<TYPES>>;
+
+
