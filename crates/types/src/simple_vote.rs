@@ -128,6 +128,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static, MEMBERSHIP: Membership<TYPES>>
         pub_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
+        // TODO ED Check membership here, too
         let signature = TYPES::SignatureKey::sign(private_key, data.commit().as_ref());
         Self {
             signature: (pub_key.to_bytes(), signature),
