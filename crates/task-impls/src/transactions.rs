@@ -266,6 +266,7 @@ where
                 // TODO (Keyao) Determine and update where to publish VidDisperseSend.
                 // <https://github.com/EspressoSystems/HotShot/issues/1817>
                 debug!("publishing VID disperse for view {}", *view + 1);
+                error!("New view: {}", *view);
                 self.event_stream
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {

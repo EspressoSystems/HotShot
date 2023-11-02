@@ -40,7 +40,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<
@@ -88,6 +88,16 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> WebServerNetwork<M, KEY,
         result.map_err(|_e| NetworkError::WebServer {
             source: WebServerNetworkError::ClientError,
         })
+    }
+
+    /// Pauses the underlying network
+    pub fn pause(&self) {
+        self.inner.running.store(false, Ordering::Relaxed);
+    }
+
+    /// Resumes the underlying network
+    pub fn resume(&self) {
+        self.inner.running.store(true, Ordering::Relaxed);
     }
 }
 
@@ -605,6 +615,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         .await;
     }
 
+    fn pause(&self) {
+        self.0.pause();
+    }
+
+    fn resume(&self) {
+        self.0.resume();
+    }
+
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
@@ -724,6 +742,12 @@ impl<
         message: M,
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
+        // short circuit if we are shut down
+        #[cfg(debug_assertions)]
+        if !self.inner.running.load(Ordering::Relaxed) {
+            return Err(NetworkError::ShutDown);
+        }
+
         let network_msg = Self::parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
@@ -736,6 +760,12 @@ impl<
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
+        // short circuit if we are shut down
+        #[cfg(debug_assertions)]
+        if !self.inner.running.load(Ordering::Relaxed) {
+            return Err(NetworkError::ShutDown);
+        }
+
         let network_msg = Self::parse_post_message(message);
         match network_msg {
             Ok(network_msg) => {
@@ -788,6 +818,11 @@ impl<
 
     #[allow(clippy::too_many_lines)]
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
+        #[cfg(debug_assertions)]
+        if !self.inner.running.load(Ordering::Relaxed) {
+            return;
+        }
+
         debug!(
             "Injecting event: {:?} is da {}",
             event.clone(),
@@ -815,7 +850,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::Proposal, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -889,7 +924,7 @@ impl<
                             .poll_web_server(receiver, MessagePurpose::CurrentProposal, 1)
                             .await
                         {
-                            error!(
+                            warn!(
                                 "Background receive proposal polling encountered an error: {:?}",
                                 e
                             );
@@ -910,7 +945,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::Vote, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -947,7 +982,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::VidVote, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -985,7 +1020,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::DAC, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -1022,7 +1057,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::VidCert, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -1088,7 +1123,7 @@ impl<
                                 )
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -1118,7 +1153,7 @@ impl<
                                 )
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
@@ -1171,7 +1206,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::Data, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                                                "Background receive transaction polling encountered an error: {:?}",
                                                                  e
                                                                );

@@ -913,7 +913,6 @@ where
                 }
                 #[allow(clippy::cast_precision_loss)]
                 if new_decide_reached {
-                    debug!("about to publish decide");
                     self.event_stream
                         .publish(HotShotEvent::LeafDecided(leaf_views.clone()))
                         .await;

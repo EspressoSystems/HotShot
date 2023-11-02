@@ -32,6 +32,7 @@ use tracing::info;
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
+    pub networks: Networks<TYPES, I>,
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
@@ -208,13 +209,14 @@ where
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             let hotshot = self
-                .add_node_with_config(networks, storage, initializer, config)
+                .add_node_with_config(networks.clone(), storage, initializer, config)
                 .await;
             if late_start.contains(&node_id) {
                 self.late_start.insert(node_id, hotshot);
             } else {
                 self.nodes.push(Node {
                     node_id,
+                    networks,
                     handle: hotshot.run_tasks().await,
                 });
             }

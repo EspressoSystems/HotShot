@@ -15,7 +15,7 @@ use std::{
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
-use tracing::error;
+use tracing::warn;
 
 use async_trait::async_trait;
 
@@ -246,6 +246,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 {
     type NETWORK = CombinedNetworks<TYPES, I, MEMBERSHIP>;
 
+    fn pause(&self) {
+        self.networks.0.pause();
+    }
+
+    fn resume(&self) {
+        self.networks.0.resume();
+    }
+
     async fn wait_for_ready(&self) {
         join!(
             self.primary().wait_for_ready(),
@@ -291,7 +299,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
-                    error!("Error on primary network: {}", e);
+                    warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }
             };
@@ -322,7 +330,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
-                    error!("Error on primary network: {}", e);
+                    warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }
             };

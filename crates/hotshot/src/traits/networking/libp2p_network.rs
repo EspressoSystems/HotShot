@@ -820,6 +820,10 @@ where
 {
     type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 
+    fn pause(&self) {}
+
+    fn resume(&self) {}
+
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
     }

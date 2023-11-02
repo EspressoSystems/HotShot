@@ -4,6 +4,7 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     node_types::{CombinedImpl, TestTypes},
     overall_safety_task::OverallSafetyPropertiesDescription,
+    spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::{TestMetadata, TimingData},
 };
 use tracing::instrument;
@@ -15,10 +16,10 @@ use tracing::instrument;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
-async fn test_combined_network() {
+async fn test_combined_network_sad() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestMetadata = TestMetadata {
+    let mut metadata: TestMetadata = TestMetadata {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10000,
@@ -37,6 +38,18 @@ async fn test_combined_network() {
             },
         ),
         ..TestMetadata::default_multiple_rounds()
+    };
+
+    let mut all_nodes = vec![];
+    for node in 0..metadata.total_nodes {
+        all_nodes.push(ChangeNode {
+            idx: node,
+            updown: UpDown::NetworkDown,
+        });
+    }
+
+    metadata.spinning_properties = SpinningTaskDescription {
+        node_changes: vec![(Duration::new(4, 0), all_nodes)],
     };
 
     metadata
