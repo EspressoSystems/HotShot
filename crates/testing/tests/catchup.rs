@@ -18,7 +18,6 @@ async fn test_catchup() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 2000,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
@@ -79,7 +78,6 @@ async fn test_catchup_web() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 2000,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
@@ -136,7 +134,6 @@ async fn test_catchup_one_node() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 2000,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
@@ -196,7 +193,6 @@ async fn test_catchup_in_view_sync() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 2000,
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
