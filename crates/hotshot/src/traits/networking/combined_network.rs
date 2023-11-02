@@ -285,9 +285,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
             <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
 
         // broadcast optimistically on both networks, but if the primary network is down, skip it
-        if self.primary_down.load(Ordering::Relaxed) < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || self.primary_down.load(Ordering::Relaxed) % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
-                == 0
+        let primary_down = self.primary_down.load(Ordering::Relaxed);
+        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
         {
             // broadcast on the primary network as it is not down, or we are checking if it is back up
             match self
@@ -296,9 +296,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                 .await
             {
                 Ok(()) => {
+                    println!("Primary network is up");
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
+                    println!("Primary network is down");
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }
@@ -316,9 +318,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         // DM optimistically on both networks, but if the primary network is down, skip it
-        if self.primary_down.load(Ordering::Relaxed) < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || self.primary_down.load(Ordering::Relaxed) % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
-                == 0
+        let primary_down = self.primary_down.load(Ordering::Relaxed);
+        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
         {
             // message on the primary network as it is not down, or we are checking if it is back up
             match self
@@ -327,9 +329,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                 .await
             {
                 Ok(()) => {
+                    println!("Primary network is up");
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
+                    println!("Primary network is down");
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }

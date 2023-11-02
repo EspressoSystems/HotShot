@@ -16,4 +16,4 @@ pub const COMBINED_NETWORK_CACHE_SIZE: usize = 1000;
 pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 
 /// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
-pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 15;
+pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
