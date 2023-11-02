@@ -743,7 +743,7 @@ impl<
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "hotshot-testing")]
         if !self.inner.running.load(Ordering::Relaxed) {
             return Err(NetworkError::ShutDown);
         }
@@ -761,7 +761,7 @@ impl<
     /// blocking
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
         // short circuit if we are shut down
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "hotshot-testing")]
         if !self.inner.running.load(Ordering::Relaxed) {
             return Err(NetworkError::ShutDown);
         }
@@ -818,7 +818,7 @@ impl<
 
     #[allow(clippy::too_many_lines)]
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "hotshot-testing")]
         if !self.inner.running.load(Ordering::Relaxed) {
             return;
         }
