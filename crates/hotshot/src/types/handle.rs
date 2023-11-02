@@ -1,6 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-use crate::{traits::NodeImplementation, types::Event, Message, QuorumCertificate, SystemContext};
+use crate::QuorumCertificate2;
+use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
@@ -13,20 +14,20 @@ use hotshot_task::{
     BoxSyncFuture,
 };
 use hotshot_task_impls::events::HotShotEvent;
+use hotshot_types::simple_vote::YesData;
 use hotshot_types::{
     consensus::Consensus,
     data::LeafType,
     error::HotShotError,
     event::EventType,
-    message::{GeneralConsensusMessage, MessageKind},
+    message::MessageKind,
     traits::{
         election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
-        node_implementation::{ExchangesType, NodeType, QuorumEx},
+        node_implementation::{ExchangesType, NodeType},
         state::ConsensusTime,
         storage::Storage,
     },
 };
-
 use std::sync::Arc;
 use tracing::error;
 
@@ -190,8 +191,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf: I::Leaf = I::Leaf::from_stored_view(anchor_leaf);
-                let mut qc = QuorumCertificate::<TYPES, Commitment<I::Leaf>>::genesis();
-                qc.leaf_commitment = leaf.commit();
+                let mut qc = QuorumCertificate2::<TYPES, I::Leaf>::genesis();
+                qc.leaf_commitment = YesData {
+                    leaf_commit: leaf.commit(),
+                };
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {

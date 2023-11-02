@@ -8,12 +8,11 @@
 use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use either::Either;
+
 use hotshot_signature_key::bn254::BLSPubKey;
 use hotshot_types::{
     block_impl::{BlockPayloadError, VIDBlockPayload, VIDTransaction},
-    certificate::{AssembledSignature, QuorumCertificate},
-    data::{fake_commitment, genesis_proposer_id, random_commitment, Leaf, LeafType, ViewNumber},
+    data::{fake_commitment, LeafType, ViewNumber},
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -21,7 +20,7 @@ use hotshot_types::{
         BlockPayload, State,
     },
 };
-use rand::Rng;
+
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -169,36 +168,36 @@ where
     }
 }
 
-/// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
-    rng: &mut dyn rand::RngCore,
-) -> QuorumCertificate<TYPES, Commitment<LEAF>> {
-    QuorumCertificate {
-        // block_commitment: random_commitment(rng),
-        leaf_commitment: random_commitment(rng),
-        view_number: TYPES::Time::new(rng.gen()),
-        signatures: AssembledSignature::Genesis(),
-        is_genesis: rng.gen(),
-    }
-}
+// /// Provides a random [`QuorumCertificate`]
+// pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
+//     rng: &mut dyn rand::RngCore,
+// ) -> QuorumCertificate2<TYPES, Commitment<LEAF>> {
+//     QuorumCertificate {
+//         // block_commitment: random_commitment(rng),
+//         leaf_commitment: random_commitment(rng),
+//         view_number: TYPES::Time::new(rng.gen()),
+//         signatures: None,
+//         is_genesis: rng.gen(),
+//     }
+// }
 
-/// Provides a random [`Leaf`]
-pub fn random_leaf<TYPES: NodeType>(
-    deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
-    rng: &mut dyn rand::RngCore,
-) -> Leaf<TYPES> {
-    let justify_qc = random_quorum_certificate(rng);
-    // let state = TYPES::StateType::default()
-    //     .append(&deltas, &TYPES::Time::new(42))
-    //     .unwrap_or_default();
-    Leaf {
-        view_number: justify_qc.view_number,
-        height: rng.next_u64(),
-        justify_qc,
-        parent_commitment: random_commitment(rng),
-        deltas,
-        rejected: Vec::new(),
-        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-        proposer_id: genesis_proposer_id(),
-    }
-}
+// /// Provides a random [`Leaf`]
+// pub fn random_leaf<TYPES: NodeType>(
+//     deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
+//     rng: &mut dyn rand::RngCore,
+// ) -> Leaf<TYPES> {
+//     let justify_qc = random_quorum_certificate(rng);
+//     // let state = TYPES::StateType::default()
+//     //     .append(&deltas, &TYPES::Time::new(42))
+//     //     .unwrap_or_default();
+//     Leaf {
+//         view_number: justify_qc.view_number,
+//         height: rng.next_u64(),
+//         justify_qc,
+//         parent_commitment: random_commitment(rng),
+//         deltas,
+//         rejected: Vec::new(),
+//         timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+//         proposer_id: genesis_proposer_id(),
+//     }
+// }
