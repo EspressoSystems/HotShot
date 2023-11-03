@@ -10,6 +10,7 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
@@ -78,6 +79,13 @@ impl TimeBasedCompletionTaskDescription {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
+                                    for node in &state.handles {
+                                        node.handle.clone().shut_down().await;
+                                        node.networks.0.shut_down();
+                                        node.networks.1.shut_down();
+                                        node.networks.2.shut_down();
+                                        node.networks.3.shut_down();
+                                    }
                                     (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
                             }
@@ -93,6 +101,10 @@ impl TimeBasedCompletionTaskDescription {
                                 .await;
                             for node in &state.handles {
                                 node.handle.clone().shut_down().await;
+                                node.networks.0.shut_down();
+                                node.networks.1.shut_down();
+                                node.networks.2.shut_down();
+                                node.networks.3.shut_down();
                             }
                             (Some(HotShotTaskCompleted::ShutDown), state)
                         }

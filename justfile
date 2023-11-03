@@ -41,7 +41,7 @@ test_timeout:
 
 test_combined_network:
   echo Testing combined network
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing web server

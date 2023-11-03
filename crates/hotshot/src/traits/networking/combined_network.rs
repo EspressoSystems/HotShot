@@ -10,7 +10,6 @@ use hotshot_constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
-use hotshot_types::message::{DataMessage::SubmitTransaction, MessageKind};
 use std::{
     collections::HashSet,
     hash::Hasher,
@@ -297,11 +296,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                 .await
             {
                 Ok(()) => {
-                    println!("Primary network is up");
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
-                    println!("Primary network is down");
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }
@@ -330,11 +327,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
                 .await
             {
                 Ok(()) => {
-                    println!("Primary network is up");
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
                 Err(e) => {
-                    println!("Primary network is down");
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
                 }
@@ -361,12 +356,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
 
             let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
             for msg in primary_msgs {
-                // filter out duplicate transactions
-                // RM TODO: do we need to do this?
-                if let MessageKind::Data(SubmitTransaction(_, _)) = msg.kind {
-                    continue;
-                }
-
                 // see if we've already seen this message
                 if !self
                     .message_cache

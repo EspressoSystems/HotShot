@@ -1,6 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{traits::NodeImplementation, types::Event, Message, QuorumCertificate, SystemContext};
+use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
@@ -283,7 +284,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         'a: 'b,
         Self: 'b,
     {
-        boxed_sync(async move { self.registry.shutdown_all().await })
+        let inner_ = self.hotshot.inner.clone();
+        async_block_on(async move {
+            inner_.exchanges.shut_down_networks().await;
+        });
+        boxed_sync(async move {
+            self.registry.shutdown_all().await;
+        })
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

@@ -372,7 +372,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
                     if let Err(err) = handle_.lookup_node::<K>(pk.clone(), dht_timeout).await {
-                        error!("Failed to perform lookup for key {:?}: {}", pk, err);
+                        warn!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
             }
@@ -536,7 +536,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     }
                 }
             }
-            error!("Network receiever shut down!");
+            warn!("Network receiever shut down!");
             Ok::<(), NetworkError>(())
         });
     }

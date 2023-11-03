@@ -420,11 +420,17 @@ where
     async fn wait_for_networks_ready(&self) {
         self.quorum_exchange.network().wait_for_ready().await;
         self.committee_exchange.network().wait_for_ready().await;
+        self.vid_exchange.network().wait_for_ready().await;
+        self.view_sync_exchange.network().wait_for_ready().await;
+        self.timeout_exchange.network().wait_for_ready().await;
     }
 
     async fn shut_down_networks(&self) {
         self.quorum_exchange.network().shut_down().await;
         self.committee_exchange.network().shut_down().await;
+        self.vid_exchange.network().shut_down().await;
+        self.view_sync_exchange.network().shut_down().await;
+        self.timeout_exchange.network().shut_down().await;
     }
 }
 

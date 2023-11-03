@@ -890,7 +890,7 @@ impl<
                                 .poll_web_server(receiver, MessagePurpose::VidDisperse, view_number)
                                 .await
                             {
-                                error!(
+                                warn!(
                                     "Background receive VID disperse polling encountered an error: {:?}",
                                     e
                                 );
