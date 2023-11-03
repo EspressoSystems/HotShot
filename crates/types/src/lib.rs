@@ -9,6 +9,7 @@
 )]
 #![allow(clippy::module_name_repetitions)]
 
+use displaydoc::Display;
 use std::{num::NonZeroUsize, time::Duration};
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
 pub mod block_impl;
@@ -34,7 +35,7 @@ pub enum ExecutionType {
     Incremental,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
 #[serde(bound(deserialize = ""))]
 /// config for validator, including public key, private key, stake value
 pub struct ValidatorConfig<KEY: SignatureKey> {
