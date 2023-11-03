@@ -80,9 +80,6 @@ jobs:
           - tokio
     runs-on: [self-hosted, arm64]
     steps:
-      - name: Fix permissions
-        run: sudo chown -R runner1 /home/runner1/actions-runner/_work/HotShot
-
       - uses: actions/checkout@v4
         name: Checkout Repository
 
