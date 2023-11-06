@@ -14,7 +14,7 @@ use hotshot::{
     types::bn254::BLSPubKey,
 };
 use hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    block_impl::{VIDBlockHeader, VIDTransaction},
     certificate::ViewSyncCertificate,
     data::{Leaf, QuorumProposal, ViewNumber},
     message::{Message, SequencingMessage},
@@ -43,7 +43,6 @@ pub struct TestTypes;
 impl NodeType for TestTypes {
     type Time = ViewNumber;
     type BlockHeader = VIDBlockHeader;
-    type BlockPayload = VIDBlockPayload;
     type SignatureKey = BLSPubKey;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VIDTransaction;

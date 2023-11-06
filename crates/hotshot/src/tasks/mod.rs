@@ -27,7 +27,7 @@ use hotshot_task_impls::{
     view_sync::{ViewSyncTaskState, ViewSyncTaskStateTypes},
 };
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
+    block_impl::VIDTransaction,
     certificate::{TimeoutCertificate, VIDCertificate, ViewSyncCertificate},
     data::{Leaf, ProposalType, QuorumProposal},
     event::Event,
@@ -40,6 +40,7 @@ use hotshot_types::{
             ViewSyncEx,
         },
         state::ConsensusTime,
+        BlockPayload,
     },
     vote::{ViewSyncData, VoteType},
 };
@@ -243,7 +244,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<
-    TYPES: NodeType<BlockPayload = VIDBlockPayload, Transaction = VIDTransaction>,
+    TYPES: NodeType<Transaction = VIDTransaction>,
     I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,
@@ -263,7 +264,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
     TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -284,7 +285,7 @@ where
         consensus,
         timeout: handle.hotshot.inner.config.next_view_timeout,
         cur_view: TYPES::Time::new(0),
-        payload_commitment: Some(VIDBlockPayload::genesis().commit()),
+        payload_commitment: Some(BlockPayload::genesis().commit()),
         quorum_exchange: c_api.inner.exchanges.quorum_exchange().clone().into(),
         timeout_exchange: c_api.inner.exchanges.timeout_exchange().clone().into(),
         api: c_api.clone(),
@@ -363,7 +364,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     // build the vid task
@@ -429,7 +430,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     // build the da task
@@ -481,7 +482,7 @@ where
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_transaction_task<
-    TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>,
+    TYPES: NodeType<Transaction = VIDTransaction>,
     I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >(
     task_runner: TaskRunner,

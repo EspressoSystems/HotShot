@@ -60,7 +60,7 @@ use hotshot_types::{
 };
 
 use hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    block_impl::{VIDBlockHeader, VIDTransaction},
     certificate::{DACertificate, ViewSyncCertificate},
     consensus::{BlockPayloadStore, Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
     data::{DAProposal, Leaf, LeafType, QuorumProposal},
@@ -80,7 +80,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
-        State,
+        BlockPayload, State,
     },
     vote::ViewSyncData,
     HotShotConfig,
@@ -628,11 +628,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<
-            BlockHeader = VIDBlockHeader,
-            BlockPayload = VIDBlockPayload,
-            Transaction = VIDTransaction,
-        >,
+        TYPES: NodeType<BlockHeader = VIDBlockHeader, Transaction = VIDTransaction>,
         I: NodeImplementation<
             TYPES,
             Leaf = Leaf<TYPES>,
@@ -654,7 +650,7 @@ where
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
-            Commitment = Commitment<TYPES::BlockPayload>,
+            Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
             Membership = MEMBERSHIP,
         > + 'static,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -670,7 +666,7 @@ where
             Message<TYPES, I>,
             Proposal = VidDisperse<TYPES>,
             Certificate = VIDCertificate<TYPES>,
-            Commitment = Commitment<TYPES::BlockPayload>,
+            Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
             Membership = MEMBERSHIP,
         > + 'static,
     TimeoutEx<TYPES, I>: ConsensusExchange<
@@ -1017,7 +1013,9 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(genesis_payload: TYPES::BlockPayload) -> Result<Self, HotShotError<TYPES>> {
+    pub fn from_genesis(
+        genesis_payload: BlockPayload<TYPES::Transaction>,
+    ) -> Result<Self, HotShotError<TYPES>> {
         let state = TYPES::StateType::initialize();
         let time = TYPES::Time::genesis();
         let justify_qc = QuorumCertificate::<TYPES, Commitment<LEAF>>::genesis();

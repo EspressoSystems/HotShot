@@ -16,7 +16,7 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
 };
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
+    block_impl::VIDTransaction,
     certificate::{DACertificate, QuorumCertificate, TimeoutCertificate, VIDCertificate},
     consensus::{Consensus, View},
     data::{Leaf, LeafType, ProposalType, QuorumProposal},
@@ -70,7 +70,7 @@ pub struct ConsensusTaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
     TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -90,7 +90,7 @@ pub struct ConsensusTaskState<
     pub cur_view: TYPES::Time,
 
     /// The commitment to the current block payload submitted to DA
-    pub payload_commitment: Option<Commitment<TYPES::BlockPayload>>,
+    pub payload_commitment: Option<Commitment<BlockPayload<TYPES::Transaction>>>,
 
     /// the quorum exchange
     pub quorum_exchange: Arc<QuorumEx<TYPES, I>>,
@@ -355,7 +355,7 @@ where
 }
 
 impl<
-        TYPES: NodeType<BlockPayload = VIDBlockPayload, Transaction = VIDTransaction>,
+        TYPES: NodeType<Transaction = VIDTransaction>,
         I: NodeImplementation<
             TYPES,
             Leaf = Leaf<TYPES>,
@@ -364,7 +364,7 @@ impl<
         A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
     > ConsensusTaskState<TYPES, I, A>
 where
-    TYPES::BlockHeader: BlockHeader<Payload = VIDBlockPayload>,
+    TYPES::BlockHeader: BlockHeader,
     QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -376,7 +376,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
     TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -1447,7 +1447,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
     TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,
@@ -1477,7 +1477,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType<BlockPayload = VIDBlockPayload, Transaction = VIDTransaction>,
+    TYPES: NodeType<Transaction = VIDTransaction>,
     I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
     A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
 >(
@@ -1488,7 +1488,7 @@ pub async fn sequencing_consensus_handle<
     ConsensusTaskState<TYPES, I, A>,
 )
 where
-    TYPES::BlockHeader: BlockHeader<Payload = VIDBlockPayload>,
+    TYPES::BlockHeader: BlockHeader,
     QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
@@ -1500,7 +1500,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
     TimeoutEx<TYPES, I>: ConsensusExchange<
         TYPES,

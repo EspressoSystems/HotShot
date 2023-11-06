@@ -4,7 +4,7 @@ use crate::{
     data::serialize_signature,
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ConsensusTime,
+        state::ConsensusTime, BlockPayload,
     },
     vote::{
         DAVote, DAVoteAccumulator, QuorumVote, QuorumVoteAccumulator, TimeoutVote,
@@ -36,7 +36,7 @@ pub struct DACertificate<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 
     /// committment to the block payload
-    pub payload_commitment: Commitment<TYPES::BlockPayload>,
+    pub payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
 
     /// Assembled signature for certificate aggregation
     pub signatures: AssembledSignature<TYPES>,
@@ -51,7 +51,7 @@ pub struct VIDCertificate<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 
     /// Committment to the block payload
-    pub payload_commitment: Commitment<TYPES::BlockPayload>,
+    pub payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
 
     /// Assembled signature for certificate aggregation
     pub signatures: AssembledSignature<TYPES>,
@@ -260,11 +260,16 @@ impl<TYPES: NodeType, COMMITMENT: CommitmentBounds> Committable
 }
 
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment<TYPES::BlockPayload>>
-    for DACertificate<TYPES>
+    SignedCertificate<
+        TYPES,
+        TYPES::Time,
+        TYPES::VoteTokenType,
+        Commitment<BlockPayload<TYPES::Transaction>>,
+    > for DACertificate<TYPES>
 {
     type Vote = DAVote<TYPES>;
-    type VoteAccumulator = DAVoteAccumulator<TYPES, Commitment<TYPES::BlockPayload>, Self::Vote>;
+    type VoteAccumulator =
+        DAVoteAccumulator<TYPES, Commitment<BlockPayload<TYPES::Transaction>>, Self::Vote>;
 
     fn create_certificate(signatures: AssembledSignature<TYPES>, vote: Self::Vote) -> Self {
         DACertificate {
@@ -282,7 +287,7 @@ impl<TYPES: NodeType>
         self.signatures.clone()
     }
 
-    fn leaf_commitment(&self) -> Commitment<TYPES::BlockPayload> {
+    fn leaf_commitment(&self) -> Commitment<BlockPayload<TYPES::Transaction>> {
         self.payload_commitment
     }
 
@@ -298,11 +303,16 @@ impl<TYPES: NodeType>
 }
 
 impl<TYPES: NodeType>
-    SignedCertificate<TYPES, TYPES::Time, TYPES::VoteTokenType, Commitment<TYPES::BlockPayload>>
-    for VIDCertificate<TYPES>
+    SignedCertificate<
+        TYPES,
+        TYPES::Time,
+        TYPES::VoteTokenType,
+        Commitment<BlockPayload<TYPES::Transaction>>,
+    > for VIDCertificate<TYPES>
 {
     type Vote = VIDVote<TYPES>;
-    type VoteAccumulator = VIDVoteAccumulator<TYPES, Commitment<TYPES::BlockPayload>, Self::Vote>;
+    type VoteAccumulator =
+        VIDVoteAccumulator<TYPES, Commitment<BlockPayload<TYPES::Transaction>>, Self::Vote>;
 
     fn create_certificate(signatures: AssembledSignature<TYPES>, vote: Self::Vote) -> Self {
         VIDCertificate {
@@ -320,7 +330,7 @@ impl<TYPES: NodeType>
         self.signatures.clone()
     }
 
-    fn leaf_commitment(&self) -> Commitment<TYPES::BlockPayload> {
+    fn leaf_commitment(&self) -> Commitment<BlockPayload<TYPES::Transaction>> {
         self.payload_commitment
     }
 

@@ -11,13 +11,14 @@ use crate::{
     data::LeafType,
     error::HotShotError,
     traits::{
+        block_contents::Transaction,
         metrics::{Counter, Gauge, Histogram, Label, Metrics},
         node_implementation::NodeType,
         BlockPayload,
     },
     utils::Terminator,
 };
-use commit::Commitment;
+use commit::{Commitment, Committable};
 use derivative::Derivative;
 use std::{
     collections::{hash_map::Entry, BTreeMap, HashMap},
@@ -51,7 +52,7 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Saved block payloads
     ///
     /// Contains the block payload for every leaf in `saved_leaves` if that payload is available.
-    pub saved_block_payloads: BlockPayloadStore<TYPES::BlockPayload>,
+    pub saved_block_payloads: BlockPayloadStore<TYPES::Transaction>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
@@ -361,9 +362,11 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
 /// before all but one branch are ultimately garbage collected.
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct BlockPayloadStore<PAYLOAD: BlockPayload>(HashMap<Commitment<PAYLOAD>, (PAYLOAD, u64)>);
+pub struct BlockPayloadStore<TXN: Transaction>(
+    HashMap<Commitment<BlockPayload<TXN>>, (BlockPayload<TXN>, u64)>,
+);
 
-impl<PAYLOAD: BlockPayload> BlockPayloadStore<PAYLOAD> {
+impl<TXN: Transaction> BlockPayloadStore<TXN> {
     /// Save payload commitment for later retrieval.
     ///
     /// After calling this function, and before the corresponding call to [`remove`](Self::remove),
@@ -373,7 +376,7 @@ impl<PAYLOAD: BlockPayload> BlockPayloadStore<PAYLOAD> {
     /// multiple calls to [`insert`](Self::insert) for the same payload commitment result in
     /// multiple owning references to the payload commitment. [`remove`](Self::remove) must be
     /// called once for each reference before the payload commitment will be deallocated.
-    pub fn insert(&mut self, payload: PAYLOAD) {
+    pub fn insert(&mut self, payload: BlockPayload<TXN>) {
         self.0
             .entry(payload.commit())
             .and_modify(|(_, refcount)| *refcount += 1)
@@ -386,7 +389,10 @@ impl<PAYLOAD: BlockPayload> BlockPayloadStore<PAYLOAD> {
     /// function will retrieve it. It may return [`None`] if a block with the given commitment has
     /// not been saved or if the block has been dropped with [`remove`](Self::remove).
     #[must_use]
-    pub fn get(&self, payload_commitment: Commitment<PAYLOAD>) -> Option<&PAYLOAD> {
+    pub fn get(
+        &self,
+        payload_commitment: Commitment<BlockPayload<TXN>>,
+    ) -> Option<&BlockPayload<TXN>> {
         self.0.get(&payload_commitment).map(|(payload, _)| payload)
     }
 
@@ -394,7 +400,10 @@ impl<PAYLOAD: BlockPayload> BlockPayloadStore<PAYLOAD> {
     ///
     /// If the set exists and this call drops the last reference to it, the set will be returned,
     /// Otherwise, the return value is [`None`].
-    pub fn remove(&mut self, payload_commitment: Commitment<PAYLOAD>) -> Option<PAYLOAD> {
+    pub fn remove(
+        &mut self,
+        payload_commitment: Commitment<BlockPayload<TXN>>,
+    ) -> Option<BlockPayload<TXN>> {
         if let Entry::Occupied(mut e) = self.0.entry(payload_commitment) {
             let (_, refcount) = e.get_mut();
             *refcount -= 1;

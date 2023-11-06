@@ -138,7 +138,7 @@ pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Optional block payload.
     ///
     /// It may be empty for nodes not in the DA committee.
-    pub block_payload: Option<TYPES::BlockPayload>,
+    pub block_payload: Option<BlockPayload<TYPES::Transaction>>,
     /// transactions rejected in this view
     pub rejected: Vec<TYPES::Transaction>,
     /// the timestamp this view was recv-ed in nanonseconds
@@ -161,10 +161,10 @@ where
     pub fn from_qc_block_and_state(
         qc: QuorumCertificate<TYPES, Commitment<LEAF>>,
         block_header: TYPES::BlockHeader,
-        block_payload: Option<TYPES::BlockPayload>,
+        block_payload: Option<BlockPayload<TYPES::Transaction>>,
         state: LEAF::MaybeState,
         parent_commitment: Commitment<LEAF>,
-        rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
+        rejected: Vec<TYPES::Transaction>,
         proposer_id: EncodedPublicKey,
     ) -> Self {
         Self {

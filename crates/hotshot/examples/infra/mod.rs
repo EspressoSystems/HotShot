@@ -22,7 +22,7 @@ use hotshot_orchestrator::{
 use hotshot_task::task::FilterEvent;
 use hotshot_types::{block_impl::VIDBlockHeader, traits::election::VIDExchange};
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
+    block_impl::VIDTransaction,
     certificate::ViewSyncCertificate,
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, TestableLeaf},
@@ -34,7 +34,8 @@ use hotshot_types::{
         },
         network::CommunicationChannel,
         node_implementation::{CommitteeEx, Exchanges, ExchangesType, NodeType, QuorumEx},
-        state::{ConsensusTime, TestableBlock, TestableState},
+        state::{ConsensusTime, TestableState},
+        BlockPayload,
     },
     HotShotConfig,
 };
@@ -196,7 +197,7 @@ fn calculate_num_tx_per_round(
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType,
+    TYPES: NodeType<Transaction = VIDTransaction>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
     QUORUMNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
@@ -231,7 +232,6 @@ pub trait RunDA<
     >,
 > where
     <TYPES as NodeType>::StateType: TestableState,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
     SystemContext<TYPES, NODE>: HotShotType<TYPES, NODE>,
@@ -250,7 +250,7 @@ pub trait RunDA<
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
-        let genesis_block = TYPES::BlockPayload::genesis();
+        let genesis_block = BlockPayload::genesis();
         let initializer =
             hotshot::HotShotInitializer::<TYPES, Leaf<TYPES>>::from_genesis(genesis_block)
                 .expect("Couldn't generate genesis block");
@@ -456,11 +456,7 @@ pub struct WebServerDARun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<
-            Transaction = VIDTransaction,
-            BlockPayload = VIDBlockPayload,
-            BlockHeader = VIDBlockHeader,
-        >,
+        TYPES: NodeType<Transaction = VIDTransaction, BlockHeader = VIDBlockHeader>,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -511,7 +507,6 @@ impl<
     > for WebServerDARun<TYPES, NODE, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
 {
@@ -628,11 +623,7 @@ pub struct Libp2pDARun<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP
 
 #[async_trait]
 impl<
-        TYPES: NodeType<
-            Transaction = VIDTransaction,
-            BlockPayload = VIDBlockPayload,
-            BlockHeader = VIDBlockHeader,
-        >,
+        TYPES: NodeType<Transaction = VIDTransaction, BlockHeader = VIDBlockHeader>,
         MEMBERSHIP: Membership<TYPES> + Debug,
         NODE: NodeImplementation<
             TYPES,
@@ -683,7 +674,6 @@ impl<
     > for Libp2pDARun<TYPES, NODE, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
 {
@@ -861,11 +851,7 @@ where
 
 /// Main entry point for validators
 pub async fn main_entry_point<
-    TYPES: NodeType<
-        Transaction = VIDTransaction,
-        BlockPayload = VIDBlockPayload,
-        BlockHeader = VIDBlockHeader,
-    >,
+    TYPES: NodeType<Transaction = VIDTransaction, BlockHeader = VIDBlockHeader>,
     MEMBERSHIP: Membership<TYPES> + Debug,
     DANETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
     QUORUMNETWORK: CommunicationChannel<TYPES, Message<TYPES, NODE>, MEMBERSHIP> + Debug,
@@ -903,7 +889,6 @@ pub async fn main_entry_point<
     args: ValidatorArgs,
 ) where
     <TYPES as NodeType>::StateType: TestableState,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
 {
     setup_logging();

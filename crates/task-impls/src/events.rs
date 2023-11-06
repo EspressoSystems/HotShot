@@ -5,8 +5,11 @@ use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate, TimeoutCertificate, VIDCertificate},
     data::{DAProposal, VidDisperse},
     message::Proposal,
-    traits::node_implementation::{
-        NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+    traits::{
+        node_implementation::{
+            NodeImplementation, NodeType, QuorumProposalType, ViewSyncProposalType,
+        },
+        BlockPayload,
     },
     vote::{DAVote, QuorumVote, TimeoutVote, VIDVote, ViewSyncVote},
 };
@@ -66,9 +69,9 @@ pub enum HotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send block payload commitment from DA leader to the quorum; internal event only
-    SendPayloadCommitment(Commitment<TYPES::BlockPayload>),
+    SendPayloadCommitment(Commitment<BlockPayload<TYPES::Transaction>>),
     /// Event when the transactions task has a block formed
-    BlockReady(TYPES::BlockPayload, TYPES::Time),
+    BlockReady(BlockPayload<TYPES::Transaction>, TYPES::Time),
     /// Event when consensus decided on a leaf
     LeafDecided(Vec<I::Leaf>),
     /// Send VID shares to VID storage nodes; emitted by the DA leader

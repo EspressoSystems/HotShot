@@ -10,14 +10,14 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use hotshot_signature_key::bn254::BLSPubKey;
 use hotshot_types::{
-    block_impl::{BlockPayloadError, VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    block_impl::{BlockPayloadError, VIDBlockHeader, VIDTransaction},
     certificate::{AssembledSignature, QuorumCertificate},
     data::{fake_commitment, random_commitment, LeafType, ViewNumber},
     traits::{
         election::Membership,
         node_implementation::NodeType,
         state::{ConsensusTime, TestableState},
-        BlockPayload, State,
+        State,
     },
 };
 use rand::Rng;
@@ -64,8 +64,6 @@ impl State for DemoState {
 
     type BlockHeader = VIDBlockHeader;
 
-    type BlockPayload = VIDBlockPayload;
-
     type Time = ViewNumber;
 
     fn validate_block(&self, _block_header: &Self::BlockHeader, view_number: &Self::Time) -> bool {
@@ -106,7 +104,7 @@ impl TestableState for DemoState {
         _state: Option<&Self>,
         _rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <Self::BlockPayload as BlockPayload>::Transaction {
+    ) -> VIDTransaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
         VIDTransaction(vec![0; RANDOM_TX_BASE_SIZE + (padding as usize)])
@@ -131,7 +129,6 @@ pub struct DemoTypes;
 impl NodeType for DemoTypes {
     type Time = ViewNumber;
     type BlockHeader = VIDBlockHeader;
-    type BlockPayload = VIDBlockPayload;
     type SignatureKey = BLSPubKey;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = VIDTransaction;

@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::traits::BlockPayload;
+use crate::block_impl::VIDTransaction;
 use commit::Committable;
 use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
@@ -43,8 +43,6 @@ pub trait State:
     type Error: Error + Debug + Send + Sync;
     /// The type of block header this state is associated with
     type BlockHeader: BlockHeader;
-    /// The type of block payload this state is associated with
-    type BlockPayload: BlockPayload;
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
@@ -102,10 +100,7 @@ pub trait ConsensusTime:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: State
-where
-    <Self as State>::BlockPayload: TestableBlock,
-{
+pub trait TestableState: State {
     /// Creates random transaction if possible
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
@@ -113,23 +108,14 @@ where
         state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <Self::BlockPayload as BlockPayload>::Transaction;
-}
-
-/// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: BlockPayload + Debug {
-    /// generate a genesis block
-    fn genesis() -> Self;
-
-    /// the number of transactions in this block
-    fn txn_count(&self) -> u64;
+    ) -> VIDTransaction;
 }
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
     use super::{tag, Committable, Debug, Hash, Serialize, State, TestableState};
     use crate::{
-        block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+        block_impl::{VIDBlockHeader, VIDTransaction},
         data::ViewNumber,
     };
     use rand::Rng;
@@ -178,7 +164,6 @@ pub mod dummy {
     impl State for DummyState {
         type Error = DummyError;
         type BlockHeader = VIDBlockHeader;
-        type BlockPayload = VIDBlockPayload;
         type Time = ViewNumber;
 
         fn validate_block(

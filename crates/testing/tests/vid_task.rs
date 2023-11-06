@@ -11,7 +11,7 @@ use hotshot_types::{
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
     traits::{
         consensus_api::ConsensusSharedApi, election::ConsensusExchange,
-        node_implementation::ExchangesType, state::ConsensusTime,
+        node_implementation::ExchangesType, state::ConsensusTime, BlockPayload,
     },
 };
 use std::collections::HashMap;
@@ -24,7 +24,7 @@ use std::collections::HashMap;
 async fn test_vid_task() {
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{block_impl::VIDBlockPayload, message::Proposal};
+    use hotshot_types::message::Proposal;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -41,7 +41,7 @@ async fn test_vid_task() {
     let txn = vec![0u8];
     let vid_disperse = vid.disperse(&txn).unwrap();
     let payload_commitment = vid_disperse.commit;
-    let block = VIDBlockPayload {
+    let block = BlockPayload {
         transactions: vec![VIDTransaction(txn)],
         payload_commitment,
     };

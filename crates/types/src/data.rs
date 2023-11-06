@@ -4,15 +4,16 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
+    block_impl::VIDTransaction,
     certificate::{
         AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
         ViewSyncCertificate,
     },
     traits::{
-        block_contents::BlockHeader,
+        block_contents::{BlockHeader, Transaction},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
-        state::{ConsensusTime, TestableBlock, TestableState},
+        state::{ConsensusTime, TestableState},
         storage::StoredView,
         BlockPayload, State,
     },
@@ -111,10 +112,9 @@ pub fn genesis_proposer_id() -> EncodedPublicKey {
     EncodedPublicKey(GENESIS_PROPOSER_ID.to_vec())
 }
 
-/// The `Transaction` type associated with a `State`, as a syntactic shortcut
-pub type Transaction<STATE> = <<STATE as State>::BlockPayload as BlockPayload>::Transaction;
 /// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
-pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
+pub type TxnCommitment<STATE> =
+    Commitment<<<STATE as State>::BlockHeader as BlockHeader>::Transaction>;
 
 /// subset of state that we stick into a leaf.
 /// original hotstuff proposal
@@ -126,7 +126,7 @@ where
     LEAF: Committable,
 {
     ///  Current view's block payload commitment
-    pub payload_commitment: Commitment<TYPES::BlockPayload>,
+    pub payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
 
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
@@ -143,13 +143,13 @@ where
     pub parent_commitment: Commitment<LEAF>,
 
     /// BlockPayload leaf wants to apply
-    pub deltas: TYPES::BlockPayload,
+    pub deltas: BlockPayload<TYPES::Transaction>,
 
     /// What the state should be after applying `self.deltas`
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
-    pub rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
+    pub rejected: Vec<<TYPES::BlockHeader as BlockHeader>::Transaction>,
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
@@ -159,7 +159,7 @@ where
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// BlockPayload leaf wants to apply
-    pub block_payload: TYPES::BlockPayload,
+    pub block_payload: BlockPayload<TYPES::Transaction>,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
@@ -176,7 +176,7 @@ pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::Time,
     /// Block payload commitment
-    pub payload_commitment: Commitment<TYPES::BlockPayload>,
+    pub payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     /// VID shares dispersed among storage nodes
     pub shares: Vec<<VidScheme as VidSchemeTrait>::Share>,
     /// VID common data sent to all storage nodes
@@ -317,13 +317,13 @@ pub trait DeltasType<BlockPayload: Committable>:
 
 /// Error which occurs when [`LeafType::fill_block_payload`] is called with a payload commitment
 /// that does not match the internal payload commitment of the leaf.
-#[derive(Clone, Copy, Debug, Snafu)]
+#[derive(Clone, Debug, Snafu)]
 #[snafu(display("the block payload {:?} has commitment {} (expected {})", payload, payload.commit(), commitment))]
-pub struct InconsistentPayloadCommitmentError<PAYLOAD: BlockPayload> {
+pub struct InconsistentPayloadCommitmentError<TXN: Transaction> {
     /// The block payload with the wrong commitment.
-    payload: PAYLOAD,
+    payload: BlockPayload<TXN>,
     /// The expected commitment.
-    commitment: Commitment<PAYLOAD>,
+    commitment: Commitment<BlockPayload<TXN>>,
 }
 
 /// An item which is appended to a blockchain.
@@ -385,10 +385,10 @@ pub trait LeafType:
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`.
     fn fill_block_payload(
         &mut self,
-        block_payload: <Self::NodeType as NodeType>::BlockPayload,
-    ) -> Result<(), InconsistentPayloadCommitmentError<<Self::NodeType as NodeType>::BlockPayload>>;
+        block_payload: LeafBlockPayload<Self>,
+    ) -> Result<(), InconsistentPayloadCommitmentError<LeafTransaction<Self>>>;
     /// Optional block payload.
-    fn get_block_payload(&self) -> Option<<Self::NodeType as NodeType>::BlockPayload>;
+    fn get_block_payload(&self) -> Option<LeafBlockPayload<Self>>;
     /// The blockchain state after appending this leaf.
     fn get_state(&self) -> Self::MaybeState;
     /// Transactions rejected or invalidated by the application of this leaf.
@@ -407,10 +407,10 @@ pub type LeafNode<LEAF> = <LEAF as LeafType>::NodeType;
 pub type LeafState<LEAF> = <LeafNode<LEAF> as NodeType>::StateType;
 /// The [`BlockHeader`] in a [`LeafType`].
 pub type LeafBlockHeader<LEAF> = <LeafNode<LEAF> as NodeType>::BlockHeader;
-/// The [`BlockPayload`] in a [`LeafType`].
-pub type LeafBlockPayload<LEAF> = <LeafNode<LEAF> as NodeType>::BlockPayload;
 /// The [`Transaction`] in a [`LeafType`].
-pub type LeafTransaction<LEAF> = <LeafBlockPayload<LEAF> as BlockPayload>::Transaction;
+pub type LeafTransaction<LEAF> = <LeafNode<LEAF> as NodeType>::Transaction;
+/// The [`BlockPayload`] in a [`LeafType`].
+pub type LeafBlockPayload<LEAF> = BlockPayload<LeafTransaction<LEAF>>;
 /// The [`ConsensusTime`] used by a [`LeafType`].
 pub type LeafTime<LEAF> = <LeafNode<LEAF> as NodeType>::Time;
 
@@ -424,7 +424,7 @@ pub trait TestableLeaf {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction;
+    ) -> VIDTransaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -448,13 +448,13 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
     pub parent_commitment: Commitment<Self>,
 
     /// BlockPayload leaf wants to apply
-    pub deltas: TYPES::BlockPayload,
+    pub deltas: BlockPayload<TYPES::Transaction>,
 
     /// What the state should be AFTER applying `self.deltas`
     pub state: TYPES::StateType,
 
     /// Transactions that were marked for rejection while collecting deltas
-    pub rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
+    pub rejected: Vec<LeafTransaction<Self>>,
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     #[derivative(PartialEq = "ignore")]
@@ -489,10 +489,10 @@ pub struct Leaf<TYPES: NodeType> {
     /// Optional block payload.
     ///
     /// It may be empty for nodes not in the DA committee.
-    pub block_payload: Option<TYPES::BlockPayload>,
+    pub block_payload: Option<BlockPayload<TYPES::Transaction>>,
 
     /// Transactions that were marked for rejection while collecting the block.
-    pub rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
+    pub rejected: Vec<LeafTransaction<Self>>,
 
     // TODO (Keyao) Remove.
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
@@ -538,7 +538,7 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Commitment<Self>>,
-        deltas: <Self::NodeType as NodeType>::BlockPayload,
+        deltas: LeafBlockPayload<Self>,
         state: <Self::NodeType as NodeType>::StateType,
     ) -> Self {
         Self {
@@ -576,13 +576,12 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
 
     fn fill_block_payload(
         &mut self,
-        _block_payload: <Self::NodeType as NodeType>::BlockPayload,
-    ) -> Result<(), InconsistentPayloadCommitmentError<<Self::NodeType as NodeType>::BlockPayload>>
-    {
+        _block_payload: LeafBlockPayload<Self>,
+    ) -> Result<(), InconsistentPayloadCommitmentError<LeafTransaction<Self>>> {
         unimplemented!("Unimplemented for validating consensus which will be removed.");
     }
 
-    fn get_block_payload(&self) -> Option<<Self::NodeType as NodeType>::BlockPayload> {
+    fn get_block_payload(&self) -> Option<LeafBlockPayload<Self>> {
         unimplemented!("Unimplemented for validating consensus which will be removed.");
     }
 
@@ -590,7 +589,7 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
         self.state.clone()
     }
 
-    fn get_rejected(&self) -> Vec<<TYPES::BlockPayload as BlockPayload>::Transaction> {
+    fn get_rejected(&self) -> Vec<LeafTransaction<Self>> {
         self.rejected.clone()
     }
 
@@ -610,7 +609,6 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
 impl<TYPES: NodeType> TestableLeaf for ValidatingLeaf<TYPES>
 where
     TYPES::StateType: TestableState,
-    TYPES::BlockPayload: TestableBlock,
 {
     type NodeType = TYPES;
 
@@ -618,7 +616,7 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
+    ) -> VIDTransaction {
         <TYPES::StateType as TestableState>::create_random_transaction(
             Some(&self.state),
             rng,
@@ -641,13 +639,13 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 
 impl<TYPES: NodeType> LeafType for Leaf<TYPES> {
     type NodeType = TYPES;
-    // type DeltasType = Either<(u64, TYPES::BlockPayload), TYPES::BlockHeader>;
+    // type DeltasType = Either<(u64, BlockPayload<TYPES::Transaction>), TYPES::BlockHeader>;
     type MaybeState = ();
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Commitment<Self>>,
-        payload: <Self::NodeType as NodeType>::BlockPayload,
+        payload: LeafBlockPayload<Self>,
         _state: <Self::NodeType as NodeType>::StateType,
     ) -> Self {
         Self {
@@ -684,9 +682,8 @@ impl<TYPES: NodeType> LeafType for Leaf<TYPES> {
 
     fn fill_block_payload(
         &mut self,
-        block_payload: <Self::NodeType as NodeType>::BlockPayload,
-    ) -> Result<(), InconsistentPayloadCommitmentError<<Self::NodeType as NodeType>::BlockPayload>>
-    {
+        block_payload: LeafBlockPayload<Self>,
+    ) -> Result<(), InconsistentPayloadCommitmentError<LeafTransaction<Self>>> {
         if block_payload.commit() != self.block_header.payload_commitment() {
             return Err(InconsistentPayloadCommitmentError {
                 payload: block_payload,
@@ -697,14 +694,14 @@ impl<TYPES: NodeType> LeafType for Leaf<TYPES> {
         Ok(())
     }
 
-    fn get_block_payload(&self) -> Option<<Self::NodeType as NodeType>::BlockPayload> {
+    fn get_block_payload(&self) -> Option<LeafBlockPayload<Self>> {
         self.block_payload.clone()
     }
 
     // The Sequencing Leaf doesn't have a state.
     fn get_state(&self) -> Self::MaybeState {}
 
-    fn get_rejected(&self) -> Vec<<TYPES::BlockPayload as BlockPayload>::Transaction> {
+    fn get_rejected(&self) -> Vec<LeafTransaction<Self>> {
         self.rejected.clone()
     }
 
@@ -733,7 +730,6 @@ impl<TYPES: NodeType> LeafType for Leaf<TYPES> {
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
     TYPES::StateType: TestableState,
-    TYPES::BlockPayload: TestableBlock,
 {
     type NodeType = TYPES;
 
@@ -741,7 +737,7 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
+    ) -> VIDTransaction {
         TYPES::StateType::create_random_transaction(None, rng, padding)
     }
 }

@@ -28,6 +28,7 @@ use crate::{
         node_implementation::ExchangesType,
         signature_key::SignatureKey,
         state::ConsensusTime,
+        BlockPayload,
     },
     vote::{Accumulator, DAVote, QuorumVote, ViewSyncData, ViewSyncVote, VoteType, YesOrNoVote},
 };
@@ -490,7 +491,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// Sign a DA proposal.
     fn sign_da_proposal(
         &self,
-        payload_commitment: &Commitment<TYPES::BlockPayload>,
+        payload_commitment: &Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature;
 
     /// Sign a vote on DA proposal.
@@ -499,13 +500,13 @@ pub trait CommitteeExchangeType<TYPES: NodeType, M: NetworkMsg>:
     /// of information necessary for checking that this node voted on that block.
     fn sign_da_vote(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a vote on DA proposal.
     fn create_da_message(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> DAVote<TYPES>;
@@ -545,7 +546,7 @@ impl<
     /// Sign a DA proposal.
     fn sign_da_proposal(
         &self,
-        payload_commitment: &Commitment<TYPES::BlockPayload>,
+        payload_commitment: &Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(&self.private_key, payload_commitment.as_ref());
         signature
@@ -556,7 +557,7 @@ impl<
     /// of information necessary for checking that this node voted on that block.
     fn sign_da_vote(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
@@ -567,7 +568,7 @@ impl<
     /// Create a message with a vote on DA proposal.
     fn create_da_message(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> DAVote<TYPES> {
@@ -594,7 +595,7 @@ impl<
     type Certificate = DACertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
-    type Commitment = Commitment<TYPES::BlockPayload>;
+    type Commitment = Commitment<BlockPayload<TYPES::Transaction>>;
 
     fn create(
         entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
@@ -642,7 +643,7 @@ pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYP
     /// Create a message with a vote on VID disperse data.
     fn create_vid_message(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> VIDVote<TYPES>;
@@ -650,13 +651,13 @@ pub trait VIDExchangeType<TYPES: NodeType, M: NetworkMsg>: ConsensusExchange<TYP
     /// Sign a vote on VID disperse
     fn sign_vid_vote(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Sign a VID disperse
     fn sign_vid_disperse(
         &self,
-        payload_commitment: &Commitment<TYPES::BlockPayload>,
+        payload_commitment: &Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature;
 }
 
@@ -693,7 +694,7 @@ impl<
 {
     fn create_vid_message(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
         current_view: <TYPES as NodeType>::Time,
         vote_token: <TYPES as NodeType>::VoteTokenType,
     ) -> VIDVote<TYPES> {
@@ -709,7 +710,7 @@ impl<
 
     fn sign_vid_vote(
         &self,
-        payload_commitment: Commitment<<TYPES as NodeType>::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
@@ -721,7 +722,7 @@ impl<
     /// Sign a VID proposal.
     fn sign_vid_disperse(
         &self,
-        payload_commitment: &Commitment<TYPES::BlockPayload>,
+        payload_commitment: &Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(&self.private_key, payload_commitment.as_ref());
         signature
@@ -740,7 +741,7 @@ impl<
     type Certificate = VIDCertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
-    type Commitment = Commitment<TYPES::BlockPayload>;
+    type Commitment = Commitment<BlockPayload<TYPES::Transaction>>;
 
     fn create(
         entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
@@ -809,7 +810,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     /// Sign a block payload commitment.
     fn sign_payload_commitment(
         &self,
-        payload_commitment: Commitment<TYPES::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature;
 
     /// Sign a positive vote on validating or commitment proposal.
@@ -913,7 +914,7 @@ impl<
 
     fn sign_payload_commitment(
         &self,
-        payload_commitment: Commitment<<TYPES as NodeType>::BlockPayload>,
+        payload_commitment: Commitment<BlockPayload<TYPES::Transaction>>,
     ) -> EncodedSignature {
         TYPES::SignatureKey::sign(&self.private_key, payload_commitment.as_ref())
     }

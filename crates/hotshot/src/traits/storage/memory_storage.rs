@@ -120,10 +120,13 @@ mod test {
     use commit::Committable;
     use hotshot_signature_key::bn254::BLSPubKey;
     use hotshot_types::{
-        block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+        block_impl::{VIDBlockHeader, VIDTransaction},
         certificate::{AssembledSignature, QuorumCertificate},
         data::{fake_commitment, genesis_proposer_id, ValidatingLeaf, ViewNumber},
-        traits::{node_implementation::NodeType, state::dummy::DummyState, state::ConsensusTime},
+        traits::{
+            node_implementation::NodeType, state::dummy::DummyState, state::ConsensusTime,
+            BlockPayload,
+        },
     };
     use std::{fmt::Debug, hash::Hash};
     use tracing::instrument;
@@ -146,7 +149,6 @@ mod test {
     impl NodeType for DummyTypes {
         type Time = ViewNumber;
         type BlockHeader = VIDBlockHeader;
-        type BlockPayload = VIDBlockPayload;
         type SignatureKey = BLSPubKey;
         type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
         type Transaction = VIDTransaction;
@@ -159,7 +161,7 @@ mod test {
         rng: &mut dyn rand::RngCore,
         view_number: <DummyTypes as NodeType>::Time,
     ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
-        let payload = VIDBlockPayload::genesis();
+        let payload = BlockPayload::genesis();
         let header = VIDBlockHeader {
             block_number: 0,
             payload_commitment: payload.commit(),

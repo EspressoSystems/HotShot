@@ -13,7 +13,7 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
+    block_impl::VIDTransaction,
     certificate::QuorumCertificate,
     consensus::Consensus,
     data::{Leaf, VidDisperse, VidScheme, VidSchemeTrait},
@@ -81,10 +81,10 @@ pub struct TransactionTaskState<
 }
 
 // We have two `TransactionTaskState` implementations with different bounds. The implementation
-// here requires `TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>`,
+// here requires `TYPES: NodeType<Transaction = VIDTransaction>`,
 // whereas it's just `TYPES: NodeType` in the second implementation.
 impl<
-        TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>,
+        TYPES: NodeType<Transaction = VIDTransaction>,
         I: NodeImplementation<
             TYPES,
             Leaf = Leaf<TYPES>,
@@ -252,7 +252,7 @@ where
                 }
 
                 let vid_disperse = vid.disperse(&txns_flatten).unwrap();
-                let block = VIDBlockPayload {
+                let block = BlockPayload {
                     transactions: txns,
                     payload_commitment: vid_disperse.commit,
                 };
@@ -293,7 +293,7 @@ where
 }
 
 // We have two `TransactionTaskState` implementations with different bounds. The implementation
-// above requires `TYPES: NodeType<Transaction = VIDTransaction, BlockPayload = VIDBlockPayload>`,
+// above requires `TYPES: NodeType<Transaction = VIDTransaction>`,
 // whereas here it's just `TYPES: NodeType`.
 impl<
         TYPES: NodeType,

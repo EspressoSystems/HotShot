@@ -210,6 +210,6 @@ where
     }
 
     fn key_2(&self) -> Self::Key2 {
-        <STATE::BlockPayload as Committable>::commit(&self.deltas)
+        <BlockPayload as Committable>::commit(&self.deltas)
     }
 }

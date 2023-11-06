@@ -27,6 +27,7 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeType, VIDEx},
         signature_key::SignatureKey,
         state::ConsensusTime,
+        BlockPayload,
     },
     utils::ViewInner,
 };
@@ -50,7 +51,7 @@ pub struct VIDTaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// The state's api
@@ -86,7 +87,7 @@ pub struct VIDVoteCollectionTaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// the vid exchange
@@ -98,7 +99,7 @@ pub struct VIDVoteCollectionTaskState<
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment<TYPES::BlockPayload>,
+            Commitment<BlockPayload<TYPES::Transaction>>,
         >>::VoteAccumulator,
         VIDCertificate<TYPES>,
     >,
@@ -117,7 +118,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
 }
@@ -137,7 +138,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     match event {
@@ -205,7 +206,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// main task event handler
@@ -451,7 +452,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = VIDCertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
 }

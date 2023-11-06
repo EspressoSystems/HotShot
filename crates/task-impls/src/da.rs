@@ -48,7 +48,7 @@ pub struct DATaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// The state's api
@@ -84,7 +84,7 @@ pub struct DAVoteCollectionTaskState<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// the committee exchange
@@ -96,7 +96,7 @@ pub struct DAVoteCollectionTaskState<
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment<TYPES::BlockPayload>,
+            Commitment<BlockPayload<TYPES::Transaction>>,
         >>::VoteAccumulator,
         DACertificate<TYPES>,
     >,
@@ -115,7 +115,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
 }
@@ -133,7 +133,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     match event {
@@ -204,7 +204,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
     /// main task event handler
@@ -493,7 +493,7 @@ where
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
+        Commitment = Commitment<BlockPayload<TYPES::Transaction>>,
     >,
 {
 }
