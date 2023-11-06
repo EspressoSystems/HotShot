@@ -34,7 +34,7 @@ async fn test_combined_network() {
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(1_200_000),
+                duration: Duration::from_secs(120),
             },
         ),
         ..TestMetadata::default_multiple_rounds()
@@ -76,7 +76,7 @@ async fn test_combined_network_webserver_crash() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(1_200_000),
+                duration: Duration::from_secs(120),
             },
         ),
         ..TestMetadata::default_multiple_rounds()
@@ -131,7 +131,7 @@ async fn test_combined_network_reup() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(1_200_000),
+                duration: Duration::from_secs(120),
             },
         ),
         ..TestMetadata::default_multiple_rounds()
@@ -193,7 +193,7 @@ async fn test_combined_network_half_dc() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(1_200_000),
+                duration: Duration::from_secs(120),
             },
         ),
         ..TestMetadata::default_multiple_rounds()
@@ -272,7 +272,7 @@ async fn test_stress_combined_network_fuzzy() {
 
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_millis(1_200_000),
+                duration: Duration::from_secs(120),
             },
         ),
         ..TestMetadata::default_stress()
