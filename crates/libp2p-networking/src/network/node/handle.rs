@@ -294,12 +294,7 @@ impl<S> NetworkNodeHandle<S> {
         dht_timeout: Duration,
     ) -> Result<PeerId, NetworkNodeHandleError> {
         // get record (from DHT)
-        let pid = self.get_record_timeout::<PeerId>(&key, dht_timeout).await?;
-
-        // pid lookup for routing
-        self.lookup_pid(pid).await?;
-
-        Ok(pid)
+        self.get_record_timeout::<PeerId>(&key, dht_timeout).await
     }
 
     /// Insert a record into the kademlia DHT
@@ -367,7 +362,7 @@ impl<S> NetworkNodeHandle<S> {
         key: &impl Serialize,
         timeout: Duration,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = async_timeout(timeout, self.get_record(key, 1)).await;
+        let result = async_timeout(Duration::from_secs(1), self.get_record(key, 1)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,

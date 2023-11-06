@@ -163,6 +163,11 @@ where
         .await;
         task_runner = task_runner.add_task(id, "Test Overall Safety Task".to_string(), task);
 
+        // wait for networks to be ready
+        for node in &nodes{
+            node.networks.0.wait_for_ready().await;
+        }
+
         // Start hotshot
         for node in nodes {
             if !late_start_nodes.contains(&node.node_id) {

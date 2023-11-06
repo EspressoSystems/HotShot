@@ -561,11 +561,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
-            self.inner.node_lookup_send.send(None).await.unwrap();
             if self.inner.handle.is_killed() {
                 error!("Called shut down when already shut down! Noop.");
             } else {
-                self.inner.handle.shutdown().await.unwrap();
+                let _ = self.inner.node_lookup_send.send(None).await;
+                let _ = self.inner.handle.shutdown().await;
             }
         };
         boxed_sync(closure)

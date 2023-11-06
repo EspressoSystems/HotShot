@@ -81,10 +81,6 @@ impl TimeBasedCompletionTaskDescription {
                                 GlobalTestEvent::ShutDown => {
                                     for node in &state.handles {
                                         node.handle.clone().shut_down().await;
-                                        node.networks.0.shut_down();
-                                        node.networks.1.shut_down();
-                                        node.networks.2.shut_down();
-                                        node.networks.3.shut_down();
                                     }
                                     (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
@@ -101,10 +97,6 @@ impl TimeBasedCompletionTaskDescription {
                                 .await;
                             for node in &state.handles {
                                 node.handle.clone().shut_down().await;
-                                node.networks.0.shut_down();
-                                node.networks.1.shut_down();
-                                node.networks.2.shut_down();
-                                node.networks.3.shut_down();
                             }
                             (Some(HotShotTaskCompleted::ShutDown), state)
                         }
