@@ -34,19 +34,20 @@ pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
 /// Variable for stake table entry
 #[derive(Clone, Debug)]
 pub struct StakeTableEntryVar {
-    pub bls_ver_key: (Variable, Variable),
     pub schnorr_ver_key: VerKeyVar,
     pub stake_amount: Variable,
 }
 
 /// HotShot state Variable
+/// The stake table commitment is a triple (bls_keys_comm, stake_amount_comm, schnorr_keys_comm).
+/// Because we only need a binding between Schnorr keys and the stake amount, we ignore the first term.
 #[derive(Clone, Debug)]
 pub struct HotShotStateVar {
     pub view_number_var: Variable,
     pub block_height_var: Variable,
     pub block_comm_var: Variable,
     pub fee_ledger_comm_var: Variable,
-    pub stake_table_comm_var: Variable,
+    pub stake_table_comm_var: (Variable, Variable),
 }
 
 /// HotShot state
@@ -56,7 +57,7 @@ pub struct HotShotState<F: PrimeField> {
     pub block_height: usize,
     pub block_comm: F,
     pub fee_ledger_comm: F,
-    pub stake_table_comm: F,
+    pub stake_table_comm: (F, F, F),
 }
 
 #[derive(Clone, Debug)]
@@ -67,7 +68,7 @@ where
     F: RescueParameter + SWToTEConParam,
 {
     /// A function that takes as input:
-    /// - stake table entries (`Vec<(BLSVerKey, SchnorrVerKey, Amount)>`)
+    /// - stake table entries (`Vec<(BLSVerKey, Amount, SchnorrVerKey)>`)
     /// - schnorr signatures of the updated states (`Vec<SchnorrSignature>`)
     /// - updated hotshot state (`(view_number, block_height, block_comm, fee_ledger_comm, stake_table_comm)`)
     /// - signer bit vector
@@ -84,7 +85,7 @@ where
         threshold: &U256,
     ) -> Result<PlonkCircuit<F>, PlonkError>
     where
-        ST: StakeTableScheme<Key = (BLSVerKey, SchnorrVerKey<P>), Amount = U256>,
+        ST: StakeTableScheme<Key = BLSVerKey, Amount = U256, Aux = SchnorrVerKey<P>>,
         P: TECurveConfig<BaseField = F>,
     {
         let mut circuit = PlonkCircuit::new_turbo_plonk();
@@ -98,13 +99,11 @@ where
         // creating variables for stake table entries
         let mut stake_table_var = stake_table
             .try_iter(SnapshotVersion::LastEpochStart)?
-            .map(|((_bls_ver_key, schnorr_ver_key), amount)| {
-                // TODO(Chengyu): create variable for bls_key_var
+            .map(|(_bls_ver_key, amount, schnorr_ver_key)| {
                 let schnorr_ver_key =
                     VerKeyVar(circuit.create_point_variable(schnorr_ver_key.to_affine().into())?);
                 let stake_amount = circuit.create_variable(u256_to_field::<F>(&amount))?;
                 Ok(StakeTableEntryVar {
-                    bls_ver_key: (0, 0), // TODO(Chengyu)
                     schnorr_ver_key,
                     stake_amount,
                 })
@@ -115,7 +114,6 @@ where
         stake_table_var.resize(
             NUM_ENTRIES,
             StakeTableEntryVar {
-                bls_ver_key: (0, 0),
                 schnorr_ver_key: dummy_ver_key_var,
                 stake_amount: 0,
             },
@@ -153,21 +151,39 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use ark_ed_on_bn254::EdwardsConfig as Config;
-//     use hotshot_stake_table::mt_based::StakeTable;
-//     use jf_primitives::{
-//         rescue::RescueParameter,
-//         signatures::{
-//             bls_over_bn254::VerKey as BLSVerKey,
-//             schnorr::{Signature, VerKey as SchnorrVerKey},
-//         },
-//     };
+#[cfg(test)]
+mod tests {
+    use ark_ed_on_bn254::EdwardsConfig as Config;
+    use ethereum_types::U256;
+    use hotshot_stake_table::vec_based::StakeTable;
+    use hotshot_types::traits::stake_table::StakeTableScheme;
+    use jf_primitives::signatures::{
+        bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as BLSVerKey},
+        SchnorrSignatureScheme, SignatureScheme,
+    };
 
-//     type Key = (BLSVerKey, SchnorrVerKey<Config>);
-//     #[test]
-//     fn test_circuit_building() {
-//         let stake_table = StakeTable::<Key>::new(10);
-//     }
-// }
+    type F = ark_ed_on_bn254::Fq;
+    type SchnorrVerKey = jf_primitives::signatures::schnorr::VerKey<Config>;
+
+    #[test]
+    fn test_circuit_building() {
+        let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
+        let mut prng = jf_utils::test_rng();
+        let keys = (0..10)
+            .map(|_| {
+                (
+                    BLSOverBN254CurveSignatureScheme::key_gen(&(), &mut prng)
+                        .unwrap()
+                        .1,
+                    SchnorrSignatureScheme::key_gen(&(), &mut prng).unwrap().1,
+                )
+            })
+            .collect::<Vec<_>>();
+        // Registering keys
+        keys.iter()
+            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        // Freeze the stake table
+        st.advance();
+        st.advance();
+    }
+}

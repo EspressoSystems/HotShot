@@ -3407,7 +3407,7 @@ dependencies = [
  "derivative",
  "displaydoc",
  "downcast-rs",
- "dyn-clone",
+ "dyn-clone 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "espresso-systems-common 0.4.0",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
