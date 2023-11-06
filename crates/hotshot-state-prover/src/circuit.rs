@@ -15,9 +15,7 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::{
-    errors::CircuitError, gadgets::ecc::SWToTEConParam, BoolVar, Circuit, PlonkCircuit,
-};
+use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit};
 use jf_relation::{gadgets::ecc::TEPoint, Variable};
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +49,7 @@ pub struct HotShotStateVar {
 }
 
 /// HotShot state
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct HotShotState<F: PrimeField> {
     pub view_number: usize,
     pub block_height: usize,
@@ -65,7 +63,7 @@ pub struct StateUpdateBuilder<F: RescueParameter>(PhantomData<F>);
 
 impl<F> StateUpdateBuilder<F>
 where
-    F: RescueParameter + SWToTEConParam,
+    F: RescueParameter,
 {
     /// A function that takes as input:
     /// - stake table entries (`Vec<(BLSVerKey, Amount, SchnorrVerKey)>`)
@@ -83,7 +81,7 @@ where
         _hotshot_state: &HotShotState<F>,
         signer_bit_vec: &[bool],
         threshold: &U256,
-    ) -> Result<PlonkCircuit<F>, PlonkError>
+    ) -> Result<(PlonkCircuit<F>, Vec<F>), PlonkError>
     where
         ST: StakeTableScheme<Key = BLSVerKey, Amount = U256, Aux = SchnorrVerKey<P>>,
         P: TECurveConfig<BaseField = F>,
@@ -125,7 +123,11 @@ where
             .collect::<Result<Vec<_>, CircuitError>>()?;
         signer_bit_vec_var.resize(NUM_ENTRIES, BoolVar(circuit.zero()));
 
-        let threshold_var = circuit.create_public_variable(u256_to_field::<F>(threshold))?;
+        let threshold = u256_to_field::<F>(threshold);
+        let threshold_var = circuit.create_public_variable(threshold)?;
+
+        // TODO(Chengyu): put in the hotshot state
+        let public_inputs = vec![threshold];
 
         // Checking whether the accumulated weight exceeds the quorum threshold
         // We assume that NUM_ENTRIES is always a multiple of 2
@@ -147,12 +149,13 @@ where
 
         // circuit.mul_add(wires_in, q_muls)
         circuit.finalize_for_arithmetization()?;
-        Ok(circuit)
+        Ok((circuit, public_inputs))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{HotShotState, StateUpdateBuilder};
     use ark_ed_on_bn254::EdwardsConfig as Config;
     use ethereum_types::U256;
     use hotshot_stake_table::vec_based::StakeTable;
@@ -161,6 +164,7 @@ mod tests {
         bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as BLSVerKey},
         SchnorrSignatureScheme, SignatureScheme,
     };
+    use jf_relation::Circuit;
 
     type F = ark_ed_on_bn254::Fq;
     type SchnorrVerKey = jf_primitives::signatures::schnorr::VerKey<Config>;
@@ -185,5 +189,30 @@ mod tests {
         // Freeze the stake table
         st.advance();
         st.advance();
+
+        let bit_vec_6 = [
+            true, true, true, true, true, true, false, false, false, false,
+        ];
+        let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
+            &st,
+            &[],
+            &HotShotState::default(),
+            &bit_vec_6,
+            &U256::from(600u32),
+        )
+        .unwrap();
+        assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
+
+        let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
+            &st,
+            &[],
+            &HotShotState::default(),
+            &bit_vec_6,
+            &U256::from(700u32),
+        )
+        .unwrap();
+        assert!(bad_circuit
+            .check_circuit_satisfiability(&public_inputs)
+            .is_err());
     }
 }
