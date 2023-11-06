@@ -1,4 +1,4 @@
-use crate::events::SequencingHotShotEvent;
+use crate::events::HotShotEvent;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
@@ -6,7 +6,7 @@ use async_std::task::JoinHandle;
 use bitvec::prelude::*;
 use commit::{Commitment, Committable};
 use core::time::Duration;
-use either::{Either, Left, Right};
+use either::Either;
 use futures::FutureExt;
 use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::{
@@ -15,25 +15,33 @@ use hotshot_task::{
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::vote::QuorumVoteAccumulator;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    block_impl::{VIDBlockPayload, VIDTransaction},
+    certificate::{DACertificate, QuorumCertificate, TimeoutCertificate, VIDCertificate},
     consensus::{Consensus, View},
-    data::{LeafType, ProposalType, QuorumProposal, SequencingLeaf},
+    data::{Leaf, LeafType, ProposalType, QuorumProposal},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
+    simple_certificate::QuorumCertificate2,
+    simple_vote::{QuorumData, QuorumVote},
     traits::{
-        consensus_api::SequencingConsensusApi,
-        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate},
+        block_contents::BlockHeader,
+        consensus_api::ConsensusApi,
+        election::{ConsensusExchange, QuorumExchangeType, SignedCertificate, TimeoutExchangeType},
         network::{CommunicationChannel, ConsensusIntentEvent},
-        node_implementation::{CommitteeEx, NodeImplementation, NodeType, SequencingQuorumEx},
+        node_implementation::{
+            CommitteeEx, NodeImplementation, NodeType, QuorumEx, QuorumMembership, TimeoutEx,
+        },
         signature_key::SignatureKey,
         state::ConsensusTime,
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vote::{QuorumVote, VoteType},
+    vote::{TimeoutVoteAccumulator, VoteType},
+    vote2::{Certificate2, HasViewNumber, VoteAccumulator2},
 };
+
+use tracing::warn;
 
 use snafu::Snafu;
 use std::{
@@ -51,43 +59,49 @@ pub struct ConsensusTaskError {}
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-pub struct SequencingConsensusTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+pub struct ConsensusTaskState<
+    TYPES: NodeType<Transaction = VIDTransaction>,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
 > where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Commitment = Commitment<TYPES::BlockPayload>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
     /// The global task registry
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, Leaf<TYPES>>>>,
     /// View timeout from config.
     pub timeout: u64,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
-    /// Current block submitted to DA
-    pub block: Option<TYPES::BlockType>,
+    /// The commitment to the current block payload submitted to DA
+    pub payload_commitment: Option<Commitment<TYPES::BlockPayload>>,
 
     /// the quorum exchange
-    pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
+    pub quorum_exchange: Arc<QuorumEx<TYPES, I>>,
+
+    /// The timeout exchange
+    pub timeout_exchange: Arc<TimeoutEx<TYPES, I>>,
 
     /// Consensus api
     pub api: A,
@@ -109,13 +123,16 @@ pub struct SequencingConsensusTaskState<
     pub timeout_task: JoinHandle<()>,
 
     /// Global events stream to publish events
-    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
 
     /// Event stream to publish events to the application layer
     pub output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// All the DA certs we've received for current and future views.
-    pub certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+    pub da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+
+    /// All the VID certs we've received for current and future views.
+    pub vid_certs: HashMap<TYPES::Time, VIDCertificate<TYPES>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -132,159 +149,242 @@ pub struct SequencingConsensusTaskState<
 /// State for the vote collection task.  This handles the building of a QC from a votes received
 pub struct VoteCollectionTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>>,
 > where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
     /// the quorum exchange
-    pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
+    pub quorum_exchange: Arc<QuorumEx<TYPES, I>>,
+    /// the timeout exchange
+    pub timeout_exchange: Arc<TimeoutEx<TYPES, I>>,
+
     #[allow(clippy::type_complexity)]
     /// Accumulator for votes
     pub accumulator: Either<
-        <QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>> as SignedCertificate<
+        VoteAccumulator2<
+            TYPES,
+            QuorumVote<TYPES, I::Leaf, QuorumMembership<TYPES, I>>,
+            QuorumCertificate2<TYPES, I::Leaf>,
+        >,
+        QuorumCertificate2<TYPES, I::Leaf>,
+    >,
+
+    /// Accumulator for votes
+    #[allow(clippy::type_complexity)]
+    pub timeout_accumulator: Either<
+        <TimeoutCertificate<TYPES> as SignedCertificate<
             TYPES,
             TYPES::Time,
             TYPES::VoteTokenType,
-            Commitment<SequencingLeaf<TYPES>>,
+            Commitment<TYPES::Time>,
         >>::VoteAccumulator,
-        QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
+        TimeoutCertificate<TYPES>,
     >,
     /// View which this vote collection task is collecting votes in
     pub cur_view: TYPES::Time,
     /// The event stream shared by all tasks
-    pub event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    pub event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     /// Node id
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>> TS
+impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>>> TS
     for VoteCollectionTaskState<TYPES, I>
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
 }
 
 #[instrument(skip_all, fields(id = state.id, view = *state.cur_view), name = "Quorum Vote Collection Task", level = "error")]
 
-async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>>(
+async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>>>(
     mut state: VoteCollectionTaskState<TYPES, I>,
-    event: SequencingHotShotEvent<TYPES, I>,
+    event: HotShotEvent<TYPES, I>,
 ) -> (
     std::option::Option<HotShotTaskCompleted>,
     VoteCollectionTaskState<TYPES, I>,
 )
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
     match event {
-        SequencingHotShotEvent::QuorumVoteRecv(vote) => match vote.clone() {
-            QuorumVote::Yes(vote_internal) => {
-                // For the case where we receive votes after we've made a certificate
-                if state.accumulator.is_right() {
-                    return (None, state);
-                }
-
-                if vote_internal.current_view != state.cur_view {
-                    error!(
-                        "Vote view does not match! vote view is {} current view is {}",
-                        *vote_internal.current_view, *state.cur_view
-                    );
-                    return (None, state);
-                }
-
-                let accumulator = state.accumulator.left().unwrap();
-
-                match state.quorum_exchange.accumulate_vote_2(
-                    accumulator,
-                    &vote,
-                    &vote_internal.leaf_commitment,
-                ) {
-                    Either::Left(acc) => {
-                        state.accumulator = Either::Left(acc);
-                        return (None, state);
-                    }
-                    Either::Right(qc) => {
-                        debug!("QCFormed! {:?}", qc.view_number);
-                        state
-                            .event_stream
-                            .publish(SequencingHotShotEvent::QCFormed(qc.clone()))
-                            .await;
-                        state.accumulator = Either::Right(qc.clone());
-
-                        // No longer need to poll for votes
-                        state
-                            .quorum_exchange
-                            .network()
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *qc.view_number,
-                            ))
-                            .await;
-
-                        return (Some(HotShotTaskCompleted::ShutDown), state);
-                    }
-                }
-            }
-            QuorumVote::Timeout(_vote) => {
-                error!("The next leader has received an unexpected vote!");
+        HotShotEvent::QuorumVoteRecv(vote) => {
+            // For the case where we receive votes after we've made a certificate
+            if state.accumulator.is_right() {
                 return (None, state);
             }
-            QuorumVote::No(_) => {
-                error!("The next leader has received an unexpected vote!");
+
+            if vote.get_view_number() != state.cur_view {
+                error!(
+                    "Vote view does not match! vote view is {} current view is {}",
+                    *vote.get_view_number(),
+                    *state.cur_view
+                );
+                return (None, state);
             }
-        },
-        SequencingHotShotEvent::Shutdown => {
+
+            let accumulator = state.accumulator.left().unwrap();
+
+            match accumulator.accumulate(&vote, state.quorum_exchange.membership()) {
+                Either::Left(acc) => {
+                    state.accumulator = Either::Left(acc);
+                    return (None, state);
+                }
+                Either::Right(qc) => {
+                    debug!("QCFormed! {:?}", qc.view_number);
+                    state
+                        .event_stream
+                        .publish(HotShotEvent::QCFormed(either::Left(qc.clone())))
+                        .await;
+                    state.accumulator = Either::Right(qc.clone());
+
+                    // No longer need to poll for votes
+                    state
+                        .quorum_exchange
+                        .network()
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *qc.view_number,
+                        ))
+                        .await;
+
+                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                }
+            }
+        }
+        // TODO: Code below is redundant of code above; can be fixed
+        // during exchange refactor
+        // https://github.com/EspressoSystems/HotShot/issues/1799
+        HotShotEvent::TimeoutVoteRecv(vote) => {
+            debug!("Received timeout vote for view {}", *vote.get_view());
+            if state.timeout_accumulator.is_right() {
+                return (None, state);
+            }
+
+            if vote.get_view() != state.cur_view {
+                error!(
+                    "Vote view does not match! vote view is {} current view is {}",
+                    *vote.get_view(),
+                    *state.cur_view
+                );
+                return (None, state);
+            }
+
+            let accumulator = state.timeout_accumulator.left().unwrap();
+
+            match state.timeout_exchange.accumulate_vote(
+                accumulator,
+                &vote,
+                &vote.get_view().commit(),
+            ) {
+                Either::Left(acc) => {
+                    state.timeout_accumulator = Either::Left(acc);
+                    return (None, state);
+                }
+                Either::Right(qc) => {
+                    debug!("QCFormed! {:?}", qc.view_number);
+                    state
+                        .event_stream
+                        .publish(HotShotEvent::QCFormed(either::Right(qc.clone())))
+                        .await;
+                    state.timeout_accumulator = Either::Right(qc.clone());
+
+                    // No longer need to poll for votes
+                    state
+                        .quorum_exchange
+                        .network()
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *qc.view_number,
+                        ))
+                        .await;
+
+                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                }
+            }
+        }
+        HotShotEvent::Shutdown => {
             return (Some(HotShotTaskCompleted::ShutDown), state);
         }
-        _ => {}
+        _ => {
+            error!("Unexpected event");
+        }
     }
     (None, state)
 }
 
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<BlockPayload = VIDBlockPayload, Transaction = VIDTransaction>,
         I: NodeImplementation<
             TYPES,
-            Leaf = SequencingLeaf<TYPES>,
+            Leaf = Leaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
-    > SequencingConsensusTaskState<TYPES, I, A>
+        A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
+    > ConsensusTaskState<TYPES, I, A>
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    TYPES::BlockHeader: BlockHeader<Payload = VIDBlockPayload>,
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Commitment = Commitment<TYPES::BlockPayload>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
 
-    async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
+    async fn genesis_leaf(&self) -> Option<Leaf<TYPES>> {
         let consensus = self.consensus.read().await;
 
         let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
@@ -310,7 +410,7 @@ where
     async fn vote_if_able(&self) -> bool {
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
-            if proposal.justify_qc.is_genesis() && proposal.view_number == TYPES::Time::new(1) {
+            if proposal.justify_qc.is_genesis && proposal.view_number == TYPES::Time::new(1) {
                 // warn!("Proposal is genesis!");
 
                 let view = TYPES::Time::new(*proposal.view_number);
@@ -323,16 +423,16 @@ where
                     Ok(None) => {
                         debug!("We were not chosen for consensus committee on {:?}", view);
                     }
-                    Ok(Some(vote_token)) => {
+                    Ok(Some(_vote_token)) => {
                         let justify_qc = proposal.justify_qc.clone();
-                        let parent = if justify_qc.is_genesis() {
+                        let parent = if justify_qc.is_genesis {
                             self.genesis_leaf().await
                         } else {
                             self.consensus
                                 .read()
                                 .await
                                 .saved_leaves
-                                .get(&justify_qc.leaf_commitment())
+                                .get(&justify_qc.get_data().leaf_commit)
                                 .cloned()
                         };
 
@@ -340,36 +440,39 @@ where
                         let Some(parent) = parent else {
                             error!(
                                 "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.leaf_commitment(),
+                                justify_qc.get_data().leaf_commit,
                                 proposal.view_number,
                             );
                             return false;
                         };
                         let parent_commitment = parent.commit();
 
-                        let leaf: SequencingLeaf<_> = SequencingLeaf {
+                        let leaf: Leaf<_> = Leaf {
                             view_number: view,
-                            height: proposal.height,
                             justify_qc: proposal.justify_qc.clone(),
                             parent_commitment,
-                            deltas: Right(proposal.block_commitment),
+                            block_header: proposal.block_header.clone(),
+                            block_payload: None,
                             rejected: Vec::new(),
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
                         };
-
-                        let message: GeneralConsensusMessage<TYPES, I> =
-                            self.quorum_exchange.create_yes_message(
-                                proposal.justify_qc.commit(),
-                                leaf.commit(),
+                        let vote =
+                            QuorumVote::<TYPES, I::Leaf, QuorumMembership<TYPES, I>>::create_signed_vote(
+                                QuorumData { leaf_commit: leaf.commit() },
                                 view,
-                                vote_token,
+                                self.quorum_exchange.public_key(),
+                                self.quorum_exchange.private_key(),
                             );
+                        let message = GeneralConsensusMessage::<TYPES, I>::Vote(vote);
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            debug!("Sending vote to next quorum leader {:?}", vote.get_view());
+                            debug!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.get_view_number() + 1
+                            );
                             self.event_stream
-                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                                .publish(HotShotEvent::QuorumVoteSend(vote))
                                 .await;
                             return true;
                         }
@@ -379,7 +482,7 @@ where
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            if let Some(cert) = self.certs.get(&(proposal.get_view_number())) {
+            if let Some(cert) = self.da_certs.get(&(proposal.get_view_number())) {
                 let view = cert.view_number;
                 let vote_token = self.quorum_exchange.make_vote_token(view);
                 // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -390,16 +493,16 @@ where
                     Ok(None) => {
                         debug!("We were not chosen for consensus committee on {:?}", view);
                     }
-                    Ok(Some(vote_token)) => {
+                    Ok(Some(_vote_token)) => {
                         let justify_qc = proposal.justify_qc.clone();
-                        let parent = if justify_qc.is_genesis() {
+                        let parent = if justify_qc.is_genesis {
                             self.genesis_leaf().await
                         } else {
                             self.consensus
                                 .read()
                                 .await
                                 .saved_leaves
-                                .get(&justify_qc.leaf_commitment())
+                                .get(&justify_qc.get_data().leaf_commit)
                                 .cloned()
                         };
 
@@ -407,49 +510,54 @@ where
                         let Some(parent) = parent else {
                             error!(
                                 "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.leaf_commitment(),
+                                justify_qc.get_data().leaf_commit,
                                 proposal.view_number,
                             );
                             return false;
                         };
                         let parent_commitment = parent.commit();
 
-                        let leaf: SequencingLeaf<_> = SequencingLeaf {
+                        let leaf: Leaf<_> = Leaf {
                             view_number: view,
-                            height: proposal.height,
                             justify_qc: proposal.justify_qc.clone(),
                             parent_commitment,
-                            deltas: Right(proposal.block_commitment),
+                            block_header: proposal.block_header.clone(),
+                            block_payload: None,
                             rejected: Vec::new(),
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: self.quorum_exchange.get_leader(view).to_bytes(),
                         };
-                        let message: GeneralConsensusMessage<TYPES, I>=
+
                         // Validate the DAC.
-                        if self
-                            .committee_exchange
-                            .is_valid_cert(cert)
-                        {
-                            // Validate the block commitment for non-genesis DAC.
-                            if !cert.is_genesis() && cert.leaf_commitment() != proposal.block_commitment {
-                                error!("Block commitment does not equal parent commitment");
+                        let message = if self.committee_exchange.is_valid_cert(cert) {
+                            // Validate the block payload commitment for non-genesis DAC.
+                            if !cert.is_genesis()
+                                && cert.leaf_commitment()
+                                    != proposal.block_header.payload_commitment()
+                            {
+                                error!("Block payload commitment does not equal parent commitment");
                                 return false;
                             }
-                            self.quorum_exchange.create_yes_message(
-                                proposal.justify_qc.commit(),
-                                leaf.commit(),
-                                cert.view_number,
-                                vote_token)
+                            let vote =
+                            QuorumVote::<TYPES, I::Leaf, QuorumMembership<TYPES, I>>::create_signed_vote(
+                                QuorumData { leaf_commit: leaf.commit() },
+                                view,
+                                self.quorum_exchange.public_key(),
+                                self.quorum_exchange.private_key(),
+                            );
+                            GeneralConsensusMessage::<TYPES, I>::Vote(vote)
                         } else {
-                            error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert.view_number, self.cur_view );
+                            error!("Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}", cert, self.cur_view );
                             return false;
-
                         };
 
                         if let GeneralConsensusMessage::Vote(vote) = message {
-                            debug!("Sending vote to next quorum leader {:?}", vote.get_view());
+                            debug!(
+                                "Sending vote to next quorum leader {:?}",
+                                vote.get_view_number()
+                            );
                             self.event_stream
-                                .publish(SequencingHotShotEvent::QuorumVoteSend(vote))
+                                .publish(HotShotEvent::QuorumVoteSend(vote))
                                 .await;
                             return true;
                         }
@@ -480,20 +588,11 @@ where
             );
 
             // Remove old certs, we won't vote on past views
-            // TODO ED Put back in once we fix other errors
-            // for view in *self.cur_view..*new_view - 1 {
-            //     let v = TYPES::Time::new(view);
-            //     self.certs.remove(&v);
-            // }
-            self.cur_view = new_view;
-            self.current_proposal = None;
-
-            if new_view == TYPES::Time::new(1) {
-                self.quorum_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
-                    .await;
+            for view in *self.cur_view..*new_view - 1 {
+                let v = TYPES::Time::new(view);
+                self.da_certs.remove(&v);
             }
+            self.cur_view = new_view;
 
             // Poll the future leader for lookahead
             let lookahead_view = new_view + LOOK_AHEAD;
@@ -510,12 +609,12 @@ where
             // Start polling for proposals for the new view
             self.quorum_exchange
                 .network()
-                .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view))
+                .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view + 1))
                 .await;
 
             self.quorum_exchange
                 .network()
-                .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view))
+                .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view + 1))
                 .await;
 
             if self.quorum_exchange.is_leader(self.cur_view + 1) {
@@ -527,23 +626,32 @@ where
             }
 
             self.event_stream
-                .publish(SequencingHotShotEvent::ViewChange(new_view))
+                .publish(HotShotEvent::ViewChange(new_view))
                 .await;
 
             // Spawn a timeout task if we did actually update view
             let timeout = self.timeout;
             self.timeout_task = async_spawn({
                 let stream = self.event_stream.clone();
-                let view_number = self.cur_view;
+                // Nuance: We timeout on the view + 1 here because that means that we have
+                // not seen evidence to transition to this new view
+                let view_number = self.cur_view + 1;
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
                     stream
-                        .publish(SequencingHotShotEvent::Timeout(TYPES::Time::new(
-                            *view_number,
-                        )))
+                        .publish(HotShotEvent::Timeout(TYPES::Time::new(*view_number)))
                         .await;
                 }
             });
+            let consensus = self.consensus.read().await;
+            consensus
+                .metrics
+                .current_view
+                .set(usize::try_from(self.cur_view.get_u64()).unwrap());
+            consensus.metrics.number_of_views_since_last_decide.set(
+                usize::try_from(self.cur_view.get_u64()).unwrap()
+                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+            );
 
             return true;
         }
@@ -552,9 +660,9 @@ where
 
     /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
-    pub async fn handle_event(&mut self, event: SequencingHotShotEvent<TYPES, I>) {
+    pub async fn handle_event(&mut self, event: HotShotEvent<TYPES, I>) {
         match event {
-            SequencingHotShotEvent::QuorumProposalRecv(proposal, sender) => {
+            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!(
                     "Receved Quorum Propsoal for view {}",
                     *proposal.data.view_number
@@ -572,523 +680,545 @@ where
                     return;
                 }
 
-                self.current_proposal = Some(proposal.data.clone());
+                // Verify a timeout certificate exists and is valid
+                if proposal.data.justify_qc.get_view_number() != view - 1 {
+                    let Some(timeout_cert) = proposal.data.timeout_certificate.clone() else {
+                        warn!(
+                            "Quorum proposal for view {} needed a timeout certificate but did not have one",
+                            *view);
+                        return;
+                    };
 
-                let vote_token = self.quorum_exchange.make_vote_token(view);
-                // TODO: do some of this logic without the vote token check, only do that when voting.
-                match vote_token {
-                    Err(e) => {
-                        error!("Failed to generate vote token for {:?} {:?}", view, e);
+                    if timeout_cert.view_number != view - 1 {
+                        warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                        return;
                     }
-                    Ok(None) => {
-                        debug!("We were not chosen for consensus committee on {:?}", view);
-                    }
-                    Ok(Some(vote_token)) => {
-                        debug!("We were chosen for consensus committee on {:?}", view);
-                        let consensus = self.consensus.upgradable_read().await;
 
-                        // TODO ED Insert TC logic here
-
-                        // Construct the leaf.
-                        let justify_qc = proposal.data.justify_qc;
-                        let parent = if justify_qc.is_genesis() {
-                            self.genesis_leaf().await
-                        } else {
-                            consensus
-                                .saved_leaves
-                                .get(&justify_qc.leaf_commitment())
-                                .cloned()
-                        };
-
-                        // Validate the `justify_qc`.
-                        let justify_qc_commitment = justify_qc.commit();
-                        let invalid = !self.quorum_exchange.is_valid_cert(&justify_qc);
-                        let leaf;
-
-                        // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                        if let Some(parent) = parent.clone() {
-                            let message;
-                            leaf = SequencingLeaf {
-                                view_number: view,
-                                height: proposal.data.height,
-                                justify_qc: justify_qc.clone(),
-                                parent_commitment: parent.commit(),
-                                deltas: Right(proposal.data.block_commitment),
-                                rejected: Vec::new(),
-                                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                                proposer_id: sender.to_bytes(),
-                            };
-                            let parent_commitment = parent.commit();
-                            let leaf_commitment = leaf.commit();
-
-                            if invalid {
-                                error!("Invalid justify_qc in proposal! parent commitment is {:?} justify qc is {:?}", parent_commitment, justify_qc.clone());
-
-                                message = self.quorum_exchange.create_no_message::<I>(
-                                    justify_qc_commitment,
-                                    leaf_commitment,
-                                    view,
-                                    vote_token,
-                                );
-                            }
-                            // Validate the leaf commitment for non-genesis QC.
-                            else if !justify_qc.is_genesis()
-                                && justify_qc.leaf_commitment() != parent_commitment
-                            {
-                                error!("Leaf commitment does not equal parent commitment");
-                                message = self.quorum_exchange.create_no_message::<I>(
-                                    justify_qc_commitment,
-                                    leaf_commitment,
-                                    view,
-                                    vote_token,
-                                );
-                            }
-                            // Validate the `height`.
-                            else if leaf.height != parent.height + 1 {
-                                error!(
-                                    "Incorrect height in proposal (expected {}, got {})",
-                                    parent.height + 1,
-                                    leaf.height
-                                );
-                                message = self.quorum_exchange.create_no_message(
-                                    justify_qc_commitment,
-                                    leaf_commitment,
-                                    view,
-                                    vote_token,
-                                );
-                            }
-                            // Validate the signature.
-                            else if !view_leader_key
-                                .validate(&proposal.signature, leaf_commitment.as_ref())
-                            {
-                                error!(?proposal.signature, "Could not verify proposal.");
-                                message = self.quorum_exchange.create_no_message(
-                                    justify_qc_commitment,
-                                    leaf_commitment,
-                                    view,
-                                    vote_token,
-                                );
-                            }
-                            // Create a positive vote if either liveness or safety check
-                            // passes.
-                            // Liveness check.
-                            else {
-                                let liveness_check = justify_qc.view_number > consensus.locked_view;
-
-                                // Safety check.
-                                // Check if proposal extends from the locked leaf.
-                                let outcome = consensus.visit_leaf_ancestors(
-                                    justify_qc.view_number,
-                                    Terminator::Inclusive(consensus.locked_view),
-                                    false,
-                                    |leaf| {
-                                        // if leaf view no == locked view no then we're done, report success by
-                                        // returning true
-                                        leaf.view_number != consensus.locked_view
-                                    },
-                                );
-                                let safety_check = outcome.is_ok();
-                                if let Err(e) = outcome {
-                                    self.api.send_view_error(view, Arc::new(e)).await;
-                                }
-
-                                // Skip if both saftey and liveness checks fail.
-                                if !safety_check && !liveness_check {
-                                    error!("Failed safety check and liveness check");
-                                    message = self.quorum_exchange.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        view,
-                                        vote_token,
-                                    );
-                                }
-                                // Generate a message with yes vote.
-                                else {
-                                    message = self.quorum_exchange.create_yes_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        view,
-                                        vote_token,
-                                    );
-                                }
-                            }
-
-                            if let GeneralConsensusMessage::Vote(vote) = message {
-                                debug!("Sending vote to next leader {:?}", vote);
-                            };
-                        } else {
-                            // Allow missing parent so we can update the state, but we won't
-                            // vote in this case.
-                            error!(
-                                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.leaf_commitment(),
-                                proposal.data.view_number,
-                            );
-
-                            if invalid {
-                                error!("Invalid justify_qc in proposal {:?}", justify_qc.clone());
-                                return;
-                            }
-                            leaf = SequencingLeaf {
-                                view_number: view,
-                                height: proposal.data.height,
-                                justify_qc: justify_qc.clone(),
-                                parent_commitment: justify_qc.leaf_commitment(),
-                                deltas: Right(proposal.data.block_commitment),
-                                rejected: Vec::new(),
-                                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                                proposer_id: sender.to_bytes(),
-                            };
-                            if !view_leader_key
-                                .validate(&proposal.signature, leaf.commit().as_ref())
-                            {
-                                error!(?proposal.signature, "Could not verify proposal.");
-                                return;
-                            }
-
-                            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                            consensus.state_map.insert(
-                                view,
-                                View {
-                                    view_inner: ViewInner::Leaf {
-                                        leaf: leaf.commit(),
-                                    },
-                                },
-                            );
-                            consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-                            drop(consensus);
-                            // The valid QC and signature on the proposal is evidence we can go to the next view
-                            // even though we can't vote in this round because we missed the last proposal.
-                            self.update_view(TYPES::Time::new(*view + 1)).await;
-                            return;
-                        }
-
-                        // TODO (Keyao) Update consensus state only if all verifications pass.
-                        // <https://github.com/EspressoSystems/HotShot/issues/1865>
-                        let high_qc = leaf.justify_qc.clone();
-                        let mut new_anchor_view = consensus.last_decided_view;
-                        let mut new_locked_view = consensus.locked_view;
-                        let mut last_view_number_visited = view;
-                        let mut new_commit_reached: bool = false;
-                        let mut new_decide_reached = false;
-                        let mut new_decide_qc = None;
-                        let mut leaf_views = Vec::new();
-                        let mut included_txns = HashSet::new();
-                        if parent.is_some() {
-                            let old_anchor_view = consensus.last_decided_view;
-                            let parent_view = leaf.justify_qc.view_number;
-                            let mut current_chain_length = 0usize;
-                            if parent_view + 1 == view {
-                                current_chain_length += 1;
-                                if let Err(e) = consensus.visit_leaf_ancestors(
-                                    parent_view,
-                                    Terminator::Exclusive(old_anchor_view),
-                                    true,
-                                    |leaf| {
-                                        if !new_decide_reached {
-                                            if last_view_number_visited == leaf.view_number + 1 {
-                                                last_view_number_visited = leaf.view_number;
-                                                current_chain_length += 1;
-                                                if current_chain_length == 2 {
-                                                    new_locked_view = leaf.view_number;
-                                                    new_commit_reached = true;
-                                                    // The next leaf in the chain, if there is one, is decided, so this
-                                                    // leaf's justify_qc would become the QC for the decided chain.
-                                                    new_decide_qc = Some(leaf.justify_qc.clone());
-                                                } else if current_chain_length == 3 {
-                                                    new_anchor_view = leaf.view_number;
-                                                    new_decide_reached = true;
-                                                }
-                                            } else {
-                                                // nothing more to do here... we don't have a new chain extension
-                                                return false;
-                                            }
-                                        }
-                                        // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-                                        if new_decide_reached {
-                                            let mut leaf = leaf.clone();
-
-                                            // If the full block is available for this leaf, include it in the leaf
-                                            // chain that we send to the client.
-                                            if let Some(block) =
-                                                consensus.saved_blocks.get(leaf.get_deltas_commitment())
-                                            {
-                                                if let Err(err) = leaf.fill_deltas(block.clone()) {
-                                                    error!("unable to fill leaf {} with block {}, block will not be available: {}",
-                                                        leaf.commit(), block.commit(), err);
-                                                }
-                                            }
-
-                                            leaf_views.push(leaf.clone());
-                                            match &leaf.deltas {
-                                                Left(block) => {
-                                                    let txns = block.contained_transactions();
-                                                    for txn in txns {
-                                                        included_txns.insert(txn);
-                                                    }
-                                                }
-                                                Right(_) => {}
-                                            }
-                                        }
-                                        true
-                                    },
-                                ) {
-                                    error!("publishing view error");
-                                    self.output_event_stream.publish(Event {
-                                        view_number: view,
-                                        event: EventType::Error { error: e.into() },
-                                    }).await;
-                                }
-                            }
-                        }
-
-                        let included_txns_set: HashSet<_> = if new_decide_reached {
-                            included_txns
-                        } else {
-                            HashSet::new()
-                        };
-
-                        // promote lock here to add proposal to statemap
-                        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                        if high_qc.view_number > consensus.high_qc.view_number {
-                            consensus.high_qc = high_qc;
-                        }
-                        consensus.state_map.insert(
-                            view,
-                            View {
-                                view_inner: ViewInner::Leaf {
-                                    leaf: leaf.commit(),
-                                },
-                            },
-                        );
-                        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-                        if new_commit_reached {
-                            consensus.locked_view = new_locked_view;
-                        }
-                        #[allow(clippy::cast_precision_loss)]
-                        if new_decide_reached {
-                            debug!("about to publish decide");
-                            self.event_stream
-                                .publish(SequencingHotShotEvent::LeafDecided(leaf_views.clone()))
-                                .await;
-                            let decide_sent = self.output_event_stream.publish(Event {
-                                view_number: consensus.last_decided_view,
-                                event: EventType::Decide {
-                                    leaf_chain: Arc::new(leaf_views),
-                                    qc: Arc::new(new_decide_qc.unwrap()),
-                                    block_size: Some(included_txns_set.len().try_into().unwrap()),
-                                },
-                            });
-                            let old_anchor_view = consensus.last_decided_view;
-                            consensus
-                                .collect_garbage(old_anchor_view, new_anchor_view)
-                                .await;
-                            consensus.last_decided_view = new_anchor_view;
-                            consensus.invalid_qc = 0;
-
-                            // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-                            if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
-                                error!("Could not insert new anchor into the storage API: {:?}", e);
-                            }
-
-                            debug!("Sending Decide for view {:?}", consensus.last_decided_view);
-                            debug!("Decided txns len {:?}", included_txns_set.len());
-                            decide_sent.await;
-                        }
-
-                        let new_view = self.current_proposal.clone().unwrap().view_number + 1;
-                        // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                        let should_propose = self.quorum_exchange.is_leader(new_view)
-                            && consensus.high_qc.view_number
-                                == self.current_proposal.clone().unwrap().view_number;
-                        // todo get rid of this clone
-                        let qc = consensus.high_qc.clone();
-
-                        drop(consensus);
-                        if should_propose {
-                            debug!(
-                                "Attempting to publish proposal before voting; now in view: {}",
-                                *new_view
-                            );
-                            self.publish_proposal_if_able(qc.clone(), qc.view_number + 1)
-                                .await;
-                        }
-                        if !self.vote_if_able().await {
-                            // TOOD ED This means we publish the proposal without updating our own view, which doesn't seem right
-                            return;
-                        }
-
-                        // ED Only do this GC if we are able to vote
-                        for v in (*self.cur_view)..=(*view) {
-                            let time = TYPES::Time::new(v);
-                            self.certs.remove(&time);
-                        }
-
-                        // Update current view and publish a view change event so other tasks also update
-                        self.update_view(new_view).await;
+                    if !self
+                        .timeout_exchange
+                        .is_valid_timeout_cert(&timeout_cert.clone(), view - 1)
+                    {
+                        warn!("Timeout certificate for view {} was invalid", *view);
+                        return;
                     }
                 }
-            }
-            SequencingHotShotEvent::QuorumVoteRecv(vote) => {
-                debug!("Received quroum vote: {:?}", vote.get_view());
 
-                if !self.quorum_exchange.is_leader(vote.get_view() + 1) {
+                let justify_qc = proposal.data.justify_qc.clone();
+
+                if !justify_qc.is_valid_cert(self.quorum_exchange.membership()) {
+                    error!("Invalid justify_qc in proposal for view {}", *view);
+                    let consensus = self.consensus.write().await;
+                    consensus.metrics.invalid_qc.update(1);
+                    return;
+                }
+
+                // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
+                self.update_view(view).await;
+
+                self.current_proposal = Some(proposal.data.clone());
+
+                let consensus = self.consensus.upgradable_read().await;
+
+                // Construct the leaf.
+                let parent = if justify_qc.is_genesis {
+                    self.genesis_leaf().await
+                } else {
+                    consensus
+                        .saved_leaves
+                        .get(&justify_qc.get_data().leaf_commit)
+                        .cloned()
+                };
+
+                //
+                // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
+                let Some(parent) = parent else {
+                    // If no parent then just update our state map and return.  We will not vote.
+                    error!(
+                        "Proposal's parent missing from storage with commitment: {:?}",
+                        justify_qc.get_data().leaf_commit
+                    );
+                    let leaf = Leaf {
+                        view_number: view,
+                        justify_qc: justify_qc.clone(),
+                        parent_commitment: justify_qc.get_data().leaf_commit,
+                        block_header: proposal.data.block_header,
+                        block_payload: None,
+                        rejected: Vec::new(),
+                        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                        proposer_id: sender.to_bytes(),
+                    };
+
+                    let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+                    consensus.state_map.insert(
+                        view,
+                        View {
+                            view_inner: ViewInner::Leaf {
+                                leaf: leaf.commit(),
+                            },
+                        },
+                    );
+                    consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                    return;
+                };
+                let parent_commitment = parent.commit();
+                let leaf: Leaf<_> = Leaf {
+                    view_number: view,
+                    justify_qc: justify_qc.clone(),
+                    parent_commitment,
+                    block_header: proposal.data.block_header,
+                    block_payload: None,
+                    rejected: Vec::new(),
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: sender.to_bytes(),
+                };
+                let leaf_commitment = leaf.commit();
+
+                // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+                if !view_leader_key.validate(&proposal.signature, leaf_commitment.as_ref()) {
+                    error!(?proposal.signature, "Could not verify proposal.");
+                    return;
+                }
+                // Create a positive vote if either liveness or safety check
+                // passes.
+
+                // Liveness check.
+                let liveness_check = justify_qc.get_view_number() > consensus.locked_view;
+
+                // Safety check.
+                // Check if proposal extends from the locked leaf.
+                let outcome = consensus.visit_leaf_ancestors(
+                    justify_qc.get_view_number(),
+                    Terminator::Inclusive(consensus.locked_view),
+                    false,
+                    |leaf| {
+                        // if leaf view no == locked view no then we're done, report success by
+                        // returning true
+                        leaf.view_number != consensus.locked_view
+                    },
+                );
+                let safety_check = outcome.is_ok();
+                if let Err(e) = outcome {
+                    self.api.send_view_error(view, Arc::new(e)).await;
+                    return;
+                }
+
+                // Skip if both saftey and liveness checks fail.
+                if !safety_check && !liveness_check {
+                    error!("Failed safety check and liveness check");
+                    return;
+                }
+
+                let high_qc = leaf.justify_qc.clone();
+                let mut new_anchor_view = consensus.last_decided_view;
+                let mut new_locked_view = consensus.locked_view;
+                let mut last_view_number_visited = view;
+                let mut new_commit_reached: bool = false;
+                let mut new_decide_reached = false;
+                let mut new_decide_qc = None;
+                let mut leaf_views = Vec::new();
+                let mut included_txns = HashSet::new();
+                let old_anchor_view = consensus.last_decided_view;
+                let parent_view = leaf.justify_qc.get_view_number();
+                let mut current_chain_length = 0usize;
+                if parent_view + 1 == view {
+                    current_chain_length += 1;
+                    if let Err(e) = consensus.visit_leaf_ancestors(
+                        parent_view,
+                        Terminator::Exclusive(old_anchor_view),
+                        true,
+                        |leaf| {
+                            if !new_decide_reached {
+                                if last_view_number_visited == leaf.view_number + 1 {
+                                    last_view_number_visited = leaf.view_number;
+                                    current_chain_length += 1;
+                                    if current_chain_length == 2 {
+                                        new_locked_view = leaf.view_number;
+                                        new_commit_reached = true;
+                                        // The next leaf in the chain, if there is one, is decided, so this
+                                        // leaf's justify_qc would become the QC for the decided chain.
+                                        new_decide_qc = Some(leaf.justify_qc.clone());
+                                    } else if current_chain_length == 3 {
+                                        new_anchor_view = leaf.view_number;
+                                        new_decide_reached = true;
+                                    }
+                                } else {
+                                    // nothing more to do here... we don't have a new chain extension
+                                    return false;
+                                }
+                            }
+                            // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
+                            if new_decide_reached {
+                                let mut leaf = leaf.clone();
+                                consensus
+                                    .metrics
+                                    .last_synced_block_height
+                                    .set(usize::try_from(leaf.get_height()).unwrap_or(0));
+
+                                // If the block payload is available for this leaf, include it in
+                                // the leaf chain that we send to the client.
+                                if let Some(payload) = consensus
+                                    .saved_block_payloads
+                                    .get(leaf.get_payload_commitment())
+                                {
+                                    if let Err(e) = leaf.fill_block_payload(payload.clone()) {
+                                        error!(
+                                            "Saved block payload and commitment don't match: {:?}",
+                                            e
+                                        );
+                                    }
+                                }
+
+                                leaf_views.push(leaf.clone());
+                                if let Some(payload) = leaf.block_payload {
+                                    for txn in payload.transaction_commitments() {
+                                        included_txns.insert(txn);
+                                    }
+                                }
+                            }
+                            true
+                        },
+                    ) {
+                        error!("publishing view error");
+                        self.output_event_stream
+                            .publish(Event {
+                                view_number: view,
+                                event: EventType::Error { error: e.into() },
+                            })
+                            .await;
+                    }
+                }
+
+                let included_txns_set: HashSet<_> = if new_decide_reached {
+                    included_txns
+                } else {
+                    HashSet::new()
+                };
+
+                // promote lock here to add proposal to statemap
+                let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+                if high_qc.view_number > consensus.high_qc.view_number {
+                    consensus.high_qc = high_qc;
+                }
+                consensus.state_map.insert(
+                    view,
+                    View {
+                        view_inner: ViewInner::Leaf {
+                            leaf: leaf.commit(),
+                        },
+                    },
+                );
+                consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+                if new_commit_reached {
+                    consensus.locked_view = new_locked_view;
+                }
+                #[allow(clippy::cast_precision_loss)]
+                if new_decide_reached {
+                    debug!("about to publish decide");
+                    self.event_stream
+                        .publish(HotShotEvent::LeafDecided(leaf_views.clone()))
+                        .await;
+                    let decide_sent = self.output_event_stream.publish(Event {
+                        view_number: consensus.last_decided_view,
+                        event: EventType::Decide {
+                            leaf_chain: Arc::new(leaf_views),
+                            qc: Arc::new(new_decide_qc.unwrap()),
+                            block_size: Some(included_txns_set.len().try_into().unwrap()),
+                        },
+                    });
+                    let old_anchor_view = consensus.last_decided_view;
+                    consensus
+                        .collect_garbage(old_anchor_view, new_anchor_view)
+                        .await;
+                    consensus.last_decided_view = new_anchor_view;
+                    consensus.metrics.invalid_qc.set(0);
+                    consensus
+                        .metrics
+                        .last_decided_view
+                        .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
+                    let cur_number_of_views_per_decide_event =
+                        *self.cur_view - consensus.last_decided_view.get_u64();
+                    consensus
+                        .metrics
+                        .number_of_views_per_decide_event
+                        .add_point(cur_number_of_views_per_decide_event as f64);
+
+                    // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+                    if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
+                        error!("Could not insert new anchor into the storage API: {:?}", e);
+                    }
+
+                    debug!("Sending Decide for view {:?}", consensus.last_decided_view);
+                    debug!("Decided txns len {:?}", included_txns_set.len());
+                    decide_sent.await;
+                }
+
+                let new_view = self.current_proposal.clone().unwrap().view_number + 1;
+                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                let should_propose = self.quorum_exchange.is_leader(new_view)
+                    && consensus.high_qc.view_number
+                        == self.current_proposal.clone().unwrap().view_number;
+                // todo get rid of this clone
+                let qc = consensus.high_qc.clone();
+
+                drop(consensus);
+                if should_propose {
+                    debug!(
+                        "Attempting to publish proposal after voting; now in view: {}",
+                        *new_view
+                    );
+                    self.publish_proposal_if_able(qc.clone(), qc.view_number + 1, None)
+                        .await;
+                }
+                if !self.vote_if_able().await {
+                    return;
+                }
+                self.current_proposal = None;
+
+                for v in (*self.cur_view)..=(*view) {
+                    let time = TYPES::Time::new(v);
+                    self.da_certs.remove(&time);
+                }
+            }
+            HotShotEvent::QuorumVoteRecv(vote) => {
+                debug!("Received quroum vote: {:?}", vote.get_view_number());
+
+                if !self.quorum_exchange.is_leader(vote.get_view_number() + 1) {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
-                        *vote.get_view() + 1,
-                        self.quorum_exchange.is_leader(vote.get_view() + 2)
+                        *vote.get_view_number() + 1,
+                        self.quorum_exchange.is_leader(vote.get_view_number() + 2)
                     );
                     return;
                 }
 
-                match vote.clone() {
-                    QuorumVote::Yes(vote_internal) => {
-                        let handle_event = HandleEvent(Arc::new(move |event, state| {
-                            async move { vote_handle(state, event).await }.boxed()
-                        }));
-                        let collection_view = if let Some((collection_view, collection_task, _)) =
-                            &self.vote_collector
-                        {
-                            if vote_internal.current_view > *collection_view {
-                                // ED I think we'd want to let that task timeout to avoid a griefing vector
-                                self.registry.shutdown_task(*collection_task).await;
-                            }
-                            *collection_view
-                        } else {
-                            TYPES::Time::new(0)
-                        };
-
-                        // Todo check if we are the leader
-                        let new_accumulator = QuorumVoteAccumulator {
-                            total_vote_outcomes: HashMap::new(),
-                            yes_vote_outcomes: HashMap::new(),
-                            no_vote_outcomes: HashMap::new(),
-
-                            success_threshold: self.quorum_exchange.success_threshold(),
-                            failure_threshold: self.quorum_exchange.failure_threshold(),
-
-                            sig_lists: Vec::new(),
-                            signers: bitvec![0; self.quorum_exchange.total_nodes()],
-                            phantom: PhantomData,
-                        };
-
-                        let accumulator = self.quorum_exchange.accumulate_vote_2(
-                            new_accumulator,
-                            &vote,
-                            &vote_internal.clone().leaf_commitment,
-                        );
-
-                        if vote_internal.current_view > collection_view {
-                            let state = VoteCollectionTaskState {
-                                quorum_exchange: self.quorum_exchange.clone(),
-                                accumulator,
-                                cur_view: vote_internal.current_view,
-                                event_stream: self.event_stream.clone(),
-                                id: self.id,
-                            };
-                            let name = "Quorum Vote Collection";
-                            let filter = FilterEvent(Arc::new(|event| {
-                                matches!(event, SequencingHotShotEvent::QuorumVoteRecv(_))
-                            }));
-
-                            let builder =
-                                TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
-                                    .register_event_stream(self.event_stream.clone(), filter)
-                                    .await
-                                    .register_registry(&mut self.registry.clone())
-                                    .await
-                                    .register_state(state)
-                                    .register_event_handler(handle_event);
-                            let id = builder.get_task_id().unwrap();
-                            let stream_id = builder.get_stream_id().unwrap();
-
-                            self.vote_collector = Some((vote_internal.current_view, id, stream_id));
-
-                            let _task = async_spawn(async move {
-                                VoteCollectionTypes::build(builder).launch().await;
-                            });
-                            debug!(
-                                "Starting vote handle for view {:?}",
-                                vote_internal.current_view
-                            );
-                        } else if let Some((_, _, stream_id)) = self.vote_collector {
-                            self.event_stream
-                                .direct_message(
-                                    stream_id,
-                                    SequencingHotShotEvent::QuorumVoteRecv(QuorumVote::Yes(
-                                        vote_internal,
-                                    )),
-                                )
-                                .await;
+                let handle_event = HandleEvent(Arc::new(move |event, state| {
+                    async move { vote_handle(state, event).await }.boxed()
+                }));
+                let collection_view =
+                    if let Some((collection_view, collection_task, _)) = &self.vote_collector {
+                        if vote.get_view_number() > *collection_view {
+                            // ED I think we'd want to let that task timeout to avoid a griefing vector
+                            self.registry.shutdown_task(*collection_task).await;
                         }
-                    }
-                    QuorumVote::Timeout(_) | QuorumVote::No(_) => {
-                        error!("The next leader has received an unexpected vote!");
-                    }
+                        *collection_view
+                    } else {
+                        TYPES::Time::new(0)
+                    };
+
+                // Todo check if we are the leader
+                let new_accumulator = VoteAccumulator2 {
+                    vote_outcomes: HashMap::new(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.quorum_exchange.total_nodes()],
+                    phantom: PhantomData,
+                };
+
+                let accumulator =
+                    new_accumulator.accumulate(&vote, self.quorum_exchange.membership());
+
+                // TODO Create default functions for accumulators
+                // https://github.com/EspressoSystems/HotShot/issues/1797
+                let timeout_accumulator = TimeoutVoteAccumulator {
+                    da_vote_outcomes: HashMap::new(),
+                    success_threshold: self.timeout_exchange.success_threshold(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.timeout_exchange.total_nodes()],
+                    phantom: PhantomData,
+                };
+
+                if vote.get_view_number() > collection_view {
+                    let state = VoteCollectionTaskState {
+                        quorum_exchange: self.quorum_exchange.clone(),
+                        timeout_exchange: self.timeout_exchange.clone(),
+                        accumulator,
+                        timeout_accumulator: either::Left(timeout_accumulator),
+                        cur_view: vote.get_view_number(),
+                        event_stream: self.event_stream.clone(),
+                        id: self.id,
+                    };
+                    let name = "Quorum Vote Collection";
+                    let filter = FilterEvent(Arc::new(|event| {
+                        matches!(
+                            event,
+                            HotShotEvent::QuorumVoteRecv(_) | HotShotEvent::TimeoutVoteRecv(_)
+                        )
+                    }));
+
+                    let builder =
+                        TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
+                            .register_event_stream(self.event_stream.clone(), filter)
+                            .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
+                            .register_state(state)
+                            .register_event_handler(handle_event);
+                    let id = builder.get_task_id().unwrap();
+                    let stream_id = builder.get_stream_id().unwrap();
+
+                    self.vote_collector = Some((vote.get_view_number(), id, stream_id));
+
+                    let _task = async_spawn(async move {
+                        VoteCollectionTypes::build(builder).launch().await;
+                    });
+                    debug!("Starting vote handle for view {:?}", vote.get_view_number());
+                } else if let Some((_, _, stream_id)) = self.vote_collector {
+                    self.event_stream
+                        .direct_message(stream_id, HotShotEvent::QuorumVoteRecv(vote))
+                        .await;
                 }
             }
-            SequencingHotShotEvent::QCFormed(qc) => {
-                debug!("QC Formed event happened!");
+            HotShotEvent::TimeoutVoteRecv(vote) => {
+                if !self.timeout_exchange.is_leader(vote.get_view() + 1) {
+                    error!(
+                        "We are not the leader for view {} are we the leader for view + 1? {}",
+                        *vote.get_view() + 1,
+                        self.timeout_exchange.is_leader(vote.get_view() + 2)
+                    );
+                    return;
+                }
 
-                let mut consensus = self.consensus.write().await;
-                consensus.high_qc = qc.clone();
+                let handle_event = HandleEvent(Arc::new(move |event, state| {
+                    async move { vote_handle(state, event).await }.boxed()
+                }));
+                let collection_view =
+                    if let Some((collection_view, collection_task, _)) = &self.vote_collector {
+                        if vote.get_view() > *collection_view {
+                            // ED I think we'd want to let that task timeout to avoid a griefing vector
+                            self.registry.shutdown_task(*collection_task).await;
+                        }
+                        *collection_view
+                    } else {
+                        TYPES::Time::new(0)
+                    };
 
-                drop(consensus);
+                //         // Todo check if we are the leader
+                let new_accumulator = TimeoutVoteAccumulator {
+                    da_vote_outcomes: HashMap::new(),
 
-                // View may have already been updated by replica if they voted for this QC
-                // TODO ED We should separate leader state from replica state, they shouldn't share the same view
-                // Leader task should only run for a specific view, and never update its current view, but instead spawn another task
-                // let _res = self.update_view(qc.view_number + 1).await;
+                    success_threshold: self.timeout_exchange.success_threshold(),
 
-                // Start polling for votes for the next view
-                // if _res {
-                // if self.quorum_exchange.is_leader(qc.view_number + 2) {
-                //     self.quorum_exchange
-                //         .network()
-                //         .inject_consensus_info(
-                //             (ConsensusIntentEvent::PollForVotes(*qc.view_number + 1)),
-                //         )
-                //         .await;
-                // }
-                // }
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.timeout_exchange.total_nodes()],
+                    phantom: PhantomData,
+                };
 
-                // So we don't create a QC on the first view unless we are the leader
-                debug!(
-                    "Attempting to publish proposal after forming a QC for view {}",
-                    *qc.view_number
+                let timeout_accumulator = self.timeout_exchange.accumulate_vote(
+                    new_accumulator,
+                    &vote,
+                    &vote.get_view().commit(),
                 );
 
-                if self
-                    .publish_proposal_if_able(qc.clone(), qc.view_number + 1)
-                    .await
-                {
-                    self.update_view(qc.view_number + 1).await;
+                let quorum_accumulator = VoteAccumulator2 {
+                    vote_outcomes: HashMap::new(),
+                    sig_lists: Vec::new(),
+                    signers: bitvec![0; self.quorum_exchange.total_nodes()],
+                    phantom: PhantomData,
+                };
+
+                // self.timeout_accumulator = accumulator;
+
+                if vote.get_view() > collection_view {
+                    let state = VoteCollectionTaskState {
+                        quorum_exchange: self.quorum_exchange.clone(),
+                        timeout_exchange: self.timeout_exchange.clone(),
+                        accumulator: either::Left(quorum_accumulator),
+                        timeout_accumulator,
+                        cur_view: vote.get_view(),
+                        event_stream: self.event_stream.clone(),
+                        id: self.id,
+                    };
+                    let name = "Quorum Vote Collection";
+                    let filter = FilterEvent(Arc::new(|event| {
+                        matches!(
+                            event,
+                            HotShotEvent::QuorumVoteRecv(_) | HotShotEvent::TimeoutVoteRecv(_)
+                        )
+                    }));
+
+                    let builder =
+                        TaskBuilder::<VoteCollectionTypes<TYPES, I>>::new(name.to_string())
+                            .register_event_stream(self.event_stream.clone(), filter)
+                            .await
+                            .register_registry(&mut self.registry.clone())
+                            .await
+                            .register_state(state)
+                            .register_event_handler(handle_event);
+                    let id = builder.get_task_id().unwrap();
+                    let stream_id = builder.get_stream_id().unwrap();
+
+                    self.vote_collector = Some((vote.get_view(), id, stream_id));
+
+                    let _task = async_spawn(async move {
+                        VoteCollectionTypes::build(builder).launch().await;
+                    });
+                    debug!("Starting vote handle for view {:?}", vote.get_view());
+                } else if let Some((_, _, stream_id)) = self.vote_collector {
+                    self.event_stream
+                        .direct_message(stream_id, HotShotEvent::TimeoutVoteRecv(vote))
+                        .await;
                 }
             }
-            SequencingHotShotEvent::DACRecv(cert) => {
+            HotShotEvent::QCFormed(cert) => {
+                debug!("QC Formed event happened!");
+
+                if let either::Right(qc) = cert.clone() {
+                    debug!(
+                        "Attempting to publish proposal after forming a TC for view {}",
+                        *qc.view_number
+                    );
+
+                    let view = qc.view_number + 1;
+
+                    let high_qc = self.consensus.read().await.high_qc.clone();
+
+                    if self
+                        .publish_proposal_if_able(high_qc, view, Some(qc.clone()))
+                        .await
+                    {
+                    } else {
+                        warn!("Wasn't able to publish proposal");
+                    }
+                }
+                if let either::Left(qc) = cert {
+                    let mut consensus = self.consensus.write().await;
+                    consensus.high_qc = qc.clone();
+
+                    drop(consensus);
+                    debug!(
+                        "Attempting to publish proposal after forming a QC for view {}",
+                        *qc.view_number
+                    );
+
+                    if !self
+                        .publish_proposal_if_able(qc.clone(), qc.view_number + 1, None)
+                        .await
+                    {
+                        warn!("Wasn't able to publish proposal");
+                    }
+                }
+            }
+            HotShotEvent::DACRecv(cert) => {
                 debug!("DAC Recved for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
-                self.certs.insert(view, cert);
+                self.da_certs.insert(view, cert);
 
-                // TODO Make sure we aren't voting for an arbitrarily old round for no reason
                 if self.vote_if_able().await {
-                    self.update_view(view + 1).await;
+                    self.current_proposal = None;
                 }
             }
-            SequencingHotShotEvent::VidCertRecv(cert) => {
+            HotShotEvent::VidCertRecv(cert) => {
                 debug!("VID cert received for view ! {}", *cert.view_number);
 
                 let view = cert.view_number;
-                self.certs.insert(view, cert); // TODO new cert type for VID https://github.com/EspressoSystems/HotShot/issues/1701
+                self.vid_certs.insert(view, cert);
 
-                // TODO Make sure we aren't voting for an arbitrarily old round for no reason
-                if self.vote_if_able().await {
-                    self.update_view(view + 1).await;
-                }
+                // RM TODO: VOTING
             }
-            SequencingHotShotEvent::ViewChange(new_view) => {
+
+            HotShotEvent::ViewChange(new_view) => {
                 debug!("View Change event for view {}", *new_view);
 
                 let old_view_number = self.cur_view;
@@ -1108,52 +1238,55 @@ where
                         },
                     })
                     .await;
-
-                debug!("View changed to {}", *new_view);
-
-                // ED Need to update the view here?  What does otherwise?
-                // self.update_view(qc.view_number + 1).await;
-                // So we don't create a QC on the first view unless we are the leader
-                if !self.quorum_exchange.is_leader(self.cur_view) {
+            }
+            HotShotEvent::Timeout(view) => {
+                // NOTE: We may optionally have the timeout task listen for view change events
+                if self.cur_view >= view {
                     return;
                 }
+                let vote_token = self.timeout_exchange.make_vote_token(view);
 
-                let consensus = self.consensus.read().await;
-                let qc = consensus.high_qc.clone();
-                drop(consensus);
-                if !self.publish_proposal_if_able(qc, self.cur_view).await {
-                    error!(
-                        "Failed to publish proposal on view change.  View = {:?}",
-                        self.cur_view
-                    );
+                match vote_token {
+                    Err(e) => {
+                        error!("Failed to generate vote token for {:?} {:?}", view, e);
+                    }
+                    Ok(None) => {
+                        debug!("We were not chosen for consensus committee on {:?}", view);
+                    }
+                    Ok(Some(vote_token)) => {
+                        let message = self
+                            .timeout_exchange
+                            .create_timeout_message::<I>(view, vote_token);
+
+                        debug!("Sending timeout vote for view {}", *view);
+                        if let GeneralConsensusMessage::TimeoutVote(vote) = message {
+                            self.event_stream
+                                .publish(HotShotEvent::TimeoutVoteSend(vote))
+                                .await;
+                        }
+                    }
                 }
-            }
-            SequencingHotShotEvent::Timeout(view) => {
-                // The view sync module will handle updating views in the case of timeout
-                // TODO ED In the future send a timeout vote
-                self.quorum_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
                 debug!(
-                    "We received a timeout event in the consensus task for view {}!",
+                    "We did not receive evidence for view {} in time, sending timeout vote for that view!",
                     *view
                 );
+                let consensus = self.consensus.read().await;
+                consensus.metrics.number_of_timeouts.add(1);
             }
-            SequencingHotShotEvent::SendDABlockData(block) => {
-                // ED TODO Should make sure this is actually the most recent block
-                // ED Should make this a map to view
-                self.block = Some(block);
+            HotShotEvent::SendPayloadCommitment(payload_commitment) => {
+                self.payload_commitment = Some(payload_commitment);
             }
             _ => {}
         }
     }
 
     /// Sends a proposal if possible from the high qc we have
+    #[allow(clippy::too_many_lines)]
     pub async fn publish_proposal_if_able(
         &mut self,
-        _qc: QuorumCertificate<TYPES, Commitment<I::Leaf>>,
+        _qc: QuorumCertificate2<TYPES, I::Leaf>,
         view: TYPES::Time,
+        timeout_certificate: Option<TimeoutCertificate<TYPES>>,
     ) -> bool {
         if !self.quorum_exchange.is_leader(view) {
             error!(
@@ -1164,7 +1297,7 @@ where
         }
 
         let consensus = self.consensus.read().await;
-        let parent_view_number = &consensus.high_qc.view_number();
+        let parent_view_number = &consensus.high_qc.get_view_number();
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
@@ -1181,11 +1314,12 @@ where
             );
             return false;
         };
-        if leaf_commitment != consensus.high_qc.leaf_commitment() {
+        if leaf_commitment != consensus.high_qc.get_data().leaf_commit {
+            // NOTE: This happens on the genesis block
             debug!(
                 "They don't equal: {:?}   {:?}",
                 leaf_commitment,
-                consensus.high_qc.leaf_commitment()
+                consensus.high_qc.get_data().leaf_commit
             );
         }
         let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
@@ -1197,6 +1331,7 @@ where
         }
 
         let parent_leaf = leaf.clone();
+        let parent_header = parent_leaf.block_header.clone();
 
         let original_parent_hash = parent_leaf.commit();
 
@@ -1215,18 +1350,13 @@ where
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
-        // let block_commitment = Some(self.block.commit());
-        if let Some(block) = &self.block {
-            let block_commitment = block.commit();
-
-            let leaf = SequencingLeaf {
+        if let Some(payload_commitment) = &self.payload_commitment {
+            let leaf = Leaf {
                 view_number: view,
-                height: parent_leaf.height + 1,
                 justify_qc: consensus.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
-                // Use the block commitment rather than the block, so that the replica can construct
-                // the same leaf with the commitment.
-                deltas: Right(block_commitment),
+                block_header: TYPES::BlockHeader::new(*payload_commitment, &parent_header),
+                block_payload: None,
                 rejected: vec![],
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: self.api.public_key().to_bytes(),
@@ -1237,12 +1367,10 @@ where
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
-                block_commitment,
+                block_header: TYPES::BlockHeader::new(*payload_commitment, &parent_header),
                 view_number: leaf.view_number,
-                height: leaf.height,
                 justify_qc: consensus.high_qc.clone(),
-                // TODO ED Update this to be the actual TC if there is one
-                timeout_certificate: None,
+                timeout_certificate: timeout_certificate.or_else(|| None),
                 proposer_id: leaf.proposer_id,
                 dac: None,
             };
@@ -1251,43 +1379,53 @@ where
                 data: proposal,
                 signature,
             };
-            debug!("Sending proposal for view {:?} \n {:?}", self.cur_view, "");
-
+            debug!(
+                "Sending proposal for view {:?} \n {:?}",
+                leaf.view_number, ""
+            );
             self.event_stream
-                .publish(SequencingHotShotEvent::QuorumProposalSend(
+                .publish(HotShotEvent::QuorumProposalSend(
                     message,
                     self.quorum_exchange.public_key().clone(),
                 ))
                 .await;
-            self.block = None;
+            self.payload_commitment = None;
             return true;
         }
+        debug!("Self block was None");
         false
     }
 }
 
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<Transaction = VIDTransaction>,
         I: NodeImplementation<
             TYPES,
-            Leaf = SequencingLeaf<TYPES>,
+            Leaf = Leaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
-        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    > TS for SequencingConsensusTaskState<TYPES, I, A>
+        A: ConsensusApi<TYPES, Leaf<TYPES>, I>,
+    > TS for ConsensusTaskState<TYPES, I, A>
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Commitment = Commitment<TYPES::BlockPayload>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
 }
@@ -1295,51 +1433,55 @@ where
 /// Type allias for consensus' vote collection task
 pub type VoteCollectionTypes<TYPES, I> = HSTWithEvent<
     ConsensusTaskError,
-    SequencingHotShotEvent<TYPES, I>,
-    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    HotShotEvent<TYPES, I>,
+    ChannelStream<HotShotEvent<TYPES, I>>,
     VoteCollectionTaskState<TYPES, I>,
 >;
 
 /// Type alias for Consensus task
 pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
     ConsensusTaskError,
-    SequencingHotShotEvent<TYPES, I>,
-    ChannelStream<SequencingHotShotEvent<TYPES, I>>,
-    SequencingConsensusTaskState<TYPES, I, A>,
+    HotShotEvent<TYPES, I>,
+    ChannelStream<HotShotEvent<TYPES, I>>,
+    ConsensusTaskState<TYPES, I, A>,
 >;
 
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
-    TYPES: NodeType,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = SequencingLeaf<TYPES>,
-        ConsensusMessage = SequencingMessage<TYPES, I>,
-    >,
-    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I> + 'static,
+    TYPES: NodeType<BlockPayload = VIDBlockPayload, Transaction = VIDTransaction>,
+    I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
 >(
-    event: SequencingHotShotEvent<TYPES, I>,
-    mut state: SequencingConsensusTaskState<TYPES, I, A>,
+    event: HotShotEvent<TYPES, I>,
+    mut state: ConsensusTaskState<TYPES, I, A>,
 ) -> (
     std::option::Option<HotShotTaskCompleted>,
-    SequencingConsensusTaskState<TYPES, I, A>,
+    ConsensusTaskState<TYPES, I, A>,
 )
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    TYPES::BlockHeader: BlockHeader<Payload = VIDBlockPayload>,
+    QuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-        Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-        Commitment = Commitment<SequencingLeaf<TYPES>>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+        Commitment = Commitment<Leaf<TYPES>>,
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockType>,
+        Commitment = Commitment<TYPES::BlockPayload>,
+    >,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        Message<TYPES, I>,
+        Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+        Certificate = TimeoutCertificate<TYPES>,
+        Commitment = Commitment<TYPES::Time>,
     >,
 {
-    if let SequencingHotShotEvent::Shutdown = event {
+    if let HotShotEvent::Shutdown = event {
         (Some(HotShotTaskCompleted::ShutDown), state)
     } else {
         state.handle_event(event).await;
@@ -1349,18 +1491,18 @@ where
 
 /// Filter for consensus, returns true for event types the consensus task subscribes to.
 pub fn consensus_event_filter<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    event: &SequencingHotShotEvent<TYPES, I>,
+    event: &HotShotEvent<TYPES, I>,
 ) -> bool {
     matches!(
         event,
-        SequencingHotShotEvent::QuorumProposalRecv(_, _)
-            | SequencingHotShotEvent::QuorumVoteRecv(_)
-            | SequencingHotShotEvent::QCFormed(_)
-            | SequencingHotShotEvent::DACRecv(_)
-            | SequencingHotShotEvent::VidCertRecv(_)
-            | SequencingHotShotEvent::ViewChange(_)
-            | SequencingHotShotEvent::SendDABlockData(_)
-            | SequencingHotShotEvent::Timeout(_)
-            | SequencingHotShotEvent::Shutdown,
+        HotShotEvent::QuorumProposalRecv(_, _)
+            | HotShotEvent::QuorumVoteRecv(_)
+            | HotShotEvent::QCFormed(_)
+            | HotShotEvent::DACRecv(_)
+            | HotShotEvent::ViewChange(_)
+            | HotShotEvent::SendPayloadCommitment(_)
+            | HotShotEvent::Timeout(_)
+            | HotShotEvent::TimeoutVoteRecv(_)
+            | HotShotEvent::Shutdown,
     )
 }

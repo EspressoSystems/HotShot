@@ -52,25 +52,30 @@ use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task_launcher::TaskRunner,
 };
-use hotshot_task_impls::{events::SequencingHotShotEvent, network::NetworkTaskKind};
+use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
+use hotshot_types::{
+    certificate::{TimeoutCertificate, VIDCertificate},
+    data::VidDisperse,
+    simple_certificate::QuorumCertificate2,
+    traits::node_implementation::TimeoutEx,
+};
 
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
+    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
     certificate::{DACertificate, ViewSyncCertificate},
-    consensus::{BlockStore, Consensus, ConsensusMetrics, View, ViewInner, ViewQueue},
-    data::{DAProposal, DeltasType, LeafType, QuorumProposal, SequencingLeaf},
+    consensus::{BlockPayloadStore, Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
+    data::{DAProposal, Leaf, LeafType, QuorumProposal},
     error::StorageSnafu,
     message::{
         ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedGeneralConsensusMessage, SequencingMessage,
     },
     traits::{
-        consensus_api::{ConsensusSharedApi, SequencingConsensusApi},
-        election::{ConsensusExchange, Membership, SignedCertificate},
-        metrics::Metrics,
+        consensus_api::{ConsensusApi, ConsensusSharedApi},
+        election::{ConsensusExchange, Membership},
         network::{CommunicationChannel, NetworkError},
         node_implementation::{
-            ChannelMaps, CommitteeEx, ExchangesType, NodeType, SendToTasks, SequencingQuorumEx,
+            ChannelMaps, CommitteeEx, ExchangesType, NodeType, QuorumEx, SendToTasks, VIDEx,
             ViewSyncEx,
         },
         signature_key::SignatureKey,
@@ -89,6 +94,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tasks::add_vid_task;
 use tracing::{debug, error, info, instrument, trace, warn};
 // -- Rexports
 // External
@@ -129,8 +135,8 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
 
-    /// a reference to the metrics that the implementor is using.
-    _metrics: Box<dyn Metrics>,
+    /// the metrics that the implementor is using.
+    _metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
@@ -144,7 +150,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     output_event_stream: ChannelStream<Event<TYPES, I::Leaf>>,
 
     /// access to the internal event stream, in case we need to, say, shut something down
-    internal_event_stream: ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+    internal_event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
 
     /// uid for instrumentation
     id: u64,
@@ -174,13 +180,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         storage: I::Storage,
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        metrics: Box<dyn Metrics>,
+        metrics: ConsensusMetricsValue,
     ) -> Result<Self, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
-        let consensus_metrics = Arc::new(ConsensusMetrics::new(
-            &*metrics.subgroup("consensus".to_string()),
-        ));
+        let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
 
         // insert to storage
@@ -201,10 +205,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         );
 
         let mut saved_leaves = HashMap::new();
-        let mut saved_blocks = BlockStore::default();
+        let mut saved_block_payloads = BlockPayloadStore::default();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
-        if let Ok(block) = anchored_leaf.get_deltas().try_resolve() {
-            saved_blocks.insert(block);
+        if let Some(payload) = anchored_leaf.get_block_payload() {
+            saved_block_payloads.insert(payload);
         }
 
         let start_view = anchored_leaf.get_view_number();
@@ -214,13 +218,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
-            saved_blocks,
+            saved_block_payloads,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: anchored_leaf.get_justify_qc(),
-            metrics: consensus_metrics,
-            invalid_qc: 0,
+            metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
 
@@ -234,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage,
             exchanges: Arc::new(exchanges),
             event_sender: RwLock::default(),
-            _metrics: metrics,
+            _metrics: consensus_metrics.clone(),
             internal_event_stream: ChannelStream::new(),
             output_event_stream: ChannelStream::new(),
         });
@@ -242,22 +245,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(Self { inner })
     }
 
-    /// "Starts" consensus by sending a `ViewChange` event
+    /// "Starts" consensus by sending a `QCFormed` event
     pub async fn start_consensus(&self) {
         self.inner
             .internal_event_stream
-            .publish(SequencingHotShotEvent::ViewChange(TYPES::Time::new(1)))
+            .publish(HotShotEvent::QCFormed(either::Left(
+                QuorumCertificate2::genesis(),
+            )))
             .await;
-
-        // ED This isn't ideal...
-        // async_sleep(Duration::new(1, 0)).await;
-
-        // self.inner
-        //     .internal_event_stream
-        //     .publish(SequencingHotShotEvent::QCFormed(
-        //         QuorumCertificate::genesis(),
-        //     ))
-        //     .await;
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -393,11 +388,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         storage: I::Storage,
         exchanges: I::Exchanges,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
-        metrics: Box<dyn Metrics>,
+        metrics: ConsensusMetricsValue,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
-            ChannelStream<SequencingHotShotEvent<TYPES, I>>,
+            ChannelStream<HotShotEvent<TYPES, I>>,
         ),
         HotShotError<TYPES>,
     >
@@ -634,21 +629,25 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<Transaction = VIDTransaction, BlockType = VIDBlockPayload>,
+        TYPES: NodeType<
+            BlockHeader = VIDBlockHeader,
+            BlockPayload = VIDBlockPayload,
+            Transaction = VIDTransaction,
+        >,
         I: NodeImplementation<
             TYPES,
-            Leaf = SequencingLeaf<TYPES>,
+            Leaf = Leaf<TYPES>,
             ConsensusMessage = SequencingMessage<TYPES, I>,
         >,
         MEMBERSHIP: Membership<TYPES>,
     > HotShotType<TYPES, I> for SystemContext<TYPES, I>
 where
-    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+    QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
             Message<TYPES, I>,
-            Proposal = QuorumProposal<TYPES, SequencingLeaf<TYPES>>,
-            Certificate = QuorumCertificate<TYPES, Commitment<SequencingLeaf<TYPES>>>,
-            Commitment = Commitment<SequencingLeaf<TYPES>>,
+            Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+            Certificate = QuorumCertificate<TYPES, Commitment<Leaf<TYPES>>>,
+            Commitment = Commitment<Leaf<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
     CommitteeEx<TYPES, I>: ConsensusExchange<
@@ -656,7 +655,7 @@ where
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
-            Commitment = Commitment<TYPES::BlockType>,
+            Commitment = Commitment<TYPES::BlockPayload>,
             Membership = MEMBERSHIP,
         > + 'static,
     ViewSyncEx<TYPES, I>: ConsensusExchange<
@@ -667,11 +666,28 @@ where
             Commitment = Commitment<ViewSyncData<TYPES>>,
             Membership = MEMBERSHIP,
         > + 'static,
+    VIDEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = VidDisperse<TYPES>,
+            Certificate = VIDCertificate<TYPES>,
+            Commitment = Commitment<TYPES::BlockPayload>,
+            Membership = MEMBERSHIP,
+        > + 'static,
+    TimeoutEx<TYPES, I>: ConsensusExchange<
+            TYPES,
+            Message<TYPES, I>,
+            Proposal = QuorumProposal<TYPES, Leaf<TYPES>>,
+            Certificate = TimeoutCertificate<TYPES>,
+            Commitment = Commitment<TYPES::Time>,
+            Membership = MEMBERSHIP,
+        > + 'static,
 {
     fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>> {
         &self.inner.consensus
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
@@ -683,6 +699,7 @@ where
         let quorum_exchange = self.inner.exchanges.quorum_exchange().clone();
         let committee_exchange = self.inner.exchanges.committee_exchange().clone();
         let view_sync_exchange = self.inner.exchanges.view_sync_exchange().clone();
+        let vid_exchange = self.inner.exchanges.vid_exchange().clone();
 
         let handle = SystemContextHandle {
             registry,
@@ -710,6 +727,12 @@ where
             view_sync_exchange.clone(),
         )
         .await;
+        let task_runner = add_network_message_task(
+            task_runner,
+            internal_event_stream.clone(),
+            vid_exchange.clone(),
+        )
+        .await;
         let task_runner = add_network_event_task(
             task_runner,
             internal_event_stream.clone(),
@@ -731,6 +754,13 @@ where
             NetworkTaskKind::ViewSync,
         )
         .await;
+        let task_runner = add_network_event_task(
+            task_runner,
+            internal_event_stream.clone(),
+            vid_exchange.clone(),
+            NetworkTaskKind::VID,
+        )
+        .await;
         let task_runner = add_consensus_task(
             task_runner,
             internal_event_stream.clone(),
@@ -742,6 +772,13 @@ where
             task_runner,
             internal_event_stream.clone(),
             committee_exchange.clone(),
+            handle.clone(),
+        )
+        .await;
+        let task_runner = add_vid_task(
+            task_runner,
+            internal_event_stream.clone(),
+            vid_exchange.clone(),
             handle.clone(),
         )
         .await;
@@ -762,91 +799,20 @@ where
             task_runner.launch().await;
             info!("Task runner exited!");
         });
-
         handle
     }
 }
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
-#[derive(Clone)]
-struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`SystemContextInner`]
-    inner: Arc<SystemContextInner<TYPES, I>>,
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
-    for HotShotValidatingConsensusApi<TYPES, I>
-{
-    fn total_nodes(&self) -> NonZeroUsize {
-        self.inner.config.total_nodes
-    }
-
-    fn propose_min_round_time(&self) -> Duration {
-        self.inner.config.propose_min_round_time
-    }
-
-    fn propose_max_round_time(&self) -> Duration {
-        self.inner.config.propose_max_round_time
-    }
-
-    fn max_transactions(&self) -> NonZeroUsize {
-        self.inner.config.max_transactions
-    }
-
-    fn min_transactions(&self) -> usize {
-        self.inner.config.min_transactions
-    }
-
-    /// Generates and encodes a vote token
-
-    async fn should_start_round(&self, _: TYPES::Time) -> bool {
-        false
-    }
-
-    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
-        debug!(?event, "send_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
-        }
-    }
-
-    fn public_key(&self) -> &TYPES::SignatureKey {
-        &self.inner.public_key
-    }
-
-    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        &self.inner.private_key
-    }
-
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: I::Leaf,
-    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
-        let view_to_insert = StoredView::from(leaf);
-        let storage = &self.inner.storage;
-        storage.append_single_view(view_to_insert).await?;
-        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
-        storage.commit().await?;
-        Ok(())
-    }
-}
-
-/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
-pub struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]
     pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I::Leaf, I>
-    for HotShotSequencingConsensusApi<TYPES, I>
+    for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -911,7 +877,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I:
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingConsensusApi<TYPES, I::Leaf, I> for HotShotSequencingConsensusApi<TYPES, I>
+    > ConsensusApi<TYPES, I::Leaf, I> for HotShotConsensusApi<TYPES, I>
 {
     async fn send_direct_message(
         &self,
@@ -1052,17 +1018,13 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(genesis_block: TYPES::BlockType) -> Result<Self, HotShotError<TYPES>> {
-        let state = TYPES::StateType::default()
-            .append(&genesis_block, &TYPES::Time::new(0))
-            .map_err(|err| HotShotError::Misc {
-                context: err.to_string(),
-            })?;
+    pub fn from_genesis(genesis_payload: TYPES::BlockPayload) -> Result<Self, HotShotError<TYPES>> {
+        let state = TYPES::StateType::initialize();
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES, Commitment<LEAF>>::genesis();
+        let justify_qc = QuorumCertificate2::<TYPES, LEAF>::genesis();
 
         Ok(Self {
-            inner: LEAF::new(time, justify_qc, genesis_block, state),
+            inner: LEAF::new(time, justify_qc, genesis_payload, state),
         })
     }
 

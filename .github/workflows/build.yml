@@ -6,13 +6,13 @@ on:
       - 'develop'
       - 'main'
   pull_request:
-    branches:
-      - 'develop'
-      - 'main'
-      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -23,12 +23,6 @@ jobs:
           - tokio
     runs-on: ubuntu-latest
     steps:
-      - uses: styfle/cancel-workflow-action@0.12.0
-        name: Cancel Outdated Builds
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v4
         name: Checkout Repository
 
@@ -42,7 +36,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-          cargo install just
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
 
       - name: Run linting
         run: |
@@ -58,32 +57,175 @@ jobs:
         env:
           RUST_BACKTRACE: full
 
-      # - name: Setup Docker BuildKit (buildx)
-      #   if: matrix.just_variants == 'async_std'
-      #   uses: docker/setup-buildx-action@v3
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-amd64-${{ matrix.just_variants }}
+          path: |
+            target/debug/examples/counter
+            target/debug/examples/libp2p-multi-validator
+            target/debug/examples/libp2p-orchestrator
+            target/debug/examples/libp2p-validator
+            target/debug/examples/multi-validator
+            target/debug/examples/multi-web-server
+            target/debug/examples/web-server
+            target/debug/examples/web-server-da-orchestrator
+            target/debug/examples/web-server-da-validator
 
-      # - name: Login to Github Container Repo
-      #   uses: docker/login-action@v3
-      #   if: github.event_name != 'pull_request' && matrix.just_variants == 'async_std'
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.repository_owner }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+  build-arm:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
+    runs-on: [self-hosted, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
 
-      # - name: Generate docker metadata (web-server)
-      #   uses: docker/metadata-action@v5
-      #   if: matrix.just_variants == 'async_std'
-      #   id: web-server
-      #   with:
-      #     images: ghcr.io/espressosystems/hotshot/web-server
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
 
-      # - name: Build and push web-server docker
-      #   uses: docker/build-push-action@v5
-      #   if: matrix.just_variants == 'async_std'
-      #   with:
-      #     context: ./
-      #     file: ./deploy/web-server.Dockerfile
-      #     platforms: linux/amd64
-      #     push: ${{ github.event_name != 'pull_request' }}
-      #     tags: ${{ steps.web-server.outputs.tags }}
-      #     labels: ${{ steps.web-server.outputs.labels }}
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: arm-${{ matrix.just_variants }}
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-aarch64-${{ matrix.just_variants }}
+          path: |
+            target/debug/examples/counter
+            target/debug/examples/libp2p-multi-validator
+            target/debug/examples/libp2p-orchestrator
+            target/debug/examples/libp2p-validator
+            target/debug/examples/multi-validator
+            target/debug/examples/multi-web-server
+            target/debug/examples/web-server
+            target/debug/examples/web-server-da-orchestrator
+            target/debug/examples/web-server-da-validator
+
+  build-dockers:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          - tokio
+    runs-on: ubuntu-latest
+    needs: [build, build-arm]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker BuildKit (buildx)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Github Container Repo
+        uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download executables AMD
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries-amd64-${{ matrix.just_variants }}
+          path: target/amd64/debug/examples
+
+      - name: Download executables ARM
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries-aarch64-${{ matrix.just_variants }}
+          path: target/arm64/debug/examples
+
+      - name: Generate libp2p-orchestrator docker metadata
+        uses: docker/metadata-action@v5
+        id: libp2p-orchestrator
+        with:
+          images: ghcr.io/espressosystems/hotshot/libp2p-orchestrator
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Generate libp2p-validator docker metadata
+        uses: docker/metadata-action@v5
+        id: libp2p-validator
+        with:
+          images: ghcr.io/espressosystems/hotshot/libp2p-validator
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Generate web-server docker metadata
+        uses: docker/metadata-action@v5
+        id: web-server
+        with:
+          images: ghcr.io/espressosystems/hotshot/web-server
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Generate web-server-da-orchestrator docker metadata
+        uses: docker/metadata-action@v5
+        id: web-server-da-orchestrator
+        with:
+          images: ghcr.io/espressosystems/hotshot/web-server-da-orchestrator
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Generate web-server-da-validator docker metadata
+        uses: docker/metadata-action@v5
+        id: web-server-da-validator
+        with:
+          images: ghcr.io/espressosystems/hotshot/web-server-da-validator
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Build and push libp2p-orchestrator docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/libp2p-orchestrator.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.libp2p-orchestrator.outputs.tags }}
+          labels: ${{ steps.libp2p-orchestrator.outputs.labels }}
+
+      - name: Build and push libp2p-validator docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/libp2p-validator.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.libp2p-validator.outputs.tags }}
+          labels: ${{ steps.libp2p-validator.outputs.labels }}
+
+      - name: Build and push web-server docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/web-server.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.web-server.outputs.tags }}
+          labels: ${{ steps.web-server.outputs.labels }}
+
+      - name: Build and push web-server-da-orchestrator docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/web-server-da-orchestrator.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.web-server-da-orchestrator.outputs.tags }}
+          labels: ${{ steps.web-server-da-orchestrator.outputs.labels }}
+
+      - name: Build and push web-server-da-validator docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/web-server-da-validator.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.web-server-da-validator.outputs.tags }}
+          labels: ${{ steps.web-server-da-validator.outputs.labels }}
