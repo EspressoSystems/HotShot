@@ -38,14 +38,13 @@ pub struct StakeTableEntryVar {
 
 /// HotShot state Variable
 /// The stake table commitment is a triple (bls_keys_comm, stake_amount_comm, schnorr_keys_comm).
-/// Because we only need a binding between Schnorr keys and the stake amount, we ignore the first term.
 #[derive(Clone, Debug)]
 pub struct HotShotStateVar {
     pub view_number_var: Variable,
     pub block_height_var: Variable,
     pub block_comm_var: Variable,
     pub fee_ledger_comm_var: Variable,
-    pub stake_table_comm_var: (Variable, Variable),
+    pub stake_table_comm_var: (Variable, Variable, Variable),
 }
 
 /// HotShot state
