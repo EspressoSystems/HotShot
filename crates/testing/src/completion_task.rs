@@ -10,7 +10,6 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     GeneratedStream,
 };
-use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 

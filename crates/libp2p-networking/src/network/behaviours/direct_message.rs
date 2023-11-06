@@ -84,7 +84,7 @@ impl DMBehaviour {
                 // }
             }
             Event::Message { message, peer, .. } => match message {
-                Message::Request {  
+                Message::Request {
                     request: DirectMessageRequest(msg),
                     channel,
                     ..
