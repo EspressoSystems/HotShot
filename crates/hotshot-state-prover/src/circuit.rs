@@ -168,11 +168,8 @@ mod tests {
     type F = ark_ed_on_bn254::Fq;
     type SchnorrVerKey = jf_primitives::signatures::schnorr::VerKey<Config>;
 
-    #[test]
-    fn test_circuit_building() {
-        let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
-        let mut prng = jf_utils::test_rng();
-        let keys = (0..10)
+    fn key_pairs_for_testing() -> Vec<(BLSVerKey, SchnorrVerKey)> {
+        (0..10)
             .map(|_| {
                 (
                     BLSOverBN254CurveSignatureScheme::key_gen(&(), &mut prng)
@@ -181,13 +178,27 @@ mod tests {
                     SchnorrSignatureScheme::key_gen(&(), &mut prng).unwrap().1,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
+
+    fn stake_table_for_testing(
+        keys: &[(BLSVerKey, SchnorrVerKey)],
+    ) -> StakeTable<BLSVerKey, SchnorrVerKey, F> {
+        let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
+        let mut prng = jf_utils::test_rng();
         // Registering keys
         keys.iter()
             .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
         // Freeze the stake table
         st.advance();
         st.advance();
+        st
+    }
+
+    #[test]
+    fn test_circuit_building() {
+        let keys = key_pairs_for_testing();
+        let st = stake_table_for_testing(&keys);
 
         let bit_vec_6 = [
             true, true, true, true, true, true, false, false, false, false,
