@@ -13,7 +13,7 @@ use crate::{
     simple_vote::{DAData, QuorumData, Voteable},
     traits::{
         election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ConsensusTime,
+        state::ConsensusTime, BlockPayload,
     },
     vote2::{Certificate2, HasViewNumber},
 };
@@ -128,4 +128,4 @@ impl<
 pub type QuorumCertificate2<TYPES, LEAF> = SimpleCertificate<TYPES, QuorumData<LEAF>>;
 /// Type alias for a DA certificate over `DAData`
 pub type DACertificate2<TYPES> =
-    SimpleCertificate<TYPES, DAData<<TYPES as NodeType>::BlockPayload>>;
+    SimpleCertificate<TYPES, DAData<BlockPayload<<TYPES as NodeType>::Transaction>>>;

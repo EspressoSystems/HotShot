@@ -10,6 +10,7 @@ use crate::{
         election::Membership,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        BlockPayload,
     },
     vote2::{HasViewNumber, Vote2},
 };
@@ -212,9 +213,11 @@ impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + H
 /// Yes vote Alias
 pub type QuorumVote<TYPES, LEAF, M> = SimpleVote<TYPES, QuorumData<LEAF>, M>;
 /// DA vote type alias
-pub type DAVote2<TYPES, M> = SimpleVote<TYPES, DAData<<TYPES as NodeType>::BlockPayload>, M>;
+pub type DAVote2<TYPES, M> =
+    SimpleVote<TYPES, DAData<BlockPayload<<TYPES as NodeType>::Transaction>>, M>;
 /// VID vote type alias
-pub type VIDVote<TYPES, M> = SimpleVote<TYPES, VIDData<<TYPES as NodeType>::BlockPayload>, M>;
+pub type VIDVote<TYPES, M> =
+    SimpleVote<TYPES, VIDData<BlockPayload<<TYPES as NodeType>::Transaction>>, M>;
 /// Timeout Vote type alias
 pub type TimeoutVote<TYPES, M> = SimpleVote<TYPES, TimeoutData<TYPES>, M>;
 /// View Sync Commit Vote type alias
