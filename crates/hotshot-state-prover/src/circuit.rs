@@ -20,7 +20,7 @@ use jf_relation::{gadgets::ecc::TEPoint, Variable};
 use serde::{Deserialize, Serialize};
 
 /// Number of entries/keys in the stake table
-pub const NUM_ENTRIES: usize = 1000;
+use hotshot_types::traits::stake_table::STAKE_TABLE_CAPACITY;
 
 /// convert a U256 to a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
@@ -109,7 +109,7 @@ where
         let dummy_ver_key_var =
             VerKeyVar(circuit.create_constant_point_variable(TEPoint::default())?);
         stake_table_var.resize(
-            NUM_ENTRIES,
+            STAKE_TABLE_CAPACITY,
             StakeTableEntryVar {
                 schnorr_ver_key: dummy_ver_key_var,
                 stake_amount: 0,
@@ -120,7 +120,7 @@ where
             .iter()
             .map(|&b| circuit.create_boolean_variable(b))
             .collect::<Result<Vec<_>, CircuitError>>()?;
-        signer_bit_vec_var.resize(NUM_ENTRIES, BoolVar(circuit.zero()));
+        signer_bit_vec_var.resize(STAKE_TABLE_CAPACITY, BoolVar(circuit.zero()));
 
         let threshold = u256_to_field::<F>(threshold);
         let threshold_var = circuit.create_public_variable(threshold)?;
@@ -130,7 +130,7 @@ where
 
         // Checking whether the accumulated weight exceeds the quorum threshold
         // We assume that NUM_ENTRIES is always a multiple of 2
-        let signed_amount_var = (0..NUM_ENTRIES / 2)
+        let signed_amount_var = (0..STAKE_TABLE_CAPACITY / 2)
             .map(|i| {
                 circuit.mul_add(
                     &[
@@ -169,6 +169,7 @@ mod tests {
     type SchnorrVerKey = jf_primitives::signatures::schnorr::VerKey<Config>;
 
     fn key_pairs_for_testing() -> Vec<(BLSVerKey, SchnorrVerKey)> {
+        let mut prng = jf_utils::test_rng();
         (0..10)
             .map(|_| {
                 (
@@ -185,7 +186,6 @@ mod tests {
         keys: &[(BLSVerKey, SchnorrVerKey)],
     ) -> StakeTable<BLSVerKey, SchnorrVerKey, F> {
         let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
-        let mut prng = jf_utils::test_rng();
         // Registering keys
         keys.iter()
             .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
