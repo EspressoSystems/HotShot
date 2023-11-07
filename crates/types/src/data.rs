@@ -590,7 +590,6 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 
 impl<TYPES: NodeType> LeafType for Leaf<TYPES> {
     type NodeType = TYPES;
-    // type DeltasType = Either<(u64, BlockPayload<TYPES::Transaction>), TYPES::BlockHeader>;
     type MaybeState = ();
 
     fn new(
