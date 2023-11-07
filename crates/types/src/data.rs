@@ -5,7 +5,7 @@
 
 use crate::{
     block_impl::VIDTransaction,
-    certificate::{AssembledSignature, DACertificate, TimeoutCertificate, ViewSyncCertificate},
+    certificate::{AssembledSignature, TimeoutCertificate, ViewSyncCertificate},
     simple_certificate::QuorumCertificate2,
     traits::{
         block_contents::{BlockHeader, Transaction},
@@ -180,10 +180,6 @@ pub struct QuorumProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
-
-    /// Data availibity certificate
-    // TODO We should be able to remove this
-    pub dac: Option<DACertificate<TYPES>>,
 }
 
 impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
