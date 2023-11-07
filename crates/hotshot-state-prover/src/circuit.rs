@@ -8,7 +8,7 @@ use ethereum_types::U256;
 use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableScheme};
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
-    circuit::signature::schnorr::VerKeyVar,
+    circuit::{rescue::RescueNativeGadget, signature::schnorr::VerKeyVar},
     rescue::RescueParameter,
     signatures::{
         bls_over_bn254::VerKey as BLSVerKey,
@@ -77,7 +77,7 @@ where
     pub fn build<ST, P>(
         stake_table: &ST,
         _sigs: &[Signature<P>],
-        _hotshot_state: &HotShotState<F>,
+        hotshot_state: &HotShotState<F>,
         signer_bit_vec: &[bool],
         threshold: &U256,
     ) -> Result<(PlonkCircuit<F>, Vec<F>), PlonkError>
@@ -90,7 +90,7 @@ where
         // Dummy circuit implementation, fill in the details later
         // TODO(Chengyu):
         // - [DONE] the signer's accumulated weight exceeds the quorum threshold
-        // - The commitment of the stake table as [https://www.notion.so/espressosys/Light-Client-Contract-a416ebbfa9f342d79fccbf90de9706ef?pvs=4#6c0e26d753cd42e9bb0f22db1c519f45]
+        // - [DONE] The commitment of the stake table as [https://www.notion.so/espressosys/Light-Client-Contract-a416ebbfa9f342d79fccbf90de9706ef?pvs=4#6c0e26d753cd42e9bb0f22db1c519f45]
         // - Batch Schnorr signature verification
 
         // creating variables for stake table entries
@@ -125,8 +125,30 @@ where
         let threshold = u256_to_field::<F>(threshold);
         let threshold_var = circuit.create_public_variable(threshold)?;
 
-        // TODO(Chengyu): put in the hotshot state
-        let public_inputs = vec![threshold];
+        let view_number_f = F::from(hotshot_state.view_number as u64);
+        let block_height_f = F::from(hotshot_state.block_height as u64);
+        let hotshot_state_var = HotShotStateVar {
+            view_number_var: circuit.create_public_variable(view_number_f)?,
+            block_height_var: circuit.create_public_variable(block_height_f)?,
+            block_comm_var: circuit.create_public_variable(hotshot_state.block_comm)?,
+            fee_ledger_comm_var: circuit.create_public_variable(hotshot_state.fee_ledger_comm)?,
+            stake_table_comm_var: (
+                circuit.create_public_variable(hotshot_state.stake_table_comm.0)?,
+                circuit.create_public_variable(hotshot_state.stake_table_comm.1)?,
+                circuit.create_public_variable(hotshot_state.stake_table_comm.2)?,
+            ),
+        };
+
+        let public_inputs = vec![
+            threshold,
+            view_number_f,
+            block_height_f,
+            hotshot_state.block_comm,
+            hotshot_state.fee_ledger_comm,
+            hotshot_state.stake_table_comm.0,
+            hotshot_state.stake_table_comm.1,
+            hotshot_state.stake_table_comm.2,
+        ];
 
         // Checking whether the accumulated weight exceeds the quorum threshold
         // We assume that NUM_ENTRIES is always a multiple of 2
@@ -146,7 +168,31 @@ where
         let acc_amount_var = circuit.sum(&signed_amount_var)?;
         circuit.enforce_leq(threshold_var, acc_amount_var)?;
 
-        // circuit.mul_add(wires_in, q_muls)
+        let stake_amount_vars = stake_table_var
+            .iter()
+            .map(|var| var.stake_amount)
+            .collect::<Vec<_>>();
+        let stake_amount_comm = RescueNativeGadget::<F>::rescue_sponge_with_padding(
+            &mut circuit,
+            &stake_amount_vars,
+            1,
+        )?[0];
+        circuit.enforce_equal(stake_amount_comm, hotshot_state_var.stake_table_comm_var.1)?;
+
+        let schnorr_ver_key_vars = stake_table_var
+            .iter()
+            .flat_map(|var| [var.schnorr_ver_key.0.get_x(), var.schnorr_ver_key.0.get_y()])
+            .collect::<Vec<_>>();
+        let schnorr_ver_key_comm = RescueNativeGadget::<F>::rescue_sponge_with_padding(
+            &mut circuit,
+            &schnorr_ver_key_vars,
+            1,
+        )?[0];
+        circuit.enforce_equal(
+            schnorr_ver_key_comm,
+            hotshot_state_var.stake_table_comm_var.2,
+        )?;
+
         circuit.finalize_for_arithmetization()?;
         Ok((circuit, public_inputs))
     }
