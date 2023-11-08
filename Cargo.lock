@@ -2907,6 +2907,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "ark-bls12-381",
+ "ark-ff",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",
  "async-compatibility-layer",
