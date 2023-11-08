@@ -57,10 +57,10 @@ pub struct NetworkConfig<KEY, ENTRY, ELECTIONCONFIG> {
     pub num_bootrap: usize,
     pub next_view_timeout: u64,
     pub propose_min_round_time: Duration,
+    pub transaction_size: usize,
     pub propose_max_round_time: Duration,
     pub node_index: u64,
     pub seed: [u8; 32],
-    pub padding: usize,
     pub start_delay_seconds: u64,
     pub key_type_name: String,
     pub election_config_type_name: String,
@@ -74,11 +74,11 @@ pub struct NetworkConfig<KEY, ENTRY, ELECTIONCONFIG> {
 impl<K, ENTRY, E> Default for NetworkConfig<K, ENTRY, E> {
     fn default() -> Self {
         Self {
-            rounds: default_rounds(),
-            transactions_per_round: default_transactions_per_round(),
+            rounds: 100,
+            transactions_per_round: 100,
+            transaction_size: 20000,
             node_index: 0,
             seed: [0u8; 32],
-            padding: default_padding(),
             libp2p_config: None,
             config: default_config().into(),
             start_delay_seconds: 60,
@@ -97,30 +97,44 @@ impl<K, ENTRY, E> Default for NetworkConfig<K, ENTRY, E> {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct NetworkConfigFile {
-    #[serde(default = "default_rounds")]
+    #[serde(default)]
     pub rounds: usize,
-    #[serde(default = "default_transactions_per_round")]
+    #[serde(default)]
     pub transactions_per_round: usize,
+    #[serde(default)]
+    pub transaction_size: usize,
     #[serde(default)]
     pub node_index: u64,
     #[serde(default)]
     pub seed: [u8; 32],
-    #[serde(default = "default_padding")]
-    pub padding: usize,
-    #[serde(default = "default_start_delay_seconds")]
+    #[serde(default)]
     pub start_delay_seconds: u64,
     #[serde(default)]
     pub libp2p_config: Option<Libp2pConfigFile>,
-    #[serde(default = "default_config")]
+    #[serde(default)]
     pub config: HotShotConfigFile,
-    #[serde(default = "default_web_server_config")]
+    #[serde(default)]
     pub web_server_config: Option<WebServerConfig>,
-    #[serde(default = "default_web_server_config")]
+    #[serde(default)]
     pub da_web_server_config: Option<WebServerConfig>,
 }
 
-fn default_web_server_config() -> Option<WebServerConfig> {
-    None
+impl Default for HotShotConfigFile {
+    fn default() -> Self {
+        Self {
+            total_nodes: NonZeroUsize::new(10).unwrap(),
+            committee_nodes: 5,
+            max_transactions: NonZeroUsize::new(100).unwrap(),
+            min_transactions: 1,
+            next_view_timeout: 10000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            propose_min_round_time: Duration::from_secs(0),
+            propose_max_round_time: Duration::from_secs(10),
+            num_bootstrap: 5,
+        }
+    }
 }
 
 impl<K, ENTRY, E> From<NetworkConfigFile> for NetworkConfig<K, ENTRY, E> {
@@ -129,12 +143,12 @@ impl<K, ENTRY, E> From<NetworkConfigFile> for NetworkConfig<K, ENTRY, E> {
             rounds: val.rounds,
             transactions_per_round: val.transactions_per_round,
             node_index: 0,
+            transaction_size: val.transaction_size,
             num_bootrap: val.config.num_bootstrap,
             next_view_timeout: val.config.next_view_timeout,
             propose_max_round_time: val.config.propose_max_round_time,
             propose_min_round_time: val.config.propose_min_round_time,
             seed: val.seed,
-            padding: val.padding,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
                 num_bootstrap_nodes: val.config.num_bootstrap,
                 index_ports: libp2p_config.index_ports,
@@ -215,16 +229,6 @@ impl<ENTRY, E> From<HotShotConfigFile> for HotShotConfig<ENTRY, E> {
     }
 }
 
-// This is hacky, blame serde for not having something like `default_value = "10"`
-fn default_rounds() -> usize {
-    10
-}
-fn default_transactions_per_round() -> usize {
-    10
-}
-fn default_padding() -> usize {
-    100
-}
 fn default_config() -> HotShotConfigFile {
     HotShotConfigFile {
         total_nodes: NonZeroUsize::new(10).unwrap(),
@@ -239,8 +243,4 @@ fn default_config() -> HotShotConfigFile {
         propose_max_round_time: Duration::from_secs(10),
         num_bootstrap: 5,
     }
-}
-
-fn default_start_delay_seconds() -> u64 {
-    60
 }

@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use async_compatibility_layer::{art::async_spawn, channel::oneshot};
+use async_compatibility_layer::{
+    art::async_spawn,
+    channel::oneshot,
+    logging::{setup_backtrace, setup_logging},
+};
 use clap::Parser;
 use hotshot::demo::DemoTypes;
 use tracing::error;
@@ -11,12 +15,13 @@ struct MultiWebServerArgs {
     da_port: u16,
     view_sync_port: u16,
 }
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::main(flavor = "multi_thread", worker_threads = 2)
-)]
+
+#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::main)]
 async fn main() {
+    setup_backtrace();
+    setup_logging();
+
     let args = MultiWebServerArgs::parse();
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();
