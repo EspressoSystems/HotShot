@@ -5,7 +5,11 @@ use std::marker::PhantomData;
 use ark_ec::twisted_edwards::TECurveConfig;
 use ark_ff::PrimeField;
 use ethereum_types::U256;
-use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableScheme};
+use hotshot_stake_table::config::STAKE_TABLE_CAPACITY;
+use hotshot_types::traits::{
+    stake_table::{SnapshotVersion, StakeTableScheme},
+    state::HotShotStateForProver as HotShotState,
+};
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
     circuit::{rescue::RescueNativeGadget, signature::schnorr::VerKeyVar},
@@ -15,12 +19,9 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit};
-use jf_relation::{gadgets::ecc::TEPoint, Variable};
-use serde::{Deserialize, Serialize};
-
-/// Number of entries/keys in the stake table
-use hotshot_types::traits::stake_table::STAKE_TABLE_CAPACITY;
+use jf_relation::{
+    errors::CircuitError, gadgets::ecc::TEPoint, BoolVar, Circuit, PlonkCircuit, Variable,
+};
 
 /// convert a U256 to a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
@@ -45,16 +46,6 @@ pub struct HotShotStateVar {
     pub block_comm_var: Variable,
     pub fee_ledger_comm_var: Variable,
     pub stake_table_comm_var: (Variable, Variable, Variable),
-}
-
-/// HotShot state
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct HotShotState<F: PrimeField> {
-    pub view_number: usize,
-    pub block_height: usize,
-    pub block_comm: F,
-    pub fee_ledger_comm: F,
-    pub stake_table_comm: (F, F, F),
 }
 
 #[derive(Clone, Debug)]
