@@ -23,7 +23,7 @@ use jf_relation::{
     errors::CircuitError, gadgets::ecc::TEPoint, BoolVar, Circuit, PlonkCircuit, Variable,
 };
 
-/// convert a U256 to a field element.
+/// Lossy conversion of a U256 into a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
     let mut bytes = vec![0u8; 32];
     v.to_little_endian(&mut bytes);
@@ -178,8 +178,10 @@ mod tests {
     ) -> StakeTable<BLSVerKey, SchnorrVerKey, F> {
         let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
         // Registering keys
-        keys.iter()
-            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        keys.iter().enumerate().for_each(|(i, key)| {
+            st.register(key.0, U256::from((i + 1) as u32), key.1.clone())
+                .unwrap()
+        });
         // Freeze the stake table
         st.advance();
         st.advance();
@@ -191,25 +193,32 @@ mod tests {
         let keys = key_pairs_for_testing();
         let st = stake_table_for_testing(&keys);
 
-        let bit_vec_6 = [
-            true, true, true, true, true, true, false, false, false, false,
+        // bit vector with total weight 26
+        let bit_vec = [
+            true, true, true, false, true, true, false, false, true, false,
         ];
+        // good path
         let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
             &HotShotState::default(),
-            &bit_vec_6,
-            &U256::from(600u32),
+            &bit_vec,
+            &U256::from(25u32),
         )
         .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
+        // bad path: total weight doesn't meet the threshold
+        // bit vector with total weight 23
+        let bad_bit_vec = [
+            true, true, true, true, true, false, false, true, false, false,
+        ];
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
             &HotShotState::default(),
-            &bit_vec_6,
-            &U256::from(700u32),
+            &bad_bit_vec,
+            &U256::from(25u32),
         )
         .unwrap();
         assert!(bad_circuit
