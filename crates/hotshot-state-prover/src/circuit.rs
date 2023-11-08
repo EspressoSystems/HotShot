@@ -19,8 +19,9 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit};
-use jf_relation::{gadgets::ecc::TEPoint, Variable};
+use jf_relation::{
+    errors::CircuitError, gadgets::ecc::TEPoint, BoolVar, Circuit, PlonkCircuit, Variable,
+};
 
 /// convert a U256 to a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
