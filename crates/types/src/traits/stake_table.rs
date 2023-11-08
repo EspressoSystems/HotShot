@@ -6,9 +6,6 @@ use displaydoc::Display;
 use jf_plonk::errors::PlonkError;
 use jf_primitives::errors::PrimitivesError;
 
-/// Capacity of a stake table
-pub const STAKE_TABLE_CAPACITY: usize = 1000;
-
 /// Snapshots of the stake table
 pub enum SnapshotVersion {
     /// the latest "Head" where all new changes are applied to
