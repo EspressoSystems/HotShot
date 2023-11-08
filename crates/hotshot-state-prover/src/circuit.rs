@@ -19,9 +19,7 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::{
-    errors::CircuitError, gadgets::ecc::TEPoint, BoolVar, Circuit, PlonkCircuit, Variable,
-};
+use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit, Variable};
 
 /// convert a U256 to a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
@@ -38,7 +36,7 @@ pub struct StakeTableEntryVar {
 }
 
 /// HotShot state Variable
-/// The stake table commitment is a triple (bls_keys_comm, stake_amount_comm, schnorr_keys_comm).
+/// The stake table commitment is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm).
 #[derive(Clone, Debug)]
 pub struct HotShotStateVar {
     pub view_number_var: Variable,
@@ -97,8 +95,7 @@ where
                 })
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
-        let dummy_ver_key_var =
-            VerKeyVar(circuit.create_constant_point_variable(TEPoint::default())?);
+        let dummy_ver_key_var = VerKeyVar(circuit.neutral_point_variable());
         stake_table_var.resize(
             STAKE_TABLE_CAPACITY,
             StakeTableEntryVar {
@@ -159,30 +156,30 @@ where
         let acc_amount_var = circuit.sum(&signed_amount_var)?;
         circuit.enforce_leq(threshold_var, acc_amount_var)?;
 
-        let stake_amount_vars = stake_table_var
-            .iter()
-            .map(|var| var.stake_amount)
-            .collect::<Vec<_>>();
-        let stake_amount_comm = RescueNativeGadget::<F>::rescue_sponge_with_padding(
-            &mut circuit,
-            &stake_amount_vars,
-            1,
-        )?[0];
-        circuit.enforce_equal(stake_amount_comm, hotshot_state_var.stake_table_comm_var.1)?;
-
-        let schnorr_ver_key_vars = stake_table_var
+        let schnorr_ver_key_preimage_vars = stake_table_var
             .iter()
             .flat_map(|var| [var.schnorr_ver_key.0.get_x(), var.schnorr_ver_key.0.get_y()])
             .collect::<Vec<_>>();
         let schnorr_ver_key_comm = RescueNativeGadget::<F>::rescue_sponge_with_padding(
             &mut circuit,
-            &schnorr_ver_key_vars,
+            &schnorr_ver_key_preimage_vars,
             1,
         )?[0];
         circuit.enforce_equal(
             schnorr_ver_key_comm,
-            hotshot_state_var.stake_table_comm_var.2,
+            hotshot_state_var.stake_table_comm_var.1,
         )?;
+
+        let stake_amount_preimage_vars = stake_table_var
+            .iter()
+            .map(|var| var.stake_amount)
+            .collect::<Vec<_>>();
+        let stake_amount_comm = RescueNativeGadget::<F>::rescue_sponge_with_padding(
+            &mut circuit,
+            &stake_amount_preimage_vars,
+            1,
+        )?[0];
+        circuit.enforce_equal(stake_amount_comm, hotshot_state_var.stake_table_comm_var.2)?;
 
         circuit.finalize_for_arithmetization()?;
         Ok((circuit, public_inputs))
@@ -195,7 +192,7 @@ mod tests {
     use ark_ed_on_bn254::EdwardsConfig as Config;
     use ethereum_types::U256;
     use hotshot_stake_table::vec_based::StakeTable;
-    use hotshot_types::traits::stake_table::StakeTableScheme;
+    use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableScheme};
     use jf_primitives::signatures::{
         bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey as BLSVerKey},
         SchnorrSignatureScheme, SignatureScheme,
@@ -237,25 +234,56 @@ mod tests {
         let keys = key_pairs_for_testing();
         let st = stake_table_for_testing(&keys);
 
+        let hotshot_state = HotShotState {
+            view_number: 0,
+            block_height: 0,
+            block_comm: F::default(),
+            fee_ledger_comm: F::default(),
+            stake_table_comm: st.commitment(SnapshotVersion::LastEpochStart).unwrap(),
+        };
+
         let bit_vec_6 = [
             true, true, true, true, true, true, false, false, false, false,
         ];
+
+        // good path
         let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &HotShotState::default(),
+            &hotshot_state,
             &bit_vec_6,
             &U256::from(600u32),
         )
         .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
+        // bad path: threshold requirement doesn't meet
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &HotShotState::default(),
+            &hotshot_state,
             &bit_vec_6,
             &U256::from(700u32),
+        )
+        .unwrap();
+        assert!(bad_circuit
+            .check_circuit_satisfiability(&public_inputs)
+            .is_err());
+
+        // bad path: bad stake table commitment
+        let bad_hotshot_state = HotShotState {
+            view_number: 0,
+            block_height: 0,
+            block_comm: F::default(),
+            fee_ledger_comm: F::default(),
+            stake_table_comm: (F::default(), F::default(), F::default()),
+        };
+        let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
+            &st,
+            &[],
+            &bad_hotshot_state,
+            &bit_vec_6,
+            &U256::from(600u32),
         )
         .unwrap();
         assert!(bad_circuit
