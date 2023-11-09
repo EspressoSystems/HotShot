@@ -8,7 +8,7 @@ use ethereum_types::U256;
 use hotshot_stake_table::config::STAKE_TABLE_CAPACITY;
 use hotshot_types::traits::{
     stake_table::{SnapshotVersion, StakeTableScheme},
-    state::HotShotStateForProver as HotShotState,
+    state::LightClientState,
 };
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
@@ -40,7 +40,7 @@ pub struct StakeTableEntryVar {
 /// HotShot state Variable
 /// The stake table commitment is a triple (bls_keys_comm, stake_amount_comm, schnorr_keys_comm).
 #[derive(Clone, Debug)]
-pub struct HotShotStateVar {
+pub struct LightClientStateVar {
     pub view_number_var: Variable,
     pub block_height_var: Variable,
     pub block_comm_var: Variable,
@@ -68,7 +68,7 @@ where
     pub fn build<ST, P>(
         stake_table: &ST,
         _sigs: &[Signature<P>],
-        _hotshot_state: &HotShotState<F>,
+        _hotshot_state: &LightClientState<F>,
         signer_bit_vec: &[bool],
         threshold: &U256,
     ) -> Result<(PlonkCircuit<F>, Vec<F>), PlonkError>
@@ -120,8 +120,7 @@ where
         let public_inputs = vec![threshold];
 
         // Checking whether the accumulated weight exceeds the quorum threshold
-        // We assume that NUM_ENTRIES is always a multiple of 2
-        let signed_amount_var = (0..STAKE_TABLE_CAPACITY / 2)
+        let mut signed_amount_var = (0..STAKE_TABLE_CAPACITY / 2)
             .map(|i| {
                 circuit.mul_add(
                     &[
@@ -134,6 +133,13 @@ where
                 )
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
+        // Adding the last if STAKE_TABLE_CAPACITY is not a multiple of 2
+        if STAKE_TABLE_CAPACITY % 2 == 1 {
+            signed_amount_var.push(circuit.mul(
+                stake_table_var[STAKE_TABLE_CAPACITY - 1].stake_amount,
+                signer_bit_vec_var[STAKE_TABLE_CAPACITY - 1].0,
+            )?);
+        }
         let acc_amount_var = circuit.sum(&signed_amount_var)?;
         circuit.enforce_leq(threshold_var, acc_amount_var)?;
 
@@ -145,7 +151,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{HotShotState, StateUpdateBuilder};
+    use super::{LightClientState, StateUpdateBuilder};
     use ark_ed_on_bn254::EdwardsConfig as Config;
     use ethereum_types::U256;
     use hotshot_stake_table::vec_based::StakeTable;
@@ -201,7 +207,7 @@ mod tests {
         let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &HotShotState::default(),
+            &LightClientState::default(),
             &bit_vec,
             &U256::from(25u32),
         )
@@ -216,7 +222,7 @@ mod tests {
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &HotShotState::default(),
+            &LightClientState::default(),
             &bad_bit_vec,
             &U256::from(25u32),
         )
