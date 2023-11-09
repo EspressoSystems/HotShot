@@ -42,7 +42,7 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/libp2p/orchestrator.rs"
 
 [[example]]
-name = "libp2p-all"
+name = "all-libp2p"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/libp2p/all.rs"
 
@@ -73,28 +73,28 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/webserver/multi-webserver.rs"
 
 [[example]]
-name = "webserver-all"
+name = "all-webserver"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/webserver/all.rs"
 
 # combined
 [[example]]
-name = "combined-all"
+name = "all-combined"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/combined/all.rs"
 
 [[example]]
-name = "combined-multi-validator"
+name = "multi-validator-combined"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/combined/multi-validator.rs"
 
 [[example]]
-name = "combined-validator"
+name = "validator-combined"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/combined/validator.rs"
 
 [[example]]
-name = "combined-orchestrator"
+name = "orchestrator-combined"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/combined/orchestrator.rs"
 
