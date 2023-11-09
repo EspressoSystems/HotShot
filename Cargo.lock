@@ -2023,8 +2023,8 @@ checksum = "23d2f3407d9a573d666de4b5bdf10569d73ca9478087346697dcbae6244bfbcd"
 
 [[package]]
 name = "dyn-clone"
-version = "1.0.14"
-source = "git+https://github.com/dtolnay/dyn-clone?tag=1.0.14#cee99471c46f9f512640aa03c680a547ac72c22c"
+version = "1.0.16"
+source = "git+https://github.com/dtolnay/dyn-clone?tag=1.0.16#f2f0a02f1f7190048153e5ea8f554db7377a50a9"
 
 [[package]]
 name = "ed25519"
@@ -2678,7 +2678,7 @@ dependencies = [
  "custom_debug",
  "dashmap",
  "derivative",
- "dyn-clone 1.0.14 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.14)",
+ "dyn-clone 1.0.16",
  "either",
  "embed-doc-image",
  "espresso-systems-common 0.4.1",
@@ -2907,7 +2907,7 @@ dependencies = [
  "derivative",
  "digest 0.10.7",
  "displaydoc",
- "dyn-clone 1.0.14 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.14)",
+ "dyn-clone 1.0.16",
  "either",
  "espresso-systems-common 0.4.1",
  "ethereum-types",
@@ -3440,7 +3440,7 @@ dependencies = [
  "derivative",
  "displaydoc",
  "downcast-rs",
- "dyn-clone 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dyn-clone 1.0.14",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
  "jf-utils",
