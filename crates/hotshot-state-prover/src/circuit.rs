@@ -269,6 +269,16 @@ mod tests {
         .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
+        let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
+            &st,
+            &[],
+            &lightclient_state,
+            &bit_vec,
+            &U256::from(10u32),
+        )
+        .unwrap();
+        assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
+
         // bad path: total weight doesn't meet the threshold
         // bit vector with total weight 23
         let bad_bit_vec = [
