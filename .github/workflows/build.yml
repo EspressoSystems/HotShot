@@ -63,14 +63,14 @@ jobs:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: |
             target/debug/examples/counter
-            target/debug/examples/libp2p-multi-validator
-            target/debug/examples/libp2p-orchestrator
-            target/debug/examples/libp2p-validator
-            target/debug/examples/multi-validator
-            target/debug/examples/multi-web-server
-            target/debug/examples/web-server
-            target/debug/examples/web-server-da-orchestrator
-            target/debug/examples/web-server-da-validator
+            target/debug/examples/multi-validator-libp2p
+            target/debug/examples/orchestrator-libp2p
+            target/debug/examples/validator-libp2p
+            target/debug/examples/multi-validator-webserver
+            target/debug/examples/multi-webserver
+            target/debug/examples/webserver
+            target/debug/examples/orchestrator-webserver
+            target/debug/examples/validator-webserver
 
   build-arm:
     strategy:
@@ -101,14 +101,14 @@ jobs:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: |
             target/debug/examples/counter
-            target/debug/examples/libp2p-multi-validator
-            target/debug/examples/libp2p-orchestrator
-            target/debug/examples/libp2p-validator
-            target/debug/examples/multi-validator
-            target/debug/examples/multi-web-server
-            target/debug/examples/web-server
-            target/debug/examples/web-server-da-orchestrator
-            target/debug/examples/web-server-da-validator
+            target/debug/examples/multi-validator-libp2p
+            target/debug/examples/orchestrator-libp2p
+            target/debug/examples/validator-libp2p
+            target/debug/examples/multi-validator-webserver
+            target/debug/examples/multi-webserver
+            target/debug/examples/webserver
+            target/debug/examples/orchestrator-webserver
+            target/debug/examples/validator-webserver
 
   build-dockers:
     strategy:
