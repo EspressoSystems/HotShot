@@ -642,6 +642,21 @@ where
                     *proposal.data.view_number
                 );
 
+                // stop polling for the received proposal
+                self.quorum_exchange
+                    .network()
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
+                        *proposal.data.view_number,
+                    ))
+                    .await;
+
+                self.quorum_exchange
+                    .network()
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(
+                        *proposal.data.view_number,
+                    ))
+                    .await;
+
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
                     debug!("Proposal is from an older view {:?}", proposal.data.clone());
