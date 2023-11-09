@@ -1,9 +1,9 @@
-use crate::infra::{CombinedDARun};
+use crate::infra::CombinedDARun;
 use hotshot::{
     demo::DemoTypes,
     traits::{
         election::static_committee::GeneralStaticCommittee,
-        implementations::{MemoryStorage, CombinedCommChannel},
+        implementations::{CombinedCommChannel, MemoryStorage},
     },
 };
 use hotshot_types::{

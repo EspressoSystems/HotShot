@@ -13,7 +13,7 @@ use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
-use tracing::{instrument,error};
+use tracing::{error, instrument};
 use types::ThisMembership;
 
 use crate::{
