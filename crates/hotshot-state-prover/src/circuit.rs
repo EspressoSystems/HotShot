@@ -35,7 +35,7 @@ pub struct StakeTableEntryVar {
     pub stake_amount: Variable,
 }
 
-/// HotShot state Variable
+/// Light client state Variable
 /// The stake table commitment is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm).
 #[derive(Clone, Debug)]
 pub struct LightClientStateVar {
@@ -56,7 +56,7 @@ where
     /// A function that takes as input:
     /// - stake table entries (`Vec<(BLSVerKey, Amount, SchnorrVerKey)>`)
     /// - schnorr signatures of the updated states (`Vec<SchnorrSignature>`)
-    /// - updated hotshot state (`(view_number, block_height, block_comm, fee_ledger_comm, stake_table_comm)`)
+    /// - updated light client state (`(view_number, block_height, block_comm, fee_ledger_comm, stake_table_comm)`)
     /// - signer bit vector
     /// - quorum threshold
     /// checks that
@@ -66,7 +66,7 @@ where
     pub fn build<ST, P>(
         stake_table: &ST,
         _sigs: &[Signature<P>],
-        hotshot_state: &LightClientState<F>,
+        lightclient_state: &LightClientState<F>,
         signer_bit_vec: &[bool],
         threshold: &U256,
     ) -> Result<(PlonkCircuit<F>, Vec<F>), PlonkError>
@@ -113,17 +113,18 @@ where
         let threshold = u256_to_field::<F>(threshold);
         let threshold_var = circuit.create_public_variable(threshold)?;
 
-        let view_number_f = F::from(hotshot_state.view_number as u64);
-        let block_height_f = F::from(hotshot_state.block_height as u64);
-        let hotshot_state_var = LightClientStateVar {
+        let view_number_f = F::from(lightclient_state.view_number as u64);
+        let block_height_f = F::from(lightclient_state.block_height as u64);
+        let lightclient_state_var = LightClientStateVar {
             view_number_var: circuit.create_public_variable(view_number_f)?,
             block_height_var: circuit.create_public_variable(block_height_f)?,
-            block_comm_var: circuit.create_public_variable(hotshot_state.block_comm)?,
-            fee_ledger_comm_var: circuit.create_public_variable(hotshot_state.fee_ledger_comm)?,
+            block_comm_var: circuit.create_public_variable(lightclient_state.block_comm)?,
+            fee_ledger_comm_var: circuit
+                .create_public_variable(lightclient_state.fee_ledger_comm)?,
             stake_table_comm_var: (
-                circuit.create_public_variable(hotshot_state.stake_table_comm.0)?,
-                circuit.create_public_variable(hotshot_state.stake_table_comm.1)?,
-                circuit.create_public_variable(hotshot_state.stake_table_comm.2)?,
+                circuit.create_public_variable(lightclient_state.stake_table_comm.0)?,
+                circuit.create_public_variable(lightclient_state.stake_table_comm.1)?,
+                circuit.create_public_variable(lightclient_state.stake_table_comm.2)?,
             ),
         };
 
@@ -131,11 +132,11 @@ where
             threshold,
             view_number_f,
             block_height_f,
-            hotshot_state.block_comm,
-            hotshot_state.fee_ledger_comm,
-            hotshot_state.stake_table_comm.0,
-            hotshot_state.stake_table_comm.1,
-            hotshot_state.stake_table_comm.2,
+            lightclient_state.block_comm,
+            lightclient_state.fee_ledger_comm,
+            lightclient_state.stake_table_comm.0,
+            lightclient_state.stake_table_comm.1,
+            lightclient_state.stake_table_comm.2,
         ];
 
         // Checking whether the accumulated weight exceeds the quorum threshold
@@ -173,7 +174,7 @@ where
         )?[0];
         circuit.enforce_equal(
             schnorr_ver_key_comm,
-            hotshot_state_var.stake_table_comm_var.1,
+            lightclient_state_var.stake_table_comm_var.1,
         )?;
 
         let stake_amount_preimage_vars = stake_table_var
@@ -185,7 +186,10 @@ where
             &stake_amount_preimage_vars,
             1,
         )?[0];
-        circuit.enforce_equal(stake_amount_comm, hotshot_state_var.stake_table_comm_var.2)?;
+        circuit.enforce_equal(
+            stake_amount_comm,
+            lightclient_state_var.stake_table_comm_var.2,
+        )?;
 
         circuit.finalize_for_arithmetization()?;
         Ok((circuit, public_inputs))
@@ -242,7 +246,7 @@ mod tests {
         let keys = key_pairs_for_testing();
         let st = stake_table_for_testing(&keys);
 
-        let hotshot_state = LightClientState {
+        let lightclient_state = LightClientState {
             view_number: 0,
             block_height: 0,
             block_comm: F::default(),
@@ -255,9 +259,14 @@ mod tests {
             true, true, true, false, true, true, false, false, true, false,
         ];
         // good path
-        let (circuit, public_inputs) =
-            StateUpdateBuilder::<F>::build(&st, &[], &hotshot_state, &bit_vec, &U256::from(26u32))
-                .unwrap();
+        let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
+            &st,
+            &[],
+            &lightclient_state,
+            &bit_vec,
+            &U256::from(26u32),
+        )
+        .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
         // bad path: total weight doesn't meet the threshold
@@ -268,7 +277,7 @@ mod tests {
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &hotshot_state,
+            &lightclient_state,
             &bad_bit_vec,
             &U256::from(25u32),
         )
@@ -278,7 +287,7 @@ mod tests {
             .is_err());
 
         // bad path: bad stake table commitment
-        let bad_hotshot_state = LightClientState {
+        let bad_lightclient_state = LightClientState {
             view_number: 0,
             block_height: 0,
             block_comm: F::default(),
@@ -288,7 +297,7 @@ mod tests {
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &bad_hotshot_state,
+            &bad_lightclient_state,
             &bit_vec,
             &U256::from(26u32),
         )
