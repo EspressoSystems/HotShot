@@ -145,87 +145,87 @@ jobs:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: target/arm64/debug/examples
 
-      - name: Generate libp2p-orchestrator docker metadata
+      - name: Generate orchestrator-libp2p docker metadata
         uses: docker/metadata-action@v5
-        id: libp2p-orchestrator
+        id: orchestrator-libp2p
         with:
-          images: ghcr.io/espressosystems/hotshot/libp2p-orchestrator
+          images: ghcr.io/espressosystems/hotshot/orchestrator-libp2p
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate libp2p-validator docker metadata
+      - name: Generate validator-libp2p docker metadata
         uses: docker/metadata-action@v5
-        id: libp2p-validator
+        id: validator-libp2p
         with:
-          images: ghcr.io/espressosystems/hotshot/libp2p-validator
+          images: ghcr.io/espressosystems/hotshot/validator-libp2p
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate web-server docker metadata
+      - name: Generate webserver docker metadata
         uses: docker/metadata-action@v5
-        id: web-server
+        id: webserver
         with:
-          images: ghcr.io/espressosystems/hotshot/web-server
+          images: ghcr.io/espressosystems/hotshot/webserver
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate web-server-da-orchestrator docker metadata
+      - name: Generate orchestrator-webserver docker metadata
         uses: docker/metadata-action@v5
-        id: web-server-da-orchestrator
+        id: orchestrator-webserver
         with:
-          images: ghcr.io/espressosystems/hotshot/web-server-da-orchestrator
+          images: ghcr.io/espressosystems/hotshot/orchestrator-webserver
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate web-server-da-validator docker metadata
+      - name: Generate validator-webserver docker metadata
         uses: docker/metadata-action@v5
-        id: web-server-da-validator
+        id: validator-webserver
         with:
-          images: ghcr.io/espressosystems/hotshot/web-server-da-validator
+          images: ghcr.io/espressosystems/hotshot/validator-webserver
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Build and push libp2p-orchestrator docker
+      - name: Build and push orchestrator-libp2p docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/libp2p-orchestrator.Dockerfile
+          file: ./docker/orchestrator-libp2p.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.libp2p-orchestrator.outputs.tags }}
-          labels: ${{ steps.libp2p-orchestrator.outputs.labels }}
+          tags: ${{ steps.orchestrator-libp2p.outputs.tags }}
+          labels: ${{ steps.orchestrator-libp2p.outputs.labels }}
 
-      - name: Build and push libp2p-validator docker
+      - name: Build and push validator-libp2p docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/libp2p-validator.Dockerfile
+          file: ./docker/validator-libp2p.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.libp2p-validator.outputs.tags }}
-          labels: ${{ steps.libp2p-validator.outputs.labels }}
+          tags: ${{ steps.validator-libp2p.outputs.tags }}
+          labels: ${{ steps.validator-libp2p.outputs.labels }}
 
-      - name: Build and push web-server docker
+      - name: Build and push webserver docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/web-server.Dockerfile
+          file: ./docker/webserver.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server.outputs.tags }}
-          labels: ${{ steps.web-server.outputs.labels }}
+          tags: ${{ steps.webserver.outputs.tags }}
+          labels: ${{ steps.webserver.outputs.labels }}
 
-      - name: Build and push web-server-da-orchestrator docker
+      - name: Build and push orchestrator-webserver docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/web-server-da-orchestrator.Dockerfile
+          file: ./docker/orchestrator-webserver.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server-da-orchestrator.outputs.tags }}
-          labels: ${{ steps.web-server-da-orchestrator.outputs.labels }}
+          tags: ${{ steps.orchestrator-webserver.outputs.tags }}
+          labels: ${{ steps.orchestrator-webserver.outputs.labels }}
 
-      - name: Build and push web-server-da-validator docker
+      - name: Build and push validator-webserver docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/web-server-da-validator.Dockerfile
+          file: ./docker/validator-webserver.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.web-server-da-validator.outputs.tags }}
-          labels: ${{ steps.web-server-da-validator.outputs.labels }}
+          tags: ${{ steps.validator-webserver.outputs.tags }}
+          labels: ${{ steps.validator-webserver.outputs.labels }}
