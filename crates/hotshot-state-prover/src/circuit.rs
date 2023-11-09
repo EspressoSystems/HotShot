@@ -115,7 +115,7 @@ where
 
         let view_number_f = F::from(hotshot_state.view_number as u64);
         let block_height_f = F::from(hotshot_state.block_height as u64);
-        let hotshot_state_var = HotShotStateVar {
+        let hotshot_state_var = LightClientStateVar {
             view_number_var: circuit.create_public_variable(view_number_f)?,
             block_height_var: circuit.create_public_variable(block_height_f)?,
             block_comm_var: circuit.create_public_variable(hotshot_state.block_comm)?,
@@ -242,15 +242,7 @@ mod tests {
         let keys = key_pairs_for_testing();
         let st = stake_table_for_testing(&keys);
 
-        let hotshot_state = HotShotState {
-            view_number: 0,
-            block_height: 0,
-            block_comm: F::default(),
-            fee_ledger_comm: F::default(),
-            stake_table_comm: st.commitment(SnapshotVersion::LastEpochStart).unwrap(),
-        };
-
-        let hotshot_state = HotShotState {
+        let hotshot_state = LightClientState {
             view_number: 0,
             block_height: 0,
             block_comm: F::default(),
@@ -263,14 +255,9 @@ mod tests {
             true, true, true, false, true, true, false, false, true, false,
         ];
         // good path
-        let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
-            &st,
-            &[],
-            &HotShotState::default(),
-            &bit_vec_6,
-            &U256::from(600u32),
-        )
-        .unwrap();
+        let (circuit, public_inputs) =
+            StateUpdateBuilder::<F>::build(&st, &[], &hotshot_state, &bit_vec, &U256::from(26u32))
+                .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
         // bad path: total weight doesn't meet the threshold
@@ -281,12 +268,9 @@ mod tests {
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &LightClientState::default(),
-            &bad_bit_vec,
-            &U256::from(25u32),
             &hotshot_state,
             &bad_bit_vec,
-            &U256::from(700u32),
+            &U256::from(25u32),
         )
         .unwrap();
         assert!(bad_circuit
@@ -294,7 +278,7 @@ mod tests {
             .is_err());
 
         // bad path: bad stake table commitment
-        let bad_hotshot_state = HotShotState {
+        let bad_hotshot_state = LightClientState {
             view_number: 0,
             block_height: 0,
             block_comm: F::default(),
@@ -305,8 +289,8 @@ mod tests {
             &st,
             &[],
             &bad_hotshot_state,
-            &bit_vec_6,
-            &U256::from(600u32),
+            &bit_vec,
+            &U256::from(26u32),
         )
         .unwrap();
         assert!(bad_circuit
