@@ -8,7 +8,7 @@ use ethereum_types::U256;
 use hotshot_stake_table::config::STAKE_TABLE_CAPACITY;
 use hotshot_types::traits::{
     stake_table::{SnapshotVersion, StakeTableScheme},
-    state::HotShotStateForProver as HotShotState,
+    state::LightClientState,
 };
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
@@ -21,7 +21,7 @@ use jf_primitives::{
 };
 use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit, Variable};
 
-/// convert a U256 to a field element.
+/// Lossy conversion of a U256 into a field element.
 pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
     let mut bytes = vec![0u8; 32];
     v.to_little_endian(&mut bytes);
@@ -38,7 +38,7 @@ pub struct StakeTableEntryVar {
 /// HotShot state Variable
 /// The stake table commitment is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm).
 #[derive(Clone, Debug)]
-pub struct HotShotStateVar {
+pub struct LightClientStateVar {
     pub view_number_var: Variable,
     pub block_height_var: Variable,
     pub block_comm_var: Variable,
@@ -66,7 +66,7 @@ where
     pub fn build<ST, P>(
         stake_table: &ST,
         _sigs: &[Signature<P>],
-        hotshot_state: &HotShotState<F>,
+        hotshot_state: &LightClientState<F>,
         signer_bit_vec: &[bool],
         threshold: &U256,
     ) -> Result<(PlonkCircuit<F>, Vec<F>), PlonkError>
@@ -139,8 +139,7 @@ where
         ];
 
         // Checking whether the accumulated weight exceeds the quorum threshold
-        // We assume that NUM_ENTRIES is always a multiple of 2
-        let signed_amount_var = (0..STAKE_TABLE_CAPACITY / 2)
+        let mut signed_amount_var = (0..STAKE_TABLE_CAPACITY / 2)
             .map(|i| {
                 circuit.mul_add(
                     &[
@@ -153,6 +152,13 @@ where
                 )
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
+        // Adding the last if STAKE_TABLE_CAPACITY is not a multiple of 2
+        if STAKE_TABLE_CAPACITY % 2 == 1 {
+            signed_amount_var.push(circuit.mul(
+                stake_table_var[STAKE_TABLE_CAPACITY - 1].stake_amount,
+                signer_bit_vec_var[STAKE_TABLE_CAPACITY - 1].0,
+            )?);
+        }
         let acc_amount_var = circuit.sum(&signed_amount_var)?;
         circuit.enforce_leq(threshold_var, acc_amount_var)?;
 
@@ -188,7 +194,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{HotShotState, StateUpdateBuilder};
+    use super::{LightClientState, StateUpdateBuilder};
     use ark_ed_on_bn254::EdwardsConfig as Config;
     use ethereum_types::U256;
     use hotshot_stake_table::vec_based::StakeTable;
@@ -221,8 +227,10 @@ mod tests {
     ) -> StakeTable<BLSVerKey, SchnorrVerKey, F> {
         let mut st = StakeTable::<BLSVerKey, SchnorrVerKey, F>::new();
         // Registering keys
-        keys.iter()
-            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        keys.iter().enumerate().for_each(|(i, key)| {
+            st.register(key.0, U256::from((i + 1) as u32), key.1.clone())
+                .unwrap()
+        });
         // Freeze the stake table
         st.advance();
         st.advance();
@@ -242,27 +250,42 @@ mod tests {
             stake_table_comm: st.commitment(SnapshotVersion::LastEpochStart).unwrap(),
         };
 
-        let bit_vec_6 = [
-            true, true, true, true, true, true, false, false, false, false,
-        ];
+        let hotshot_state = HotShotState {
+            view_number: 0,
+            block_height: 0,
+            block_comm: F::default(),
+            fee_ledger_comm: F::default(),
+            stake_table_comm: st.commitment(SnapshotVersion::LastEpochStart).unwrap(),
+        };
 
+        // bit vector with total weight 26
+        let bit_vec = [
+            true, true, true, false, true, true, false, false, true, false,
+        ];
         // good path
         let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
-            &hotshot_state,
+            &HotShotState::default(),
             &bit_vec_6,
             &U256::from(600u32),
         )
         .unwrap();
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
-        // bad path: threshold requirement doesn't meet
+        // bad path: total weight doesn't meet the threshold
+        // bit vector with total weight 23
+        let bad_bit_vec = [
+            true, true, true, true, true, false, false, true, false, false,
+        ];
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &[],
+            &LightClientState::default(),
+            &bad_bit_vec,
+            &U256::from(25u32),
             &hotshot_state,
-            &bit_vec_6,
+            &bad_bit_vec,
             &U256::from(700u32),
         )
         .unwrap();

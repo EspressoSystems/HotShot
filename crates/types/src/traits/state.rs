@@ -222,7 +222,7 @@ pub mod dummy {
 
 /// A serialized consensus state for proof generation
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
-pub struct HotShotStateForProver<F: PrimeField> {
+pub struct LightClientState<F: PrimeField> {
     /// Current view number
     pub view_number: usize,
     /// Current block height
