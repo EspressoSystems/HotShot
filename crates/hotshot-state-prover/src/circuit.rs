@@ -12,7 +12,6 @@ use hotshot_types::traits::{
 };
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
-    circuit::{rescue::RescueNativeGadget, signature::schnorr::VerKeyVar},
     circuit::{
         rescue::RescueNativeGadget,
         signature::schnorr::{SignatureGadget, SignatureVar, VerKeyVar},
@@ -23,7 +22,6 @@ use jf_primitives::{
         schnorr::{Signature, VerKey as SchnorrVerKey},
     },
 };
-use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit, Variable};
 use jf_relation::{errors::CircuitError, BoolVar, Circuit, PlonkCircuit, Variable};
 
 /// Lossy conversion of a U256 into a field element.
@@ -161,7 +159,6 @@ where
                 })
             })
             .collect::<Result<Vec<_>, CircuitError>>()?;
-        let dummy_ver_key_var = VerKeyVar(circuit.neutral_point_variable());
         let dummy_ver_key_var = VerKeyVar(circuit.neutral_point_variable());
         stake_table_var.resize(
             STAKE_TABLE_CAPACITY,
@@ -420,7 +417,6 @@ mod tests {
             &bit_masked_sigs,
             &lightclient_state,
             &bit_vec,
-            &U256::from(10u32),
             &U256::from(10u32),
         )
         .unwrap();
