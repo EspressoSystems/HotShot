@@ -461,7 +461,7 @@ mod tests {
             bad_lightclient_state.stake_table_comm.1,
             bad_lightclient_state.stake_table_comm.2,
         ];
-        let sig_for_wrong_state = schnorr_keys
+        let sig_for_bad_state = schnorr_keys
             .iter()
             .map(|(key, _)| {
                 SchnorrSignatureScheme::<Config>::sign(&(), key, bad_state_msg, &mut prng)
@@ -470,7 +470,7 @@ mod tests {
             .unwrap();
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
-            &sig_for_wrong_state,
+            &sig_for_bad_state,
             &bad_lightclient_state,
             &bit_vec,
             &U256::from(26u32),
@@ -481,9 +481,25 @@ mod tests {
             .is_err());
 
         // bad path: incorrect signatures
-        let wrong_sigs = (0..num_validators)
-            .map(|_| Signature::<Config>::default())
-            .collect::<Vec<_>>();
+        let mut wrong_light_client_state = lightclient_state.clone();
+        // state with a different bls key commitment
+        wrong_light_client_state.stake_table_comm.0 = F::default();
+        let wrong_state_msg = [
+            F::from(wrong_light_client_state.view_number as u64),
+            F::from(wrong_light_client_state.block_height as u64),
+            wrong_light_client_state.block_comm,
+            wrong_light_client_state.fee_ledger_comm,
+            wrong_light_client_state.stake_table_comm.0,
+            wrong_light_client_state.stake_table_comm.1,
+            wrong_light_client_state.stake_table_comm.2,
+        ];
+        let wrong_sigs = schnorr_keys
+            .iter()
+            .map(|(key, _)| {
+                SchnorrSignatureScheme::<Config>::sign(&(), key, wrong_state_msg, &mut prng)
+            })
+            .collect::<Result<Vec<_>, PrimitivesError>>()
+            .unwrap();
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
             &st,
             &wrong_sigs,
