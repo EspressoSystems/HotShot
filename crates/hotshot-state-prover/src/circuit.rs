@@ -449,9 +449,16 @@ mod tests {
 
         // bad path: bad stake table commitment
         let mut bad_lightclient_state = lightclient_state.clone();
-        bad_lightclient_state.stake_table_comm.0 = F::default();
-        let mut bad_state_msg = state_msg;
-        bad_state_msg[4] = F::default();
+        bad_lightclient_state.stake_table_comm.1 = F::default();
+        let bad_state_msg = [
+            F::from(bad_lightclient_state.view_number as u64),
+            F::from(bad_lightclient_state.block_height as u64),
+            bad_lightclient_state.block_comm,
+            bad_lightclient_state.fee_ledger_comm,
+            bad_lightclient_state.stake_table_comm.0,
+            bad_lightclient_state.stake_table_comm.1,
+            bad_lightclient_state.stake_table_comm.2,
+        ];
         let sig_for_wrong_state = schnorr_keys
             .iter()
             .map(|(key, _)| {
