@@ -407,7 +407,6 @@ mod tests {
             &U256::from(26u32),
         )
         .unwrap();
-        ark_std::println!("{}", circuit.num_gates());
         assert!(circuit.check_circuit_satisfiability(&public_inputs).is_ok());
 
         let (circuit, public_inputs) = StateUpdateBuilder::<F>::build(
@@ -473,7 +472,7 @@ mod tests {
             .is_err());
 
         // bad path: incorrect signatures
-        let wrong_sigs = (0..10)
+        let wrong_sigs = (0..num_validators)
             .map(|_| Signature::<Config>::default())
             .collect::<Vec<_>>();
         let (bad_circuit, public_inputs) = StateUpdateBuilder::<F>::build(
