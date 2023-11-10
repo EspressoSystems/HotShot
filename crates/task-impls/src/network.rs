@@ -17,7 +17,6 @@ use hotshot_types::{
         network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
     },
-    vote::VoteType,
     vote2::{HasViewNumber, Vote2},
 };
 use snafu::Snafu;
@@ -231,20 +230,20 @@ impl<
                 None,
             ),
             HotShotEvent::VidVoteSend(vote) => (
-                vote.signature_key(),
+                vote.get_signing_key(),
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::VidVote(vote.clone()),
                 ))),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.get_view())), // TODO who is VID leader? https://github.com/EspressoSystems/HotShot/issues/1699
+                Some(membership.get_leader(vote.get_view_number())),
             ),
             HotShotEvent::DAVoteSend(vote) => (
-                vote.signature_key(),
+                vote.get_signing_key(),
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::DAVote(vote.clone()),
                 ))),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.get_view())),
+                Some(membership.get_leader(vote.get_view_number())),
             ),
             HotShotEvent::VidCertSend(certificate, sender) => (
                 sender,
@@ -283,12 +282,12 @@ impl<
                 )
             }
             HotShotEvent::TimeoutVoteSend(vote) => (
-                vote.get_key(),
+                vote.get_signing_key(),
                 MessageKind::<TYPES, I>::from_consensus_message(SequencingMessage(Left(
                     GeneralConsensusMessage::TimeoutVote(vote.clone()),
                 ))),
                 TransmitType::Direct,
-                Some(membership.get_leader(vote.get_view() + 1)),
+                Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;

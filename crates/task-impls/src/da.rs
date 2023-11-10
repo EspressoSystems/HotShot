@@ -12,15 +12,14 @@ use hotshot_task::{
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::vote::DAVoteAccumulator;
 use hotshot_types::{
-    certificate::DACertificate,
     consensus::{Consensus, View},
     data::{DAProposal, Leaf, ProposalType},
     message::{Message, Proposal, SequencingMessage},
+    simple_vote::{DAData, DAVote2},
     traits::{
         consensus_api::ConsensusApi,
-        election::{CommitteeExchangeType, ConsensusExchange, Membership, SignedCertificate},
+        election::{CommitteeExchangeType, ConsensusExchange, Membership},
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{CommitteeEx, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -28,6 +27,11 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::ViewInner,
+    vote2::HasViewNumber,
+    vote2::VoteAccumulator2,
+};
+use hotshot_types::{
+    simple_certificate::DACertificate2, traits::node_implementation::CommitteeMembership,
 };
 
 use snafu::Snafu;
@@ -44,12 +48,8 @@ pub struct DATaskState<
     I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>, ConsensusMessage = SequencingMessage<TYPES, I>>,
     A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
 > where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
     /// The state's api
     pub api: A,
@@ -80,25 +80,20 @@ pub struct DAVoteCollectionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>>,
 > where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
     /// the committee exchange
     pub committee_exchange: Arc<CommitteeEx<TYPES, I>>,
     #[allow(clippy::type_complexity)]
     /// Accumulates DA votes
     pub accumulator: Either<
-        <DACertificate<TYPES> as SignedCertificate<
+        VoteAccumulator2<
             TYPES,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            Commitment<TYPES::BlockPayload>,
-        >>::VoteAccumulator,
-        DACertificate<TYPES>,
+            DAVote2<TYPES, CommitteeMembership<TYPES, I>>,
+            DACertificate2<TYPES>,
+        >,
+        DACertificate2<TYPES>,
     >,
     /// the current view
     pub cur_view: TYPES::Time,
@@ -111,12 +106,8 @@ pub struct DAVoteCollectionTaskState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Leaf<TYPES>>> TS
     for DAVoteCollectionTaskState<TYPES, I>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
 }
 
@@ -129,17 +120,13 @@ async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES, Leaf = Leaf<T
     DAVoteCollectionTaskState<TYPES, I>,
 )
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
     match event {
         HotShotEvent::DAVoteRecv(vote) => {
-            debug!("DA vote recv, collection task {:?}", vote.current_view);
-            // panic!("Vote handle received DA vote for view {}", *vote.current_view);
+            debug!("DA vote recv, collection task {:?}", vote.get_view_number());
+            // panic!("Vote handle received DA vote for view {}", *vote.get_view_number());
 
             // For the case where we receive votes after we've made a certificate
             if state.accumulator.is_right() {
@@ -149,11 +136,7 @@ where
 
             let accumulator = state.accumulator.left().unwrap();
 
-            match state.committee_exchange.accumulate_vote(
-                accumulator,
-                &vote,
-                &vote.payload_commitment,
-            ) {
+            match accumulator.accumulate(&vote, state.committee_exchange.membership()) {
                 Left(new_accumulator) => {
                     state.accumulator = either::Left(new_accumulator);
                 }
@@ -200,12 +183,8 @@ impl<
         A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
     > DATaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
@@ -260,18 +239,21 @@ where
                     Ok(None) => {
                         debug!("We were not chosen for DA committee on {:?}", view);
                     }
-                    Ok(Some(vote_token)) => {
+                    Ok(Some(_vote_token)) => {
                         // Generate and send vote
-                        let vote = self.committee_exchange.create_da_message(
-                            payload_commitment,
+                        let vote = DAVote2::create_signed_vote(
+                            DAData {
+                                payload_commit: payload_commitment,
+                            },
                             view,
-                            vote_token,
+                            self.committee_exchange.public_key(),
+                            self.committee_exchange.private_key(),
                         );
 
                         // ED Don't think this is necessary?
                         // self.cur_view = view;
 
-                        debug!("Sending vote to the DA leader {:?}", vote.current_view);
+                        debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
                         self.event_stream
                             .publish(HotShotEvent::DAVoteSend(vote))
                             .await;
@@ -294,9 +276,9 @@ where
                 }
             }
             HotShotEvent::DAVoteRecv(vote) => {
-                debug!("DA vote recv, Main Task {:?}", vote.current_view,);
+                debug!("DA vote recv, Main Task {:?}", vote.get_view_number(),);
                 // Check if we are the leader and the vote is from the sender.
-                let view = vote.current_view;
+                let view = vote.get_view_number();
                 if !self.committee_exchange.is_leader(view) {
                     error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.committee_exchange.is_leader(view + 1));
                     return None;
@@ -317,21 +299,17 @@ where
                         TYPES::Time::new(0)
                     };
 
-                let new_accumulator = DAVoteAccumulator {
-                    da_vote_outcomes: HashMap::new(),
-                    success_threshold: self.committee_exchange.success_threshold(),
-                    sig_lists: Vec::new(),
-                    signers: bitvec![0; self.committee_exchange.total_nodes()],
-                    phantom: PhantomData,
-                };
-
-                let accumulator = self.committee_exchange.accumulate_vote(
-                    new_accumulator,
-                    &vote,
-                    &vote.clone().payload_commitment,
-                );
-
                 if view > collection_view {
+                    let new_accumulator = VoteAccumulator2 {
+                        vote_outcomes: HashMap::new(),
+                        sig_lists: Vec::new(),
+                        signers: bitvec![0; self.committee_exchange.total_nodes()],
+                        phantom: PhantomData,
+                    };
+
+                    let accumulator =
+                        new_accumulator.accumulate(&vote, self.committee_exchange.membership());
+
                     let state = DAVoteCollectionTaskState {
                         committee_exchange: self.committee_exchange.clone(),
 
@@ -489,12 +467,8 @@ impl<
         A: ConsensusApi<TYPES, Leaf<TYPES>, I> + 'static,
     > TS for DATaskState<TYPES, I, A>
 where
-    CommitteeEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Certificate = DACertificate<TYPES>,
-        Commitment = Commitment<TYPES::BlockPayload>,
-    >,
+    CommitteeEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
 {
 }
 
