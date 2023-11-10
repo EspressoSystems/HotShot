@@ -311,16 +311,17 @@ mod tests {
     type SchnorrSignKey = jf_primitives::signatures::schnorr::SignKey<ark_ed_on_bn254::Fr>;
 
     fn key_pairs_for_testing<R: CryptoRng + RngCore>(
+        num_validators: usize,
         prng: &mut R,
     ) -> (Vec<BLSVerKey>, Vec<(SchnorrSignKey, SchnorrVerKey)>) {
-        let bls_keys = (0..10)
+        let bls_keys = (0..num_validators)
             .map(|_| {
                 BLSOverBN254CurveSignatureScheme::key_gen(&(), prng)
                     .unwrap()
                     .1
             })
             .collect::<Vec<_>>();
-        let schnorr_keys = (0..10)
+        let schnorr_keys = (0..num_validators)
             .map(|_| SchnorrSignatureScheme::key_gen(&(), prng).unwrap())
             .collect::<Vec<_>>();
         (bls_keys, schnorr_keys)
@@ -346,9 +347,10 @@ mod tests {
 
     #[test]
     fn test_circuit_building() {
+        let num_validators = 10;
         let mut prng = test_rng();
 
-        let (bls_keys, schnorr_keys) = key_pairs_for_testing(&mut prng);
+        let (bls_keys, schnorr_keys) = key_pairs_for_testing(num_validators, &mut prng);
         let st = stake_table_for_testing(&bls_keys, &schnorr_keys);
 
         let block_comm =
@@ -359,8 +361,8 @@ mod tests {
                 [0];
 
         let lightclient_state = LightClientState {
-            view_number: 24,
-            block_height: 738,
+            view_number: 100,
+            block_height: 73,
             block_comm,
             fee_ledger_comm,
             stake_table_comm: st.commitment(SnapshotVersion::LastEpochStart).unwrap(),
@@ -447,14 +449,10 @@ mod tests {
             .is_err());
 
         // bad path: bad stake table commitment
-        let bad_lightclient_state = LightClientState {
-            view_number: 0,
-            block_height: 0,
-            block_comm: F::default(),
-            fee_ledger_comm: F::default(),
-            stake_table_comm: (F::default(), F::default(), F::default()),
-        };
-        let bad_state_msg = [F::default(); 7];
+        let mut bad_lightclient_state = lightclient_state.clone();
+        bad_lightclient_state.stake_table_comm.0 = F::default();
+        let mut bad_state_msg = state_msg;
+        bad_state_msg[4] = F::default();
         let sig_for_wrong_state = schnorr_keys
             .iter()
             .map(|(key, _)| {
