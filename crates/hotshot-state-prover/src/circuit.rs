@@ -127,7 +127,6 @@ where
     /// - stake table entries (`Vec<(BLSVerKey, Amount, SchnorrVerKey)>`)
     /// - schnorr signatures of the updated states (`Vec<SchnorrSignature>`)
     /// - updated light client state (`(view_number, block_height, block_comm, fee_ledger_comm, stake_table_comm)`)
-    /// - updated light client state (`(view_number, block_height, block_comm, fee_ledger_comm, stake_table_comm)`)
     /// - signer bit vector
     /// - quorum threshold
     /// checks that
