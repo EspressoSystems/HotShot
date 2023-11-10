@@ -7,7 +7,6 @@ use async_compatibility_layer::channel::oneshot;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
 use hotshot::demo::DemoTypes;
-use hotshot::types::SignatureKey;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::node_implementation::NodeType;
@@ -52,7 +51,6 @@ async fn main() {
         {
             error!("Problem starting cdn web server: {:?}", e);
         }
-        error!("cdn");
     });
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
@@ -62,7 +60,6 @@ async fn main() {
         {
             error!("Problem starting da web server: {:?}", e);
         }
-        error!("da");
     });
 
     // orchestrator
@@ -83,7 +80,6 @@ async fn main() {
     // nodes
     let config: NetworkConfig<
         <DemoTypes as NodeType>::SignatureKey,
-        <<DemoTypes as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry,
         <DemoTypes as NodeType>::ElectionConfigType,
     > = load_config_from_file::<DemoTypes>(args.config_file);
     let mut nodes = Vec::new();

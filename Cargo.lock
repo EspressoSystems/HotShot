@@ -2726,6 +2726,7 @@ dependencies = [
  "blake3",
  "clap",
  "futures",
+ "hotshot-signature-key",
  "hotshot-types",
  "hotshot-utils",
  "libp2p",
@@ -2813,6 +2814,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-state-prover"
+version = "0.3.3"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ed-on-bn254",
+ "ark-ff",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "bincode",
+ "bitvec",
+ "digest 0.10.7",
+ "displaydoc",
+ "ethereum-types",
+ "generic-array",
+ "hotshot-stake-table",
+ "hotshot-types",
+ "jf-plonk",
+ "jf-primitives",
+ "jf-relation",
+ "jf-utils",
+ "serde",
+ "tagged-base64 0.3.0",
+ "typenum",
+]
+
+[[package]]
 name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
@@ -2875,6 +2903,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -2894,6 +2923,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "ark-bls12-381",
+ "ark-ff",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",
  "async-compatibility-layer",
@@ -2918,6 +2948,7 @@ dependencies = [
  "hotshot-constants",
  "hotshot-task",
  "hotshot-utils",
+ "jf-plonk",
  "jf-primitives",
  "jf-utils",
  "libp2p-networking",
@@ -3379,6 +3410,35 @@ name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
+
+[[package]]
+name = "jf-plonk"
+version = "0.4.0-pre.0"
+source = "git+https://github.com/EspressoSystems/jellyfish#c0b88424ac1c362c2066971d0da5c43e8832ed5f"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "derivative",
+ "displaydoc",
+ "downcast-rs",
+ "dyn-clone 1.0.14",
+ "espresso-systems-common 0.4.0",
+ "hashbrown 0.13.2",
+ "itertools 0.10.5",
+ "jf-primitives",
+ "jf-relation",
+ "jf-utils",
+ "merlin",
+ "num-bigint",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "serde",
+ "sha3",
+ "tagged-base64 0.3.3",
+]
 
 [[package]]
 name = "jf-primitives"
@@ -5969,9 +6029,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96426c9936fd7a0124915f9185ea1d20aa9445cc9821142f0a73bc9207a2e186"
+checksum = "12022b835073e5b11e90a14f86838ceb1c8fb0325b72416845c487ac0fa95e80"
 dependencies = [
  "serde",
 ]
@@ -7088,9 +7148,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.3"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
+checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
 dependencies = [
  "serde",
 ]
