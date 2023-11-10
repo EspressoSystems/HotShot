@@ -95,7 +95,7 @@ async fn test_combined_network_webserver_crash() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>()
+        .gen_launcher::<TestTypes, CombinedImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -158,7 +158,7 @@ async fn test_combined_network_reup() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>()
+        .gen_launcher::<TestTypes, CombinedImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -212,7 +212,7 @@ async fn test_combined_network_half_dc() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>()
+        .gen_launcher::<TestTypes, CombinedImpl>(0)
         .launch()
         .run_test()
         .await;
