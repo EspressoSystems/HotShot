@@ -50,7 +50,7 @@ _or_ leaves that extend from a QC with a view number higher than that of any QC 
 
 ### View Timeouts
 
-The particular method a node uses to determine if a round has timed out is not important for saftey,
+The particular method a node uses to determine if a round has timed out is not important for safety,
 but is critical for liveness.
 
 Currently, nodes apply an approach where the timeout normally takes on a set value, but engages in
@@ -209,9 +209,9 @@ fn safe_node(
     proposal_node: Leaf,
     proposal_justifcation: QuorumCertificate,
 ) -> bool {
-    let saftey_rule = proposal_node.extends_from(hot_shot.locked_qc);
+    let safety_rule = proposal_node.extends_from(hot_shot.locked_qc);
     let liveness_rule = proposal_justifcation.view_number > hot_shot.locked_qc;
-    saftey_rule || liveness_rule
+    safety_rule || liveness_rule
 }
 ```
 
@@ -219,7 +219,7 @@ In essence, a node is safe if it either extends from the nodes current locked_qc
 justification quorum certificate with a view number higher than that of the node's current
 locked_qc.
 
-[^1]: Though, it should be noted, that it technically valid for the election process to specifiy
+[^1]: Though, it should be noted, that it technically valid for the election process to specify
     arbitrarily many leaders for a round, but at most one of them will be able to make progress
 
 [^2]: The network will complete a view and move on to the next one as fast as network conditions,
