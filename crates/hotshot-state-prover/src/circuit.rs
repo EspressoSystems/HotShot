@@ -34,19 +34,84 @@ pub(crate) fn u256_to_field<F: PrimeField>(v: &U256) -> F {
 /// Variable for stake table entry
 #[derive(Clone, Debug)]
 pub struct StakeTableEntryVar {
+    /// Schnorr verification keys
     pub schnorr_ver_key: VerKeyVar,
+    /// Stake amount
     pub stake_amount: Variable,
 }
 
+/// Variable for a stake table commitment
+#[derive(Clone, Debug)]
+pub struct StakeTableCommVar {
+    /// Commitment for BLS keys
+    pub bls_keys_comm: Variable,
+    /// Commitment for Schnorr keys
+    pub schnorr_keys_comm: Variable,
+    /// Commitment for stake amount
+    pub stake_amount_comm: Variable,
+}
+
 /// Light client state Variable
-/// The stake table commitment is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm).
 #[derive(Clone, Debug)]
 pub struct LightClientStateVar {
-    pub view_number_var: Variable,
-    pub block_height_var: Variable,
-    pub block_comm_var: Variable,
-    pub fee_ledger_comm_var: Variable,
-    pub stake_table_comm_var: (Variable, Variable, Variable),
+    /// Private list holding all variables
+    ///  vars[0]: view number
+    ///  vars[1]: block height
+    ///  vars[2]: block commitment
+    ///  vars[3]: fee ledger commitment
+    ///  vars[4-6]: stake table commitment
+    vars: [Variable; 7],
+}
+
+impl LightClientStateVar {
+    pub fn new<F: PrimeField>(
+        circuit: &mut PlonkCircuit<F>,
+        state: &LightClientState<F>,
+    ) -> Result<Self, CircuitError> {
+        let view_number_f = F::from(state.view_number as u64);
+        let block_height_f = F::from(state.block_height as u64);
+        Ok(Self {
+            vars: [
+                circuit.create_public_variable(view_number_f)?,
+                circuit.create_public_variable(block_height_f)?,
+                circuit.create_public_variable(state.block_comm)?,
+                circuit.create_public_variable(state.fee_ledger_comm)?,
+                circuit.create_public_variable(state.stake_table_comm.0)?,
+                circuit.create_public_variable(state.stake_table_comm.1)?,
+                circuit.create_public_variable(state.stake_table_comm.2)?,
+            ],
+        })
+    }
+
+    pub fn view_number(&self) -> Variable {
+        self.vars[0]
+    }
+
+    pub fn block_height(&self) -> Variable {
+        self.vars[1]
+    }
+
+    pub fn block_comm(&self) -> Variable {
+        self.vars[2]
+    }
+
+    pub fn fee_ledger_comm(&self) -> Variable {
+        self.vars[3]
+    }
+
+    pub fn stake_table_comm(&self) -> StakeTableCommVar {
+        StakeTableCommVar {
+            bls_keys_comm: self.vars[4],
+            schnorr_keys_comm: self.vars[5],
+            stake_amount_comm: self.vars[6],
+        }
+    }
+}
+
+impl AsRef<[Variable]> for LightClientStateVar {
+    fn as_ref(&self) -> &[Variable] {
+        &self.vars
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -123,18 +188,10 @@ where
         let threshold = u256_to_field::<F>(threshold);
         let threshold_var = circuit.create_public_variable(threshold)?;
 
+        let lightclient_state_var = LightClientStateVar::new(&mut circuit, lightclient_state)?;
+
         let view_number_f = F::from(lightclient_state.view_number as u64);
         let block_height_f = F::from(lightclient_state.block_height as u64);
-        let lightclient_state_var = [
-            circuit.create_public_variable(view_number_f)?,
-            circuit.create_public_variable(block_height_f)?,
-            circuit.create_public_variable(lightclient_state.block_comm)?,
-            circuit.create_public_variable(lightclient_state.fee_ledger_comm)?,
-            circuit.create_public_variable(lightclient_state.stake_table_comm.0)?,
-            circuit.create_public_variable(lightclient_state.stake_table_comm.1)?,
-            circuit.create_public_variable(lightclient_state.stake_table_comm.2)?,
-        ];
-
         let public_inputs = vec![
             threshold,
             view_number_f,
@@ -180,7 +237,10 @@ where
             &schnorr_ver_key_preimage_vars,
             1,
         )?[0];
-        circuit.enforce_equal(schnorr_ver_key_comm, lightclient_state_var[5])?;
+        circuit.enforce_equal(
+            schnorr_ver_key_comm,
+            lightclient_state_var.stake_table_comm().schnorr_keys_comm,
+        )?;
 
         // checking the commitment for the list of stake amounts
         let stake_amount_preimage_vars = stake_table_var
@@ -192,7 +252,10 @@ where
             &stake_amount_preimage_vars,
             1,
         )?[0];
-        circuit.enforce_equal(stake_amount_comm, lightclient_state_var[6])?;
+        circuit.enforce_equal(
+            stake_amount_comm,
+            lightclient_state_var.stake_table_comm().stake_amount_comm,
+        )?;
 
         // checking all signatures
         let verification_result_vars = stake_table_var
@@ -202,7 +265,7 @@ where
                 SignatureGadget::<_, P>::check_signature_validity(
                     &mut circuit,
                     &entry.schnorr_ver_key,
-                    &lightclient_state_var,
+                    lightclient_state_var.as_ref(),
                     &sig,
                 )
             })
