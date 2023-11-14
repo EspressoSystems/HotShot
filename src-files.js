@@ -1,4 +1,4 @@
-var sourcesIndex = JSON.parse('{\
+var srcIndex = JSON.parse('{\
 "counter":["",[],["counter.rs"]],\
 "hotshot":["",[["demos",[],["sdemo.rs","vdemo.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["libp2p_network.rs","memory_network.rs","web_server_libp2p_fallback.rs","web_server_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
 "hotshot_orchestrator":["",[],["client.rs","config.rs","lib.rs"]],\
@@ -18,4 +18,4 @@ var sourcesIndex = JSON.parse('{\
 "web_server_da_orchestrator":["",[["infra",[],["mod.rs","modDA.rs"]]],["orchestrator.rs","types.rs"]],\
 "web_server_da_validator":["",[["infra",[],["mod.rs","modDA.rs"]]],["types.rs","validator.rs"]]\
 }');
-createSourceSidebar();
+createSrcSidebar();
