@@ -30,7 +30,7 @@ resolver = "2"
 [workspace.dependencies]
 ark-bls12-381 = "0.4"
 ark-ec = "0.4"
-ark-serialize = "0.4" # features = ["derive"]
+ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.1", default-features = false, features = [
         "logging-utils",
@@ -44,7 +44,7 @@ bitvec = { version = "1.0.1", default-features = false, features = [
         "serde",
 ] }
 blake3 = "1.4"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.3" }
 custom_debug = "0.5"
 digest = "0.10"
 either = { version = "1.8" }
@@ -62,9 +62,11 @@ rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.188", features = ["derive"] }
 snafu = "0.7.5"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.2" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.3" }
+tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.3" }
 time = "0.3.28"
-toml = "0.7.8"
+toml = "0.8"
 tracing = "0.1.37"
 typenum = "1.16.0"
 libp2p = { package = "libp2p", version = "0.52.3", features = [
