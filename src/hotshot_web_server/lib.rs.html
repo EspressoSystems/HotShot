@@ -1162,7 +1162,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>api = <span class="kw">match </span><span class="kw-2">&amp;</span>options.api_path {
         <span class="prelude-val">Some</span>(path) =&gt; Api::&lt;State, Error&gt;::from_file(path)<span class="question-mark">?</span>,
         <span class="prelude-val">None </span>=&gt; {
-            <span class="kw">let </span>toml = toml::from_str(<span class="macro">include_str!</span>(<span class="string">&quot;../api.toml&quot;</span>)).map_err(|err| {
+            <span class="kw">let </span>toml: toml::Value = toml::from_str(<span class="macro">include_str!</span>(<span class="string">&quot;../api.toml&quot;</span>)).map_err(|err| {
                 ApiError::CannotReadToml {
                     reason: err.to_string(),
                 }
