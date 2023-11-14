@@ -14,7 +14,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::{DAProposal, ProposalType},
+    data::DAProposal,
     message::{Message, Proposal, SequencingMessage},
     simple_vote::{DAData, DAVote2},
     traits::{
@@ -403,7 +403,11 @@ where
                 };
                 debug!("Sending DA proposal for view {:?}", data.view_number);
 
-                let message = Proposal { data, signature };
+                let message = Proposal {
+                    data,
+                    signature,
+                    _pd: PhantomData,
+                };
 
                 self.event_stream
                     .publish(HotShotEvent::SendPayloadCommitment(payload_commitment))

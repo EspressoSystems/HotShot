@@ -27,7 +27,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     block_impl::{VIDBlockPayload, VIDTransaction},
     certificate::ViewSyncCertificate,
-    data::{Leaf, ProposalType, QuorumProposal},
+    data::Leaf,
     event::Event,
     message::{Message, Messages, SequencingMessage},
     traits::{
@@ -63,10 +63,8 @@ pub enum GlobalEvent {
 pub async fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Proposal = PROPOSAL, Membership = MEMBERSHIP>
-        + 'static,
+    EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Membership = MEMBERSHIP> + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
@@ -162,10 +160,8 @@ where
 pub async fn add_network_event_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Proposal = PROPOSAL, Membership = MEMBERSHIP>
-        + 'static,
+    EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Membership = MEMBERSHIP> + 'static,
 >(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
@@ -236,20 +232,12 @@ pub async fn add_consensus_task<
     handle: SystemContextHandle<TYPES, I>,
 ) -> TaskRunner
 where
-    QuorumEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES>,
-        Commitment = Commitment<Leaf<TYPES>>,
-    >,
+    QuorumEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<Leaf<TYPES>>>,
     CommitteeEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
-    TimeoutEx<TYPES, I>: ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-        Proposal = QuorumProposal<TYPES>,
-        Commitment = Commitment<TYPES::Time>,
-    >,
+    TimeoutEx<TYPES, I>:
+        ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::Time>>,
 {
     let consensus = handle.hotshot.get_consensus();
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -521,7 +509,6 @@ where
     ViewSyncEx<TYPES, I>: ViewSyncExchangeType<
         TYPES,
         Message<TYPES, I>,
-        Proposal = ViewSyncCertificate<TYPES>,
         Certificate = ViewSyncCertificate<TYPES>,
         Commitment = Commitment<ViewSyncData<TYPES>>,
     >,
