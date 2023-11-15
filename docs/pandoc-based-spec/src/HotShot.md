@@ -171,7 +171,7 @@ impl QC {
 struct HotShot {
     generic_qc: QC,
     locked_qc: QC,
-    /// Most recently comitted state
+    /// Most recently committed state
     state: State,
     /// Some public/private state pair suitable for use with a vrf
     vrf_state: VRFState,
