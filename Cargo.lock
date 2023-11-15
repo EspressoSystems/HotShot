@@ -3413,7 +3413,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3436,13 +3436,13 @@ dependencies = [
  "rayon",
  "serde",
  "sha3",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
 ]
 
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3478,7 +3478,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
  "typenum",
  "zeroize",
 ]
@@ -3486,7 +3486,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3512,7 +3512,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3522,7 +3522,7 @@ dependencies = [
  "rayon",
  "serde",
  "sha2 0.10.8",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
 ]
 
 [[package]]
@@ -6725,13 +6725,12 @@ dependencies = [
 
 [[package]]
 name = "tagged-base64"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
+version = "0.3.4"
+source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
 dependencies = [
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
- "base64 0.13.1",
+ "base64 0.21.4",
  "crc-any",
  "serde",
  "snafu",
@@ -6770,8 +6769,7 @@ dependencies = [
 [[package]]
 name = "tagged-base64-macros"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71636a96f40b6ea3d969182ce22ad8042d5a38839ce448fff3cef4dec80f7589"
+source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
 dependencies = [
  "quote",
  "syn 1.0.109",
