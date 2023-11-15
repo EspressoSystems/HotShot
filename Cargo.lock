@@ -1289,7 +1289,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.3.4",
+ "tagged-base64",
 ]
 
 [[package]]
@@ -2701,7 +2701,7 @@ dependencies = [
  "jf-utils",
  "rand_chacha 0.3.1",
  "serde",
- "tagged-base64 0.3.4",
+ "tagged-base64",
  "typenum",
 ]
 
@@ -2820,7 +2820,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "tagged-base64 0.3.4",
+ "tagged-base64",
  "time 0.3.29",
  "tokio",
  "tracing",
@@ -3253,7 +3253,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3277,7 +3277,6 @@ dependencies = [
  "digest 0.10.7",
  "displaydoc",
  "espresso-systems-common 0.4.0",
- "generic-array",
  "hashbrown 0.13.2",
  "itertools 0.10.5",
  "jf-relation",
@@ -3290,7 +3289,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "tagged-base64 0.3.3",
+ "tagged-base64",
  "typenum",
  "zeroize",
 ]
@@ -3298,7 +3297,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3324,7 +3323,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#30752c6c1af7b933e2536d7aeb991a40af4b806a"
+source = "git+https://github.com/EspressoSystems/jellyfish#1a9db506f011b168ead863e1dfcb5fd094fa2550"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3334,7 +3333,7 @@ dependencies = [
  "rayon",
  "serde",
  "sha2 0.10.8",
- "tagged-base64 0.3.3",
+ "tagged-base64",
 ]
 
 [[package]]
@@ -6301,22 +6300,6 @@ dependencies = [
 
 [[package]]
 name = "tagged-base64"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
-dependencies = [
- "ark-serialize",
- "ark-std",
- "base64 0.13.1",
- "crc-any",
- "serde",
- "snafu",
- "tagged-base64-macros 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "tagged-base64"
 version = "0.3.4"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
 dependencies = [
@@ -6326,18 +6309,8 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu",
- "tagged-base64-macros 0.3.3 (git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4)",
+ "tagged-base64-macros",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "tagged-base64-macros"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71636a96f40b6ea3d969182ce22ad8042d5a38839ce448fff3cef4dec80f7589"
-dependencies = [
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -6440,7 +6413,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "surf",
- "tagged-base64 0.3.4",
+ "tagged-base64",
  "tide",
  "tide-websockets",
  "toml 0.8.2",
