@@ -5,15 +5,18 @@
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
-use crate::traits::election::static_committee::{StaticElectionConfig, StaticVoteToken};
+use crate::traits::election::static_committee::{
+    GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
+};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 
 use hotshot_signature_key::bn254::BLSPubKey;
 use hotshot_types::{
-    block_impl::{BlockPayloadError, VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
     data::{fake_commitment, ViewNumber},
     traits::{
+        block_contents::BlockError,
         election::Membership,
         node_implementation::NodeType,
         state::{ConsensusTime, TestableState},
@@ -60,7 +63,7 @@ impl Default for DemoState {
 }
 
 impl State for DemoState {
-    type Error = BlockPayloadError;
+    type Error = BlockError;
 
     type BlockHeader = VIDBlockHeader;
 
@@ -88,7 +91,7 @@ impl State for DemoState {
         view_number: &Self::Time,
     ) -> Result<Self, Self::Error> {
         if !self.validate_block(block_header, view_number) {
-            return Err(BlockPayloadError::InvalidBlock);
+            return Err(BlockError::InvalidBlockHeader);
         }
 
         Ok(DemoState {
@@ -138,6 +141,9 @@ impl NodeType for DemoTypes {
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DemoState;
 }
+
+/// Alias for the static committee used in the Demo apps
+pub type DemoMembership = GeneralStaticCommittee<DemoTypes, <DemoTypes as NodeType>::SignatureKey>;
 
 /// The node implementation for the sequencing demo
 #[derive(Derivative)]
