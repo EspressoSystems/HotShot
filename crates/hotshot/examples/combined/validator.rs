@@ -4,7 +4,8 @@ use hotshot::demo::DemoTypes;
 use tracing::{info, instrument};
 use types::VIDNetwork;
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun, ViewSyncNetwork};
+use hotshot::demo::DemoMembership;
 
 use hotshot_orchestrator::client::ValidatorArgs;
 
@@ -29,7 +30,7 @@ async fn main() {
     );
     infra::main_entry_point::<
         DemoTypes,
-        ThisMembership,
+        DemoMembership,
         DANetwork,
         QuorumNetwork,
         ViewSyncNetwork,

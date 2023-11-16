@@ -2,7 +2,7 @@ pub mod types;
 
 use crate::infra::load_config_from_file;
 use crate::infra::{ConfigArgs, OrchestratorArgs};
-use crate::types::{ThisMembership, ThisRun};
+use crate::types::ThisRun;
 use crate::{
     infra::run_orchestrator,
     types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork},
@@ -15,7 +15,7 @@ pub mod infra;
 
 use async_compatibility_layer::{art::async_spawn, channel::oneshot};
 use clap::Parser;
-use hotshot::demo::DemoTypes;
+use hotshot::demo::{DemoMembership, DemoTypes};
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::node_implementation::NodeType;
@@ -56,7 +56,7 @@ async fn main() {
     // web server orchestrator
     async_spawn(run_orchestrator::<
         DemoTypes,
-        ThisMembership,
+        DemoMembership,
         DANetwork,
         QuorumNetwork,
         ViewSyncNetwork,
@@ -78,7 +78,7 @@ async fn main() {
         let node = async_spawn(async move {
             infra::main_entry_point::<
                 DemoTypes,
-                ThisMembership,
+                DemoMembership,
                 DANetwork,
                 QuorumNetwork,
                 ViewSyncNetwork,

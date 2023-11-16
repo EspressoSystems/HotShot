@@ -4,11 +4,12 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
 use hotshot::demo::DemoTypes;
 use tracing::instrument;
-use types::{ThisMembership, VIDNetwork};
+use types::VIDNetwork;
 
 use crate::infra::run_orchestrator;
 use crate::infra::OrchestratorArgs;
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork};
+use hotshot::demo::DemoMembership;
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
@@ -26,7 +27,7 @@ async fn main() {
 
     run_orchestrator::<
         DemoTypes,
-        ThisMembership,
+        DemoMembership,
         DANetwork,
         QuorumNetwork,
         ViewSyncNetwork,

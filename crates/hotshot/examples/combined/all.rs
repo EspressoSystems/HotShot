@@ -6,6 +6,7 @@ use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::channel::oneshot;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
+use hotshot::demo::DemoMembership;
 use hotshot::demo::DemoTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
@@ -13,7 +14,6 @@ use hotshot_types::traits::node_implementation::NodeType;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use tracing::{error, instrument};
-use types::ThisMembership;
 
 use crate::{
     infra::run_orchestrator,
@@ -65,7 +65,7 @@ async fn main() {
     // orchestrator
     async_spawn(run_orchestrator::<
         DemoTypes,
-        ThisMembership,
+        DemoMembership,
         DANetwork,
         QuorumNetwork,
         ViewSyncNetwork,
@@ -87,7 +87,7 @@ async fn main() {
         let node = async_spawn(async move {
             infra::main_entry_point::<
                 DemoTypes,
-                ThisMembership,
+                DemoMembership,
                 DANetwork,
                 QuorumNetwork,
                 ViewSyncNetwork,

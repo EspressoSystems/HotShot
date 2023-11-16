@@ -9,7 +9,8 @@ use std::net::IpAddr;
 use tracing::instrument;
 use types::VIDNetwork;
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisMembership, ThisRun, ViewSyncNetwork};
+use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun, ViewSyncNetwork};
+use hotshot::demo::DemoMembership;
 
 pub mod types;
 
@@ -49,7 +50,7 @@ async fn main() {
         let node = async_spawn(async move {
             infra::main_entry_point::<
                 DemoTypes,
-                ThisMembership,
+                DemoMembership,
                 DANetwork,
                 QuorumNetwork,
                 ViewSyncNetwork,
