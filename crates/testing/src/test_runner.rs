@@ -67,7 +67,6 @@ where
     where
         I::Exchanges: ExchangesType<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
@@ -199,7 +198,6 @@ where
     where
         I::Exchanges: ExchangesType<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
@@ -210,8 +208,7 @@ where
             let node_id = self.next_node_id;
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
-            let initializer =
-                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
+            let initializer = HotShotInitializer::<TYPES>::from_genesis().unwrap();
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             // We assign node's public key and stake value rather than read from config file since it's a test
             let validator_config =
@@ -245,14 +242,13 @@ where
         &mut self,
         networks: Networks<TYPES, I>,
         storage: I::Storage,
-        initializer: HotShotInitializer<TYPES, I::Leaf>,
+        initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
     ) -> SystemContext<TYPES, I>
     where
         I::Exchanges: ExchangesType<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             ElectionConfigs = (TYPES::ElectionConfigType, I::CommitteeElectionConfig),
         >,
