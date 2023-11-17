@@ -60,8 +60,8 @@ use hotshot_types::{
     data::Leaf,
     error::StorageSnafu,
     message::{
-        ConsensusMessageType, DataMessage, InternalTrigger, Message, MessageKind,
-        ProcessedGeneralConsensusMessage, SequencingMessage,
+        DataMessage, InternalTrigger, Message, MessageKind, ProcessedGeneralConsensusMessage,
+        SequencingMessage,
     },
     traits::{
         consensus_api::{ConsensusApi, ConsensusSharedApi},
@@ -254,28 +254,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<
-            <I::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage,
-        >,
-        send_next_leader: Option<
-            UnboundedSender<
-                <I::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage,
-            >,
-        >,
-    ) where
-        <I::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage:
-            From<ProcessedGeneralConsensusMessage<TYPES, I>>,
-    {
+        send_replica: UnboundedSender<ProcessedGeneralConsensusMessage<TYPES, I>>,
+        send_next_leader: Option<UnboundedSender<ProcessedGeneralConsensusMessage<TYPES, I>>>,
+    ) {
         let msg = ProcessedGeneralConsensusMessage::<TYPES, I>::InternalTrigger(
             InternalTrigger::Timeout(current_view),
         );
         if let Some(chan) = send_next_leader {
-            if chan.send(msg.clone().into()).await.is_err() {
+            if chan.send(msg.clone()).await.is_err() {
                 debug!("Error timing out next leader task");
             }
         };
         // NOTE this should always exist
-        if send_replica.send(msg.into()).await.is_err() {
+        if send_replica.send(msg).await.is_err() {
             debug!("Error timing out replica task");
         };
     }
@@ -610,11 +601,8 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 #[async_trait]
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        MEMBERSHIP: Membership<TYPES>,
-    > HotShotType<TYPES, I> for SystemContext<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>>
+    HotShotType<TYPES, I> for SystemContext<TYPES, I>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
@@ -830,10 +818,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusSharedApi<TYPES, I>
 }
 
 #[async_trait]
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > ConsensusApi<TYPES, I> for HotShotConsensusApi<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
+    for HotShotConsensusApi<TYPES, I>
 {
     async fn send_direct_message(
         &self,

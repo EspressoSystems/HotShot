@@ -15,7 +15,7 @@ use hotshot_task::{
 use hotshot_types::traits::{network::ConsensusIntentEvent, node_implementation::VIDMembership};
 use hotshot_types::{
     consensus::{Consensus, View},
-    message::{Message, SequencingMessage},
+    message::Message,
     traits::{
         consensus_api::ConsensusApi,
         election::{ConsensusExchange, Membership},
@@ -44,7 +44,7 @@ pub struct ConsensusTaskError {}
 /// Tracks state of a VID task
 pub struct VIDTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
 > where
     VIDEx<TYPES, I>:
@@ -167,11 +167,8 @@ where
     (None, state)
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > VIDTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
+    VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
@@ -421,11 +418,8 @@ where
 }
 
 /// task state implementation for VID Task
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > TS for VIDTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TS
+    for VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,

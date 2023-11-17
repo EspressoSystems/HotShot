@@ -27,7 +27,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     data::Leaf,
     event::Event,
-    message::{Message, Messages, SequencingMessage},
+    message::{Message, Messages},
     traits::{
         election::{ConsensusExchange, Membership, ViewSyncExchangeType},
         network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
@@ -60,7 +60,7 @@ pub enum GlobalEvent {
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_message_task<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Membership = MEMBERSHIP> + 'static,
 >(
@@ -157,7 +157,7 @@ where
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_event_task<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     EXCHANGE: ConsensusExchange<TYPES, Message<TYPES, I>, Membership = MEMBERSHIP> + 'static,
 >(
@@ -220,10 +220,7 @@ where
 /// add the consensus task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_consensus_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
+pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     output_stream: ChannelStream<Event<TYPES>>,
@@ -313,10 +310,7 @@ where
 /// add the VID task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_vid_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
+pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     vid_exchange: VIDEx<TYPES, I>,
@@ -375,10 +369,7 @@ where
 /// add the Data Availability task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_da_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
+pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     committee_exchange: CommitteeEx<TYPES, I>,
@@ -436,10 +427,7 @@ where
 /// add the Transaction Handling task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_transaction_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
+pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     quorum_exchange: QuorumEx<TYPES, I>,
@@ -496,10 +484,7 @@ where
 /// add the view sync task
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_view_sync_task<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
+pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
     handle: SystemContextHandle<TYPES, I>,

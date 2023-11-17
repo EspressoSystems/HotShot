@@ -96,7 +96,7 @@ pub enum MessagePurpose {
 #[serde(bound(deserialize = "", serialize = ""))]
 pub enum MessageKind<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Messages related to the consensus protocol
-    Consensus(I::ConsensusMessage),
+    Consensus(SequencingMessage<TYPES, I>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<TYPES>),
     /// Phantom data.
@@ -107,7 +107,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> MessageKind<TYPES, I> {
     // Can't implement `From<I::ConsensusMessage>` directly due to potential conflict with
     // `From<DataMessage>`.
     /// Construct a [`MessageKind`] from [`I::ConsensusMessage`].
-    pub fn from_consensus_message(m: I::ConsensusMessage) -> Self {
+    pub fn from_consensus_message(m: SequencingMessage<TYPES, I>) -> Self {
         Self::Consensus(m)
     }
 }
@@ -297,10 +297,8 @@ pub type ProcessedSequencingMessage<TYPES, I> = Either<
     ProcessedCommitteeConsensusMessage<TYPES, I>,
 >;
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<ProcessedSequencingMessage<TYPES, I>> for SequencingMessage<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedSequencingMessage<TYPES, I>>
+    for SequencingMessage<TYPES, I>
 {
     fn from(value: ProcessedSequencingMessage<TYPES, I>) -> Self {
         match value {
@@ -310,10 +308,8 @@ impl<
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ProcessedSequencingMessage<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
+    for ProcessedSequencingMessage<TYPES, I>
 {
     fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         Left(value)
@@ -388,46 +384,16 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>
     VidCertificate(VIDCertificate2<TYPES>),
 }
 
-/// Messages related to the consensus protocol.
-pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// The type of messages for both validating and sequencing consensus.
-    type GeneralConsensusMessage;
-
-    /// The type of processed consensus messages.
-    type ProcessedConsensusMessage: Send;
-
-    /// Get the view number when the message was sent or the view of the timeout.
-    fn view_number(&self) -> TYPES::Time;
-
-    /// Get the message purpose.
-    fn purpose(&self) -> MessagePurpose;
-}
-
-/// Messages related to the sequencing consensus protocol.
-pub trait SequencingMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>>:
-    ConsensusMessageType<TYPES, I>
-{
-    /// Messages for DA committee only.
-    type CommitteeConsensusMessage;
-}
-
 /// Messages for sequencing consensus.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
-pub struct SequencingMessage<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>);
+pub struct SequencingMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>,
+);
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > ConsensusMessageType<TYPES, I> for SequencingMessage<TYPES, I>
-{
-    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
-    type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I>;
-
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SequencingMessage<TYPES, I> {
     // TODO: Disable panic after the `ViewSync` case is implemented.
+    /// Get the view number this message relates to
     #[allow(clippy::panic)]
     fn view_number(&self) -> TYPES::Time {
         match &self.0 {
@@ -486,6 +452,7 @@ impl<
     }
 
     // TODO: Disable panic after the `ViewSync` case is implemented.
+    /// Get the message purpos
     #[allow(clippy::panic)]
     fn purpose(&self) -> MessagePurpose {
         match &self.0 {
@@ -515,14 +482,6 @@ impl<
             },
         }
     }
-}
-
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
-{
-    type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
 }
 
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]

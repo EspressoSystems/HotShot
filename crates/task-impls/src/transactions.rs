@@ -16,7 +16,7 @@ use hotshot_types::{
     block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES},
     consensus::Consensus,
     data::{test_srs, Leaf, VidDisperse, VidScheme, VidSchemeTrait},
-    message::{Message, Proposal, SequencingMessage},
+    message::{Message, Proposal},
     traits::{
         consensus_api::ConsensusApi,
         election::{ConsensusExchange, QuorumExchangeType},
@@ -44,7 +44,7 @@ pub struct ConsensusTaskError {}
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
 > where
     QuorumEx<TYPES, I>: ConsensusExchange<TYPES, Message<TYPES, I>>,
@@ -76,11 +76,8 @@ pub struct TransactionTaskState<
     pub id: u64,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > TransactionTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
+    TransactionTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<TYPES, Message<TYPES, I>>,
 {
@@ -360,11 +357,8 @@ where
 }
 
 /// task state implementation for Transactions Task
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > TS for TransactionTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TS
+    for TransactionTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>: ConsensusExchange<TYPES, Message<TYPES, I>>,
 {

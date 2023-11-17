@@ -14,7 +14,7 @@ use hotshot::traits::NodeImplementation;
 use hotshot::types::bn254::{BLSPrivKey, BLSPubKey};
 use hotshot::types::SignatureKey;
 use hotshot_types::block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction};
-use hotshot_types::message::{Message, SequencingMessage};
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::{
     CommitteeExchange, QuorumExchange, VIDExchange, ViewSyncExchange,
 };
@@ -80,7 +80,6 @@ impl NodeImplementation<Test> for TestImpl {
         ViewSyncExchange<Test, ThisMembership, ViewSyncNetwork, Message<Test, Self>>,
         VIDExchange<Test, ThisMembership, VIDNetwork, Message<Test, Self>>,
     >;
-    type ConsensusMessage = SequencingMessage<Test, Self>;
 
     fn new_channel_maps(
         start_view: <Test as NodeType>::Time,
