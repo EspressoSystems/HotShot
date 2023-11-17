@@ -4,6 +4,7 @@ use async_lock::RwLock;
 
 use bitvec::prelude::*;
 use commit::Commitment;
+use commit::Committable;
 use either::{Either, Left, Right};
 use futures::FutureExt;
 use hotshot_task::{
@@ -12,9 +13,17 @@ use hotshot_task::{
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::traits::{network::ConsensusIntentEvent, node_implementation::VIDMembership};
+use hotshot_types::block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES};
+use hotshot_types::data::VidDisperse;
+use hotshot_types::message::Proposal;
+use hotshot_types::traits::election::VIDExchangeType;
+use hotshot_types::traits::{
+    network::ConsensusIntentEvent, node_implementation::VIDMembership, BlockPayload,
+};
 use hotshot_types::{
     consensus::{Consensus, View},
+    data::test_srs,
+    data::{VidScheme, VidSchemeTrait},
     message::{Message, SequencingMessage},
     traits::{
         consensus_api::ConsensusApi,
@@ -355,6 +364,53 @@ where
                     ))
                     .await;
             }
+
+            HotShotEvent::TransactionsSequenced(payload, _metadata, view) => {
+                // encode transactions for disperse calculation
+                let encoded_txns = match payload.encode() {
+                    Ok(encoded) => encoded,
+                    Err(e) => {
+                        error!("Failed to encode the block payload: {:?}.", e);
+                        return None;
+                    }
+                };
+
+                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
+                let srs = test_srs(NUM_STORAGE_NODES);
+                // TODO We are using constant numbers for now, but they will change as the quorum size
+                // changes.
+                // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
+                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
+                let vid_disperse = vid
+                    .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
+                    .unwrap();
+
+                // TODO never clone a block
+                // https://github.com/EspressoSystems/HotShot/issues/1858
+                self.event_stream
+                    .publish(HotShotEvent::BlockReady(
+                        Proposal {
+                            data: VidDisperse {
+                                view_number: view,
+                                payload_commitment: payload.commit(),
+                                shares: vid_disperse.shares,
+                                common: vid_disperse.common,
+                            },
+                            // TODO (Keyao) This is also signed in DA task.
+                            signature: self.vid_exchange.sign_vid_disperse(&payload.commit()),
+                            _pd: PhantomData,
+                        },
+                        self.vid_exchange.public_key().clone(),
+                    ))
+                    .await;
+            }
+
+            HotShotEvent::BlockReady(proposal, signature) => {
+                self.event_stream
+                    .publish(HotShotEvent::VidDisperseSend(proposal, signature))
+                    .await;
+            }
+
             HotShotEvent::ViewChange(view) => {
                 if *self.cur_view >= *view {
                     return None;
@@ -413,6 +469,8 @@ where
             event,
             HotShotEvent::Shutdown
                 | HotShotEvent::VidDisperseRecv(_, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::VidVoteRecv(_)
                 | HotShotEvent::VidCertRecv(_)
                 | HotShotEvent::ViewChange(_)

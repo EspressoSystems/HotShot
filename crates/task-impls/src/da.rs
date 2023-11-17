@@ -394,7 +394,7 @@ where
 
                 return None;
             }
-            HotShotEvent::BlockReady(payload, metadata, view) => {
+            HotShotEvent::TransactionsSequenced(payload, metadata, view) => {
                 self.committee_exchange
                     .network()
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
@@ -458,7 +458,7 @@ where
             HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::BlockReady(_, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::ViewChange(_)
         )

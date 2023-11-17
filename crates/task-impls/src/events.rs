@@ -94,17 +94,19 @@ pub enum HotShotEvent<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
+    /// Transactions have been sequenced
+    TransactionsSequenced(
+        TYPES::BlockPayload,
+        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        TYPES::Time,
+    ),
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
         Commitment<TYPES::BlockPayload>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
     ),
     /// Event when the transactions task has a block formed
-    BlockReady(
-        TYPES::BlockPayload,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
-        TYPES::Time,
-    ),
+    BlockReady(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Event when consensus decided on a leaf
     LeafDecided(Vec<Leaf<TYPES>>),
     /// Send VID shares to VID storage nodes; emitted by the DA leader

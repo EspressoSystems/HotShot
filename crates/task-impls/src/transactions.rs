@@ -13,13 +13,12 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::{
-    block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES},
     consensus::Consensus,
-    data::{test_srs, Leaf, VidDisperse, VidScheme, VidSchemeTrait},
-    message::{Message, Proposal, SequencingMessage},
+    data::Leaf,
+    message::{Message, SequencingMessage},
     traits::{
         consensus_api::ConsensusApi,
-        election::{ConsensusExchange, QuorumExchangeType},
+        election::ConsensusExchange,
         node_implementation::{NodeImplementation, NodeType, QuorumEx},
         BlockPayload,
     },
@@ -28,7 +27,6 @@ use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
     time::Instant,
 };
@@ -213,6 +211,7 @@ where
                 // TODO (Keyao) Determine whether to allow empty blocks.
                 // <https://github.com/EspressoSystems/HotShot/issues/1822>
                 let txns = self.wait_for_transactions(parent_leaf).await?;
+
                 let (payload, metadata) =
                     match <TYPES::BlockPayload as BlockPayload>::from_transactions(txns) {
                         Ok((payload, metadata)) => (payload, metadata),
@@ -221,54 +220,16 @@ where
                             return None;
                         }
                     };
-                let encoded_txns = match payload.encode() {
-                    Ok(encoded) => encoded,
-                    Err(e) => {
-                        error!("Failed to encode the block payload: {:?}.", e);
-                        return None;
-                    }
-                };
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-                let srs = test_srs(NUM_STORAGE_NODES);
-                // TODO We are using constant numbers for now, but they will change as the quorum size
-                // changes.
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
-                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
-                let vid_disperse = vid
-                    .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
-                    .unwrap();
 
-                // TODO never clone a block
-                // https://github.com/EspressoSystems/HotShot/issues/1858
+                // publish the completed payload
                 self.event_stream
-                    .publish(HotShotEvent::BlockReady(
-                        payload.clone(),
+                    .publish(HotShotEvent::TransactionsSequenced(
+                        payload,
                         metadata,
                         view + 1,
                     ))
                     .await;
 
-                // TODO (Keyao) Determine and update where to publish VidDisperseSend.
-                // <https://github.com/EspressoSystems/HotShot/issues/1817>
-                debug!("publishing VID disperse for view {}", *view + 1);
-                self.event_stream
-                    .publish(HotShotEvent::VidDisperseSend(
-                        Proposal {
-                            data: VidDisperse {
-                                view_number: view + 1,
-                                payload_commitment: payload.commit(),
-                                shares: vid_disperse.shares,
-                                common: vid_disperse.common,
-                            },
-                            // TODO (Keyao) This is also signed in DA task.
-                            signature: self
-                                .quorum_exchange
-                                .sign_payload_commitment(payload.commit()),
-                            _pd: PhantomData,
-                        },
-                        self.quorum_exchange.public_key().clone(),
-                    ))
-                    .await;
                 return None;
             }
             HotShotEvent::Shutdown => {

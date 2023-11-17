@@ -76,18 +76,20 @@ async fn test_vid_task() {
     // In view 1, node 2 is the next leader.
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(HotShotEvent::BlockReady(
+    input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
         ViewNumber::new(2),
     ));
+    input.push(HotShotEvent::BlockReady(vid_proposal.clone(), pub_key));
 
     input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    output.insert(HotShotEvent::BlockReady(vid_proposal.clone(), pub_key), 2);
     output.insert(
-        HotShotEvent::BlockReady(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
         1,
     );
 
@@ -102,6 +104,10 @@ async fn test_vid_task() {
     output.insert(HotShotEvent::VidVoteSend(vid_vote), 1);
 
     output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
+    output.insert(
+        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
+        1,
+    );
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::Shutdown, 1);
 

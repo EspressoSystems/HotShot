@@ -78,7 +78,7 @@ async fn test_network_task() {
     let mut output = HashMap::new();
 
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
-    input.push(HotShotEvent::BlockReady(
+    input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
         ViewNumber::new(2),
@@ -101,8 +101,12 @@ async fn test_network_task() {
         2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     output.insert(
-        HotShotEvent::BlockReady(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
         2,
+    );
+    output.insert(
+        HotShotEvent::BlockReady(da_vid_disperse.clone(), pub_key),
+        1,
     );
     output.insert(
         HotShotEvent::VidDisperseRecv(da_vid_disperse.clone(), pub_key),
