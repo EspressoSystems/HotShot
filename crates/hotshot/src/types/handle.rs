@@ -20,7 +20,7 @@ use hotshot_types::{
     consensus::Consensus,
     error::HotShotError,
     event::EventType,
-    message::MessageKind,
+    message::{MessageKind, SequencingMessage},
     traits::{
         election::{ConsensusExchange, QuorumExchangeType},
         node_implementation::{ExchangesType, NodeType},
@@ -243,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: I::ConsensusMessage) {
+    pub async fn send_broadcast_consensus_message(&self, msg: SequencingMessage<TYPES, I>) {
         let _result = self
             .hotshot
             .send_broadcast_message(MessageKind::from_consensus_message(msg))
@@ -254,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: I::ConsensusMessage,
+        msg: SequencingMessage<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self

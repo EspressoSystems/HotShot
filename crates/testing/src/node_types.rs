@@ -16,7 +16,7 @@ use hotshot::{
 use hotshot_types::{
     block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
     data::ViewNumber,
-    message::{Message, SequencingMessage},
+    message::Message,
     traits::{
         election::{CommitteeExchange, QuorumExchange, VIDExchange, ViewSyncExchange},
         network::{TestableChannelImplementation, TestableNetworkingImplementation},
@@ -123,7 +123,6 @@ pub type SequencingLibp2pExchange = Exchanges<
 impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;
     type Exchanges = SequencingLibp2pExchange;
-    type ConsensusMessage = SequencingMessage<TestTypes, Self>;
 
     fn new_channel_maps(
         start_view: <TestTypes as NodeType>::Time,
@@ -326,7 +325,6 @@ impl TestableExchange<TestTypes, Message<TestTypes, MemoryImpl>> for SequencingM
 impl NodeImplementation<TestTypes> for MemoryImpl {
     type Storage = MemoryStorage<TestTypes>;
     type Exchanges = SequencingMemoryExchange;
-    type ConsensusMessage = SequencingMessage<TestTypes, Self>;
 
     fn new_channel_maps(
         start_view: <TestTypes as NodeType>::Time,
@@ -452,7 +450,6 @@ impl TestableExchange<TestTypes, Message<TestTypes, WebImpl>> for SequencingWebE
 impl NodeImplementation<TestTypes> for WebImpl {
     type Storage = MemoryStorage<TestTypes>;
     type Exchanges = SequencingWebExchanges;
-    type ConsensusMessage = SequencingMessage<TestTypes, Self>;
 
     fn new_channel_maps(
         start_view: <TestTypes as NodeType>::Time,
@@ -499,7 +496,6 @@ pub type CombinedExchange = Exchanges<
 impl NodeImplementation<TestTypes> for CombinedImpl {
     type Storage = MemoryStorage<TestTypes>;
     type Exchanges = CombinedExchange;
-    type ConsensusMessage = SequencingMessage<TestTypes, Self>;
 
     fn new_channel_maps(
         start_view: <TestTypes as NodeType>::Time,

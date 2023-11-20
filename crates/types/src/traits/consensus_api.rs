@@ -117,10 +117,8 @@ pub trait ConsensusSharedApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Sen
 
 /// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
 #[async_trait]
-pub trait ConsensusApi<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->: ConsensusSharedApi<TYPES, I>
+pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>:
+    ConsensusSharedApi<TYPES, I>
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message(

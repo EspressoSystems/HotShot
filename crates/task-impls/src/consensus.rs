@@ -19,7 +19,7 @@ use hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal},
     event::{Event, EventType},
-    message::{GeneralConsensusMessage, Message, Proposal, SequencingMessage},
+    message::{GeneralConsensusMessage, Message, Proposal},
     simple_certificate::{
         DACertificate2, QuorumCertificate2, TimeoutCertificate2, VIDCertificate2,
     },
@@ -62,7 +62,7 @@ type CommitmentAndMetadata<PAYLOAD> = (Commitment<PAYLOAD>, <PAYLOAD as BlockPay
 /// of consensus
 pub struct ConsensusTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
 > where
     QuorumEx<TYPES, I>:
@@ -296,11 +296,8 @@ where
     (None, state)
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > ConsensusTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
+    ConsensusTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<Leaf<TYPES>>>,
@@ -1324,11 +1321,8 @@ where
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I>,
-    > TS for ConsensusTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I>> TS
+    for ConsensusTaskState<TYPES, I, A>
 where
     QuorumEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<Leaf<TYPES>>>,
@@ -1358,7 +1352,7 @@ pub type ConsensusTaskTypes<TYPES, I, A> = HSTWithEvent<
 /// Event handle for consensus
 pub async fn sequencing_consensus_handle<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
 >(
     event: HotShotEvent<TYPES, I>,

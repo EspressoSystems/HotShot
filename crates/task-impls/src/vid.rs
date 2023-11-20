@@ -14,7 +14,7 @@ use hotshot_task::{
     task_impls::{HSTWithEvent, TaskBuilder},
 };
 use hotshot_types::block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES};
-use hotshot_types::data::VidDisperse;
+use hotshot_types::data::{test_srs, VidDisperse, VidScheme, VidSchemeTrait};
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::VIDExchangeType;
 use hotshot_types::traits::{
@@ -22,9 +22,7 @@ use hotshot_types::traits::{
 };
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::test_srs,
-    data::{VidScheme, VidSchemeTrait},
-    message::{Message, SequencingMessage},
+    message::Message,
     traits::{
         consensus_api::ConsensusApi,
         election::{ConsensusExchange, Membership},
@@ -53,7 +51,7 @@ pub struct ConsensusTaskError {}
 /// Tracks state of a VID task
 pub struct VIDTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
 > where
     VIDEx<TYPES, I>:
@@ -176,11 +174,8 @@ where
     (None, state)
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > VIDTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
+    VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,
@@ -476,11 +471,8 @@ where
 }
 
 /// task state implementation for VID Task
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-        A: ConsensusApi<TYPES, I> + 'static,
-    > TS for VIDTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TS
+    for VIDTaskState<TYPES, I, A>
 where
     VIDEx<TYPES, I>:
         ConsensusExchange<TYPES, Message<TYPES, I>, Commitment = Commitment<TYPES::BlockPayload>>,

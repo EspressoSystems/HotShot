@@ -37,26 +37,14 @@ pub enum NetworkTaskKind {
 }
 
 /// the network message task state
-pub struct NetworkMessageTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> {
+pub struct NetworkMessageTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// event stream (used for publishing)
     pub event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > TS for NetworkMessageTaskState<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TS for NetworkMessageTaskState<TYPES, I> {}
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > NetworkMessageTaskState<TYPES, I>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMessageTaskState<TYPES, I> {
     /// Handle the message.
     pub async fn handle_messages(&mut self, messages: Vec<Message<TYPES, I>>) {
         // We will send only one event for a vector of transactions.
@@ -148,7 +136,7 @@ impl<
 /// network event task state
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    I: NodeImplementation<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, MEMBERSHIP>,
 > {
@@ -165,7 +153,7 @@ pub struct NetworkEventTaskState<
 
 impl<
         TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        I: NodeImplementation<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, MEMBERSHIP>,
     > TS for NetworkEventTaskState<TYPES, I, MEMBERSHIP, COMMCHANNEL>
@@ -174,7 +162,7 @@ impl<
 
 impl<
         TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        I: NodeImplementation<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         COMMCHANNEL: CommunicationChannel<TYPES, Message<TYPES, I>, MEMBERSHIP>,
     > NetworkEventTaskState<TYPES, I, MEMBERSHIP, COMMCHANNEL>
