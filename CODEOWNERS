@@ -41,11 +41,11 @@
 /utils/ @shenkeyao
 
 # Owner of `web_server` crate
-/web_server/ elliedavidson
+/web_server/ @elliedavidson
 
 # Owner of updating dependencies
 # This owner is updated on a monthly basis
-*.lock rob-maron
-**/Cargo.toml rob-maron
-Cargo.toml rob-maron
-flake.nix rob-maron
+*.lock @rob-maron
+**/Cargo.toml @rob-maron
+Cargo.toml @rob-maron
+flake.nix @rob-maron
