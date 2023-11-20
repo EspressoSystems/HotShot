@@ -218,11 +218,21 @@ where
                         }
                     };
 
+                // encode transactions for disperse calculation
+                let encoded_txns: Vec<u8> = match payload.encode() {
+                    Ok(encoded) => encoded.into_iter().collect(),
+                    Err(e) => {
+                        error!("Failed to encode the block payload: {:?}.", e);
+                        return None;
+                    }
+                };
+
                 // publish the completed payload
                 self.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
                         payload,
                         metadata,
+                        encoded_txns,
                         view + 1,
                     ))
                     .await;

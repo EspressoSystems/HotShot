@@ -79,6 +79,7 @@ async fn test_vid_task() {
     input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
+        encoded_txns.clone().into_iter().collect(),
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::BlockReady(vid_proposal.clone(), pub_key));
@@ -105,7 +106,12 @@ async fn test_vid_task() {
 
     output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(
+            block.clone(),
+            (),
+            encoded_txns.into_iter().collect(),
+            ViewNumber::new(2),
+        ),
         1,
     );
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);

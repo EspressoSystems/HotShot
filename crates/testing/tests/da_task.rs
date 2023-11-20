@@ -68,6 +68,7 @@ async fn test_da_task() {
     input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
+        encoded_txns.clone().into_iter().collect(),
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::DAProposalRecv(message.clone(), pub_key));
@@ -76,7 +77,12 @@ async fn test_da_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(
+            block.clone(),
+            (),
+            encoded_txns.into_iter().collect(),
+            ViewNumber::new(2),
+        ),
         1,
     );
     output.insert(

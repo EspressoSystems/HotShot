@@ -17,9 +17,7 @@ use hotshot_types::block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES};
 use hotshot_types::data::{test_srs, VidDisperse, VidScheme, VidSchemeTrait};
 use hotshot_types::message::Proposal;
 use hotshot_types::traits::election::VIDExchangeType;
-use hotshot_types::traits::{
-    network::ConsensusIntentEvent, node_implementation::VIDMembership, BlockPayload,
-};
+use hotshot_types::traits::{network::ConsensusIntentEvent, node_implementation::VIDMembership};
 use hotshot_types::{
     consensus::{Consensus, View},
     message::Message,
@@ -360,25 +358,14 @@ where
                     .await;
             }
 
-            HotShotEvent::TransactionsSequenced(payload, _metadata, view) => {
-                // encode transactions for disperse calculation
-                let encoded_txns = match payload.encode() {
-                    Ok(encoded) => encoded,
-                    Err(e) => {
-                        error!("Failed to encode the block payload: {:?}.", e);
-                        return None;
-                    }
-                };
-
+            HotShotEvent::TransactionsSequenced(payload, _metadata, encoded_txns, view) => {
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
                 let srs = test_srs(NUM_STORAGE_NODES);
                 // TODO We are using constant numbers for now, but they will change as the quorum size
                 // changes.
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
                 let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
-                let vid_disperse = vid
-                    .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
-                    .unwrap();
+                let vid_disperse = vid.disperse(encoded_txns).unwrap();
 
                 self.event_stream
                     .publish(HotShotEvent::BlockReady(
@@ -461,7 +448,7 @@ where
             event,
             HotShotEvent::Shutdown
                 | HotShotEvent::VidDisperseRecv(_, _)
-                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::VidVoteRecv(_)
                 | HotShotEvent::VidCertRecv(_)

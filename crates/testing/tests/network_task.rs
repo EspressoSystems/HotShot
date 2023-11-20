@@ -81,6 +81,7 @@ async fn test_network_task() {
     input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
+        encoded_txns.clone().into_iter().collect(),
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key));
@@ -101,7 +102,12 @@ async fn test_network_task() {
         2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     output.insert(
-        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(
+            block.clone(),
+            (),
+            encoded_txns.into_iter().collect(),
+            ViewNumber::new(2),
+        ),
         2,
     );
     output.insert(
