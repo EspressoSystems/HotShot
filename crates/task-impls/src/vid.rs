@@ -385,8 +385,6 @@ where
                     .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
                     .unwrap();
 
-                // TODO never clone a block
-                // https://github.com/EspressoSystems/HotShot/issues/1858
                 self.event_stream
                     .publish(HotShotEvent::BlockReady(
                         Proposal {
@@ -396,7 +394,6 @@ where
                                 shares: vid_disperse.shares,
                                 common: vid_disperse.common,
                             },
-                            // TODO (Keyao) This is also signed in DA task.
                             signature: self.vid_exchange.sign_vid_disperse(&payload.commit()),
                             _pd: PhantomData,
                         },
