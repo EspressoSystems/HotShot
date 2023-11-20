@@ -348,6 +348,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES
         Self: 'b,
     {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
+        // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
         let closure = async move {
             let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
             let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;

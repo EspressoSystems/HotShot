@@ -92,11 +92,13 @@ impl<M: NetworkMsg, KEY: SignatureKey, TYPES: NodeType> WebServerNetwork<M, KEY,
 
     /// Pauses the underlying network
     pub fn pause(&self) {
+        error!("Pausing CDN network");
         self.inner.running.store(false, Ordering::Relaxed);
     }
 
     /// Resumes the underlying network
     pub fn resume(&self) {
+        error!("Resuming CDN network");
         self.inner.running.store(true, Ordering::Relaxed);
     }
 }

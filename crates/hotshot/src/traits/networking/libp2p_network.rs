@@ -333,6 +333,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(false)),
+                /// This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
+                /// https://github.com/EspressoSystems/HotShot/issues/2088
                 dht_timeout: Duration::from_secs(8),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
@@ -821,9 +823,13 @@ where
 {
     type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
 
-    fn pause(&self) {}
+    fn pause(&self) {
+        unimplemented!("Pausing not implemented for the Libp2p network");
+    }
 
-    fn resume(&self) {}
+    fn resume(&self) {
+        unimplemented!("Resuming not implemented for the Libp2p network");
+    }
 
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;

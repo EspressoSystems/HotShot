@@ -91,7 +91,7 @@ async fn test_combined_network_webserver_crash() {
     }
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(Duration::new(4, 0), all_nodes)],
+        node_changes: vec![(Duration::new(1, 0), all_nodes)],
     };
 
     metadata
@@ -152,8 +152,8 @@ async fn test_combined_network_reup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![
-            (Duration::new(6, 0), all_up),
-            (Duration::new(6, 0), all_down),
+            (Duration::from_millis(500), all_up),
+            (Duration::from_millis(500), all_down),
         ],
     };
 
@@ -208,7 +208,7 @@ async fn test_combined_network_half_dc() {
     }
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(Duration::new(6, 0), half)],
+        node_changes: vec![(Duration::new(1, 0), half)],
     };
 
     metadata
@@ -238,7 +238,7 @@ fn generate_random_node_changes(total_nodes: usize) -> Vec<(Duration, Vec<Change
             updown,
         };
 
-        let duration = Duration::new(rng.gen_range(1..10), 0);
+        let duration = Duration::new(rng.gen_range(1..3), 0);
 
         node_changes.push((duration, vec![node_change]));
     }
