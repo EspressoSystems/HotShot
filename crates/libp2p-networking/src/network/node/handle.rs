@@ -294,7 +294,12 @@ impl<S> NetworkNodeHandle<S> {
         dht_timeout: Duration,
     ) -> Result<PeerId, NetworkNodeHandleError> {
         // get record (from DHT)
-        self.get_record_timeout::<PeerId>(&key, dht_timeout).await
+        let pid = self.get_record_timeout::<PeerId>(&key, dht_timeout).await?;
+
+        // pid lookup for routing
+        self.lookup_pid(pid).await?;
+
+        Ok(pid)
     }
 
     /// Insert a record into the kademlia DHT

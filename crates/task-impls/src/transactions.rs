@@ -32,7 +32,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -251,7 +251,7 @@ where
                 // TODO (Keyao) Determine and update where to publish VidDisperseSend.
                 // <https://github.com/EspressoSystems/HotShot/issues/1817>
                 debug!("publishing VID disperse for view {}", *view + 1);
-                error!("New view: {}", *view);
+                info!("New view: {}", *view);
                 self.event_stream
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {

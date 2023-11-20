@@ -25,6 +25,7 @@ use crate::{
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
+use hotshot_task::{boxed_sync, BoxSyncFuture};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -198,7 +199,10 @@ pub trait ExchangesType<TYPES: NodeType, MESSAGE: NetworkMsg>: Send + Sync {
     async fn wait_for_networks_ready(&self);
 
     /// Shut down the the underlying networking interfaces.
-    async fn shut_down_networks(&self);
+    fn shut_down_networks<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b;
 }
 
 /// an exchange that is testable
@@ -415,12 +419,18 @@ where
         self.timeout_exchange.network().wait_for_ready().await;
     }
 
-    async fn shut_down_networks(&self) {
-        self.quorum_exchange.network().shut_down().await;
-        self.committee_exchange.network().shut_down().await;
-        self.vid_exchange.network().shut_down().await;
-        self.view_sync_exchange.network().shut_down().await;
-        self.timeout_exchange.network().shut_down().await;
+    fn shut_down_networks<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        boxed_sync(async move {
+            self.quorum_exchange.network().shut_down().await;
+            self.committee_exchange.network().shut_down().await;
+            self.vid_exchange.network().shut_down().await;
+            self.view_sync_exchange.network().shut_down().await;
+            self.timeout_exchange.network().shut_down().await;
+        })
     }
 }
 
