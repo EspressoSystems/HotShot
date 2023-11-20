@@ -2705,7 +2705,7 @@ dependencies = [
  "surf-disco",
  "time 0.3.30",
  "tokio",
- "toml 0.7.8",
+ "toml 0.8.8",
  "tracing",
  "typenum",
 ]
@@ -2996,7 +2996,7 @@ dependencies = [
  "tide",
  "tide-disco 0.4.1",
  "tokio",
- "toml 0.7.8",
+ "toml 0.8.8",
  "tracing",
 ]
 
@@ -7174,18 +7174,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a195ec8c9da26928f773888e0742ca3ca1040c6cd859c919c9f59c1954ab35"
@@ -7212,8 +7200,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap 2.0.2",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]
