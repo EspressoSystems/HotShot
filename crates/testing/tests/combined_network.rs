@@ -1,6 +1,8 @@
 use std::time::Duration;
 
+#[cfg(async_executor_impl = "async-std")]
 use hotshot_constants::ASYNC_STD_LIBP2P_LISTENER_SPINDOWN_TIME;
+
 use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     node_types::{CombinedImpl, TestTypes},
