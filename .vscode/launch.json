@@ -171,16 +171,16 @@
                     "build",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot",
-                    "--example=libp2p-orchestrator"
+                    "--example=orchestrator-libp2p"
                 ],
                 "filter": {
                     "kind": "example",
-                    "name": "libp2p-orchestrator"
+                    "name": "orchestrator-libp2p"
                 }
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug libp2p-orchestrator example"
+            "name": "Debug orchestrator-libp2p example"
         },
         {
             "type": "lldb",
@@ -190,16 +190,16 @@
                     "build",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot",
-                    "--example=web-server-orchestrator"
+                    "--example=orchestrator-webserver"
                 ],
                 "filter": {
                     "kind": "example",
-                    "name": "web-server-orchestrator"
+                    "name": "orchestrator-webserver"
                 }
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug web-server-orchestrator example"
+            "name": "Debug orchestrator-webserver example"
         },
         {
             "type": "lldb",
@@ -209,16 +209,16 @@
                     "build",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot",
-                    "--example=web-server"
+                    "--example=webserver"
                 ],
                 "filter": {
                     "kind": "example",
-                    "name": "web-server"
+                    "name": "webserver"
                 }
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug web-server example"
+            "name": "Debug webserver example"
         },
         {
             "type": "lldb",
@@ -228,16 +228,16 @@
                     "build",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot",
-                    "--example=web-server-validator"
+                    "--example=validator-webserver"
                 ],
                 "filter": {
                     "kind": "example",
-                    "name": "web-server-validator"
+                    "name": "validator-webserver"
                 }
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug web-server-validator example"
+            "name": "Debug validator-webserver example"
         },
         {
             "type": "lldb",

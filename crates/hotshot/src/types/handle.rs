@@ -1,6 +1,6 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-use crate::{traits::NodeImplementation, types::Event, QuorumCertificate2, SystemContext};
+use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
@@ -13,27 +13,19 @@ use hotshot_task::{
     BoxSyncFuture,
 };
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::data::Leaf;
 use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::{
     consensus::Consensus,
     error::HotShotError,
     event::EventType,
-    message::MessageKind,
+    message::{MessageKind, SequencingMessage},
     traits::{
-        election::{ConsensusExchange, QuorumExchangeType},
-        node_implementation::{ExchangesType, NodeType},
-        state::ConsensusTime,
-        storage::Storage,
+        election::Membership, node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
 };
+use hotshot_types::{data::Leaf, simple_certificate::QuorumCertificate};
 use std::sync::Arc;
 use tracing::error;
-
-#[cfg(feature = "hotshot-testing")]
-use commit::Commitment;
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::signature_key::EncodedSignature;
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -47,7 +39,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers to expose to the user
     pub(crate) output_event_stream: ChannelStream<Event<TYPES>>,
     /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES, I>>,
+    pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
     /// registry for controlling tasks
     pub(crate) registry: GlobalRegistry,
 
@@ -99,8 +91,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// NOTE: this is only used for sanity checks in our tests
     pub async fn get_internal_event_stream_known_impl(
         &mut self,
-        filter: FilterEvent<HotShotEvent<TYPES, I>>,
-    ) -> (UnboundedStream<HotShotEvent<TYPES, I>>, StreamId) {
+        filter: FilterEvent<HotShotEvent<TYPES>>,
+    ) -> (UnboundedStream<HotShotEvent<TYPES>>, StreamId) {
         self.internal_event_stream.subscribe(filter).await
     }
 
@@ -142,7 +134,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf = Leaf::from_stored_view(anchor_leaf);
-                let mut qc = QuorumCertificate2::<TYPES>::genesis();
+                let mut qc = QuorumCertificate::<TYPES>::genesis();
                 qc.data = QuorumData {
                     leaf_commit: leaf.commit(),
                 };
@@ -183,7 +175,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Block the underlying quorum (and committee) networking interfaces until node is
     /// successfully initialized into the networks.
     pub async fn wait_for_networks_ready(&self) {
-        self.hotshot.inner.exchanges.wait_for_networks_ready().await;
+        self.hotshot.inner.networks.wait_for_networks_ready().await;
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
@@ -195,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         Self: 'b,
     {
         boxed_sync(async move {
-            self.hotshot.inner.exchanges.shut_down_networks().await;
+            self.hotshot.inner.networks.shut_down_networks().await;
             self.registry.shutdown_all().await;
         })
     }
@@ -213,8 +205,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.hotshot
             .inner
-            .exchanges
-            .quorum_exchange()
+            .memberships
+            .quorum_membership
             .get_leader(view_number)
     }
 
@@ -230,22 +222,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.inner.consensus.read().await.cur_view
     }
 
-    /// Wrapper around `HotShotConsensusApi`'s `sign_validating_or_commitment_proposal` function
-    #[cfg(feature = "hotshot-testing")]
-    pub fn sign_validating_or_commitment_proposal(
-        &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
-    ) -> EncodedSignature {
-        let inner = self.hotshot.inner.clone();
-        inner
-            .exchanges
-            .quorum_exchange()
-            .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
-    }
-
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: I::ConsensusMessage) {
+    pub async fn send_broadcast_consensus_message(&self, msg: SequencingMessage<TYPES>) {
         let _result = self
             .hotshot
             .send_broadcast_message(MessageKind::from_consensus_message(msg))
@@ -256,7 +235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: I::ConsensusMessage,
+        msg: SequencingMessage<TYPES>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self

@@ -129,16 +129,12 @@ impl SpinningTaskDescription {
                                             if let Some(handle) = state.handles.get(idx) {
                                                 handle.networks.0.resume();
                                                 handle.networks.1.resume();
-                                                handle.networks.2.resume();
-                                                handle.networks.3.resume();
                                             }
                                         }
                                         UpDown::NetworkDown => {
                                             if let Some(handle) = state.handles.get(idx) {
                                                 handle.networks.0.pause();
                                                 handle.networks.1.pause();
-                                                handle.networks.2.pause();
-                                                handle.networks.3.pause();
                                             }
                                         }
                                     }
