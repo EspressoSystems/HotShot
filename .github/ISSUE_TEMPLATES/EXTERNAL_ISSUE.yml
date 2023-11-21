@@ -1,0 +1,41 @@
+name: External - Basic Issue
+description: Create an external HotShot issue
+title: "[EXTERNAL] - <Short Task Description> "
+labels: ["external"]
+assignees: ["elliedavidson"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        *If you are an internal collaborator, use our internal issue form instead*
+  - type: textarea
+    id: task_reason
+    attributes:
+      label: What is this task and why do we need to work on it? 
+      placeholder: |
+        If this is a feature request, describe what the feature is and why it is important to add to HotShot. 
+        If this is a bug report, describe the bug and its severity level. 
+    validations:
+      required: true
+  - type: textarea
+    id: other_details
+    attributes:
+      label: Are there any other details to include?
+      placeholder: | 
+        Include other details here such as: open questions, directions to reproduce a bug, relevant error logs, etc. 
+
+        E.g. To reproduce this bug run `just async_std test_basic`. You should see logs similar to the below: 
+        `ERROR: This is an important error!`
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Complete the following items before submitting this issue: 
+        * Label this issue appropriately. This form will automatically label issues with the `external` label.  If you are submitting a bug report, please also add the `bug` label. 
+        * Ensure this issue is titled correctly.  The title should be in the form of [EXTERNAL] - Short task description.  
+
+        Thank you for submitting an issue to HotShot!  
+
+
