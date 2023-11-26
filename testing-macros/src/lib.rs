@@ -302,7 +302,6 @@ impl TestData {
                 impl hotshot_types::traits::node_implementation::NodeImplementation<TestTypes> for TestNodeImpl {
                     type Leaf = #leaf;
                     type Storage = #storage<TestTypes, #leaf>;
-                    type ConsensusMessage = #consensus_message;
                     type Exchanges = #exchanges;
 
                     fn new_channel_maps(

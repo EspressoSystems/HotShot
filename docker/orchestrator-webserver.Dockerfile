@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG TARGETARCH
 
-COPY ./target/$TARGETARCH/debug/examples/web-server-da-validator /usr/local/bin/web-server-da-validator
+COPY ./target/$TARGETARCH/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
 
 # logging
 ENV RUST_LOG="warn"
@@ -15,4 +15,4 @@ ENV RUST_LOG="warn"
 ENV RUST_LOG_FORMAT="json"
 
 ENTRYPOINT ["tini", "--"]
-CMD ["web-server-da-validator"]
+CMD ["orchestrator-webserver"]

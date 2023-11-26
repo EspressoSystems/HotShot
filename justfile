@@ -28,7 +28,7 @@ test:
   echo Testing
   cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast test_memory_network_chaos -- --test-threads=1 --nocapture
 
-test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_view_sync_task
+test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
 test_catchup:
     echo Testing with async std executor
@@ -58,7 +58,6 @@ test_memory_network:
   echo Testing the DA task with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
 
-
 test_consensus_task:
   echo Testing with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
@@ -66,6 +65,10 @@ test_consensus_task:
 test_da_task:
   echo Testing the DA task with async std executor
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
+
+test_vid_task:
+  echo Testing the VID task with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
 
 test_view_sync_task:
   echo Testing the view sync task with async std executor
@@ -124,3 +127,6 @@ lint_imports:
   echo Linting imports
   cargo fmt --all -- --config unstable_features=true,imports_granularity=Crate
 
+gen_key_pair:
+  echo Generating key pair from config file in config/
+  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture 
