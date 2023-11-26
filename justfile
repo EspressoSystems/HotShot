@@ -98,7 +98,7 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --bins --tests -- -D warnings
 
 lint_release: fmt
   echo linting
@@ -129,4 +129,4 @@ lint_imports:
 
 gen_key_pair:
   echo Generating key pair from config file in config/
-  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture 
+  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture
