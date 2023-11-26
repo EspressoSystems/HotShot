@@ -16,14 +16,17 @@ run_ci: lint build test
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --workspace --examples --bins --tests --lib --benches
+  cargo build --workspace --examples --bins --tests --lib --benches --release
+
+build_release:
+  cargo build --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="demo, docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
 test:
   echo Testing
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast test_memory_network_chaos -- --test-threads=1 --nocapture
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_view_sync_task
 
@@ -37,7 +40,7 @@ test_success:
 
 test_timeout:
   echo Testing timeout test
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture 
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing web server
@@ -93,6 +96,10 @@ check:
 lint: fmt
   echo linting
   cargo clippy --workspace --bins --tests --examples -- -D warnings
+
+lint_release: fmt
+  echo linting
+  cargo clippy --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="demo, docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt
