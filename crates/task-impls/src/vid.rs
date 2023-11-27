@@ -3,6 +3,7 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 
 use bitvec::prelude::*;
+use commit::Committable;
 use either::{Either, Left, Right};
 use futures::FutureExt;
 use hotshot_task::{
@@ -11,7 +12,12 @@ use hotshot_task::{
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
-use hotshot_types::traits::network::ConsensusIntentEvent;
+use hotshot_types::{
+    block_impl::{NUM_CHUNKS, NUM_STORAGE_NODES},
+    data::{test_srs, VidDisperse, VidScheme, VidSchemeTrait},
+    message::Proposal,
+    traits::{network::ConsensusIntentEvent, BlockPayload},
+};
 use hotshot_types::{
     consensus::{Consensus, View},
     traits::{
@@ -338,6 +344,69 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
             }
+
+            HotShotEvent::TransactionsSequenced(payload, metadata, view_number) => {
+                // Encode the sequenced transactions
+                let encoded_txns = match payload.encode() {
+                    Ok(encoded) => encoded,
+                    Err(e) => {
+                        error!("Failed to encode the block payload: {:?}.", e);
+                        return None;
+                    }
+                };
+
+                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
+                let srs = test_srs(NUM_STORAGE_NODES);
+                // TODO We are using constant numbers for now, but they will change as the quorum size
+                // changes.
+                // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
+                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
+                let vid_disperse = vid
+                    .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
+                    .unwrap();
+
+                // Commit the payload
+                let payload_commitment = payload.commit();
+
+                self.event_stream
+                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        payload_commitment,
+                        metadata,
+                    ))
+                    .await;
+
+                self.event_stream
+                    .publish(HotShotEvent::BlockReady(
+                        payload_commitment,
+                        VidDisperse {
+                            view_number,
+                            payload_commitment,
+                            shares: vid_disperse.shares,
+                            common: vid_disperse.common,
+                        },
+                        view_number,
+                    ))
+                    .await;
+            }
+
+            HotShotEvent::BlockReady(payload_commitment, vid_disperse, view_number) => {
+                debug!("publishing VID disperse for view {}", *view_number);
+                self.event_stream
+                    .publish(HotShotEvent::VidDisperseSend(
+                        Proposal {
+                            data: vid_disperse,
+                            // TODO (Keyao) This is also signed in DA task.
+                            signature: TYPES::SignatureKey::sign(
+                                &self.private_key,
+                                payload_commitment.as_ref(),
+                            ),
+                            _pd: PhantomData,
+                        },
+                        self.public_key.clone(),
+                    ))
+                    .await;
+            }
+
             HotShotEvent::ViewChange(view) => {
                 if *self.cur_view >= *view {
                     return None;
@@ -395,6 +464,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::VidDisperseRecv(_, _)
                 | HotShotEvent::VidVoteRecv(_)
                 | HotShotEvent::VidCertRecv(_)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::BlockReady(_, _, _)
                 | HotShotEvent::ViewChange(_)
         )
     }

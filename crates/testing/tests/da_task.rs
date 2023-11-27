@@ -62,7 +62,7 @@ async fn test_da_task() {
     // In view 1, node 2 is the next leader.
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(HotShotEvent::BlockReady(
+    input.push(HotShotEvent::TransactionsSequenced(
         block.clone(),
         (),
         ViewNumber::new(2),
@@ -73,11 +73,7 @@ async fn test_da_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::BlockReady(block.clone(), (), ViewNumber::new(2)),
-        1,
-    );
-    output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(block.commit(), ()),
+        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
         1,
     );
     output.insert(HotShotEvent::DAProposalSend(message.clone(), pub_key), 1);

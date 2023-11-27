@@ -93,10 +93,16 @@ pub enum HotShotEvent<TYPES: NodeType> {
         Commitment<TYPES::BlockPayload>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
     ),
-    /// Event when the transactions task has a block formed
-    BlockReady(
+    /// Event when the transactions task has sequenced transactions. Contains the encoded transactions
+    TransactionsSequenced(
         TYPES::BlockPayload,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
+        TYPES::Time,
+    ),
+    /// Event when the VID task has formed a block
+    BlockReady(
+        Commitment<TYPES::BlockPayload>,
+        VidDisperse<TYPES>,
         TYPES::Time,
     ),
     /// Event when consensus decided on a leaf
