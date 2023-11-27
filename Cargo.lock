@@ -2903,6 +2903,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
