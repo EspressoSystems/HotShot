@@ -10,7 +10,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use displaydoc::Display;
-use light_client_state::{generat_key_pair_from_seed_indexed, StateSigKeyPairs};
+use light_client_state::{generate_state_key_pair_from_seed_indexed, StateSigKeyPairs};
 use std::{num::NonZeroUsize, time::Duration};
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
 pub mod block_impl;
@@ -57,7 +57,7 @@ impl<KEY: SignatureKey> ValidatorConfig<KEY> {
     #[must_use]
     pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64, stake_value: u64) -> Self {
         let (public_key, private_key) = KEY::generated_from_seed_indexed(seed, index);
-        let state_key_pairs = generat_key_pair_from_seed_indexed(seed, index);
+        let state_key_pairs = generate_state_key_pair_from_seed_indexed(seed, index);
         Self {
             public_key,
             private_key,

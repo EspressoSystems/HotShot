@@ -59,16 +59,16 @@ pub type StateSignature = jf_primitives::signatures::schnorr::Signature<Config>;
 
 /// Generate key pairs from seed
 #[must_use]
-pub fn generat_key_pair_from_seed(seed: [u8; 32]) -> StateSigKeyPairs {
+pub fn generate_state_key_pair_from_seed(seed: [u8; 32]) -> StateSigKeyPairs {
     StateSigKeyPairs::generate(&mut ChaCha20Rng::from_seed(seed))
 }
 
 /// Generate key pairs from an index and a seed
 #[must_use]
-pub fn generat_key_pair_from_seed_indexed(seed: [u8; 32], index: u64) -> StateSigKeyPairs {
+pub fn generate_state_key_pair_from_seed_indexed(seed: [u8; 32], index: u64) -> StateSigKeyPairs {
     let mut hasher = blake3::Hasher::new();
     hasher.update(&seed);
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
-    generat_key_pair_from_seed(new_seed)
+    generate_state_key_pair_from_seed(new_seed)
 }
