@@ -371,10 +371,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::TransactionsSequenced(payload, _metadata, view) => {
+            HotShotEvent::TransactionsSequenced(encoded_txns, metadata, view) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;
+
+                // calculate payload from encoded transactions and metadata
+                let payload = <TYPES::BlockPayload as BlockPayload>::from_bytes(
+                    encoded_txns.into_iter(),
+                    metadata,
+                );
 
                 let payload_commitment = payload.commit();
                 let signature =

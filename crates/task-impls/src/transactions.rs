@@ -218,10 +218,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         }
                     };
 
+                // Encode the transactions
+                let encoded_txns = match payload.encode() {
+                    Ok(encoded) => encoded,
+                    Err(e) => {
+                        error!("Failed to encode the block payload: {:?}.", e);
+                        return None;
+                    }
+                };
+
                 // Publish encoded transactions to the event stream
                 self.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
-                        payload,
+                        encoded_txns.collect(),
                         metadata,
                         view + 1,
                     ))
