@@ -364,7 +364,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::TransactionsSequenced(encoded_transactions, payload_commitment, metadata, view) => {
+            HotShotEvent::TransactionsSequenced(
+                encoded_transactions,
+                payload_commitment,
+                metadata,
+                view,
+            ) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;

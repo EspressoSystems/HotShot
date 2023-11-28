@@ -14,10 +14,9 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::{test_srs, Leaf, VidDisperse, VidScheme, VidSchemeTrait},
-    message::Proposal,
+    data::Leaf,
     traits::{
-        block_contents::{vid_commitment, NUM_CHUNKS, NUM_STORAGE_NODES},
+        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
@@ -29,11 +28,10 @@ use hotshot_utils::bincode::bincode_opts;
 use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
     time::Instant,
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;

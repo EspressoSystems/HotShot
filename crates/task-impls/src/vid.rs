@@ -348,7 +348,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::TransactionsSequenced(
                 encoded_transactions,
                 commitment,
-                metadata,
+                _metadata,
                 view_number,
             ) => {
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
@@ -379,7 +379,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {
                             data: vid_disperse,
-                            signature: TYPES::SignatureKey::sign(&self.private_key, &payload_commitment),
+                            signature: TYPES::SignatureKey::sign(
+                                &self.private_key,
+                                &payload_commitment,
+                            ),
                             _pd: PhantomData,
                         },
                         self.public_key.clone(),

@@ -1,6 +1,5 @@
 use crate::view_sync::ViewSyncPhase;
 
-use commit::Commitment;
 use either::Either;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, VidCommitment, VidDisperse},
@@ -101,11 +100,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::Time,
     ),
     /// Event when the transactions task has a block formed
-    BlockReady(
-        VidDisperse<TYPES>,
-        VidCommitment,
-        TYPES::Time,
-    ),
+    BlockReady(VidDisperse<TYPES>, VidCommitment, TYPES::Time),
     /// Event when consensus decided on a leaf
     LeafDecided(Vec<Leaf<TYPES>>),
     /// Send VID shares to VID storage nodes; emitted by the DA leader
