@@ -73,42 +73,19 @@ async fn test_vid_task() {
     // In view 1, node 2 is the next leader.
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
-    input.push(HotShotEvent::TransactionsSequenced(
+    input.push(HotShotEvent::BlockReady(
         block.clone(),
         (),
         ViewNumber::new(2),
     ));
-    input.push(HotShotEvent::BlockReady(
-        block.commit(),
-        vid_proposal.clone().data,
-        ViewNumber::new(2),
-    ));
 
-    input.push(HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key));
     input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(block.clone(), (), ViewNumber::new(2)),
+        HotShotEvent::BlockReady(block.clone(), (), ViewNumber::new(2)),
         1,
-    );
-    output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(block.commit(), ()),
-        1,
-    );
-    output.insert(
-        HotShotEvent::BlockReady(
-            block.commit(),
-            vid_proposal.clone().data,
-            ViewNumber::new(2),
-        ),
-        2,
-    );
-
-    output.insert(
-        HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
-        2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
 
     let vid_vote = VIDVote::create_signed_vote(
