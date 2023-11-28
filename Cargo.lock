@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.8"
+version = "4.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2275f18819641850fa26c89acc84d465c1bf91ce57bc2748b28c420473352f64"
+checksum = "41fffed7514f420abec6d183b1d3acfd9099c79c3a10a06ade4f8203f1411272"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1266,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.8"
+version = "4.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07cdf1b148b25c1e1f7a42225e30a0d99a615cd4637eae7365548dd4529b95bc"
+checksum = "63361bae7eef3771745f02d8d892bec2fee5f6e34af316ba556e7f97a7069ff1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2705,7 +2705,7 @@ dependencies = [
  "surf-disco",
  "time 0.3.30",
  "tokio",
- "toml 0.7.8",
+ "toml 0.8.8",
  "tracing",
  "typenum",
 ]
@@ -2903,6 +2903,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
@@ -2996,7 +2997,7 @@ dependencies = [
  "tide",
  "tide-disco 0.4.1",
  "tokio",
- "toml 0.7.8",
+ "toml 0.8.8",
  "tracing",
 ]
 
@@ -3414,7 +3415,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#265eaaa059e0a501824e5aadf7ac5f32d9e4a6b8"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3437,13 +3438,13 @@ dependencies = [
  "rayon",
  "serde",
  "sha3",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
 ]
 
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#265eaaa059e0a501824e5aadf7ac5f32d9e4a6b8"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3479,7 +3480,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
  "typenum",
  "zeroize",
 ]
@@ -3487,7 +3488,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#265eaaa059e0a501824e5aadf7ac5f32d9e4a6b8"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3513,7 +3514,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#9b8bb4d7492657fb32dc77e009b5a13d6ea5a2a9"
+source = "git+https://github.com/EspressoSystems/jellyfish#265eaaa059e0a501824e5aadf7ac5f32d9e4a6b8"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3523,7 +3524,7 @@ dependencies = [
  "rayon",
  "serde",
  "sha2 0.10.8",
- "tagged-base64 0.3.3",
+ "tagged-base64 0.3.4",
 ]
 
 [[package]]
@@ -5992,18 +5993,18 @@ checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 
 [[package]]
 name = "serde"
-version = "1.0.192"
+version = "1.0.193"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca2a08484b285dcb282d0f67b26cadc0df8b19f8c12502c13d966bf9482f001"
+checksum = "25dd9975e68d0cb5aa1120c288333fc98731bd1dd12f561e468ea4728c042b89"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.192"
+version = "1.0.193"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6c7207fbec9faa48073f3e3074cbe553af6ea512d7c21ba46e434e70ea9fbc1"
+checksum = "43576ca501357b9b071ac53cdc7da8ef0cbd9493d8df094cd821777ea6e894d3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6215,7 +6216,7 @@ version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
 dependencies = [
- "dirs 4.0.0",
+ "dirs 5.0.1",
 ]
 
 [[package]]
@@ -6763,22 +6764,6 @@ dependencies = [
 
 [[package]]
 name = "tagged-base64"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50189d4e81e3a3850799299cc908f28fb15740adccf8bd620f855be396e6e730"
-dependencies = [
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "base64 0.13.1",
- "crc-any",
- "serde",
- "snafu",
- "tagged-base64-macros 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "tagged-base64"
 version = "0.3.4"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
 dependencies = [
@@ -6788,7 +6773,7 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu",
- "tagged-base64-macros 0.3.3 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4)",
+ "tagged-base64-macros 0.3.3",
  "wasm-bindgen",
 ]
 
@@ -6815,16 +6800,6 @@ dependencies = [
 name = "tagged-base64-macros"
 version = "0.3.1"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.1#9207d39ba7a9c11801511a7077ea4330b6173e44"
-dependencies = [
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "tagged-base64-macros"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71636a96f40b6ea3d969182ce22ad8042d5a38839ce448fff3cef4dec80f7589"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -7174,18 +7149,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a195ec8c9da26928f773888e0742ca3ca1040c6cd859c919c9f59c1954ab35"
@@ -7212,8 +7175,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap 2.0.2",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]

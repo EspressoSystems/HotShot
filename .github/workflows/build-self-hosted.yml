@@ -1,0 +1,46 @@
+name: Build, Lint, and Test (self-hosted)
+
+on:
+  push:
+    branches:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        just_variants:
+          - async_std
+          #- tokio
+    runs-on: [self-hosted]
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+        name: Install Current Rust
+        with:
+          components: "clippy, rustfmt"
+
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Run linting
+        run: |
+          just ${{ matrix.just_variants }} lint
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
