@@ -345,24 +345,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
             }
 
-            HotShotEvent::TransactionsSequenced(encoded_txns, metadata, view_number) => {
+            HotShotEvent::TransactionsSequenced(payload, metadata, view_number) => {
+                // Encode the sequenced transactions
+                let encoded_txns = match payload.encode() {
+                    Ok(encoded) => encoded,
+                    Err(e) => {
+                        error!("Failed to encode the block payload: {:?}.", e);
+                        return None;
+                    }
+                };
+
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
                 let srs = test_srs(NUM_STORAGE_NODES);
                 // TODO We are using constant numbers for now, but they will change as the quorum size
                 // changes.
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
-                // TODO never clone a block
-                // https://github.com/EspressoSystems/HotShot/issues/1858
                 let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
-                let vid_disperse = vid.disperse(encoded_txns.clone()).unwrap();
+                let vid_disperse = vid
+                    .disperse(encoded_txns.into_iter().collect::<Vec<u8>>())
+                    .unwrap();
 
-                // rebuild the payload from the txns and the metadata
-                let payload = <TYPES::BlockPayload as BlockPayload>::from_bytes(
-                    encoded_txns.into_iter(),
-                    metadata.clone(),
-                );
-
-                // commit the payload
+                // Commit the payload
                 let payload_commitment = payload.commit();
 
                 self.event_stream
@@ -392,6 +395,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {
                             data: vid_disperse,
+                            // TODO (Keyao) This is also signed in DA task.
                             signature: TYPES::SignatureKey::sign(
                                 &self.private_key,
                                 payload_commitment.as_ref(),
