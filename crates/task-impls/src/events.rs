@@ -95,7 +95,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions
     TransactionsSequenced(
         Vec<u8>,
-        VidCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),

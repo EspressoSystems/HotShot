@@ -345,12 +345,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
             }
 
-            HotShotEvent::TransactionsSequenced(
-                encoded_transactions,
-                commitment,
-                _metadata,
-                view_number,
-            ) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
                 let srs = test_srs(NUM_STORAGE_NODES);
                 // TODO We are using constant numbers for now, but they will change as the quorum size
@@ -359,15 +354,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
                 let vid_disperse = vid.disperse(encoded_transactions.clone()).unwrap();
 
+                // send the commitment and metadata to consensus for block building
+                self.event_stream
+                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        vid_disperse.commit,
+                        metadata,
+                    ))
+                    .await;
+
+                // send the block to the VID dispersal function
                 self.event_stream
                     .publish(HotShotEvent::BlockReady(
                         VidDisperse {
                             view_number,
-                            payload_commitment: commitment,
+                            payload_commitment: vid_disperse.commit,
                             shares: vid_disperse.shares,
                             common: vid_disperse.common,
                         },
-                        commitment,
+                        vid_disperse.commit,
                         view_number,
                     ))
                     .await;
@@ -447,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::VidDisperseRecv(_, _)
                 | HotShotEvent::VidVoteRecv(_)
                 | HotShotEvent::VidCertRecv(_)
-                | HotShotEvent::TransactionsSequenced(_, _, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
                 | HotShotEvent::BlockReady(_, _, _)
                 | HotShotEvent::ViewChange(_)
         )

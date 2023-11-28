@@ -74,7 +74,6 @@ async fn test_network_task() {
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::TransactionsSequenced(
         encoded_transactions.clone(),
-        payload_commitment,
         (),
         ViewNumber::new(2),
     ));
@@ -101,12 +100,7 @@ async fn test_network_task() {
         2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     output.insert(
-        HotShotEvent::TransactionsSequenced(
-            encoded_transactions,
-            payload_commitment,
-            (),
-            ViewNumber::new(2),
-        ),
+        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
         2,
     );
     output.insert(

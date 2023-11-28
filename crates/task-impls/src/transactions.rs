@@ -16,7 +16,6 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     traits::{
-        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
@@ -228,25 +227,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 };
 
-                // calculate the payload commitment
-                // TODO never clone a block
-                // https://github.com/EspressoSystems/HotShot/issues/1858
-                let commitment = vid_commitment(encoded_transactions.clone());
-
                 // send the sequenced transactions to VID and DA tasks
                 self.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
-                        commitment,
                         metadata.clone(),
                         view + 1,
-                    ))
-                    .await;
-
-                // send the commitment and metadata to consensus for timeout purposes
-                self.event_stream
-                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        commitment, metadata,
                     ))
                     .await;
 

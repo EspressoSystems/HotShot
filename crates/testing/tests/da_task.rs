@@ -1,5 +1,5 @@
 use hotshot::{types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::{da::sha256_hash, events::HotShotEvent};
 use hotshot_testing::node_types::{MemoryImpl, TestTypes};
 use hotshot_types::{
     block_impl::VIDTransaction,
@@ -35,9 +35,10 @@ async fn test_da_task() {
     let transactions = vec![VIDTransaction(vec![0])];
     let encoded_transactions = VIDTransaction::encode(transactions.clone()).unwrap();
     let payload_commitment = vid_commitment(encoded_transactions.clone());
+    let encoded_transactions_hash = sha256_hash(&encoded_transactions);
 
     let signature =
-        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), payload_commitment.as_ref());
+        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), &encoded_transactions_hash);
     let proposal = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: (),
@@ -61,7 +62,6 @@ async fn test_da_task() {
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::TransactionsSequenced(
         encoded_transactions.clone(),
-        payload_commitment,
         (),
         ViewNumber::new(2),
     ));
@@ -71,12 +71,7 @@ async fn test_da_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(
-            encoded_transactions,
-            payload_commitment,
-            (),
-            ViewNumber::new(2),
-        ),
+        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
         1,
     );
     output.insert(HotShotEvent::DAProposalSend(message.clone(), pub_key), 1);
