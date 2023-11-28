@@ -252,7 +252,7 @@ where
             let network_da = Arc::new(da_generator(id));
             let quorum_chan =
                 <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(
-                    network.clone(),
+                    network,
                 );
             let committee_chan =
                 <I::CommitteeNetwork as TestableChannelImplementation<_>>::generate_network()(

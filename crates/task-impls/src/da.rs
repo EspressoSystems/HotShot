@@ -159,15 +159,6 @@ async fn vote_handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     (None, state)
 }
 
-/// Helper function to calculate a sha256 hash
-/// Used primarily for signing and verifying the encoded transactions
-#[must_use]
-pub fn sha256_hash(data: &Vec<u8>) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hasher.finalize().into()
-}
-
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
     DATaskState<TYPES, I, A>
 {
@@ -205,8 +196,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let payload_commitment = vid_commitment(proposal.data.encoded_transactions.clone());
-                let encoded_transactions_hash = sha256_hash(&proposal.data.encoded_transactions);
+                let payload_commitment = vid_commitment(&proposal.data.encoded_transactions);
+                let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
                 let view_leader_key = self.da_membership.get_leader(view);
@@ -381,7 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // quick hash the encoded txns with sha256
-                let encoded_transactions_hash = sha256_hash(&encoded_transactions);
+                let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
                 // sign the encoded transactions as opposed to the VID commitment
                 let signature =

@@ -231,7 +231,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 self.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
-                        metadata.clone(),
+                        metadata,
                         view + 1,
                     ))
                     .await;

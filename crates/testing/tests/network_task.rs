@@ -79,7 +79,6 @@ async fn test_network_task() {
     ));
     input.push(HotShotEvent::BlockReady(
         da_vid_disperse_inner.clone(),
-        payload_commitment,
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key));
@@ -128,11 +127,7 @@ async fn test_network_task() {
         1,
     );
     output.insert(
-        HotShotEvent::BlockReady(
-            da_vid_disperse_inner,
-            payload_commitment,
-            ViewNumber::new(2),
-        ),
+        HotShotEvent::BlockReady(da_vid_disperse_inner, ViewNumber::new(2)),
         2,
     );
     output.insert(HotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);

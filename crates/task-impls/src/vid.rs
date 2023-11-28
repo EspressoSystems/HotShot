@@ -371,22 +371,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             shares: vid_disperse.shares,
                             common: vid_disperse.common,
                         },
-                        vid_disperse.commit,
                         view_number,
                     ))
                     .await;
             }
 
-            HotShotEvent::BlockReady(vid_disperse, payload_commitment, view_number) => {
+            HotShotEvent::BlockReady(vid_disperse, view_number) => {
                 debug!("publishing VID disperse for view {}", *view_number);
                 self.event_stream
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {
-                            data: vid_disperse,
                             signature: TYPES::SignatureKey::sign(
                                 &self.private_key,
-                                &payload_commitment,
+                                &vid_disperse.payload_commitment,
                             ),
+                            data: vid_disperse,
                             _pd: PhantomData,
                         },
                         self.public_key.clone(),
@@ -452,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::VidVoteRecv(_)
                 | HotShotEvent::VidCertRecv(_)
                 | HotShotEvent::TransactionsSequenced(_, _, _)
-                | HotShotEvent::BlockReady(_, _, _)
+                | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )
     }

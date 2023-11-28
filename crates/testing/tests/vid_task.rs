@@ -77,7 +77,6 @@ async fn test_vid_task() {
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),
-        payload_commitment,
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key));
@@ -91,7 +90,7 @@ async fn test_vid_task() {
     );
 
     output.insert(
-        HotShotEvent::BlockReady(vid_disperse, payload_commitment, ViewNumber::new(2)),
+        HotShotEvent::BlockReady(vid_disperse, ViewNumber::new(2)),
         2,
     );
 

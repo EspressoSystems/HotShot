@@ -1,5 +1,5 @@
 use hotshot::{types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::{da::sha256_hash, events::HotShotEvent};
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::node_types::{MemoryImpl, TestTypes};
 use hotshot_types::{
     block_impl::VIDTransaction,
@@ -10,6 +10,7 @@ use hotshot_types::{
         node_implementation::NodeType, state::ConsensusTime,
     },
 };
+use sha2::{Digest, Sha256};
 use std::{collections::HashMap, marker::PhantomData};
 
 #[cfg_attr(
@@ -34,8 +35,8 @@ async fn test_da_task() {
     let pub_key = *api.public_key();
     let transactions = vec![VIDTransaction(vec![0])];
     let encoded_transactions = VIDTransaction::encode(transactions.clone()).unwrap();
-    let payload_commitment = vid_commitment(encoded_transactions.clone());
-    let encoded_transactions_hash = sha256_hash(&encoded_transactions);
+    let payload_commitment = vid_commitment(&encoded_transactions);
+    let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
     let signature =
         <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), &encoded_transactions_hash);
