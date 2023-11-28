@@ -1,0 +1,77 @@
+name: Internal - Basic Issue
+description: Create an internal HotShot issue
+title: "[<MACRO_TASK_SHORT_NAME>] - Short Task Description "
+labels: ["sprint6"]
+projects: ["EspressoSystems/20", "EspressoSystems/32"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        *If you are an external collaborator use our external issue form instead.*
+  - type: textarea
+    id: task_reason
+    attributes:
+      label: What is this task and why do we need to work on it? 
+      placeholder: |
+        For MACRO tasks: The description should be written for someone unfamiliar with HotShot. 
+        For regular tasks: The description should be written for someone familiar with HotShot but not with this particular issue.
+    validations:
+      required: true
+  - type: textarea
+    id: task_description
+    attributes:
+      label: What work will need to be done to complete this task? 
+      description: 
+      placeholder: | 
+        If this is unknown, describe what information is needed to determine this. 
+        
+        If this is a MACRO task link the sub-issues here.
+        If this is a regular task use check boxes to list the sub-tasks here.
+
+        E.g. 
+        - [ ] Task 1
+        - [ ] Task 2
+    validations:
+      required: false
+  - type: textarea
+    id: other_details
+    attributes:
+      label: Are there any other details to include?
+      placeholder: | 
+        Include other details here such as: design tradeoffs, open questions, links to discussions about this issue, dependencies of this task, etc. 
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: What are the acceptance criteria to close this issue? 
+      placeholder: | 
+        Include a list of acceptance criteria such as: required reviewers, new tests that must be added, documentation that must be added, etc. 
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Complete the following items before submitting this issue: 
+        * Label this issue appropriately. All issues must have a `sprint` label unless they are labeled `external`, `low-priority`, or `tech-debt`.  This form will automatically label issues with our current `sprint` label.  
+        * Ensure this issue is added to the appropriate projects.  This form should add them to the "HotShot" and "Espresso Sequencer" projects by default. 
+        * Ensure this issue is titled correctly.  
+          * For MACRO tasks, title the issue [MACRO] - <MACRO_SHORT_NAME> - Macro Task Short Description
+            * E.g. [MACRO] - VIEW_SYNC - Add NK20 View Sync algorithm 
+          * For non-MACRO tasks, title the issue [<MACRO_SHORT_NAME>] - Task Short Description
+            * E.g. [VIEW_SYNC] - Create new vote types for `PreCommit`, `Commit`, and `Finalize` view sync votes
+        * Ensure MACRO tasks have all their sub-issues linked 
+        * Ensure non-MACRO tasks have their associated MACRO task linked
+        * Assign this issue to the appropriate person, if applicable
+
+        ### Other considerations: 
+        * All non-macro tasks must link to a MACRO task unless the task falls into one of the following categories.  Use these categories in lieu of a MACRO_TASK_SHORT_NAME. 
+          * TECH_DEBT - Label for tech debt 
+          * CI - Label for CI-related issues
+          * REPO - Label for repository organization issues (such as updating these template files)
+          * DOCS - Label for issues related to documentation
+        * If a non-MACRO task has linked sub-issues, consider converting it into a MACRO task.  Non-macro tasks should be small enough in scope that they do not contain sub-issues.  They may contain sub-tasks, however. 
+
+
