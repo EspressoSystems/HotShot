@@ -17,7 +17,7 @@ use hotshot_types::{
     data::{test_srs, Leaf, VidDisperse, VidScheme, VidSchemeTrait},
     message::Proposal,
     traits::{
-        block_contents::{NUM_CHUNKS, NUM_STORAGE_NODES},
+        block_contents::{vid_commitment, NUM_CHUNKS, NUM_STORAGE_NODES},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
@@ -220,6 +220,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             return None;
                         }
                     };
+
+                // encode the transactions
                 let encoded_transactions = match payload.encode() {
                     Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
                     Err(e) => {
@@ -227,46 +229,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         return None;
                     }
                 };
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-                let srs = test_srs(NUM_STORAGE_NODES);
-                // TODO We are using constant numbers for now, but they will change as the quorum size
-                // changes.
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
-                let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, &srs).unwrap();
-                let vid_disperse = vid.disperse(encoded_transactions.clone()).unwrap();
 
+                // calculate the payload commitment
                 // TODO never clone a block
                 // https://github.com/EspressoSystems/HotShot/issues/1858
+                let commitment = vid_commitment(encoded_transactions.clone());
+
+                // send the sequenced transactions to VID and DA tasks
                 self.event_stream
-                    .publish(HotShotEvent::BlockReady(
+                    .publish(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
-                        metadata,
+                        commitment,
+                        metadata.clone(),
                         view + 1,
                     ))
                     .await;
 
-                // TODO (Keyao) Determine and update where to publish VidDisperseSend.
-                // <https://github.com/EspressoSystems/HotShot/issues/1817>
-                debug!("publishing VID disperse for view {}", *view + 1);
-                info!("New view: {}", *view);
+                // send the commitment and metadata to consensus for timeout purposes
                 self.event_stream
-                    .publish(HotShotEvent::VidDisperseSend(
-                        Proposal {
-                            data: VidDisperse {
-                                view_number: view + 1,
-                                payload_commitment: vid_disperse.commit,
-                                shares: vid_disperse.shares,
-                                common: vid_disperse.common,
-                            },
-                            signature: TYPES::SignatureKey::sign(
-                                &self.private_key,
-                                &vid_disperse.commit,
-                            ),
-                            _pd: PhantomData,
-                        },
-                        self.public_key.clone(),
+                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        commitment, metadata,
                     ))
                     .await;
+
                 return None;
             }
             HotShotEvent::Shutdown => {

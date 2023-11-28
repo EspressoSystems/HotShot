@@ -364,12 +364,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::BlockReady(encoded_transactions, metadata, view) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, payload_commitment, metadata, view) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;
 
-                let payload_commitment = vid_commitment(encoded_transactions.clone());
                 let signature =
                     TYPES::SignatureKey::sign(&self.private_key, payload_commitment.as_ref());
                 let data: DAProposal<TYPES> = DAProposal {
@@ -386,12 +385,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     _pd: PhantomData,
                 };
 
-                self.event_stream
-                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        payload_commitment,
-                        metadata,
-                    ))
-                    .await;
                 self.event_stream
                     .publish(HotShotEvent::DAProposalSend(
                         message.clone(),
@@ -424,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::BlockReady(_, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _, _)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::ViewChange(_)
         )
