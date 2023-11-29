@@ -1,8 +1,10 @@
 use hotshot::{types::SignatureKey, HotShotConsensusApi};
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_testing::node_types::{MemoryImpl, TestTypes};
+use hotshot_testing::{
+    demo::block::VIDTransaction,
+    node_types::{MemoryImpl, TestTypes},
+};
 use hotshot_types::{
-    block_impl::VIDTransaction,
     data::{DAProposal, ViewNumber},
     simple_vote::{DAData, DAVote},
     traits::{

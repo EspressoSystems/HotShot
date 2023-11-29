@@ -375,7 +375,7 @@ impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for CombinedCommChann
 
 #[cfg(test)]
 mod test {
-    use hotshot_types::block_impl::VIDTransaction;
+    use hotshot_testing::demo::block::VIDTransaction;
 
     use super::*;
     use tracing::instrument;

@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
+    demo::block::{VIDBlockHeader, VIDBlockPayload},
     node_types::{MemoryImpl, TestTypes},
     test_builder::TestMetadata,
 };
@@ -12,7 +13,6 @@ use hotshot::{
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload},
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
     message::Proposal,

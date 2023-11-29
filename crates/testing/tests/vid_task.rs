@@ -1,11 +1,11 @@
 use hotshot::{tasks::add_vid_task, types::SignatureKey, HotShotConsensusApi};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
+    demo::block::VIDTransaction,
     node_types::{MemoryImpl, TestTypes},
     task_helpers::vid_init,
 };
 use hotshot_types::{
-    block_impl::VIDTransaction,
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
     traits::{consensus_api::ConsensusSharedApi, state::ConsensusTime},
 };

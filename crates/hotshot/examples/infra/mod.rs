@@ -22,12 +22,11 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_types::block_impl::VIDBlockHeader;
+use hotshot_testing::demo::block::{VIDBlockHeader, VIDBlockPayload, VIDTransaction};
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::ValidatorConfig;
 use hotshot_types::{
-    block_impl::{VIDBlockPayload, VIDTransaction},
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},

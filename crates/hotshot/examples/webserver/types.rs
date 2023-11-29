@@ -1,8 +1,6 @@
 use crate::infra::WebServerDARun;
-use hotshot::{
-    demo::DemoTypes,
-    traits::implementations::{MemoryStorage, WebCommChannel},
-};
+use hotshot::traits::implementations::{MemoryStorage, WebCommChannel};
+use hotshot_testing::demo::DemoTypes;
 use hotshot_types::traits::node_implementation::{ChannelMaps, NodeImplementation, NodeType};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

@@ -1,7 +1,11 @@
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 
+use crate::demo::{
+    block::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    DemoState,
+};
+
 use hotshot::{
-    demo::DemoState,
     traits::{
         election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{
@@ -13,7 +17,6 @@ use hotshot::{
     types::bn254::BLSPubKey,
 };
 use hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
     data::ViewNumber,
     traits::node_implementation::{ChannelMaps, NodeType},
 };

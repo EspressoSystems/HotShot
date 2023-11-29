@@ -1,8 +1,6 @@
 use crate::infra::CombinedDARun;
-use hotshot::{
-    demo::DemoTypes,
-    traits::implementations::{CombinedCommChannel, MemoryStorage},
-};
+use hotshot::traits::implementations::{CombinedCommChannel, MemoryStorage};
+use hotshot_testing::demo::DemoTypes;
 use hotshot_types::traits::node_implementation::{ChannelMaps, NodeImplementation, NodeType};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

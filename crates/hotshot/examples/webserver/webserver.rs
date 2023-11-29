@@ -1,4 +1,4 @@
-use hotshot::demo::DemoTypes;
+use hotshot_testing::demo::DemoTypes;
 use std::sync::Arc;
 
 use async_compatibility_layer::{

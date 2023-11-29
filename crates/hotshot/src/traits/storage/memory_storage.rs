@@ -112,11 +112,14 @@ mod test {
     use super::*;
     use commit::Committable;
     use hotshot_signature_key::bn254::BLSPubKey;
+    use hotshot_testing::demo::{
+        block::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+        state::DummyState,
+    };
     use hotshot_types::{
-        block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
         data::{fake_commitment, genesis_proposer_id, Leaf, ViewNumber},
         simple_certificate::QuorumCertificate,
-        traits::{node_implementation::NodeType, state::dummy::DummyState, state::ConsensusTime},
+        traits::{node_implementation::NodeType, state::ConsensusTime},
     };
     use std::{fmt::Debug, hash::Hash, marker::PhantomData};
     use tracing::instrument;

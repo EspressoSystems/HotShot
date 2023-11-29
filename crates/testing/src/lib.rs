@@ -27,6 +27,9 @@ pub mod node_types;
 /// task to spin nodes up and down
 pub mod spinning_task;
 
+/// Implementations for testing/examples
+pub mod demo;
+
 // TODO node changer (spin up and down)
 
 #[derive(Clone, Debug)]

@@ -15,9 +15,9 @@ pub mod infra;
 
 use async_compatibility_layer::{art::async_spawn, channel::oneshot};
 use clap::Parser;
-use hotshot::demo::DemoTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
+use hotshot_testing::demo::DemoTypes;
 use hotshot_types::traits::node_implementation::NodeType;
 use tracing::error;
 use types::VIDNetwork;

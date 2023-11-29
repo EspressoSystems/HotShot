@@ -19,8 +19,8 @@ use std::{collections::HashMap, marker::PhantomData};
 #[ignore]
 async fn test_network_task() {
     use hotshot_task_impls::harness::run_harness;
-    use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{block_impl::VIDTransaction, data::VidDisperse, message::Proposal};
+    use hotshot_testing::{demo::block::VIDTransaction, task_helpers::build_system_handle};
+    use hotshot_types::{data::VidDisperse, message::Proposal};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();

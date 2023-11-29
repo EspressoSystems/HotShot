@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
-use hotshot::demo::DemoState;
 use hotshot::traits::election::static_committee::{GeneralStaticCommittee, StaticElectionConfig};
 use hotshot::traits::implementations::{
     MasterMap, MemoryCommChannel, MemoryNetwork, MemoryStorage, NetworkingMetricsValue,
@@ -10,7 +9,10 @@ use hotshot::traits::implementations::{
 use hotshot::traits::NodeImplementation;
 use hotshot::types::bn254::{BLSPrivKey, BLSPubKey};
 use hotshot::types::SignatureKey;
-use hotshot_types::block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction};
+use hotshot_testing::demo::{
+    block::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
+    DemoState,
+};
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::{ConnectedNetwork, TransmitType};
