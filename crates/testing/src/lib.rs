@@ -1,3 +1,9 @@
+#![cfg_attr(
+    // hotshot_example option is set manually in justfile when running examples
+    not(any(test, debug_assertions, hotshot_example)),
+    deprecated = "suspicious usage of testing/demo implementations in non-test/non-debug build"
+)]
+
 use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
 
 /// Helpers for initializing system context handle and building tasks.

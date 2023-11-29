@@ -19,7 +19,7 @@ build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
 example *ARGS:
-  cargo run --profile=release-lto --example {{ARGS}}
+  RUSTFLAGS='--cfg hotshot_example {{original_rustflags}}' cargo run --profile=release-lto --example {{ARGS}}
 
 test:
   echo Testing
