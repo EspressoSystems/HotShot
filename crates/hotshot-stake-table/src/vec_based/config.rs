@@ -5,7 +5,7 @@ use ark_std::vec;
 use jf_utils::to_bytes;
 
 /// Schnorr verification key as auxiliary information
-pub use hotshot_types::light_client_state::StateVerKey;
+pub use hotshot_types::light_client::StateVerKey;
 /// BLS verification key as indexing key
 pub use jf_primitives::signatures::bls_over_bn254::VerKey as QCVerKey;
 /// Type for commitment

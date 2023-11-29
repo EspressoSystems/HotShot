@@ -15,7 +15,7 @@ use ark_std::{
 use circuit::PublicInput;
 use ethereum_types::U256;
 use hotshot_types::{
-    light_client_state::{LightClientState, StateVerKey},
+    light_client::{LightClientState, StateVerKey},
     traits::stake_table::{SnapshotVersion, StakeTableScheme},
 };
 use jf_plonk::{
@@ -103,7 +103,7 @@ mod tests {
     };
     use ethereum_types::U256;
     use hotshot_types::{
-        light_client_state::LightClientState,
+        light_client::LightClientState,
         traits::stake_table::{SnapshotVersion, StakeTableScheme},
     };
     use jf_plonk::{

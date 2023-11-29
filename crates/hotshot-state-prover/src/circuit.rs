@@ -5,7 +5,7 @@ use ark_ff::PrimeField;
 use ark_std::borrow::Borrow;
 use ethereum_types::U256;
 use hotshot_stake_table::config::STAKE_TABLE_CAPACITY;
-use hotshot_types::light_client_state::LightClientState;
+use hotshot_types::light_client::LightClientState;
 use jf_plonk::errors::PlonkError;
 use jf_primitives::{
     circuit::{

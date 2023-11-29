@@ -1,6 +1,7 @@
 //! Types and structs associated with light client state
 
 use ark_ff::PrimeField;
+use jf_primitives::signatures::schnorr;
 
 /// A serialized light client state for proof generation
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
@@ -48,27 +49,50 @@ use ark_ed_on_bn254::EdwardsConfig as Config;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
-/// Verification key for verifying state signatures
-pub type StateVerKey = jf_primitives::signatures::schnorr::VerKey<Config>;
-/// Signing key for signing a light client state
-pub type StateSignKey = jf_primitives::signatures::schnorr::SignKey<ark_ed_on_bn254::Fr>;
-/// Key pairs for signing/verifying a light client state
-pub type StateSigKeyPairs = jf_primitives::signatures::schnorr::KeyPair<Config>;
 /// Signatures
-pub type StateSignature = jf_primitives::signatures::schnorr::Signature<Config>;
+pub type StateSignature = schnorr::Signature<Config>;
+/// Verification key for verifying state signatures
+pub type StateVerKey = schnorr::VerKey<Config>;
+/// Signing key for signing a light client state
+pub type StateSignKey = schnorr::SignKey<ark_ed_on_bn254::Fr>;
+/// Key pairs for signing/verifying a light client state
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StateKeyPair(schnorr::KeyPair<Config>);
 
-/// Generate key pairs from seed
-#[must_use]
-pub fn generate_state_key_pair_from_seed(seed: [u8; 32]) -> StateSigKeyPairs {
-    StateSigKeyPairs::generate(&mut ChaCha20Rng::from_seed(seed))
+impl std::ops::Deref for StateKeyPair {
+    type Target = schnorr::KeyPair<Config>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-/// Generate key pairs from an index and a seed
-#[must_use]
-pub fn generate_state_key_pair_from_seed_indexed(seed: [u8; 32], index: u64) -> StateSigKeyPairs {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(&seed);
-    hasher.update(&index.to_le_bytes());
-    let new_seed = *hasher.finalize().as_bytes();
-    generate_state_key_pair_from_seed(new_seed)
+impl StateKeyPair {
+    /// Generate key pairs from `thread_rng()`
+    #[must_use]
+    pub fn generate() -> StateKeyPair {
+        schnorr::KeyPair::generate(&mut rand::thread_rng()).into()
+    }
+
+    /// Generate key pairs from seed
+    #[must_use]
+    pub fn generate_from_seed(seed: [u8; 32]) -> StateKeyPair {
+        schnorr::KeyPair::generate(&mut ChaCha20Rng::from_seed(seed)).into()
+    }
+
+    /// Generate key pairs from an index and a seed
+    #[must_use]
+    pub fn generate_from_seed_indexed(seed: [u8; 32], index: u64) -> StateKeyPair {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        Self::generate_from_seed(new_seed)
+    }
+}
+
+impl From<schnorr::KeyPair<Config>> for StateKeyPair {
+    fn from(value: schnorr::KeyPair<Config>) -> Self {
+        StateKeyPair(value)
+    }
 }
