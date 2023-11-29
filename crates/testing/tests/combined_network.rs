@@ -282,7 +282,10 @@ async fn test_stress_combined_network_fuzzy() {
     };
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: generate_random_node_changes(metadata.total_nodes, 100),
+        node_changes: generate_random_node_changes(
+            metadata.total_nodes,
+            metadata.overall_safety_properties.num_successful_views * 2,
+        ),
     };
 
     metadata
