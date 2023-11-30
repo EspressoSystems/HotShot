@@ -1,9 +1,17 @@
 name: Run Cargo Audit
 
 on:
+  push:
+    branches:
+      - 'develop'
+      - 'main'
   schedule:
     - cron: '0 0 * * 1' # Run on Mondays
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   audit:

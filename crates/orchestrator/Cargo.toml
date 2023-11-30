@@ -15,8 +15,8 @@ libp2p = { workspace = true }
 blake3 = { workspace = true, features = ["traits-preview"] }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
+hotshot-signature-key = { path = "../hotshot-signature-key" }
 libp2p-networking = { workspace = true }
-nll = { workspace = true }
 tide-disco = { workspace = true }
 surf-disco = { workspace = true }
 tracing = { workspace = true }

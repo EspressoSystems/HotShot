@@ -173,11 +173,12 @@
             zlib.out
             fenix.packages.${system}.rust-analyzer
             just
-            pkgconfig
+            pkg-config
             openssl.dev
             openssl.out
           ] ++ lib.optionals stdenv.isDarwin [
             darwin.apple_sdk.frameworks.Security
+            darwin.apple_sdk.frameworks.CoreServices 
             pkgs.libiconv
             darwin.apple_sdk.frameworks.SystemConfiguration
           ];
