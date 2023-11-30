@@ -1,4 +1,4 @@
-Closes issue: <ISSUE>
+Closes #<ISSUE>
 
 ### This PR: 
 <!-- Describe what this PR adds to HotSHot -->
