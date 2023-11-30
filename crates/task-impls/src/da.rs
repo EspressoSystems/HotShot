@@ -3,7 +3,6 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 
 use bitvec::prelude::*;
-use commit::Committable;
 use either::{Either, Left, Right};
 use futures::FutureExt;
 use hotshot_task::{
@@ -19,18 +18,19 @@ use hotshot_types::{
     message::Proposal,
     simple_vote::{DAData, DAVote},
     traits::{
+        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
-        BlockPayload,
     },
     utils::ViewInner,
     vote::HasViewNumber,
     vote::VoteAccumulator,
 };
+use sha2::{Digest, Sha256};
 
 use snafu::Snafu;
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
@@ -196,11 +196,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                debug!(
-                    "Got a DA block with {} transactions!",
-                    proposal.data.block_payload.transaction_commitments().len()
-                );
-                let payload_commitment = proposal.data.block_payload.commit();
+                let payload_commitment = vid_commitment(&proposal.data.encoded_transactions);
+                let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
                 let view_leader_key = self.da_membership.get_leader(view);
@@ -209,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                if !view_leader_key.validate(&proposal.signature, payload_commitment.as_ref()) {
+                if !view_leader_key.validate(&proposal.signature, &encoded_transactions_hash) {
                     error!("Could not verify proposal.");
                     return None;
                 }
@@ -244,15 +241,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
                 consensus.state_map.entry(view).or_insert(View {
-                    view_inner: ViewInner::DA {
-                        block: payload_commitment,
-                    },
+                    view_inner: ViewInner::DA { payload_commitment },
                 });
 
-                // Record the block payload we have promised to make available.
+                // Record the payload we have promised to make available.
                 consensus
-                    .saved_block_payloads
-                    .insert(proposal.data.block_payload);
+                    .saved_payloads
+                    .insert(payload_commitment, proposal.data.encoded_transactions);
             }
             HotShotEvent::DAVoteRecv(vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number(),);
@@ -371,18 +366,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::BlockReady(payload, metadata, view) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;
 
-                let payload_commitment = payload.commit();
+                // quick hash the encoded txns with sha256
+                let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
+
+                // sign the encoded transactions as opposed to the VID commitment
                 let signature =
-                    TYPES::SignatureKey::sign(&self.private_key, payload_commitment.as_ref());
-                // TODO (Keyao) Fix the payload sending and receiving for the DA proposal.
-                // <https://github.com/EspressoSystems/HotShot/issues/2026>
+                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash);
                 let data: DAProposal<TYPES> = DAProposal {
-                    block_payload: payload.clone(),
+                    encoded_transactions,
+                    metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: view,
                 };
@@ -394,12 +391,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     _pd: PhantomData,
                 };
 
-                self.event_stream
-                    .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        payload_commitment,
-                        metadata,
-                    ))
-                    .await;
                 self.event_stream
                     .publish(HotShotEvent::DAProposalSend(
                         message.clone(),
@@ -432,7 +423,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::BlockReady(_, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::ViewChange(_)
         )

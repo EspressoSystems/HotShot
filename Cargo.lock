@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.8"
+version = "4.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2275f18819641850fa26c89acc84d465c1bf91ce57bc2748b28c420473352f64"
+checksum = "41fffed7514f420abec6d183b1d3acfd9099c79c3a10a06ade4f8203f1411272"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1266,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.8"
+version = "4.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07cdf1b148b25c1e1f7a42225e30a0d99a615cd4637eae7365548dd4529b95bc"
+checksum = "63361bae7eef3771745f02d8d892bec2fee5f6e34af316ba556e7f97a7069ff1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2880,6 +2880,7 @@ dependencies = [
  "pin-project",
  "rand_chacha 0.3.1",
  "serde",
+ "sha2 0.10.8",
  "snafu",
  "time 0.3.30",
  "tokio",
@@ -2913,6 +2914,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
+ "sha2 0.10.8",
  "snafu",
  "tokio",
  "tracing",
@@ -2924,6 +2926,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "ark-bls12-381",
+ "ark-ed-on-bn254",
  "ark-ff",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",

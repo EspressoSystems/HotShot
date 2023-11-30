@@ -1,9 +1,8 @@
 use crate::view_sync::ViewSyncPhase;
 
-use commit::Commitment;
 use either::Either;
 use hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperse},
+    data::{DAProposal, Leaf, QuorumProposal, VidCommitment, VidDisperse},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, VIDCertificate,
@@ -90,15 +89,17 @@ pub enum HotShotEvent<TYPES: NodeType> {
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
-        Commitment<TYPES::BlockPayload>,
+        VidCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
     ),
-    /// Event when the transactions task has a block formed
-    BlockReady(
-        TYPES::BlockPayload,
+    /// Event when the transactions task has sequenced transactions. Contains the encoded transactions
+    TransactionsSequenced(
+        Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),
+    /// Event when the transactions task has a block formed
+    BlockReady(VidDisperse<TYPES>, TYPES::Time),
     /// Event when consensus decided on a leaf
     LeafDecided(Vec<Leaf<TYPES>>),
     /// Send VID shares to VID storage nodes; emitted by the DA leader
