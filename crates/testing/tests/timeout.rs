@@ -92,6 +92,7 @@ async fn test_timeout_libp2p() {
     let mut metadata = TestMetadata {
         total_nodes: 10,
         start_nodes: 10,
+        num_bootstrap_nodes: 10,
         ..Default::default()
     };
     let dead_nodes = vec![ChangeNode {
@@ -107,7 +108,7 @@ async fn test_timeout_libp2p() {
     };
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(2, dead_nodes)],
+        node_changes: vec![(4, dead_nodes)],
     };
 
     metadata.completion_task_description =
