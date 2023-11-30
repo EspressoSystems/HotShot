@@ -96,7 +96,7 @@ async fn test_timeout_libp2p() {
         ..Default::default()
     };
     let dead_nodes = vec![ChangeNode {
-        idx: 5,
+        idx: 9,
         updown: UpDown::Down,
     }];
 
@@ -108,7 +108,7 @@ async fn test_timeout_libp2p() {
     };
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(4, dead_nodes)],
+        node_changes: vec![(5, dead_nodes)],
     };
 
     metadata.completion_task_description =
