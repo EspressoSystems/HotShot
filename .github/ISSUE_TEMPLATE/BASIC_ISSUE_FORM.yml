@@ -54,8 +54,7 @@ body:
   - type: input
     id: branch
     attributes:
-      label: Branch work will be merged to
-      default: develop
+      label: Branch work will be merged to (if not the default branch)
     validations:
       required: false
 
