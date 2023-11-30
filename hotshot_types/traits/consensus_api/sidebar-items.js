@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["ConsensusSharedApi","SequencingConsensusApi"]};
+window.SIDEBAR_ITEMS = {"trait":["ConsensusApi","ConsensusSharedApi"]};

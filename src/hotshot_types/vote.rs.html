@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/vote.rs`."><title>vote.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/vote.rs`."><title>vote.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -183,727 +183,164 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
-//!
-//! This module contains types used to represent the various types of votes that `HotShot` nodes
-//! can send, and vote accumulator that converts votes into certificates.
+</pre></div><pre class="rust"><code><span class="doccomment">//! Vote, Accumulator, and Certificate Types
 
-</span><span class="kw">use crate</span>::{
-    certificate::{AssembledSignature, QuorumCertificate},
-    data::LeafType,
-    traits::{
-        election::{VoteData, VoteToken},
-        node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-    },
+</span><span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
 };
+
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>bitvec::vec::BitVec;
+<span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::signatures::{
-    bls_over_bn254::BLSOverBN254CurveSignatureScheme, SignatureScheme,
-};
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Debug,
-    num::NonZeroU64,
-};
 <span class="kw">use </span>tracing::error;
 
-<span class="doccomment">/// The vote sent by consensus messages.
-</span><span class="kw">pub trait </span>VoteType&lt;TYPES: NodeType&gt;:
-    Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq
-{
-    <span class="doccomment">/// The view this vote was cast for.
-    </span><span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
+<span class="kw">use crate</span>::{
+    simple_vote::Voteable,
+    traits::{
+        election::Membership,
+        node_implementation::NodeType,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, StakeTableEntryType},
+    },
+};
+
+<span class="doccomment">/// A simple vote that has a signer and commitment to the data voted on.
+</span><span class="kw">pub trait </span>Vote&lt;TYPES: NodeType&gt;: HasViewNumber&lt;TYPES&gt; {
+    <span class="doccomment">/// Type of data commitment this vote uses.
+    </span><span class="kw">type </span>Commitment: Voteable;
+
+    <span class="doccomment">/// Get the signature of the vote sender
+    </span><span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature;
+    <span class="doccomment">/// Gets the data which was voted on by this vote
+    </span><span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Commitment;
+    <span class="doccomment">/// Gets the Data commitment of the vote
+    </span><span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Commitment&gt;;
+
+    <span class="doccomment">/// Gets the public signature key of the votes creator/sender
+    </span><span class="kw">fn </span>get_signing_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey;
 }
 
-<span class="doccomment">/// A vote on DA proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>DAVote&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The signature share associated with this vote
-    </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
-    <span class="doccomment">/// The block commitment being voted on.
-    </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
-    <span class="doccomment">/// The view this vote was cast for
-    </span><span class="kw">pub </span>current_view: TYPES::Time,
-    <span class="doccomment">/// The vote token generated by this replica
-    </span><span class="kw">pub </span>vote_token: TYPES::VoteTokenType,
-    <span class="doccomment">/// The vote data this vote is signed over
-    </span><span class="kw">pub </span>vote_data: VoteData&lt;TYPES::BlockType&gt;,
+<span class="doccomment">/// Any type that is associated with a view
+</span><span class="kw">pub trait </span>HasViewNumber&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Returns the view number the type refers to.
+    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
 }
 
-<span class="doccomment">/// A positive or negative vote on validating or commitment proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>YesOrNoVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// TODO we should remove this
-    /// this is correct, but highly inefficient
-    /// we should check a cache, and if that fails request the qc
-    </span><span class="kw">pub </span>justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
-    <span class="doccomment">/// The signature share associated with this vote
-    </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
-    <span class="doccomment">/// The leaf commitment being voted on.
-    </span><span class="kw">pub </span>leaf_commitment: Commitment&lt;LEAF&gt;,
-    <span class="doccomment">/// The view this vote was cast for
-    </span><span class="kw">pub </span>current_view: TYPES::Time,
-    <span class="doccomment">/// The vote token generated by this replica
-    </span><span class="kw">pub </span>vote_token: TYPES::VoteTokenType,
-    <span class="doccomment">/// The vote data this vote is signed over
-    </span><span class="kw">pub </span>vote_data: VoteData&lt;LEAF&gt;,
+<span class="doccomment">/**
+The certificate formed from the collection of signatures a committee.
+The committee is defined by the `Membership` associated type.
+The votes all must be over the `Commitment` associated type.
+*/
+</span><span class="kw">pub trait </span>Certificate&lt;TYPES: NodeType&gt;: HasViewNumber&lt;TYPES&gt; {
+    <span class="doccomment">/// The data commitment this certificate certifies.
+    </span><span class="kw">type </span>Voteable: Voteable;
+
+    <span class="doccomment">/// Build a certificate from the data commitment and the quorum of signers
+    </span><span class="kw">fn </span>create_signed_certificate(
+        vote_commitment: Commitment&lt;<span class="self">Self</span>::Voteable&gt;,
+        data: <span class="self">Self</span>::Voteable,
+        sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType,
+        view: TYPES::Time,
+    ) -&gt; <span class="self">Self</span>;
+
+    <span class="doccomment">/// Checks if the cert is valid
+    </span><span class="kw">fn </span>is_valid_cert&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; bool;
+    <span class="doccomment">/// Returns the amount of stake needed to create this certificate
+    </span><span class="comment">// TODO: Make this a static ratio of the total stake of `Membership`
+    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64;
+    <span class="doccomment">/// Get the commitment which was voted on
+    </span><span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable;
+    <span class="doccomment">/// Get the vote commitment which the votes commit to
+    </span><span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Voteable&gt;;
 }
 
-<span class="doccomment">/// A timeout vote.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>TimeoutVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// The highest valid QC this node knows about
-    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
-    <span class="doccomment">/// The signature share associated with this vote
-    </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
-    <span class="doccomment">/// The view this vote was cast for
-    </span><span class="kw">pub </span>current_view: TYPES::Time,
-    <span class="doccomment">/// The vote token generated by this replica
-    </span><span class="kw">pub </span>vote_token: TYPES::VoteTokenType,
-    <span class="doccomment">/// The vote data this vote is signed over
-    </span><span class="kw">pub </span>vote_data: VoteData&lt;TYPES::Time&gt;,
-}
-
-<span class="doccomment">/// The internals of a view sync vote
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>ViewSyncVoteInternal&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The public key associated with the relay.
-    </span><span class="kw">pub </span>relay_pub_key: EncodedPublicKey,
-    <span class="doccomment">/// The relay this vote is intended for
-    </span><span class="kw">pub </span>relay: u64,
-    <span class="doccomment">/// The view number we are trying to sync on
-    </span><span class="kw">pub </span>round: TYPES::Time,
-    <span class="doccomment">/// This node&#39;s signature over the VoteData
-    </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
-    <span class="doccomment">/// The vote token generated by this replica
-    </span><span class="kw">pub </span>vote_token: TYPES::VoteTokenType,
-    <span class="doccomment">/// The vote data this vote is signed over
-    </span><span class="kw">pub </span>vote_data: VoteData&lt;ViewSyncData&lt;TYPES&gt;&gt;,
-}
-
-<span class="doccomment">/// The data View Sync votes are signed over
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>ViewSyncData&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The relay this vote is intended for
-    </span><span class="kw">pub </span>relay: EncodedPublicKey,
-    <span class="doccomment">/// The view number we are trying to sync on
-    </span><span class="kw">pub </span>round: TYPES::Time,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>ViewSyncData&lt;TYPES&gt; {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">&quot;Quorum Certificate Commitment&quot;</span>);
-
-        builder
-            .var_size_field(<span class="string">&quot;Relay public key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.relay.<span class="number">0</span>)
-            .u64(<span class="kw-2">*</span><span class="self">self</span>.round)
-            .finalize()
-    }
-}
-
-<span class="doccomment">/// Votes to synchronize the network on a single view
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>ViewSyncVote&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// PreCommit vote
-    </span>PreCommit(ViewSyncVoteInternal&lt;TYPES&gt;),
-    <span class="doccomment">/// Commit vote
-    </span>Commit(ViewSyncVoteInternal&lt;TYPES&gt;),
-    <span class="doccomment">/// Finalize vote
-    </span>Finalize(ViewSyncVoteInternal&lt;TYPES&gt;),
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewSyncVote&lt;TYPES&gt; {
-    <span class="doccomment">/// Get the encoded signature.
-    </span><span class="kw">pub fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            ViewSyncVote::PreCommit(vote_internal)
-            | ViewSyncVote::Commit(vote_internal)
-            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.signature.<span class="number">1</span>.clone(),
-        }
-    }
-    <span class="doccomment">/// Get the signature key.
-    /// # Panics
-    /// If the deserialization fails.
-    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
-        <span class="kw">let </span>encoded = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            ViewSyncVote::PreCommit(vote_internal)
-            | ViewSyncVote::Commit(vote_internal)
-            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.signature.<span class="number">0</span>.clone(),
-        };
-        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>encoded).unwrap()
-    }
-    <span class="doccomment">/// Get the relay.
-    </span><span class="kw">pub fn </span>relay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            ViewSyncVote::PreCommit(vote_internal)
-            | ViewSyncVote::Commit(vote_internal)
-            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.relay,
-        }
-    }
-    <span class="doccomment">/// Get the round number.
-    </span><span class="kw">pub fn </span>round(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            ViewSyncVote::PreCommit(vote_internal)
-            | ViewSyncVote::Commit(vote_internal)
-            | ViewSyncVote::Finalize(vote_internal) =&gt; vote_internal.round,
-        }
-    }
-}
-
-<span class="doccomment">/// Votes on validating or commitment proposal.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>QuorumVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// Posivite vote.
-    </span>Yes(YesOrNoVote&lt;TYPES, LEAF&gt;),
-    <span class="doccomment">/// Negative vote.
-    </span>No(YesOrNoVote&lt;TYPES, LEAF&gt;),
-    <span class="doccomment">/// Timeout vote.
-    </span>Timeout(TimeoutVote&lt;TYPES, LEAF&gt;),
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VoteType&lt;TYPES&gt; <span class="kw">for </span>DAVote&lt;TYPES&gt; {
-    <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="self">self</span>.current_view
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; DAVote&lt;TYPES&gt; {
-    <span class="doccomment">/// Get the signature key.
-    /// # Panics
-    /// If the deserialization fails.
-    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
-        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.signature.<span class="number">0</span>).unwrap()
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; VoteType&lt;TYPES&gt;
-    <span class="kw">for </span>QuorumVote&lt;TYPES, LEAF&gt;
-{
-    <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="kw">match </span><span class="self">self </span>{
-            QuorumVote::Yes(v) | QuorumVote::No(v) =&gt; v.current_view,
-            QuorumVote::Timeout(v) =&gt; v.current_view,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; QuorumVote&lt;TYPES, LEAF&gt; {
-    <span class="doccomment">/// Get the encoded signature.
-    </span><span class="kw">pub fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            <span class="self">Self</span>::Yes(vote) | <span class="self">Self</span>::No(vote) =&gt; vote.signature.<span class="number">1</span>.clone(),
-            <span class="self">Self</span>::Timeout(vote) =&gt; vote.signature.<span class="number">1</span>.clone(),
-        }
-    }
-    <span class="doccomment">/// Get the signature key.
-    /// # Panics
-    /// If the deserialization fails.
-    </span><span class="kw">pub fn </span>signature_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
-        <span class="kw">let </span>encoded = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            <span class="self">Self</span>::Yes(vote) | <span class="self">Self</span>::No(vote) =&gt; vote.signature.<span class="number">0</span>.clone(),
-            <span class="self">Self</span>::Timeout(vote) =&gt; vote.signature.<span class="number">0</span>.clone(),
-        };
-        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span>encoded).unwrap()
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VoteType&lt;TYPES&gt; <span class="kw">for </span>ViewSyncVote&lt;TYPES&gt; {
-    <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="kw">match </span><span class="self">self </span>{
-            ViewSyncVote::PreCommit(v) | ViewSyncVote::Commit(v) | ViewSyncVote::Finalize(v) =&gt; {
-                v.round
-            }
-        }
-    }
-}
-
-<span class="doccomment">/// The aggreation of votes, implemented by `VoteAccumulator`.
-</span><span class="kw">pub trait </span>Accumulator&lt;T, U&gt;: Sized {
-    <span class="doccomment">/// Accumate the `val` to the current state.
-    ///
-    /// If a threshold is reached, returns `U` (e.g., a certificate). Else, returns `Self` and
-    /// continues accumulating items.
-    </span><span class="kw">fn </span>append(<span class="self">self</span>, val: T) -&gt; Either&lt;<span class="self">Self</span>, U&gt;;
-}
-
-<span class="doccomment">/// Mapping of commitments to vote tokens by key.
-</span><span class="kw">type </span>VoteMap&lt;C, TOKEN&gt; = HashMap&lt;
-    Commitment&lt;C&gt;,
-    (
-        u64,
-        BTreeMap&lt;EncodedPublicKey, (EncodedSignature, VoteData&lt;C&gt;, TOKEN)&gt;,
-    ),
-&gt;;
-
-<span class="doccomment">/// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
-/// respectively.
-</span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, COMMITMENT: Committable + Serialize + Clone&gt; {
+<span class="doccomment">/// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
+</span><span class="kw">pub struct </span>VoteAccumulator&lt;
+    TYPES: NodeType,
+    VOTE: Vote&lt;TYPES&gt;,
+    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+&gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
-    </span><span class="kw">pub </span>total_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all da signatures accumlated so far
-    </span><span class="kw">pub </span>da_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all yes signatures accumlated so far
-    </span><span class="kw">pub </span>yes_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all no signatures accumlated so far
-    </span><span class="kw">pub </span>no_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all view sync precommit votes accumulated thus far
-    </span><span class="kw">pub </span>viewsync_precommit_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all view sync commit votes accumulated thus far
-    </span><span class="kw">pub </span>viewsync_commit_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// Map of all view sync finalize votes accumulated thus far
-    </span><span class="kw">pub </span>viewsync_finalize_vote_outcomes: VoteMap&lt;COMMITMENT, TOKEN&gt;,
-    <span class="doccomment">/// A quorum&#39;s worth of stake, generall 2f + 1
-    </span><span class="kw">pub </span>success_threshold: NonZeroU64,
-    <span class="doccomment">/// Enough stake to know that we cannot possibly get a quorum, generally f + 1
-    </span><span class="kw">pub </span>failure_threshold: NonZeroU64,
+    </span><span class="kw">pub </span>vote_outcomes: VoteMap2&lt;Commitment&lt;VOTE::Commitment&gt;&gt;,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature&gt;,
+    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     </span><span class="kw">pub </span>signers: BitVec,
+    <span class="doccomment">/// Phantom data to specify the types this accumulator is for
+    </span><span class="kw">pub </span>phantom: PhantomData&lt;(TYPES, VOTE, CERT)&gt;,
 }
 
-<span class="kw">impl</span>&lt;TOKEN, LEAF: Committable + Serialize + Clone, TYPES: NodeType&gt;
-    Accumulator&lt;
-        (
-            Commitment&lt;LEAF&gt;,
-            (
-                EncodedPublicKey,
-                (
-                    EncodedSignature,
-                    Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
-                    usize,
-                    VoteData&lt;LEAF&gt;,
-                    TOKEN,
-                ),
-            ),
-        ),
-        AssembledSignature&lt;TYPES&gt;,
-    &gt; <span class="kw">for </span>VoteAccumulator&lt;TOKEN, LEAF&gt;
-<span class="kw">where
-    </span>TOKEN: Clone + VoteToken,
+<span class="kw">impl</span>&lt;TYPES: NodeType, VOTE: Vote&lt;TYPES&gt;, CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;&gt;
+    VoteAccumulator&lt;TYPES, VOTE, CERT&gt;
 {
-    <span class="attr">#![allow(clippy::too_many_lines)]
-    </span><span class="kw">fn </span>append(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        val: (
-            Commitment&lt;LEAF&gt;,
-            (
-                EncodedPublicKey,
-                (
-                    EncodedSignature,
-                    Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
-                    usize,
-                    VoteData&lt;LEAF&gt;,
-                    TOKEN,
-                ),
-            ),
-        ),
-    ) -&gt; Either&lt;<span class="self">Self</span>, AssembledSignature&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>(commitment, (key, (sig, entries, node_id, vote_data, token))) = val;
+    <span class="doccomment">/// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
+    /// have accumulated enough votes to exceed the threshold for creating a certificate.
+    ///
+    /// # Panics
+    /// Panics if the vote comes from a node not in the stake table
+    </span><span class="kw">pub fn </span>accumulate(<span class="kw-2">mut </span><span class="self">self</span>, vote: <span class="kw-2">&amp;</span>VOTE, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; Either&lt;<span class="self">Self</span>, CERT&gt; {
+        <span class="kw">let </span>key = vote.get_signing_key();
 
-        <span class="comment">// Desereialize the sig so that it can be assembeld into a QC
-        </span><span class="kw">let </span>origianl_sig: &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature =
+        <span class="kw">let </span>vote_commitment = vote.get_data_commitment();
+        <span class="kw">if </span>!key.validate(<span class="kw-2">&amp;</span>vote.get_signature(), vote_commitment.as_ref()) {
+            <span class="macro">error!</span>(<span class="string">&quot;Invalid vote! Vote Data {:?}&quot;</span>, vote.get_data());
+            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+        }
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = membership.get_stake(<span class="kw-2">&amp;</span>key) <span class="kw">else </span>{
+            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+        };
+        <span class="kw">let </span>stake_table = membership.get_committee_qc_stake_table();
+        <span class="kw">let </span>vote_node_id = stake_table
+            .iter()
+            .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
+            .unwrap();
+
+        <span class="kw">let </span>encoded_key = key.to_bytes();
+
+        <span class="comment">// Deserialize the signature so that it can be assembeld into a QC
+        // TODO ED Update this once we&#39;ve gotten rid of EncodedSignature
+        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             bincode_opts()
-                .deserialize(<span class="kw-2">&amp;</span>sig.<span class="number">0</span>)
+                .deserialize(<span class="kw-2">&amp;</span>vote.get_signature().<span class="number">0</span>)
                 .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
 
         <span class="kw">let </span>(total_stake_casted, total_vote_map) = <span class="self">self
-            </span>.total_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
+            </span>.vote_outcomes
+            .entry(vote_commitment)
+            .or_insert_with(|| (U256::from(<span class="number">0</span>), BTreeMap::new()));
 
         <span class="comment">// Check for duplicate vote
-        </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>key) {
+        // TODO ED Re-encoding signature key to bytes until we get rid of EncodedKey
+        // Have to do this because SignatureKey is not hashable
+        </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>encoded_key) {
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
-        <span class="kw">let </span>(da_stake_casted, da_vote_map) = <span class="self">self
-            </span>.da_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
 
-        <span class="kw">let </span>(yes_stake_casted, yes_vote_map) = <span class="self">self
-            </span>.yes_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
-
-        <span class="kw">let </span>(no_stake_casted, no_vote_map) = <span class="self">self
-            </span>.no_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
-
-        <span class="kw">let </span>(viewsync_precommit_stake_casted, viewsync_precommit_vote_map) = <span class="self">self
-            </span>.viewsync_precommit_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
-
-        <span class="kw">let </span>(viewsync_commit_stake_casted, viewsync_commit_vote_map) = <span class="self">self
-            </span>.viewsync_commit_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
-
-        <span class="kw">let </span>(viewsync_finalize_stake_casted, viewsync_finalize_vote_map) = <span class="self">self
-            </span>.viewsync_finalize_vote_outcomes
-            .entry(commitment)
-            .or_insert_with(|| (<span class="number">0</span>, BTreeMap::new()));
-
-        <span class="comment">// Accumulate the stake for each leaf commitment rather than the total
-        // stake of all votes, in case they correspond to inconsistent
-        // commitments.
-
-        // update the active_keys and sig_lists
-        </span><span class="kw">if </span><span class="self">self</span>.signers.get(node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
-            <span class="macro">error!</span>(<span class="string">&quot;node id already in signers&quot;</span>);
+        <span class="kw">if </span><span class="self">self</span>.signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
+            <span class="macro">error!</span>(<span class="string">&quot;Node id is already in signers list&quot;</span>);
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
-        <span class="self">self</span>.signers.set(node_id, <span class="bool-val">true</span>);
-        <span class="self">self</span>.sig_lists.push(origianl_sig);
+        <span class="self">self</span>.signers.set(vote_node_id, <span class="bool-val">true</span>);
+        <span class="self">self</span>.sig_lists.push(original_signature);
 
-        <span class="kw-2">*</span>total_stake_casted += u64::from(token.vote_count());
-        total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
+        <span class="comment">// TODO: Get the stake from the stake table entry.
+        </span><span class="kw-2">*</span>total_stake_casted += stake_table_entry.get_stake();
+        total_vote_map.insert(
+            encoded_key,
+            (vote.get_signature(), vote.get_data_commitment()),
+        );
 
-        <span class="kw">match </span>vote_data {
-            VoteData::DA(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>da_stake_casted += u64::from(token.vote_count());
-                da_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::Yes(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::No(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::ViewSyncPreCommit(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>viewsync_precommit_stake_casted += u64::from(token.vote_count());
-                viewsync_precommit_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::ViewSyncCommit(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>viewsync_commit_stake_casted += u64::from(token.vote_count());
-                viewsync_commit_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::ViewSyncFinalize(<span class="kw">_</span>) =&gt; {
-                <span class="kw-2">*</span>viewsync_finalize_stake_casted += u64::from(token.vote_count());
-                viewsync_finalize_vote_map.insert(key, (sig, vote_data, token));
-            }
-            VoteData::Timeout(<span class="kw">_</span>) =&gt; {
-                <span class="macro">unimplemented!</span>()
-            }
-        }
-
-        <span class="comment">// This is a messy way of accounting for the different vote types, but we will be replacing this code very soon
-        </span><span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
-            <span class="comment">// Do assemble for QC here
-            </span><span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
-                entries.clone(),
-                U256::from(<span class="self">self</span>.success_threshold.get()),
-            );
+        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership).into() {
+            <span class="comment">// Assemble QC
+            </span><span class="kw">let </span>real_qc_pp: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCParams =
+                &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
+                    stake_table,
+                    U256::from(CERT::threshold(membership)),
+                );
 
             <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(
                 <span class="kw-2">&amp;</span>real_qc_pp,
@@ -911,45 +348,24 @@
                 <span class="kw-2">&amp;</span><span class="self">self</span>.sig_lists[..],
             );
 
-            <span class="kw">if </span><span class="kw-2">*</span>yes_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
-                <span class="self">self</span>.yes_vote_outcomes.remove(<span class="kw-2">&amp;</span>commitment);
-                <span class="kw">return </span>Either::Right(AssembledSignature::Yes(real_qc_sig));
-            } <span class="kw">else if </span><span class="kw-2">*</span>no_stake_casted &gt;= u64::from(<span class="self">self</span>.failure_threshold) {
-                <span class="self">self</span>.total_vote_outcomes.remove(<span class="kw-2">&amp;</span>commitment);
-                <span class="kw">return </span>Either::Right(AssembledSignature::No(real_qc_sig));
-            } <span class="kw">else if </span><span class="kw-2">*</span>da_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
-                <span class="self">self</span>.da_vote_outcomes.remove(<span class="kw-2">&amp;</span>commitment);
-                <span class="kw">return </span>Either::Right(AssembledSignature::DA(real_qc_sig));
-            } <span class="kw">else if </span><span class="kw-2">*</span>viewsync_commit_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
-                <span class="self">self</span>.viewsync_commit_vote_outcomes
-                    .remove(<span class="kw-2">&amp;</span>commitment)
-                    .unwrap();
-                <span class="kw">return </span>Either::Right(AssembledSignature::ViewSyncCommit(real_qc_sig));
-            } <span class="kw">else if </span><span class="kw-2">*</span>viewsync_finalize_stake_casted &gt;= u64::from(<span class="self">self</span>.success_threshold) {
-                <span class="self">self</span>.viewsync_finalize_vote_outcomes
-                    .remove(<span class="kw-2">&amp;</span>commitment)
-                    .unwrap();
-                <span class="kw">return </span>Either::Right(AssembledSignature::ViewSyncFinalize(real_qc_sig));
-            }
-        }
-        <span class="kw">if </span><span class="kw-2">*</span>viewsync_precommit_stake_casted &gt;= u64::from(<span class="self">self</span>.failure_threshold) {
-            <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
-                entries,
-                U256::from(<span class="self">self</span>.failure_threshold.get()),
+            <span class="kw">let </span>cert = CERT::create_signed_certificate(
+                vote.get_data_commitment(),
+                vote.get_data().clone(),
+                real_qc_sig,
+                vote.get_view_number(),
             );
-
-            <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(
-                <span class="kw-2">&amp;</span>real_qc_pp,
-                <span class="self">self</span>.signers.as_bitslice(),
-                <span class="kw-2">&amp;</span><span class="self">self</span>.sig_lists[..],
-            );
-
-            <span class="self">self</span>.viewsync_precommit_vote_outcomes
-                .remove(<span class="kw-2">&amp;</span>commitment)
-                .unwrap();
-            <span class="kw">return </span>Either::Right(AssembledSignature::ViewSyncPreCommit(real_qc_sig));
+            <span class="kw">return </span>Either::Right(cert);
         }
         Either::Left(<span class="self">self</span>)
     }
 }
+
+<span class="doccomment">/// Mapping of commitments to vote tokens by key.
+</span><span class="kw">type </span>VoteMap2&lt;COMMITMENT&gt; = HashMap&lt;
+    COMMITMENT,
+    (
+        U256,
+        BTreeMap&lt;EncodedPublicKey, (EncodedSignature, COMMITMENT)&gt;,
+    ),
+&gt;;
 </code></pre></div></section></main></body></html>

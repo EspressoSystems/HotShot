@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["mt_based"]};
+window.SIDEBAR_ITEMS = {"mod":["config","mt_based","utils","vec_based"]};

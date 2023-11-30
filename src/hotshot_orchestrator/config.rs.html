@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_orchestrator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_orchestrator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -234,16 +234,132 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
+    ExecutionType, HotShotConfig, ValidatorConfig,
+};
+<span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::{
+    env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
+    path::PathBuf,
     time::Duration,
 };
+<span class="kw">use </span>toml;
+<span class="kw">use </span>tracing::error;
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfig {
     <span class="kw">pub </span>bootstrap_nodes: Vec&lt;(SocketAddr, Vec&lt;u8&gt;)&gt;,
-    <span class="kw">pub </span>num_bootstrap_nodes: u64,
+    <span class="kw">pub </span>num_bootstrap_nodes: usize,
     <span class="kw">pub </span>public_ip: IpAddr,
     <span class="kw">pub </span>base_port: u16,
     <span class="kw">pub </span>node_index: u64,
@@ -257,15 +373,14 @@
     <span class="kw">pub </span>mesh_outbound_min: usize,
     <span class="kw">pub </span>mesh_n: usize,
     <span class="kw">pub </span>next_view_timeout: u64,
-    <span class="kw">pub </span>propose_min_round_time: u64,
-    <span class="kw">pub </span>propose_max_round_time: u64,
+    <span class="kw">pub </span>propose_min_round_time: Duration,
+    <span class="kw">pub </span>propose_max_round_time: Duration,
     <span class="kw">pub </span>online_time: u64,
-    <span class="kw">pub </span>num_txn_per_round: u64,
+    <span class="kw">pub </span>num_txn_per_round: usize,
 }
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfigFile {
-    <span class="kw">pub </span>num_bootstrap_nodes: u64,
     <span class="kw">pub </span>index_ports: bool,
     <span class="kw">pub </span>bootstrap_mesh_n_high: usize,
     <span class="kw">pub </span>bootstrap_mesh_n_low: usize,
@@ -275,11 +390,7 @@
     <span class="kw">pub </span>mesh_n_low: usize,
     <span class="kw">pub </span>mesh_outbound_min: usize,
     <span class="kw">pub </span>mesh_n: usize,
-    <span class="kw">pub </span>next_view_timeout: u64,
-    <span class="kw">pub </span>propose_min_round_time: u64,
-    <span class="kw">pub </span>propose_max_round_time: u64,
     <span class="kw">pub </span>online_time: u64,
-    <span class="kw">pub </span>num_txn_per_round: u64,
     <span class="kw">pub </span>base_port: u16,
 }
 
@@ -291,42 +402,52 @@
 }
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>NetworkConfig&lt;KEY, ENTRY, ELECTIONCONFIG&gt; {
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>NetworkConfig&lt;KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig&gt; {
     <span class="kw">pub </span>rounds: usize,
     <span class="kw">pub </span>transactions_per_round: usize,
+    <span class="kw">pub </span>num_bootrap: usize,
+    <span class="kw">pub </span>next_view_timeout: u64,
+    <span class="kw">pub </span>propose_min_round_time: Duration,
+    <span class="kw">pub </span>propose_max_round_time: Duration,
     <span class="kw">pub </span>node_index: u64,
     <span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
-    <span class="kw">pub </span>padding: usize,
+    <span class="kw">pub </span>transaction_size: usize,
     <span class="kw">pub </span>start_delay_seconds: u64,
     <span class="kw">pub </span>key_type_name: String,
     <span class="kw">pub </span>election_config_type_name: String,
     <span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
-    <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ENTRY, ELECTIONCONFIG&gt;,
+    <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
     <span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
     <span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
-<span class="kw">impl</span>&lt;K, ENTRY, E&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, ENTRY, E&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             rounds: default_rounds(),
             transactions_per_round: default_transactions_per_round(),
             node_index: <span class="number">0</span>,
             seed: [<span class="number">0u8</span>; <span class="number">32</span>],
-            padding: default_padding(),
+            transaction_size: default_transaction_size(),
             libp2p_config: <span class="prelude-val">None</span>,
-            config: default_config().into(),
+            config: HotShotConfigFile::default().into(),
             start_delay_seconds: <span class="number">60</span>,
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             web_server_config: <span class="prelude-val">None</span>,
             da_web_server_config: <span class="prelude-val">None</span>,
+            next_view_timeout: <span class="number">10</span>,
+            num_bootrap: <span class="number">5</span>,
+            propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
+            propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
         }
     }
 }
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-</span><span class="kw">pub struct </span>NetworkConfigFile {
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>NetworkConfigFile&lt;KEY: SignatureKey&gt; {
     <span class="attr">#[serde(default = <span class="string">&quot;default_rounds&quot;</span>)]
     </span><span class="kw">pub </span>rounds: usize,
     <span class="attr">#[serde(default = <span class="string">&quot;default_transactions_per_round&quot;</span>)]
@@ -335,14 +456,14 @@
     </span><span class="kw">pub </span>node_index: u64,
     <span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
-    <span class="attr">#[serde(default = <span class="string">&quot;default_padding&quot;</span>)]
-    </span><span class="kw">pub </span>padding: usize,
+    <span class="attr">#[serde(default = <span class="string">&quot;default_transaction_size&quot;</span>)]
+    </span><span class="kw">pub </span>transaction_size: usize,
     <span class="attr">#[serde(default = <span class="string">&quot;default_start_delay_seconds&quot;</span>)]
     </span><span class="kw">pub </span>start_delay_seconds: u64,
     <span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfigFile&gt;,
-    <span class="attr">#[serde(default = <span class="string">&quot;default_config&quot;</span>)]
-    </span><span class="kw">pub </span>config: HotShotConfigFile,
+    <span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>config: HotShotConfigFile&lt;KEY&gt;,
     <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
     </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
     <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
@@ -353,16 +474,20 @@
     <span class="prelude-val">None
 </span>}
 
-<span class="kw">impl</span>&lt;K, ENTRY, E&gt; From&lt;NetworkConfigFile&gt; <span class="kw">for </span>NetworkConfig&lt;K, ENTRY, E&gt; {
-    <span class="kw">fn </span>from(val: NetworkConfigFile) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
+    <span class="kw">fn </span>from(val: NetworkConfigFile&lt;K&gt;) -&gt; <span class="self">Self </span>{
         NetworkConfig {
             rounds: val.rounds,
             transactions_per_round: val.transactions_per_round,
             node_index: <span class="number">0</span>,
+            num_bootrap: val.config.num_bootstrap,
+            next_view_timeout: val.config.next_view_timeout,
+            propose_max_round_time: val.config.propose_max_round_time,
+            propose_min_round_time: val.config.propose_min_round_time,
             seed: val.seed,
-            padding: val.padding,
+            transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
-                num_bootstrap_nodes: libp2p_config.num_bootstrap_nodes,
+                num_bootstrap_nodes: val.config.num_bootstrap,
                 index_ports: libp2p_config.index_ports,
                 bootstrap_nodes: Vec::new(),
                 public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -376,11 +501,11 @@
                 mesh_n_low: libp2p_config.mesh_n_low,
                 mesh_outbound_min: libp2p_config.mesh_outbound_min,
                 mesh_n: libp2p_config.mesh_n,
-                next_view_timeout: libp2p_config.next_view_timeout,
-                propose_min_round_time: libp2p_config.propose_min_round_time,
-                propose_max_round_time: libp2p_config.propose_max_round_time,
+                next_view_timeout: val.config.next_view_timeout,
+                propose_min_round_time: val.config.propose_min_round_time,
+                propose_max_round_time: val.config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
-                num_txn_per_round: libp2p_config.num_txn_per_round,
+                num_txn_per_round: val.transactions_per_round,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
@@ -394,9 +519,16 @@
 
 <span class="doccomment">/// Holds configuration for a `HotShot`
 </span><span class="attr">#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-</span><span class="kw">pub struct </span>HotShotConfigFile {
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>HotShotConfigFile&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// Total number of nodes in the network
     </span><span class="kw">pub </span>total_nodes: NonZeroUsize,
+    <span class="attr">#[serde(skip)]
+    </span><span class="doccomment">/// My own public key, secret key, stake value
+    </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
+    <span class="attr">#[serde(skip)]
+    </span><span class="doccomment">/// The known nodes&#39; public key and stake value
+    </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;KEY::StakeTableEntry&gt;,
     <span class="doccomment">/// Number of committee nodes
     </span><span class="kw">pub </span>committee_nodes: usize,
     <span class="doccomment">/// Maximum transactions per block
@@ -419,15 +551,64 @@
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
 }
 
-<span class="kw">impl</span>&lt;K, ENTRY, E&gt; From&lt;HotShotConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;K, ENTRY, E&gt; {
-    <span class="kw">fn </span>from(val: HotShotConfigFile) -&gt; <span class="self">Self </span>{
+<span class="doccomment">/// Holds configuration for a validator node
+</span><span class="attr">#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>ValidatorConfigFile {
+    <span class="doccomment">/// The validator&#39;s seed
+    </span><span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
+    <span class="doccomment">/// The validator&#39;s index, which can be treated as another input to the seed
+    </span><span class="kw">pub </span>node_id: u64,
+    <span class="comment">// The validator&#39;s stake, commented for now
+    // pub stake_value: u64,
+</span>}
+
+<span class="kw">impl </span>ValidatorConfigFile {
+    <span class="kw">pub fn </span>from_file(dir_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>current_working_dir = <span class="kw">match </span>env::current_dir() {
+            <span class="prelude-val">Ok</span>(dir) =&gt; dir,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;get_current_working_dir error: {:?}&quot;</span>, e);
+                PathBuf::from(<span class="string">&quot;&quot;</span>)
+            }
+        };
+        <span class="kw">let </span>filename =
+            current_working_dir.into_os_string().into_string().unwrap() + <span class="string">&quot;/../../&quot; </span>+ dir_str;
+        <span class="kw">match </span>fs::read_to_string(filename.clone()) {
+            <span class="comment">// If successful return the files text as `contents`.
+            </span><span class="prelude-val">Ok</span>(contents) =&gt; {
+                <span class="kw">let </span>data: ValidatorConfigFile = <span class="kw">match </span>toml::from_str(<span class="kw-2">&amp;</span>contents) {
+                    <span class="comment">// If successful, return data as `Data` struct.
+                    // `d` is a local variable.
+                    </span><span class="prelude-val">Ok</span>(d) =&gt; d,
+                    <span class="comment">// Handle the `error` case.
+                    </span><span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="comment">// Write `msg` to `stderr`.
+                        </span><span class="macro">error!</span>(<span class="string">&quot;Unable to load data from `{}`: {}&quot;</span>, filename, e);
+                        ValidatorConfigFile::default()
+                    }
+                };
+                data
+            }
+            <span class="comment">// Handle the `error` case.
+            </span><span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="comment">// Write `msg` to `stderr`.
+                </span><span class="macro">error!</span>(<span class="string">&quot;Could not read file `{}`: {}&quot;</span>, filename, e);
+                ValidatorConfigFile::default()
+            }
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;KEY: SignatureKey, E: ElectionConfig&gt; From&lt;HotShotConfigFile&lt;KEY&gt;&gt; <span class="kw">for </span>HotShotConfig&lt;KEY, E&gt; {
+    <span class="kw">fn </span>from(val: HotShotConfigFile&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: val.total_nodes,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
-            known_nodes: Vec::new(),
-            known_nodes_with_stake: Vec::new(),
+            known_nodes_with_stake: val.known_nodes_with_stake,
+            my_own_validator_config: val.my_own_validator_config,
             da_committee_size: val.committee_nodes,
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
@@ -448,22 +629,57 @@
 <span class="kw">fn </span>default_transactions_per_round() -&gt; usize {
     <span class="number">10
 </span>}
-<span class="kw">fn </span>default_padding() -&gt; usize {
+<span class="kw">fn </span>default_transaction_size() -&gt; usize {
     <span class="number">100
 </span>}
-<span class="kw">fn </span>default_config() -&gt; HotShotConfigFile {
-    HotShotConfigFile {
-        total_nodes: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
-        committee_nodes: <span class="number">5</span>,
-        max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
-        min_transactions: <span class="number">0</span>,
-        next_view_timeout: <span class="number">10000</span>,
-        timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-        round_start_delay: <span class="number">1</span>,
-        start_delay: <span class="number">1</span>,
-        propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
-        propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
-        num_bootstrap: <span class="number">5</span>,
+
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>ValidatorConfig&lt;K&gt; {
+    <span class="kw">fn </span>from(val: ValidatorConfigFile) -&gt; <span class="self">Self </span>{
+        <span class="comment">// here stake_value is set to 1, since we don&#39;t input stake_value from ValidatorConfigFile for now
+        </span><span class="kw">let </span>validator_config =
+            ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, <span class="number">1</span>);
+        ValidatorConfig {
+            public_key: validator_config.public_key,
+            private_key: validator_config.private_key,
+            stake_value: validator_config.stake_value,
+        }
+    }
+}
+<span class="kw">impl</span>&lt;KEY: SignatureKey, E: ElectionConfig&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;KEY, E&gt; {
+    <span class="kw">fn </span>from(value: ValidatorConfigFile) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>config: HotShotConfig&lt;KEY, E&gt; = HotShotConfigFile::default().into();
+        config.my_own_validator_config = value.into();
+        config
+    }
+}
+
+<span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>HotShotConfigFile&lt;KEY&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>gen_known_nodes_with_stake = (<span class="number">0</span>..<span class="number">10</span>)
+            .map(|node_id| {
+                <span class="kw">let </span>cur_validator_config: ValidatorConfig&lt;KEY&gt; =
+                    ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>);
+
+                cur_validator_config
+                    .public_key
+                    .get_stake_table_entry(cur_validator_config.stake_value)
+            })
+            .collect();
+        <span class="self">Self </span>{
+            total_nodes: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
+            my_own_validator_config: ValidatorConfig::default(),
+            known_nodes_with_stake: gen_known_nodes_with_stake,
+            committee_nodes: <span class="number">5</span>,
+            max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
+            min_transactions: <span class="number">1</span>,
+            next_view_timeout: <span class="number">10000</span>,
+            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+            round_start_delay: <span class="number">1</span>,
+            start_delay: <span class="number">1</span>,
+            propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
+            propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
+            num_bootstrap: <span class="number">5</span>,
+        }
     }
 }
 

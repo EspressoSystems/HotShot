@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["libp2p_generate_indexed_identity","load_config_from_file","parse_dns","parse_ip"],"struct":["OrchestratorArgs"]};

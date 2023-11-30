@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DummyState"]};
+window.SIDEBAR_ITEMS = {"struct":["DummyError","DummyState"]};

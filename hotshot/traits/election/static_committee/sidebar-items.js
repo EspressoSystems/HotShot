@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["GeneralStaticCommittee","StaticElectionConfig","StaticVoteToken"],"type":["StaticCommittee"]};
+window.SIDEBAR_ITEMS = {"struct":["GeneralStaticCommittee","StaticElectionConfig"],"type":["StaticCommittee"]};

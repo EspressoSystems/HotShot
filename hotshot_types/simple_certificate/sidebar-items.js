@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SimpleCertificate"],"type":["DACertificate","QuorumCertificate","TimeoutCertificate","VIDCertificate","ViewSyncCommitCertificate2","ViewSyncFinalizeCertificate2","ViewSyncPreCommitCertificate2"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot-stake-table/src/mt_based/internal.rs`."><title>internal.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_stake_table" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../hotshot_stake_table/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot-stake-table/src/mt_based/internal.rs`."><title>internal.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_stake_table" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../hotshot_stake_table/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -738,45 +738,22 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utilities and internals for maintaining a local stake table
 
-</span><span class="kw">use </span><span class="kw">super</span>::config::{u256_to_field, Digest, FieldType, TREE_BRANCH};
-<span class="kw">use </span>ark_ff::{Field, PrimeField};
+</span><span class="kw">use </span><span class="kw">super</span>::config::{Digest, FieldType, TREE_BRANCH};
+<span class="kw">use </span><span class="kw">crate</span>::utils::{u256_to_field, ToFields};
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>ark_std::{hash::Hash, sync::Arc, vec, vec::Vec};
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_types::traits::stake_table::StakeTableError;
-<span class="kw">use </span>jf_primitives::{crhf::CRHF, signatures::bls_over_bn254};
+<span class="kw">use </span>jf_primitives::crhf::CRHF;
 <span class="kw">use </span>jf_utils::canonical;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::tagged;
 
 <span class="doccomment">/// Common trait bounds for generic key type `K` for [`PersistentMerkleNode`]
 </span><span class="kw">pub trait </span>Key:
-    Clone + CanonicalSerialize + CanonicalDeserialize + PartialEq + Eq + IntoFields&lt;FieldType&gt; + Hash
+    Clone + CanonicalSerialize + CanonicalDeserialize + PartialEq + Eq + ToFields&lt;FieldType&gt; + Hash
 {
 }
 <span class="kw">impl</span>&lt;T&gt; Key <span class="kw">for </span>T <span class="kw">where
@@ -785,30 +762,9 @@
         + CanonicalDeserialize
         + PartialEq
         + Eq
-        + IntoFields&lt;FieldType&gt;
+        + ToFields&lt;FieldType&gt;
         + Hash
 {
-}
-
-<span class="doccomment">/// A trait that converts into a field element.
-/// Help avoid &quot;cannot impl foreign traits on foreign types&quot; problem
-</span><span class="kw">pub trait </span>IntoFields&lt;F: Field&gt; {
-    <span class="kw">fn </span>into_fields(<span class="self">self</span>) -&gt; [F; <span class="number">2</span>];
-}
-
-<span class="kw">impl </span>IntoFields&lt;FieldType&gt; <span class="kw">for </span>FieldType {
-    <span class="kw">fn </span>into_fields(<span class="self">self</span>) -&gt; [FieldType; <span class="number">2</span>] {
-        [FieldType::default(), <span class="self">self</span>]
-    }
-}
-
-<span class="kw">impl </span>IntoFields&lt;FieldType&gt; <span class="kw">for </span>bls_over_bn254::VerKey {
-    <span class="kw">fn </span>into_fields(<span class="self">self</span>) -&gt; [FieldType; <span class="number">2</span>] {
-        <span class="kw">let </span>bytes = <span class="macro">jf_utils::to_bytes!</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.to_affine()).unwrap();
-        <span class="kw">let </span>x = &lt;ark_bn254::Fq <span class="kw">as </span>PrimeField&gt;::from_le_bytes_mod_order(<span class="kw-2">&amp;</span>bytes[..<span class="number">32</span>]);
-        <span class="kw">let </span>y = &lt;ark_bn254::Fq <span class="kw">as </span>PrimeField&gt;::from_le_bytes_mod_order(<span class="kw-2">&amp;</span>bytes[<span class="number">32</span>..]);
-        [x, y]
-    }
 }
 
 <span class="doccomment">/// A persistent merkle tree tailored for the stake table.
@@ -892,7 +848,8 @@
         <span class="kw">match </span><span class="self">self</span>.path.first() {
             <span class="prelude-val">Some</span>(MerklePathEntry::Leaf { key, value }) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::default(); <span class="number">3</span>];
-                input[..<span class="number">2</span>].copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().into_fields()[..]);
+                input[..&lt;K <span class="kw">as </span>ToFields&lt;FieldType&gt;&gt;::SIZE]
+                    .copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().to_fields()[..]);
                 input[<span class="number">2</span>] = u256_to_field(value);
                 <span class="kw">let </span>init = Digest::evaluate(input).map_err(|<span class="kw">_</span>| StakeTableError::RescueError)<span class="question-mark">?</span>[<span class="number">0</span>];
                 <span class="self">self</span>.path
@@ -1107,7 +1064,8 @@
         <span class="kw">if </span>height == <span class="number">0 </span>{
             <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>, PersistentMerkleNode::Empty) {
                 <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::default(); <span class="number">3</span>];
-                input[..<span class="number">2</span>].copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().into_fields()[..]);
+                input[..&lt;K <span class="kw">as </span>ToFields&lt;FieldType&gt;&gt;::SIZE]
+                    .copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().to_fields()[..]);
                 input[<span class="number">2</span>] = u256_to_field(<span class="kw-2">&amp;</span>value);
                 <span class="prelude-val">Ok</span>(Arc::new(PersistentMerkleNode::Leaf {
                     comm: Digest::evaluate(input).map_err(|<span class="kw">_</span>| StakeTableError::RescueError)<span class="question-mark">?</span>[<span class="number">0</span>],
@@ -1202,7 +1160,8 @@
                             .ok_or(StakeTableError::StakeOverflow)
                     }<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::default(); <span class="number">3</span>];
-                    input[..<span class="number">2</span>].copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().into_fields()[..]);
+                    input[..&lt;K <span class="kw">as </span>ToFields&lt;FieldType&gt;&gt;::SIZE]
+                        .copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().to_fields()[..]);
                     input[<span class="number">2</span>] = u256_to_field(<span class="kw-2">&amp;</span>value);
                     <span class="prelude-val">Ok</span>((
                         Arc::new(PersistentMerkleNode::Leaf {
@@ -1269,7 +1228,8 @@
             } =&gt; {
                 <span class="kw">if </span>key == cur_key {
                     <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::default(); <span class="number">3</span>];
-                    input[..<span class="number">2</span>].copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().into_fields()[..]);
+                    input[..&lt;K <span class="kw">as </span>ToFields&lt;FieldType&gt;&gt;::SIZE]
+                        .copy_from_slice(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>key).clone().to_fields()[..]);
                     input[<span class="number">2</span>] = u256_to_field(<span class="kw-2">&amp;</span>value);
                     <span class="prelude-val">Ok</span>((
                         Arc::new(PersistentMerkleNode::Leaf {
@@ -1292,7 +1252,6 @@
 /// Traverse using post-order: children from left to right, finally visit the current.
 </span><span class="kw">pub struct </span>IntoIter&lt;K: Key&gt; {
     unvisited: Vec&lt;Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;&gt;,
-    num_visited: usize,
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; IntoIter&lt;K&gt; {
@@ -1302,47 +1261,42 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(root: Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             unvisited: <span class="macro">vec!</span>[root],
-            num_visited: <span class="number">0</span>,
         }
     }
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; Iterator <span class="kw">for </span>IntoIter&lt;K&gt; {
-    <span class="kw">type </span>Item = (K, U256);
+    <span class="kw">type </span>Item = (K, U256, ());
     <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
         <span class="kw">if </span><span class="self">self</span>.unvisited.is_empty() {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="kw">let </span>visiting = (<span class="kw-2">**</span><span class="self">self</span>.unvisited.last()<span class="question-mark">?</span>).clone();
+        <span class="comment">// This unwrap always succeed because `unvisited` is nonempty
+        </span><span class="kw">let </span>visiting = (<span class="kw-2">*</span><span class="self">self</span>.unvisited.pop().unwrap()).clone();
         <span class="kw">match </span>visiting {
             PersistentMerkleNode::Empty =&gt; <span class="prelude-val">None</span>,
-            PersistentMerkleNode::Leaf {
-                comm: <span class="kw">_</span>,
-                key,
-                value,
-            } =&gt; {
-                <span class="self">self</span>.unvisited.pop();
-                <span class="self">self</span>.num_visited += <span class="number">1</span>;
-                <span class="prelude-val">Some</span>((key, value))
-            }
             PersistentMerkleNode::Branch {
                 comm: <span class="kw">_</span>,
                 children,
                 num_keys: <span class="kw">_</span>,
                 total_stakes: <span class="kw">_</span>,
             } =&gt; {
-                <span class="self">self</span>.unvisited.pop();
                 <span class="comment">// put the left-most child to the last, so it is visited first.
                 </span><span class="self">self</span>.unvisited.extend(children.into_iter().rev());
                 <span class="self">self</span>.next()
             }
+            PersistentMerkleNode::Leaf {
+                comm: <span class="kw">_</span>,
+                key,
+                value,
+            } =&gt; <span class="prelude-val">Some</span>((key, value, ())),
         }
     }
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; IntoIterator <span class="kw">for </span>PersistentMerkleNode&lt;K&gt; {
-    <span class="kw">type </span>Item = (K, U256);
+    <span class="kw">type </span>Item = (K, U256, ());
     <span class="kw">type </span>IntoIter = <span class="self">self</span>::IntoIter&lt;K&gt;;
 
     <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
@@ -1385,7 +1339,7 @@
     <span class="kw">type </span>Key = ark_bn254::Fq;
 
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_persistent_merkle_tree() {
+    </span><span class="kw">fn </span>crypto_test_persistent_merkle_tree() {
         <span class="kw">let </span>height = <span class="number">3</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>roots = <span class="macro">vec!</span>[Arc::new(PersistentMerkleNode::&lt;Key&gt;::Empty)];
         <span class="kw">let </span>path = (<span class="number">0</span>..<span class="number">10</span>)
@@ -1498,7 +1452,7 @@
     }
 
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_mt_iter() {
+    </span><span class="kw">fn </span>crypto_test_mt_iter() {
         <span class="kw">let </span>height = <span class="number">3</span>;
         <span class="kw">let </span>capacity = config::TREE_BRANCH.pow(height);
         <span class="kw">let </span><span class="kw-2">mut </span>rng = test_rng();
@@ -1518,7 +1472,7 @@
                     .register(height <span class="kw">as </span>usize, <span class="kw-2">&amp;</span>paths[i], <span class="kw-2">&amp;</span>keys[i], amounts[i])
                     .unwrap();
             }
-            <span class="kw">for </span>(i, (k, v)) <span class="kw">in </span>(<span class="kw-2">*</span>root).clone().into_iter().enumerate() {
+            <span class="kw">for </span>(i, (k, v, <span class="kw">_</span>)) <span class="kw">in </span>(<span class="kw-2">*</span>root).clone().into_iter().enumerate() {
                 <span class="macro">assert_eq!</span>((k, v), (keys[i], amounts[i]));
             }
         }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/harness.rs`."><title>harness.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_task_impls/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/harness.rs`."><title>harness.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_task_impls/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -110,39 +110,38 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
-    event_stream::{<span class="self">self</span>, ChannelStream, EventStream},
+    event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
     task_launcher::TaskRunner,
 };
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{collections::HashMap, future::Future, sync::Arc};
 
 <span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
-</span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The expected events we get from the test.  Maps an event to the number of times we expect to see it
-    </span>expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
+    </span>expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>TestHarnessState&lt;TYPES, I&gt; {}
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TS <span class="kw">for </span>TestHarnessState&lt;TYPES&gt; {}
 
 <span class="doccomment">/// Error emitted if the test harness task fails
 </span><span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>TestHarnessTaskError {}
 
 <span class="doccomment">/// Type alias for the Test Harness Task
-</span><span class="kw">pub type </span>TestHarnessTaskTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
+</span><span class="kw">pub type </span>TestHarnessTaskTypes&lt;TYPES&gt; = HSTWithEvent&lt;
     TestHarnessTaskError,
-    SequencingHotShotEvent&lt;TYPES, I&gt;,
-    ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    TestHarnessState&lt;TYPES, I&gt;,
+    HotShotEvent&lt;TYPES&gt;,
+    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    TestHarnessState&lt;TYPES&gt;,
 &gt;;
 
 <span class="doccomment">/// Runs a test by building the task using `build_fn` and then passing it the `input` events
@@ -153,25 +152,24 @@
 /// # Panics
 /// Panics if any state the test expects is not set. Panicing causes a test failure
 </span><span class="attr">#[allow(clippy::implicit_hasher)]
-</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, I, Fut&gt;(
-    input: Vec&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-    expected_output: HashMap&lt;SequencingHotShotEvent&lt;TYPES, I&gt;, usize&gt;,
-    event_stream: <span class="prelude-ty">Option</span>&lt;ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;&gt;,
-    build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;) -&gt; Fut,
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, Fut&gt;(
+    input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
+    event_stream: <span class="prelude-ty">Option</span>&lt;ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; Fut,
 ) <span class="kw">where
     </span>TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
     Fut: Future&lt;Output = TaskRunner&gt;,
 {
     <span class="kw">let </span>task_runner = TaskRunner::new();
     <span class="kw">let </span>registry = task_runner.registry.clone();
-    <span class="kw">let </span>event_stream = event_stream.unwrap_or(event_stream::ChannelStream::new());
+    <span class="kw">let </span>event_stream = event_stream.unwrap_or_default();
     <span class="kw">let </span>state = TestHarnessState { expected_output };
     <span class="kw">let </span>handler = HandleEvent(Arc::new(<span class="kw">move </span>|event, state| {
         <span class="kw">async move </span>{ handle_event(event, state) }.boxed()
     }));
     <span class="kw">let </span>filter = FilterEvent::default();
-    <span class="kw">let </span>builder = TaskBuilder::&lt;TestHarnessTaskTypes&lt;TYPES, I&gt;&gt;::new(<span class="string">&quot;test_harness&quot;</span>.to_string())
+    <span class="kw">let </span>builder = TaskBuilder::&lt;TestHarnessTaskTypes&lt;TYPES&gt;&gt;::new(<span class="string">&quot;test_harness&quot;</span>.to_string())
         .register_event_stream(event_stream.clone(), filter)
         .<span class="kw">await
         </span>.register_registry(<span class="kw-2">&amp;mut </span>registry.clone())
@@ -189,7 +187,7 @@
     <span class="kw">let </span>runner = async_spawn(<span class="kw">async move </span>{ task_runner.launch().<span class="kw">await </span>});
 
     <span class="kw">for </span>event <span class="kw">in </span>input {
-        <span class="kw">let _ </span>= event_stream.publish(event).<span class="kw">await</span>;
+        <span class="kw">let </span>() = event_stream.publish(event).<span class="kw">await</span>;
     }
 
     <span class="kw">let _ </span>= runner.<span class="kw">await</span>;
@@ -201,12 +199,12 @@
 ///  # Panics
 /// Will panic to fail the test when it receives and unexpected event
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
-</span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    event: SequencingHotShotEvent&lt;TYPES, I&gt;,
-    <span class="kw-2">mut </span>state: TestHarnessState&lt;TYPES, I&gt;,
+</span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType&gt;(
+    event: HotShotEvent&lt;TYPES&gt;,
+    <span class="kw-2">mut </span>state: TestHarnessState&lt;TYPES&gt;,
 ) -&gt; (
     std::option::Option&lt;HotShotTaskCompleted&gt;,
-    TestHarnessState&lt;TYPES, I&gt;,
+    TestHarnessState&lt;TYPES&gt;,
 ) {
     <span class="macro">assert!</span>(
         state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),

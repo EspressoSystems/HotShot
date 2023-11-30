@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_Consensus"],"struct":["BlockStore","Consensus","ConsensusMetrics"],"type":["CommitmentMap"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_Display_FOR_InnerConsensusMetrics","_DERIVE_core_fmt_Debug_FOR_Consensus"],"struct":["Consensus","ConsensusMetrics","ConsensusMetricsValue","InnerConsensusMetrics","PayloadStore"],"type":["CommitmentMap"]};

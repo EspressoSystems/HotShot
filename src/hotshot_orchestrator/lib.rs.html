@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_orchestrator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_orchestrator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -253,6 +253,8 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -281,8 +283,7 @@
     Keypair,
 };
 
-<span class="doccomment">/// yeesh maybe we should just implement SignatureKey for this...
-</span><span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
+<span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
@@ -292,11 +293,11 @@
 }
 
 <span class="attr">#[derive(Default, Clone)]
-</span><span class="kw">struct </span>OrchestratorState&lt;KEY, ENTRY, ELECTION&gt; {
+</span><span class="kw">struct </span>OrchestratorState&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
     <span class="doccomment">/// Tracks the latest node index we have generated a configuration for
     </span>latest_index: u16,
     <span class="doccomment">/// The network configuration
-    </span>config: NetworkConfig&lt;KEY, ENTRY, ELECTION&gt;,
+    </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
     <span class="doccomment">/// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     </span>start: bool,
@@ -307,9 +308,9 @@
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
-    OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
+    OrchestratorState&lt;KEY, ELECTION&gt;
 {
-    <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>web_client = <span class="prelude-val">None</span>;
         <span class="kw">if </span>network_config.web_server_config.is_some() {
             <span class="kw">let </span>base_url = <span class="string">&quot;http://0.0.0.0/9000&quot;</span>.to_string().parse().unwrap();
@@ -325,22 +326,21 @@
     }
 }
 
-<span class="kw">pub trait </span>OrchestratorApi&lt;KEY, ENTRY, ELECTION&gt; {
+<span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
     <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
     <span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ENTRY, ELECTION&gt;, ServerError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
     <span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt;;
     <span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
     <span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
 }
 
-<span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
-    <span class="kw">for </span>OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;
+<span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
 <span class="kw">where
     </span>KEY: serde::Serialize + Clone + SignatureKey,
-    ELECTION: serde::Serialize + Clone + Send,
+    ELECTION: serde::Serialize + Clone + Send + ElectionConfig,
 {
     <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt; {
         <span class="kw">let </span>node_index = <span class="self">self</span>.latest_index;
@@ -356,7 +356,7 @@
 
         <span class="comment">//add new node&#39;s key to stake table
         </span><span class="kw">if </span><span class="self">self</span>.config.web_server_config.clone().is_some() {
-            <span class="kw">let </span>new_key = KEY::generated_from_seed_indexed(<span class="self">self</span>.config.seed, node_index.into()).<span class="number">0</span>;
+            <span class="kw">let </span>new_key = <span class="kw-2">&amp;</span><span class="self">self</span>.config.config.my_own_validator_config.public_key;
             <span class="kw">let </span>client_clone = <span class="self">self</span>.client.clone().unwrap();
             <span class="kw">async move </span>{
                 client_clone
@@ -372,9 +372,7 @@
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.clone().is_some() {
             <span class="kw">let </span>libp2p_config_clone = <span class="self">self</span>.config.libp2p_config.clone().unwrap();
             <span class="comment">// Designate node as bootstrap node and store its identity information
-            </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len()
-                &lt; libp2p_config_clone.num_bootstrap_nodes.try_into().unwrap()
-            {
+            </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len() &lt; libp2p_config_clone.num_bootstrap_nodes {
                 <span class="kw">let </span>port_index = <span class="kw">match </span>libp2p_config_clone.index_ports {
                     <span class="bool-val">true </span>=&gt; node_index,
                     <span class="bool-val">false </span>=&gt; <span class="number">0</span>,
@@ -398,12 +396,10 @@
     </span><span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;, ServerError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt; {
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.is_some() {
             <span class="kw">let </span>libp2p_config = <span class="self">self</span>.config.clone().libp2p_config.unwrap();
-            <span class="kw">if </span>libp2p_config.bootstrap_nodes.len()
-                &lt; libp2p_config.num_bootstrap_nodes.try_into().unwrap()
-            {
+            <span class="kw">if </span>libp2p_config.bootstrap_nodes.len() &lt; libp2p_config.num_bootstrap_nodes {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
                     message: <span class="string">&quot;Not enough bootstrap nodes have registered&quot;</span>.to_string(),
@@ -429,7 +425,15 @@
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
         <span class="macro">println!</span>(<span class="string">&quot;Nodes connected: {}&quot;</span>, <span class="self">self</span>.nodes_connected);
-        <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= <span class="self">self</span>.config.config.known_nodes.len().try_into().unwrap() {
+        <span class="kw">if </span><span class="self">self</span>.nodes_connected
+            &gt;= <span class="self">self
+                </span>.config
+                .config
+                .known_nodes_with_stake
+                .len()
+                .try_into()
+                .unwrap()
+        {
             <span class="self">self</span>.start = <span class="bool-val">true</span>;
         }
         <span class="prelude-val">Ok</span>(())
@@ -441,12 +445,12 @@
 }
 
 <span class="doccomment">/// Sets up all API routes
-</span><span class="kw">fn </span>define_api&lt;KEY, ELECTION, ENTRY, State&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError&gt;, ApiError&gt;
+</span><span class="kw">fn </span>define_api&lt;KEY: SignatureKey, ELECTION: ElectionConfig, State&gt;(
+) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">&#39;static </span>+ Send + Sync + ReadState + WriteState,
-    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ENTRY, ELECTION&gt;,
+    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ELECTION&gt;,
     KEY: serde::Serialize,
-    ENTRY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
     <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
@@ -489,7 +493,7 @@
 
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY, ELECTION&gt;(
-    network_config: NetworkConfig&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;,
+    network_config: NetworkConfig&lt;KEY, ELECTION&gt;,
     host: IpAddr,
     port: u16,
 ) -&gt; io::Result&lt;()&gt;
@@ -499,10 +503,10 @@
 {
     <span class="kw">let </span>api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">&quot;Failed to define api&quot;</span>));
 
-    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;&gt; =
+    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
         RwLock::new(OrchestratorState::new(network_config));
 
-    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, KEY::StakeTableEntry, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
+    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
     <span class="macro">tracing::error!</span>(<span class="string">&quot;lisening on {:?}:{:?}&quot;</span>, host, port);

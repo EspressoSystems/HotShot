@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["view_and_relay_commit"],"mod":["sealed"],"struct":["DAData","QuorumData","SimpleVote","TimeoutData","VIDData","ViewSyncCommitData","ViewSyncFinalizeData","ViewSyncPreCommitData"],"trait":["Voteable"],"type":["DAVote","QuorumVote","TimeoutVote","VIDVote","ViewSyncCommitVote","ViewSyncFinalizeVote","ViewSyncPreCommitVote"]};

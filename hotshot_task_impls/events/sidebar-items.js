@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SequencingHotShotEvent"]};
+window.SIDEBAR_ITEMS = {"enum":["HotShotEvent"]};

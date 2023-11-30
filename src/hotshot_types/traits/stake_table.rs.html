@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/traits/stake_table.rs`."><title>stake_table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../hotshot_types/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/traits/stake_table.rs`."><title>stake_table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../hotshot_types/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -203,11 +203,42 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trait for stake table data structures
 
 </span><span class="kw">use </span>ark_std::{rand::SeedableRng, string::ToString, vec::Vec};
 <span class="kw">use </span>digest::crypto_common::rand_core::CryptoRngCore;
 <span class="kw">use </span>displaydoc::Display;
+<span class="kw">use </span>jf_plonk::errors::PlonkError;
 <span class="kw">use </span>jf_primitives::errors::PrimitivesError;
 
 <span class="doccomment">/// Snapshots of the stake table
@@ -234,15 +265,21 @@
     <span class="doccomment">/// type for the proof associated with the lookup result (if any)
     </span><span class="kw">type </span>LookupProof;
     <span class="doccomment">/// type for the iterator over (key, value) entries
-    </span><span class="kw">type </span>IntoIter: Iterator&lt;Item = (<span class="self">Self</span>::Key, <span class="self">Self</span>::Amount)&gt;;
+    </span><span class="kw">type </span>IntoIter: Iterator&lt;Item = (<span class="self">Self</span>::Key, <span class="self">Self</span>::Amount, <span class="self">Self</span>::Aux)&gt;;
+    <span class="doccomment">/// Auxiliary information associated with the key
+    </span><span class="kw">type </span>Aux: Clone;
 
     <span class="doccomment">/// Register a new key into the stake table.
     ///
     /// # Errors
     ///
     /// Return err if key is already registered.
-    </span><span class="kw">fn </span>register(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_key: <span class="self">Self</span>::Key, amount: <span class="self">Self</span>::Amount)
-        -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt;;
+    </span><span class="kw">fn </span>register(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        new_key: <span class="self">Self</span>::Key,
+        amount: <span class="self">Self</span>::Amount,
+        aux: <span class="self">Self</span>::Aux,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt;;
 
     <span class="doccomment">/// Batch register a list of new keys. A default implementation is provided
     /// w/o batch optimization.
@@ -250,15 +287,22 @@
     /// # Errors
     ///
     /// Return err if any of `new_keys` fails to register.
-    </span><span class="kw">fn </span>batch_register&lt;I, J&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_keys: I, amounts: J) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt;
+    </span><span class="kw">fn </span>batch_register&lt;I, J, K&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        new_keys: I,
+        amounts: J,
+        auxs: K,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt;
     <span class="kw">where
         </span>I: IntoIterator&lt;Item = <span class="self">Self</span>::Key&gt;,
         J: IntoIterator&lt;Item = <span class="self">Self</span>::Amount&gt;,
+        K: IntoIterator&lt;Item = <span class="self">Self</span>::Aux&gt;,
     {
         <span class="kw">let _ </span>= new_keys
             .into_iter()
             .zip(amounts)
-            .try_for_each(|(key, amount)| <span class="self">Self</span>::register(<span class="self">self</span>, key, amount));
+            .zip(auxs)
+            .try_for_each(|((key, amount), aux)| <span class="self">Self</span>::register(<span class="self">self</span>, key, amount, aux));
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -307,8 +351,7 @@
     <span class="doccomment">/// Returns true if `key` is currently registered, else returns false.
     </span><span class="kw">fn </span>contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key) -&gt; bool;
 
-    <span class="doccomment">/// Lookup the stake under a key against a specific historical `version`,
-    /// returns error if keys unregistered.
+    <span class="doccomment">/// Returns the stakes withhelded by a public key.
     ///
     /// # Errors
     /// Return err if the `version` is not supported or `key` doesn&#39;t exist.
@@ -316,18 +359,29 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         version: SnapshotVersion,
         key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Amount, <span class="self">Self</span>::LookupProof), StakeTableError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Amount, StakeTableError&gt;;
 
-    <span class="doccomment">/// Returns the stakes withhelded by a public key, None if the key is not registered.
-    /// If you need a lookup proof, use [`Self::lookup()`] instead (which is usually more expensive).
+    <span class="doccomment">/// Returns the stakes withhelded by a public key along with a membership proof.
     ///
     /// # Errors
     /// Return err if the `version` is not supported or `key` doesn&#39;t exist.
-    </span><span class="kw">fn </span>simple_lookup(
+    </span><span class="kw">fn </span>lookup_with_proof(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         version: SnapshotVersion,
         key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Amount, StakeTableError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Amount, <span class="self">Self</span>::LookupProof), StakeTableError&gt;;
+
+    <span class="doccomment">/// Return the associated stake amount and auxiliary information of a public key,
+    /// along with a membership proof.
+    ///
+    /// # Errors
+    /// Return err if the `version` is not supported or `key` doesn&#39;t exist.
+    </span><span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="kw">fn </span>lookup_with_aux_and_proof(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        version: SnapshotVersion,
+        key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Amount, <span class="self">Self</span>::Aux, <span class="self">Self</span>::LookupProof), StakeTableError&gt;;
 
     <span class="doccomment">/// Update the stake of the `key` with `(negative ? -1 : 1) * delta`.
     /// Return the updated stake or error.
@@ -406,6 +460,12 @@
     <span class="kw">fn </span>from(value: StakeTableError) -&gt; <span class="self">Self </span>{
         <span class="comment">// FIXME: (alex) should we define a PrimitivesError::General()?
         </span><span class="self">Self</span>::ParameterError(value.to_string())
+    }
+}
+
+<span class="kw">impl </span>From&lt;StakeTableError&gt; <span class="kw">for </span>PlonkError {
+    <span class="kw">fn </span>from(value: StakeTableError) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::PrimitiveError(PrimitivesError::ParameterError(value.to_string()))
     }
 }
 </code></pre></div></section></main></body></html>

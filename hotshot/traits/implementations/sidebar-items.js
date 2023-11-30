@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CombinedNetworks","DummyReliability","Libp2pCommChannel","Libp2pNetwork","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryStorage","WebCommChannel","WebServerNetwork","WebServerWithFallbackCommChannel"],"type":["PeerInfoVec"]};
+window.SIDEBAR_ITEMS = {"struct":["CombinedCommChannel","CombinedNetworks","Libp2pCommChannel","Libp2pNetwork","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryStorage","NetworkingMetricsValue","WebCommChannel","WebServerNetwork"],"type":["PeerInfoVec"]};

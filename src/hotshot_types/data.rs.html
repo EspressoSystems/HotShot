@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -528,464 +528,36 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`&#39;s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use crate</span>::{
-    certificate::{
-        AssembledSignature, DACertificate, QuorumCertificate, TimeoutCertificate,
-        ViewSyncCertificate,
-    },
-    constants::genesis_proposer_id,
+    simple_certificate::{QuorumCertificate, TimeoutCertificate},
     traits::{
-        election::SignedCertificate,
+        block_contents::vid_commitment,
+        block_contents::BlockHeader,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
-        Block, State,
+        BlockPayload, State,
     },
+    vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>ark_bls12_381::Bls12_381;
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>either::Either;
-<span class="kw">use </span>espresso_systems_common::hotshot::tag;
+<span class="kw">use </span>hotshot_constants::GENESIS_PROPOSER_ID;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="comment">// use jf_primitives::pcs::prelude::Commitment;
+</span><span class="kw">use </span>jf_primitives::pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::{ensure, Snafu};
+<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
     fmt::{Debug, Display},
     hash::Hash,
@@ -1002,10 +574,7 @@
     Ord,
     Hash,
     Serialize,
-    <span class="comment">// std::ops::Add,
-    // std::ops::Div,
-    // std::ops::Rem,
-    </span>Deserialize,
+    Deserialize,
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
@@ -1020,11 +589,15 @@
     </span><span class="kw">fn </span>new(n: u64) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(n)
     }
+    <span class="doccomment">/// Returen the u64 format
+    </span><span class="kw">fn </span>get_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
 }
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>ViewNumber {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">&quot;View Number Commitment&quot;</span>);
+        <span class="kw">let </span>builder = RawCommitmentBuilder::new(<span class="string">&quot;View Number Commitment&quot;</span>);
         builder.u64(<span class="self">self</span>.<span class="number">0</span>).finalize()
     }
 }
@@ -1058,147 +631,120 @@
     }
 }
 
+<span class="doccomment">/// Generate the genesis block proposer ID from the defined constant
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>genesis_proposer_id() -&gt; EncodedPublicKey {
+    EncodedPublicKey(GENESIS_PROPOSER_ID.to_vec())
+}
+
 <span class="doccomment">/// The `Transaction` type associated with a `State`, as a syntactic shortcut
-</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; = &lt;&lt;STATE <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; = &lt;&lt;STATE <span class="kw">as </span>State&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
 <span class="doccomment">/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
 </span><span class="kw">pub type </span>TxnCommitment&lt;STATE&gt; = Commitment&lt;Transaction&lt;STATE&gt;&gt;;
-
-<span class="doccomment">/// subset of state that we stick into a leaf.
-/// original hotstuff proposal
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-#[derivative(PartialEq, Hash)]
-</span><span class="kw">pub struct </span>ValidatingProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;
-<span class="kw">where
-    </span>LEAF: Committable,
-{
-    <span class="doccomment">///  current view&#39;s block commitment
-    </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
-
-    <span class="doccomment">/// CurView from leader when proposing leaf
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
-
-    <span class="doccomment">/// Height from leader when proposing leaf
-    </span><span class="kw">pub </span>height: u64,
-
-    <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
-
-    <span class="doccomment">/// The hash of the parent `Leaf`
-    /// So we can ask if it extends
-    </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;LEAF&gt;,
-
-    <span class="doccomment">/// Block leaf wants to apply
-    </span><span class="kw">pub </span>deltas: TYPES::BlockType,
-
-    <span class="doccomment">/// What the state should be after applying `self.deltas`
-    </span><span class="kw">pub </span>state_commitment: Commitment&lt;TYPES::StateType&gt;,
-
-    <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
-
-    <span class="doccomment">/// the propser id
-    </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
-}
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Block leaf wants to apply
-    </span><span class="kw">pub </span>deltas: TYPES::BlockType,
+    <span class="doccomment">/// Encoded transactions in the block to be applied.
+    </span><span class="kw">pub </span>encoded_transactions: Vec&lt;u8&gt;,
+    <span class="doccomment">/// Metadata of the block to be applied.
+    </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     <span class="doccomment">/// View this proposal applies to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
+}
+
+<span class="doccomment">/// The VID scheme type used in `HotShot`.
+</span><span class="kw">pub type </span>VidScheme = jf_primitives::vid::advz::Advz&lt;ark_bls12_381::Bls12_381, sha2::Sha256&gt;;
+<span class="kw">pub use </span>jf_primitives::vid::VidScheme <span class="kw">as </span>VidSchemeTrait;
+<span class="doccomment">/// VID commitment.
+</span><span class="kw">pub type </span>VidCommitment = &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Commit;
+
+<span class="doccomment">/// VID dispersal data
+///
+/// Like [`DAProposal`].
+</span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="kw">pub struct </span>VidDisperse&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// The view number for which this VID data is intended
+    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    <span class="doccomment">/// Block payload commitment
+    </span><span class="kw">pub </span>payload_commitment: VidCommitment,
+    <span class="doccomment">/// VID shares dispersed among storage nodes
+    </span><span class="kw">pub </span>shares: Vec&lt;&lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Share&gt;,
+    <span class="doccomment">/// VID common data sent to all storage nodes
+    </span><span class="kw">pub </span>common: &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Common,
+}
+
+<span class="doccomment">/// Trusted KZG setup for VID.
+///
+/// TESTING ONLY: don&#39;t use this in production
+/// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
+///
+/// # Panics
+/// ...because this is only for tests. This comment exists to pacify clippy.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>test_srs(
+    num_storage_nodes: usize,
+) -&gt; &lt;UnivariateKzgPCS&lt;Bls12_381&gt; <span class="kw">as </span>PolynomialCommitmentScheme&gt;::SRS {
+    <span class="kw">let </span><span class="kw-2">mut </span>rng = jf_utils::test_rng();
+    UnivariateKzgPCS::&lt;ark_bls12_381::Bls12_381&gt;::gen_srs_for_testing(
+        <span class="kw-2">&amp;mut </span>rng,
+        checked_fft_size(num_storage_nodes).unwrap(),
+    )
+    .unwrap()
 }
 
 <span class="doccomment">/// Proposal to append a block.
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>QuorumProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// The commitment to append.
-    </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
+</span><span class="kw">pub struct </span>QuorumProposal&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// The block header to append
+    </span><span class="kw">pub </span>block_header: TYPES::BlockHeader,
 
     <span class="doccomment">/// CurView from leader when proposing leaf
     </span><span class="kw">pub </span>view_number: TYPES::Time,
 
-    <span class="doccomment">/// Height from leader when proposing leaf
-    </span><span class="kw">pub </span>height: u64,
-
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES&gt;,
 
     <span class="doccomment">/// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
     </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
-
-    <span class="doccomment">/// Data availibity certificate
-    </span><span class="comment">// TODO We should be able to remove this
-    </span><span class="kw">pub </span>dac: <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ProposalType
-    <span class="kw">for </span>ValidatingProposal&lt;TYPES, LEAF&gt;
-{
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DAProposal&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposalType <span class="kw">for </span>DAProposal&lt;TYPES&gt; {
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ProposalType
-    <span class="kw">for </span>QuorumProposal&lt;TYPES, LEAF&gt;
-{
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>QuorumProposal&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposalType <span class="kw">for </span>ViewSyncCertificate&lt;TYPES&gt; {
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
-        <span class="kw">match </span><span class="self">self </span>{
-            ViewSyncCertificate::PreCommit(certificate_internal)
-            | ViewSyncCertificate::Commit(certificate_internal)
-            | ViewSyncCertificate::Finalize(certificate_internal) =&gt; certificate_internal.round,
-        }
-    }
-}
-
-<span class="doccomment">/// A proposal to a network of voting nodes.
-</span><span class="kw">pub trait </span>ProposalType:
-    Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq + Eq + Hash
-{
-    <span class="doccomment">/// Type of nodes that can vote on this proposal.
-    </span><span class="kw">type </span>NodeType: NodeType;
-
-    <span class="doccomment">/// Time at which this proposal is valid.
-    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
 }
 
 <span class="doccomment">/// A state change encoded in a leaf.
 ///
-/// [`DeltasType`] represents a [block](NodeType::BlockType), but it may not contain the block in
+/// [`DeltasType`] represents a [block](NodeType::BlockPayload), but it may not contain the block in
 /// full. It is guaranteed to contain, at least, a cryptographic commitment to the block, and it
 /// provides an interface for resolving the commitment to a full block if the full block is
 /// available.
-</span><span class="kw">pub trait </span>DeltasType&lt;Block: Committable&gt;:
+</span><span class="kw">pub trait </span>DeltasType&lt;PAYLOAD: BlockPayload&gt;:
     Clone + Debug + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync
 {
     <span class="doccomment">/// Errors reported by this type.
     </span><span class="kw">type </span>Error: std::error::Error;
 
     <span class="doccomment">/// Get a cryptographic commitment to the block represented by this delta.
-    </span><span class="kw">fn </span>block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;Block&gt;;
+    </span><span class="kw">fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment;
 
     <span class="doccomment">/// Get the full block if it is available, otherwise return this object unchanged.
     ///
@@ -1206,7 +752,7 @@
     ///
     /// Returns the original [`DeltasType`], unchanged, in an [`Err`] variant in the case where the
     /// full block is not currently available.
-    </span><span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Block, <span class="self">Self</span>&gt;;
+    </span><span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PAYLOAD, <span class="self">Self</span>&gt;;
 
     <span class="doccomment">/// Fill this [`DeltasType`] by providing a complete block.
     ///
@@ -1215,199 +761,23 @@
     ///
     /// # Errors
     ///
-    /// Fails if `block` does not match `self.block_commitment()`, or if the block is not able to be
+    /// Fails if `block` does not match `self.payload_commitment()`, or if the block is not able to be
     /// stored for some implementation-defined reason.
-    </span><span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
+    </span><span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: PAYLOAD) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
 }
 
-<span class="doccomment">/// Error which occurs when [`DeltasType::fill`] is called with a block that does not match the
-/// deltas&#39; internal block commitment.
-</span><span class="attr">#[derive(Clone, Copy, Debug, Snafu)]
-#[snafu(display(<span class="string">&quot;the block {:?} has commitment {} (expected {})&quot;</span>, block, block.commit(), commitment))]
-</span><span class="kw">pub struct </span>InconsistentDeltasError&lt;BLOCK: Committable + Debug&gt; {
-    <span class="doccomment">/// The block with the wrong commitment.
-    </span>block: BLOCK,
-    <span class="doccomment">/// The expected commitment.
-    </span>commitment: Commitment&lt;BLOCK&gt;,
+<span class="doccomment">/// The error type for block and its transactions.
+</span><span class="attr">#[derive(Snafu, Debug)]
+</span><span class="kw">pub enum </span>BlockError {
+    <span class="doccomment">/// Invalid block header.
+    </span>InvalidBlockHeader,
+    <span class="doccomment">/// Invalid transaction length.
+    </span>InvalidTransactionLength,
+    <span class="doccomment">/// Inconsistent payload commitment.
+    </span>InconsistentPayloadCommitment,
 }
 
-<span class="kw">impl</span>&lt;BLOCK&gt; DeltasType&lt;BLOCK&gt; <span class="kw">for </span>BLOCK
-<span class="kw">where
-    </span>BLOCK: Committable
-        + Clone
-        + Debug
-        + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + Send
-        + Serialize
-        + Sync,
-{
-    <span class="kw">type </span>Error = InconsistentDeltasError&lt;BLOCK&gt;;
-
-    <span class="kw">fn </span>block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;BLOCK&gt; {
-        <span class="self">self</span>.commit()
-    }
-
-    <span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BLOCK, <span class="self">Self</span>&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
-    }
-
-    <span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BLOCK) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
-        <span class="macro">ensure!</span>(
-            block.commit() == <span class="self">self</span>.commit(),
-            InconsistentDeltasSnafu {
-                block,
-                commitment: <span class="self">self</span>.commit()
-            }
-        );
-        <span class="comment">// If the commitments are equal the blocks are equal, and we already have the block, so we
-        // don&#39;t have to do anything.
-        </span><span class="prelude-val">Ok</span>(())
-    }
-}
-
-<span class="kw">impl</span>&lt;BLOCK&gt; DeltasType&lt;BLOCK&gt; <span class="kw">for </span>Either&lt;BLOCK, Commitment&lt;BLOCK&gt;&gt;
-<span class="kw">where
-    </span>BLOCK: Committable
-        + Clone
-        + Debug
-        + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + Send
-        + Serialize
-        + Sync,
-{
-    <span class="kw">type </span>Error = InconsistentDeltasError&lt;BLOCK&gt;;
-
-    <span class="kw">fn </span>block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;BLOCK&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Either::Left(block) =&gt; block.commit(),
-            Either::Right(comm) =&gt; <span class="kw-2">*</span>comm,
-        }
-    }
-
-    <span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BLOCK, <span class="self">Self</span>&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Either::Left(block) =&gt; <span class="prelude-val">Ok</span>(block),
-            Either::Right(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="self">self</span>),
-        }
-    }
-
-    <span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BLOCK) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Either::Left(curr) =&gt; curr.fill(block),
-            Either::Right(comm) =&gt; {
-                <span class="macro">ensure!</span>(
-                    <span class="kw-2">*</span>comm == block.commit(),
-                    InconsistentDeltasSnafu {
-                        block,
-                        commitment: <span class="kw-2">*</span>comm
-                    }
-                );
-                <span class="kw-2">*</span><span class="self">self </span>= Either::Left(block);
-                <span class="prelude-val">Ok</span>(())
-            }
-        }
-    }
-}
-
-<span class="doccomment">/// An item which is appended to a blockchain.
-</span><span class="kw">pub trait </span>LeafType:
-    Debug
-    + Display
-    + Clone
-    + <span class="lifetime">&#39;static
-    </span>+ Committable
-    + Serialize
-    + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;
-    + Send
-    + Sync
-    + Eq
-    + std::hash::Hash
-{
-    <span class="doccomment">/// Type of nodes participating in the network.
-    </span><span class="kw">type </span>NodeType: NodeType;
-    <span class="doccomment">/// Type of block contained by this leaf.
-    </span><span class="kw">type </span>DeltasType: DeltasType&lt;LeafBlock&lt;<span class="self">Self</span>&gt;&gt;;
-    <span class="doccomment">/// Either state or empty
-    </span><span class="kw">type </span>MaybeState: Clone
-        + Debug
-        + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + Send
-        + Serialize
-        + Sync;
-
-    <span class="doccomment">/// Create a new leaf from its components.
-    </span><span class="kw">fn </span>new(
-        view_number: LeafTime&lt;<span class="self">Self</span>&gt;,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
-        deltas: LeafBlock&lt;<span class="self">Self</span>&gt;,
-        state: LeafState&lt;<span class="self">Self</span>&gt;,
-    ) -&gt; <span class="self">Self</span>;
-    <span class="doccomment">/// Time when this leaf was created.
-    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LeafTime&lt;<span class="self">Self</span>&gt;;
-    <span class="doccomment">/// Height of this leaf in the chain.
-    ///
-    /// Equivalently, this is the number of leaves before this one in the chain.
-    </span><span class="kw">fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
-    <span class="doccomment">/// Change the height of this leaf.
-    </span><span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64);
-    <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
-    </span><span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;;
-    <span class="doccomment">/// Commitment to this leaf&#39;s parent.
-    </span><span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt;;
-    <span class="doccomment">/// The block contained in this leaf.
-    </span><span class="kw">fn </span>get_deltas(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::DeltasType;
-    <span class="doccomment">/// Fill this leaf with the entire corresponding block.
-    ///
-    /// After this function succeeds, `self.get_deltas().try_resolve()` is guaranteed to return
-    /// `Ok(block)`.
-    ///
-    /// # Errors
-    ///
-    /// Fails if `block` does not match `self.get_deltas_commitment()`, or if the block is not able
-    /// to be stored for some implementation-defined reason.
-    </span><span class="kw">fn </span>fill_deltas(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: LeafBlock&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), LeafDeltasError&lt;<span class="self">Self</span>&gt;&gt;;
-    <span class="doccomment">/// The blockchain state after appending this leaf.
-    </span><span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::MaybeState;
-    <span class="doccomment">/// Transactions rejected or invalidated by the application of this leaf.
-    </span><span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;LeafTransaction&lt;<span class="self">Self</span>&gt;&gt;;
-    <span class="doccomment">/// Real-world time when this leaf was created.
-    </span><span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128;
-    <span class="doccomment">/// Identity of the network participant who proposed this leaf.
-    </span><span class="kw">fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey;
-    <span class="doccomment">/// Create a leaf from information stored about a view.
-    </span><span class="kw">fn </span>from_stored_view(stored_view: StoredView&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>;
-
-    <span class="doccomment">/// A commitment to the block contained in this leaf.
-    </span><span class="kw">fn </span>get_deltas_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;LeafBlock&lt;<span class="self">Self</span>&gt;&gt; {
-        <span class="self">self</span>.get_deltas().block_commitment()
-    }
-}
-
-<span class="doccomment">/// The [`DeltasType`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafDeltas&lt;LEAF&gt; = &lt;LEAF <span class="kw">as </span>LeafType&gt;::DeltasType;
-<span class="doccomment">/// Errors reported by the [`DeltasType`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafDeltasError&lt;LEAF&gt; = &lt;LeafDeltas&lt;LEAF&gt; <span class="kw">as </span>DeltasType&lt;LeafBlock&lt;LEAF&gt;&gt;&gt;::Error;
-<span class="doccomment">/// The [`NodeType`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafNode&lt;LEAF&gt; = &lt;LEAF <span class="kw">as </span>LeafType&gt;::NodeType;
-<span class="doccomment">/// The [`StateType`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafState&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::StateType;
-<span class="doccomment">/// The [`Block`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafBlock&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::BlockType;
-<span class="doccomment">/// The [`Transaction`] in a [`LeafType`].
-</span><span class="kw">pub type </span>LeafTransaction&lt;LEAF&gt; = &lt;LeafBlock&lt;LEAF&gt; <span class="kw">as </span>Block&gt;::Transaction;
-<span class="doccomment">/// The [`ConsensusTime`] used by a [`LeafType`].
-</span><span class="kw">pub type </span>LeafTime&lt;LEAF&gt; = &lt;LeafNode&lt;LEAF&gt; <span class="kw">as </span>NodeType&gt;::Time;
-
-<span class="doccomment">/// Additional functions required to use a [`LeafType`] with hotshot-testing.
+<span class="doccomment">/// Additional functions required to use a [`Leaf`] with hotshot-testing.
 </span><span class="kw">pub trait </span>TestableLeaf {
     <span class="doccomment">/// Type of nodes participating in the network.
     </span><span class="kw">type </span>NodeType: NodeType;
@@ -1417,209 +787,169 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction;
+    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
 }
 
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-#[derivative(Hash, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>ValidatingLeaf&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>Leaf&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// CurView from leader when proposing leaf
     </span><span class="kw">pub </span>view_number: TYPES::Time,
 
-    <span class="doccomment">/// Number of leaves before this one in the chain
-    </span><span class="kw">pub </span>height: u64,
-
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt;,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES&gt;,
 
     <span class="doccomment">/// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;ValidatingLeaf&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;<span class="self">Self</span>&gt;,
 
-    <span class="doccomment">/// Block leaf wants to apply
-    </span><span class="kw">pub </span>deltas: TYPES::BlockType,
+    <span class="doccomment">/// Block header.
+    </span><span class="kw">pub </span>block_header: TYPES::BlockHeader,
 
-    <span class="doccomment">/// What the state should be AFTER applying `self.deltas`
-    </span><span class="kw">pub </span>state: TYPES::StateType,
+    <span class="doccomment">/// Optional block payload.
+    ///
+    /// It may be empty for nodes not in the DA committee.
+    </span><span class="kw">pub </span>block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
 
-    <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
+    <span class="doccomment">/// Transactions that were marked for rejection while collecting the block.
+    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
 
-    <span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
-    </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
-    #[derivative(Hash = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub </span>timestamp: i128,
-
-    <span class="doccomment">/// the proposer id of the leaf
-    </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
-    #[derivative(Hash = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
-}
-
-<span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
-/// as well as the hash of its parent `Leaf`.
-/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>SequencingLeaf&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// CurView from leader when proposing leaf
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
-
-    <span class="doccomment">/// Number of leaves before this one in the chain
-    </span><span class="kw">pub </span>height: u64,
-
-    <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt;,
-
-    <span class="doccomment">/// The hash of the parent `SequencingLeaf`
-    /// So we can ask if it extends
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;SequencingLeaf&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// The block or block commitment to be applied
-    </span><span class="kw">pub </span>deltas: Either&lt;TYPES::BlockType, Commitment&lt;TYPES::BlockType&gt;&gt;,
-
-    <span class="doccomment">/// Transactions that were marked for rejection while collecting deltas
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,
-
-    <span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
+    <span class="comment">// TODO (Keyao) Remove.
+    </span><span class="doccomment">/// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     </span><span class="kw">pub </span>timestamp: i128,
 
     <span class="doccomment">/// the proposer id of the leaf
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
-        <span class="kw">let </span>delta_left = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.deltas {
-            Either::Left(deltas) =&gt; deltas.commit(),
-            Either::Right(deltas) =&gt; <span class="kw-2">*</span>deltas,
-        };
-        <span class="kw">let </span>delta_right = <span class="kw">match </span><span class="kw-2">&amp;</span>other.deltas {
-            Either::Left(deltas) =&gt; deltas.commit(),
-            Either::Right(deltas) =&gt; <span class="kw-2">*</span>deltas,
-        };
         <span class="self">self</span>.view_number == other.view_number
-            &amp;&amp; <span class="self">self</span>.height == other.height
             &amp;&amp; <span class="self">self</span>.justify_qc == other.justify_qc
             &amp;&amp; <span class="self">self</span>.parent_commitment == other.parent_commitment
-            &amp;&amp; delta_left == delta_right
+            &amp;&amp; <span class="self">self</span>.block_header == other.block_header
             &amp;&amp; <span class="self">self</span>.rejected == other.rejected
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Hash <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Hash <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.view_number.hash(state);
-        <span class="self">self</span>.height.hash(state);
         <span class="self">self</span>.justify_qc.hash(state);
         <span class="self">self</span>.parent_commitment.hash(state);
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.deltas {
-            Either::Left(deltas) =&gt; {
-                deltas.commit().hash(state);
-            }
-            Either::Right(commitment) =&gt; {
-                commitment.hash(state);
-            }
-        }
-        <span class="comment">// self.deltas.hash(state.commit());
-        </span><span class="self">self</span>.rejected.hash(state);
+        <span class="self">self</span>.block_header.hash(state);
+        <span class="self">self</span>.rejected.hash(state);
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="macro">write!</span>(
             f,
             <span class="string">&quot;view: {:?}, height: {:?}, justify: {}&quot;</span>,
-            <span class="self">self</span>.view_number, <span class="self">self</span>.height, <span class="self">self</span>.justify_qc
+            <span class="self">self</span>.view_number,
+            <span class="self">self</span>.get_height(),
+            <span class="self">self</span>.justify_qc
         )
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; LeafType <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt; {
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">type </span>DeltasType = TYPES::BlockType;
-    <span class="kw">type </span>MaybeState = TYPES::StateType;
-
-    <span class="kw">fn </span>new(
-        view_number: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
-        deltas: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType,
-        state: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::StateType,
-    ) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
+    <span class="doccomment">/// Create a new leaf from its components.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>genesis() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(block_header, block_payload, <span class="kw">_</span>) = TYPES::BlockHeader::genesis();
         <span class="self">Self </span>{
-            view_number,
-            height: <span class="number">0</span>,
-            justify_qc,
+            view_number: TYPES::Time::genesis(),
+            justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),
             parent_commitment: fake_commitment(),
-            deltas,
-            state,
+            block_header,
+            block_payload: <span class="prelude-val">Some</span>(block_payload),
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: genesis_proposer_id(),
         }
     }
 
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="doccomment">/// Time when this leaf was created.
+    </span><span class="kw">pub fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
-
-    <span class="kw">fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.height
+    <span class="doccomment">/// Height of this leaf in the chain.
+    ///
+    /// Equivalently, this is the number of leaves before this one in the chain.
+    </span><span class="kw">pub fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.block_header.block_number()
     }
-
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64) {
-        <span class="self">self</span>.height = height;
-    }
-
-    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt; {
+    <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
+    </span><span class="kw">pub fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES&gt; {
         <span class="self">self</span>.justify_qc.clone()
     }
-
-    <span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Commitment to this leaf&#39;s parent.
+    </span><span class="kw">pub fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="self">self</span>.parent_commitment
     }
-
-    <span class="kw">fn </span>get_deltas(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::DeltasType {
-        <span class="self">self</span>.deltas.clone()
+    <span class="doccomment">/// The block header contained in this leaf.
+    </span><span class="kw">pub fn </span>get_block_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.block_header
+    }
+    <span class="doccomment">/// Fill this leaf with the block payload.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the payload commitment doesn&#39;t match `self.block_header.payload_commitment()`.
+    </span><span class="kw">pub fn </span>fill_block_payload(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        block_payload: TYPES::BlockPayload,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), BlockError&gt; {
+        <span class="kw">let </span>encoded_txns = <span class="kw">match </span>block_payload.encode() {
+            <span class="comment">// TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
+            // &lt;https://github.com/EspressoSystems/HotShot/issues/2115&gt;
+            </span><span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect(),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidTransactionLength),
+        };
+        <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns);
+        <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InconsistentPayloadCommitment);
+        }
+        <span class="self">self</span>.block_payload = <span class="prelude-val">Some</span>(block_payload);
+        <span class="prelude-val">Ok</span>(())
+    }
+    <span class="doccomment">/// Optional block payload.
+    </span><span class="kw">pub fn </span>get_block_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt; {
+        <span class="self">self</span>.block_payload.clone()
     }
 
-    <span class="kw">fn </span>get_deltas_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType&gt; {
-        <span class="self">self</span>.deltas.block_commitment()
+    <span class="doccomment">/// A commitment to the block payload contained in this leaf.
+    </span><span class="kw">pub fn </span>get_payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
+        <span class="self">self</span>.get_block_header().payload_commitment()
     }
-
-    <span class="kw">fn </span>fill_deltas(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: LeafBlock&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), LeafDeltasError&lt;<span class="self">Self</span>&gt;&gt; {
-        <span class="self">self</span>.deltas.fill(block)
-    }
-
-    <span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::MaybeState {
-        <span class="self">self</span>.state.clone()
-    }
-
-    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt; {
+    <span class="doccomment">/// The blockchain state after appending this leaf.
+    </span><span class="comment">// The Sequencing Leaf doesn&#39;t have a state.
+    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+    <span class="doccomment">/// Transactions rejected or invalidated by the application of this leaf.
+    </span><span class="kw">pub fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt; {
         <span class="self">self</span>.rejected.clone()
     }
-
-    <span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128 {
+    <span class="doccomment">/// Real-world time when this leaf was created.
+    </span><span class="kw">pub fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128 {
         <span class="self">self</span>.timestamp
     }
-
-    <span class="kw">fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey {
+    <span class="doccomment">/// Identity of the network participant who proposed this leaf.
+    </span><span class="kw">pub fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey {
         <span class="self">self</span>.proposer_id.clone()
     }
-
-    <span class="kw">fn </span>from_stored_view(stored_view: StoredView&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Create a leaf from information stored about a view.
+    </span><span class="kw">pub fn </span>from_stored_view(stored_view: StoredView&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             view_number: stored_view.view_number,
-            height: <span class="number">0</span>,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
-            deltas: stored_view.deltas,
-            state: stored_view.state,
+            block_header: stored_view.block_header,
+            block_payload: stored_view.block_payload,
             rejected: stored_view.rejected,
             timestamp: stored_view.timestamp,
             proposer_id: stored_view.proposer_id,
@@ -1627,10 +957,10 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableLeaf <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableLeaf <span class="kw">for </span>Leaf&lt;TYPES&gt;
 <span class="kw">where
     </span>TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
+    TYPES::BlockPayload: TestableBlock,
 {
     <span class="kw">type </span>NodeType = TYPES;
 
@@ -1638,135 +968,21 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
-        &lt;TYPES::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
-            rng,
-            padding,
-        )
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(
-            f,
-            <span class="string">&quot;view: {:?}, height: {:?}, justify: {}&quot;</span>,
-            <span class="self">self</span>.view_number, <span class="self">self</span>.height, <span class="self">self</span>.justify_qc
-        )
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; LeafType <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
-    <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">type </span>DeltasType = Either&lt;TYPES::BlockType, Commitment&lt;TYPES::BlockType&gt;&gt;;
-    <span class="kw">type </span>MaybeState = ();
-
-    <span class="kw">fn </span>new(
-        view_number: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time,
-        justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
-        deltas: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType,
-        _state: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::StateType,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            view_number,
-            height: <span class="number">0</span>,
-            justify_qc,
-            parent_commitment: fake_commitment(),
-            deltas: Either::Left(deltas),
-            rejected: Vec::new(),
-            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id: genesis_proposer_id(),
-        }
-    }
-
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="self">self</span>.view_number
-    }
-
-    <span class="kw">fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.height
-    }
-
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64) {
-        <span class="self">self</span>.height = height;
-    }
-
-    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, <span class="self">Self</span>&gt; {
-        <span class="self">self</span>.justify_qc.clone()
-    }
-
-    <span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="self">self</span>.parent_commitment
-    }
-
-    <span class="kw">fn </span>get_deltas(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::DeltasType {
-        <span class="self">self</span>.deltas.clone()
-    }
-
-    <span class="kw">fn </span>get_deltas_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType&gt; {
-        <span class="self">self</span>.deltas.block_commitment()
-    }
-
-    <span class="kw">fn </span>fill_deltas(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: LeafBlock&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), LeafDeltasError&lt;<span class="self">Self</span>&gt;&gt; {
-        <span class="self">self</span>.deltas.fill(block)
-    }
-
-    <span class="comment">// The Sequencing Leaf doesn&#39;t have a state.
-    </span><span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::MaybeState {}
-
-    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt; {
-        <span class="self">self</span>.rejected.clone()
-    }
-
-    <span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128 {
-        <span class="self">self</span>.timestamp
-    }
-
-    <span class="kw">fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey {
-        <span class="self">self</span>.proposer_id.clone()
-    }
-
-    <span class="kw">fn </span>from_stored_view(stored_view: StoredView&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            view_number: stored_view.view_number,
-            height: <span class="number">0</span>,
-            justify_qc: stored_view.justify_qc,
-            parent_commitment: stored_view.parent,
-            deltas: stored_view.deltas,
-            rejected: stored_view.rejected,
-            timestamp: stored_view.timestamp,
-            proposer_id: stored_view.proposer_id,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableLeaf <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt;
-<span class="kw">where
-    </span>TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
-    <span class="kw">type </span>NodeType = TYPES;
-
-    <span class="kw">fn </span>create_random_transaction(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-        padding: u64,
-    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
         TYPES::StateType::create_random_transaction(<span class="prelude-val">None</span>, rng, padding)
     }
 }
 <span class="doccomment">/// Fake the thing a genesis block points to. Needed to avoid infinite recursion
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>fake_commitment&lt;S: Committable&gt;() -&gt; Commitment&lt;S&gt; {
-    commit::RawCommitmentBuilder::new(<span class="string">&quot;Dummy commitment for arbitrary genesis&quot;</span>).finalize()
+    RawCommitmentBuilder::new(<span class="string">&quot;Dummy commitment for arbitrary genesis&quot;</span>).finalize()
 }
 
 <span class="doccomment">/// create a random commitment
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>random_commitment&lt;S: Committable&gt;(rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore) -&gt; Commitment&lt;S&gt; {
     <span class="kw">let </span>random_array: Vec&lt;u8&gt; = (<span class="number">0u8</span>..<span class="number">100u8</span>).map(|<span class="kw">_</span>| rng.gen_range(<span class="number">0</span>..<span class="number">255</span>)).collect();
-    commit::RawCommitmentBuilder::new(<span class="string">&quot;Random Commitment&quot;</span>)
+    RawCommitmentBuilder::new(<span class="string">&quot;Random Commitment&quot;</span>)
         .constant_str(<span class="string">&quot;Random Field&quot;</span>)
         .var_size_bytes(<span class="kw-2">&amp;</span>random_array)
         .finalize()
@@ -1775,101 +991,49 @@
 <span class="doccomment">/// Serialization for the QC assembled signature
 /// # Panics
 /// if serialization fails
-</span><span class="kw">pub fn </span>serialize_signature&lt;TYPES: NodeType&gt;(signature: <span class="kw-2">&amp;</span>AssembledSignature&lt;TYPES&gt;) -&gt; Vec&lt;u8&gt; {
+</span><span class="kw">pub fn </span>serialize_signature2&lt;TYPES: NodeType&gt;(
+    signatures: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType,
+) -&gt; Vec&lt;u8&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
-    <span class="kw">let </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType&gt; = <span class="kw">match </span><span class="kw-2">&amp;</span>signature {
-        AssembledSignature::DA(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;DA&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::Yes(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;Yes&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::No(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;No&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::ViewSyncPreCommit(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;ViewSyncPreCommit&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::ViewSyncCommit(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;ViewSyncCommit&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::ViewSyncFinalize(signatures) =&gt; {
-            signatures_bytes.extend(<span class="string">&quot;ViewSyncFinalize&quot;</span>.as_bytes());
-            <span class="prelude-val">Some</span>(signatures.clone())
-        }
-        AssembledSignature::Genesis =&gt; <span class="prelude-val">None</span>,
-    };
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(sig) = signatures {
-        <span class="kw">let </span>(sig, proof) = TYPES::SignatureKey::get_sig_proof(<span class="kw-2">&amp;</span>sig);
-        <span class="kw">let </span>proof_bytes = bincode_opts()
-            .serialize(<span class="kw-2">&amp;</span>proof.as_bitslice())
-            .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
-        signatures_bytes.extend(<span class="string">&quot;bitvec proof&quot;</span>.as_bytes());
-        signatures_bytes.extend(proof_bytes.as_slice());
-        <span class="kw">let </span>sig_bytes = bincode_opts()
-            .serialize(<span class="kw-2">&amp;</span>sig)
-            .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
-        signatures_bytes.extend(<span class="string">&quot;aggregated signature&quot;</span>.as_bytes());
-        signatures_bytes.extend(sig_bytes.as_slice());
-    } <span class="kw">else </span>{
-        signatures_bytes.extend(<span class="string">&quot;genesis&quot;</span>.as_bytes());
-    }
+    signatures_bytes.extend(<span class="string">&quot;Yes&quot;</span>.as_bytes());
 
+    <span class="kw">let </span>(sig, proof) = TYPES::SignatureKey::get_sig_proof(signatures);
+    <span class="kw">let </span>proof_bytes = bincode_opts()
+        .serialize(<span class="kw-2">&amp;</span>proof.as_bitslice())
+        .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
+    signatures_bytes.extend(<span class="string">&quot;bitvec proof&quot;</span>.as_bytes());
+    signatures_bytes.extend(proof_bytes.as_slice());
+    <span class="kw">let </span>sig_bytes = bincode_opts()
+        .serialize(<span class="kw-2">&amp;</span>sig)
+        .expect(<span class="string">&quot;This serialization shouldn&#39;t be able to fail&quot;</span>);
+    signatures_bytes.extend(<span class="string">&quot;aggregated signature&quot;</span>.as_bytes());
+    signatures_bytes.extend(sig_bytes.as_slice());
     signatures_bytes
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>ValidatingLeaf&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; commit::Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>signatures_bytes = serialize_signature(<span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures);
-
-        commit::RawCommitmentBuilder::new(<span class="string">&quot;leaf commitment&quot;</span>)
-            .u64_field(<span class="string">&quot;view number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-            .u64_field(<span class="string">&quot;height&quot;</span>, <span class="self">self</span>.height)
-            .field(<span class="string">&quot;parent Leaf commitment&quot;</span>, <span class="self">self</span>.parent_commitment)
-            .field(<span class="string">&quot;block commitment&quot;</span>, <span class="self">self</span>.deltas.commit())
-            .field(<span class="string">&quot;state commitment&quot;</span>, <span class="self">self</span>.state.commit())
-            .constant_str(<span class="string">&quot;justify_qc view number&quot;</span>)
-            .u64(<span class="kw-2">*</span><span class="self">self</span>.justify_qc.view_number)
-            .field(
-                <span class="string">&quot;justify_qc leaf commitment&quot;</span>,
-                <span class="self">self</span>.justify_qc.leaf_commitment(),
-            )
-            .constant_str(<span class="string">&quot;justify_qc signatures&quot;</span>)
-            .var_size_bytes(<span class="kw-2">&amp;</span>signatures_bytes)
-            .finalize()
-    }
-
-    <span class="kw">fn </span>tag() -&gt; String {
-        tag::LEAF.to_string()
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>SequencingLeaf&lt;TYPES&gt; {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; commit::Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="comment">// Commit the block commitment, rather than the block, so that the replicas can reconstruct
-        // the leaf.
-        </span><span class="kw">let </span>block_commitment = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.deltas {
-            Either::Left(block) =&gt; block.commit(),
-            Either::Right(commitment) =&gt; <span class="kw-2">*</span>commitment,
+        <span class="kw">let </span>payload_commitment_bytes: [u8; <span class="number">32</span>] = <span class="self">self</span>.get_payload_commitment().into();
+        <span class="kw">let </span>signatures_bytes = <span class="kw">if </span><span class="self">self</span>.justify_qc.is_genesis {
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+            bytes.extend(<span class="string">&quot;genesis&quot;</span>.as_bytes());
+            bytes
+        } <span class="kw">else </span>{
+            serialize_signature2::&lt;TYPES&gt;(<span class="self">self</span>.justify_qc.signatures.as_ref().unwrap())
         };
 
-        <span class="kw">let </span>signatures_bytes = serialize_signature(<span class="kw-2">&amp;</span><span class="self">self</span>.justify_qc.signatures);
-
-        commit::RawCommitmentBuilder::new(<span class="string">&quot;leaf commitment&quot;</span>)
+        <span class="comment">// Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
+        </span>RawCommitmentBuilder::new(<span class="string">&quot;leaf commitment&quot;</span>)
             .u64_field(<span class="string">&quot;view number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-            .u64_field(<span class="string">&quot;height&quot;</span>, <span class="self">self</span>.height)
+            .u64_field(<span class="string">&quot;block number&quot;</span>, <span class="self">self</span>.get_height())
             .field(<span class="string">&quot;parent Leaf commitment&quot;</span>, <span class="self">self</span>.parent_commitment)
-            .field(<span class="string">&quot;block commitment&quot;</span>, block_commitment)
+            .constant_str(<span class="string">&quot;block payload commitment&quot;</span>)
+            .fixed_size_bytes(<span class="kw-2">&amp;</span>payload_commitment_bytes)
             .constant_str(<span class="string">&quot;justify_qc view number&quot;</span>)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.justify_qc.view_number)
             .field(
                 <span class="string">&quot;justify_qc leaf commitment&quot;</span>,
-                <span class="self">self</span>.justify_qc.leaf_commitment(),
+                <span class="self">self</span>.justify_qc.get_data().leaf_commit,
             )
             .constant_str(<span class="string">&quot;justify_qc signatures&quot;</span>)
             .var_size_bytes(<span class="kw-2">&amp;</span>signatures_bytes)
@@ -1877,37 +1041,17 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;ValidatingLeaf&lt;TYPES&gt;&gt;
-    <span class="kw">for </span>ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;
-{
-    <span class="kw">fn </span>from(leaf: ValidatingLeaf&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            view_number: leaf.view_number,
-            height: leaf.height,
-            justify_qc: leaf.justify_qc,
-            parent_commitment: leaf.parent_commitment,
-            deltas: leaf.deltas.clone(),
-            state_commitment: leaf.state.commit(),
-            rejected: leaf.rejected,
-            proposer_id: leaf.proposer_id,
-            block_commitment: leaf.deltas.commit(),
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES, LEAF&gt; From&lt;LEAF&gt; <span class="kw">for </span>StoredView&lt;TYPES, LEAF&gt;
+<span class="kw">impl</span>&lt;TYPES&gt; From&lt;Leaf&lt;TYPES&gt;&gt; <span class="kw">for </span>StoredView&lt;TYPES&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
 {
-    <span class="kw">fn </span>from(leaf: LEAF) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(leaf: Leaf&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         StoredView {
             view_number: leaf.get_view_number(),
-            height: leaf.get_height(),
             parent: leaf.get_parent_commitment(),
             justify_qc: leaf.get_justify_qc(),
-            state: leaf.get_state(),
-            deltas: leaf.get_deltas(),
+            block_header: leaf.get_block_header().clone(),
+            block_payload: leaf.get_block_payload(),
             rejected: leaf.get_rejected(),
             timestamp: leaf.get_timestamp(),
             proposer_id: leaf.get_proposer_id(),

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/da.rs`."><title>da.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_task_impls/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/da.rs`."><title>da.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_task_impls/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -451,245 +451,11 @@
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::SequencingHotShotEvent;
-<span class="kw">use </span>async_compatibility_layer::{
-    art::{async_spawn, async_timeout},
-    async_primitives::subscribable_rwlock::ReadView,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
+<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>bincode::config::Options;
+
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::{Either, Left, Right};
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
@@ -698,30 +464,29 @@
     task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEvent, TaskBuilder},
 };
+<span class="kw">use </span>hotshot_types::simple_certificate::DACertificate;
 <span class="kw">use </span>hotshot_types::{
-    certificate::DACertificate,
     consensus::{Consensus, View},
-    data::{DAProposal, ProposalType, SequencingLeaf},
-    message::{CommitteeConsensusMessage, Message, Proposal, SequencingMessage},
+    data::DAProposal,
+    message::Proposal,
+    simple_vote::{DAData, DAVote},
     traits::{
-        consensus_api::SequencingConsensusApi,
-        election::{CommitteeExchangeType, ConsensusExchange, Membership},
+        block_contents::vid_commitment,
+        consensus_api::ConsensusApi,
+        election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
-        node_implementation::{CommitteeEx, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
-        Block, State,
     },
     utils::ViewInner,
+    vote::HasViewNumber,
     vote::VoteAccumulator,
 };
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>sha2::{Digest, Sha256};
+
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Instant,
-};
+<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="attr">#[derive(Snafu, Debug)]
@@ -731,20 +496,9 @@
 <span class="doccomment">/// Tracks state of a DA task
 </span><span class="kw">pub struct </span>DATaskState&lt;
     TYPES: NodeType,
-    I: NodeImplementation&lt;
-        TYPES,
-        Leaf = SequencingLeaf&lt;TYPES&gt;,
-        ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
-    &gt;,
-    A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
-&gt; <span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
-{
+    I: NodeImplementation&lt;TYPES&gt;,
+    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
+&gt; {
     <span class="doccomment">/// The state&#39;s api
     </span><span class="kw">pub </span>api: A,
     <span class="doccomment">/// Global registry task for the state
@@ -753,81 +507,69 @@
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
-    <span class="comment">// pub transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
-    </span><span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
+    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
-    <span class="doccomment">/// the committee exchange
-    </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// Membership for the DA committee
+    </span><span class="kw">pub </span>da_membership: Arc&lt;TYPES::Membership&gt;,
+
+    <span class="doccomment">/// Network for DA
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
 
     <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
 
     <span class="doccomment">/// Global events stream to publish events
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// This Nodes public key
+    </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
+    <span class="doccomment">/// This Nodes private key
+    </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
     <span class="doccomment">/// This state&#39;s ID
     </span><span class="kw">pub </span>id: u64,
 }
 
 <span class="doccomment">/// Struct to maintain DA Vote Collection task state
-</span><span class="kw">pub struct </span>DAVoteCollectionTaskState&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
-&gt; <span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
-{
-    <span class="doccomment">/// the committee exchange
-    </span><span class="kw">pub </span>committee_exchange: Arc&lt;CommitteeEx&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// the vote accumulator
+</span><span class="kw">pub struct </span>DAVoteCollectionTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Membership for the DA committee
+    </span><span class="kw">pub </span>da_membership: Arc&lt;TYPES::Membership&gt;,
+
+    <span class="doccomment">/// Network for DA
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
+    <span class="comment">// #[allow(clippy::type_complexity)]
+    </span><span class="doccomment">/// Accumulates DA votes
     </span><span class="kw">pub </span>accumulator:
-        Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;,
-    <span class="comment">// TODO ED Make this just &quot;view&quot; since it is only for this task
-    </span><span class="doccomment">/// the current view
+        Either&lt;VoteAccumulator&lt;TYPES, DAVote&lt;TYPES&gt;, DACertificate&lt;TYPES&gt;&gt;, DACertificate&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// the current view
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// event stream for channel events
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// This Nodes public key
+    </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
+    <span class="doccomment">/// This Nodes private key
+    </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// the id of this task state
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt; TS
-    <span class="kw">for </span>DAVoteCollectionTaskState&lt;TYPES, I&gt;
-<span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>DAVoteCollectionTaskState&lt;TYPES, I&gt; {}
 
 <span class="attr">#[instrument(skip_all, fields(id = state.id, view = <span class="kw-2">*</span>state.cur_view), name = <span class="string">&quot;DA Vote Collection Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-</span><span class="kw">async fn </span>vote_handle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;&gt;(
+</span><span class="kw">async fn </span>vote_handle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     <span class="kw-2">mut </span>state: DAVoteCollectionTaskState&lt;TYPES, I&gt;,
-    event: SequencingHotShotEvent&lt;TYPES, I&gt;,
+    event: HotShotEvent&lt;TYPES&gt;,
 ) -&gt; (
     std::option::Option&lt;HotShotTaskCompleted&gt;,
     DAVoteCollectionTaskState&lt;TYPES, I&gt;,
-)
-<span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
-{
+) {
     <span class="kw">match </span>event {
-        SequencingHotShotEvent::DAVoteRecv(vote) =&gt; {
-            <span class="macro">debug!</span>(<span class="string">&quot;DA vote recv, collection task {:?}&quot;</span>, vote.current_view);
-            <span class="comment">// panic!(&quot;Vote handle received DA vote for view {}&quot;, *vote.current_view);
+        HotShotEvent::DAVoteRecv(vote) =&gt; {
+            <span class="macro">debug!</span>(<span class="string">&quot;DA vote recv, collection task {:?}&quot;</span>, vote.get_view_number());
+            <span class="comment">// panic!(&quot;Vote handle received DA vote for view {}&quot;, *vote.get_view_number());
 
             // For the case where we receive votes after we&#39;ve made a certificate
             </span><span class="kw">if </span>state.accumulator.is_right() {
@@ -836,35 +578,22 @@
             }
 
             <span class="kw">let </span>accumulator = state.accumulator.left().unwrap();
-            <span class="kw">match </span>state.committee_exchange.accumulate_vote(
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
-                <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
-                vote.block_commitment,
-                vote.vote_data,
-                vote.vote_token.clone(),
-                state.cur_view,
-                accumulator,
-                <span class="prelude-val">None</span>,
-            ) {
-                Left(acc) =&gt; {
-                    state.accumulator = Either::Left(acc);
-                    <span class="comment">// debug!(&quot;Not enough DA votes! &quot;);
-                    </span><span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+
+            <span class="kw">match </span>accumulator.accumulate(<span class="kw-2">&amp;</span>vote, state.da_membership.as_ref()) {
+                Left(new_accumulator) =&gt; {
+                    state.accumulator = either::Left(new_accumulator);
                 }
+
                 Right(dac) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;Sending DAC! {:?}&quot;</span>, dac.view_number);
                     state
                         .event_stream
-                        .publish(SequencingHotShotEvent::DACSend(
-                            dac.clone(),
-                            state.committee_exchange.public_key().clone(),
-                        ))
+                        .publish(HotShotEvent::DACSend(dac.clone(), state.public_key.clone()))
                         .<span class="kw">await</span>;
 
                     state.accumulator = Right(dac.clone());
                     state
-                        .committee_exchange
-                        .network()
+                        .da_network
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
                             <span class="kw-2">*</span>dac.view_number,
                         ))
@@ -875,67 +604,25 @@
                 }
             }
         }
-        SequencingHotShotEvent::Shutdown =&gt; <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state),
-        <span class="kw">_ </span>=&gt; {}
+        HotShotEvent::Shutdown =&gt; <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state),
+        <span class="kw">_ </span>=&gt; {
+            <span class="macro">error!</span>(<span class="string">&quot;unexpected event {:?}&quot;</span>, event);
+        }
     }
     (<span class="prelude-val">None</span>, state)
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;
-            TYPES,
-            Leaf = SequencingLeaf&lt;TYPES&gt;,
-            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
-        &gt;,
-        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
-    &gt; DATaskState&lt;TYPES, I, A&gt;
-<span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt;
+    DATaskState&lt;TYPES, I, A&gt;
 {
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: SequencingHotShotEvent&lt;TYPES, I&gt;,
+        event: HotShotEvent&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event {
-            SequencingHotShotEvent::TransactionsRecv(transactions) =&gt; {
-                <span class="comment">// TODO ED Add validation checks
-
-                </span><span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                consensus
-                    .get_transactions()
-                    .modify(|txns| {
-                        <span class="kw">for </span>transaction <span class="kw">in </span>transactions {
-                            <span class="kw">let </span>size = bincode_opts().serialized_size(<span class="kw-2">&amp;</span>transaction).unwrap_or(<span class="number">0</span>);
-
-                            <span class="comment">// If we didn&#39;t already know about this transaction, update our mempool metrics.
-                            </span><span class="kw">if </span>!consensus.seen_transactions.remove(<span class="kw-2">&amp;</span>transaction.commit())
-                                &amp;&amp; txns.insert(transaction.commit(), transaction).is_none()
-                            {
-                                consensus.metrics.outstanding_transactions.update(<span class="number">1</span>);
-                                consensus
-                                    .metrics
-                                    .outstanding_transactions_memory_size
-                                    .update(i64::try_from(size).unwrap_or_else(|e| {
-                                        <span class="macro">warn!</span>(<span class="string">&quot;Conversion failed: {e}. Using the max value.&quot;</span>);
-                                        i64::MAX
-                                    }));
-                            }
-                        }
-                    })
-                    .<span class="kw">await</span>;
-
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            }
-            SequencingHotShotEvent::DAProposalRecv(proposal, sender) =&gt; {
+            HotShotEvent::DAProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;DA proposal received for view: {:?}&quot;</span>,
                     proposal.data.get_view_number()
@@ -948,80 +635,79 @@
                 // `self.cur_view` should be at least 1 since there is a view change before getting
                 // the `DAProposalRecv` event. Otherewise, the view number subtraction below will
                 // cause an overflow error.
-                </span><span class="kw">if </span>view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
+                // TODO ED Come back to this - we probably don&#39;t need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn&#39;t make one for the genesis block
+
+                // stop polling for the received proposal
+                </span><span class="self">self</span>.da_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
+                        <span class="kw-2">*</span>proposal.data.view_number,
+                    ))
+                    .<span class="kw">await</span>;
+
+                <span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
                     <span class="macro">warn!</span>(<span class="string">&quot;Throwing away DA proposal that is more than one view older&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="macro">debug!</span>(
-                    <span class="string">&quot;Got a DA block with {} transactions!&quot;</span>,
-                    proposal.data.deltas.contained_transactions().len()
-                );
-                <span class="kw">let </span>block_commitment = proposal.data.deltas.commit();
+                <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
+                <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
                 <span class="comment">// ED Is this the right leader?
-                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.committee_exchange.get_leader(view);
+                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.da_membership.get_leader(view);
                 <span class="kw">if </span>view_leader_key != sender {
                     <span class="macro">error!</span>(<span class="string">&quot;DA proposal doesn&#39;t have expected leader key for view {} \n DA proposal is: {:?}&quot;</span>, <span class="kw-2">*</span>view, proposal.data.clone());
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, block_commitment.as_ref()) {
+                <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, <span class="kw-2">&amp;</span>encoded_transactions_hash) {
                     <span class="macro">error!</span>(<span class="string">&quot;Could not verify proposal.&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">let </span>vote_token = <span class="self">self</span>.committee_exchange.make_vote_token(view);
-                <span class="kw">match </span>vote_token {
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;Failed to generate vote token for {:?} {:?}&quot;</span>, view, e);
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                        <span class="macro">debug!</span>(<span class="string">&quot;We were not chosen for DA committee on {:?}&quot;</span>, view);
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
-                        <span class="comment">// Generate and send vote
-                        </span><span class="kw">let </span>message = <span class="self">self</span>.committee_exchange.create_da_message(
-                            block_commitment,
-                            view,
-                            vote_token,
-                        );
-
-                        <span class="comment">// ED Don&#39;t think this is necessary?
-                        // self.cur_view = view;
-
-                        </span><span class="kw">if let </span>CommitteeConsensusMessage::DAVote(vote) = message {
-                            <span class="macro">debug!</span>(<span class="string">&quot;Sending vote to the DA leader {:?}&quot;</span>, vote.current_view);
-                            <span class="self">self</span>.event_stream
-                                .publish(SequencingHotShotEvent::DAVoteSend(vote))
-                                .<span class="kw">await</span>;
-                        }
-                        <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-
-                        <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
-                        // there is already a view there: the replica task may have inserted a `Leaf` view which
-                        // contains strictly more information.
-                        </span>consensus.state_map.entry(view).or_insert(View {
-                            view_inner: ViewInner::DA {
-                                block: block_commitment,
-                            },
-                        });
-
-                        <span class="comment">// Record the block we have promised to make available.
-                        </span>consensus.saved_blocks.insert(proposal.data.deltas);
-                    }
+                <span class="kw">if </span>!<span class="self">self</span>.da_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
+                    <span class="macro">debug!</span>(
+                        <span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>,
+                        <span class="self">self</span>.cur_view
+                    );
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
+                <span class="comment">// Generate and send vote
+                </span><span class="kw">let </span>vote = DAVote::create_signed_vote(
+                    DAData {
+                        payload_commit: payload_commitment,
+                    },
+                    view,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                );
+
+                <span class="comment">// ED Don&#39;t think this is necessary?
+                // self.cur_view = view;
+
+                </span><span class="macro">debug!</span>(<span class="string">&quot;Sending vote to the DA leader {:?}&quot;</span>, vote.get_view_number());
+                <span class="self">self</span>.event_stream
+                    .publish(HotShotEvent::DAVoteSend(vote))
+                    .<span class="kw">await</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
+
+                <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
+                // there is already a view there: the replica task may have inserted a `Leaf` view which
+                // contains strictly more information.
+                </span>consensus.state_map.entry(view).or_insert(View {
+                    view_inner: ViewInner::DA { payload_commitment },
+                });
+
+                <span class="comment">// Record the payload we have promised to make available.
+                </span>consensus
+                    .saved_payloads
+                    .insert(payload_commitment, proposal.data.encoded_transactions);
             }
-            SequencingHotShotEvent::DAVoteRecv(vote) =&gt; {
-                <span class="comment">// warn!(
-                //     &quot;DA vote recv, Main Task {:?}, key: {:?}&quot;,
-                //     vote.current_view,
-                //     self.committee_exchange.public_key()
-                // );
-                // Check if we are the leader and the vote is from the sender.
-                </span><span class="kw">let </span>view = vote.current_view;
-                <span class="kw">if </span>!<span class="self">self</span>.committee_exchange.is_leader(view) {
-                    <span class="macro">error!</span>(<span class="string">&quot;We are not the committee leader for view {} are we leader for next view? {}&quot;</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.committee_exchange.is_leader(view + <span class="number">1</span>));
+            HotShotEvent::DAVoteRecv(vote) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;DA vote recv, Main Task {:?}&quot;</span>, vote.get_view_number(),);
+                <span class="comment">// Check if we are the leader and the vote is from the sender.
+                </span><span class="kw">let </span>view = vote.get_view_number();
+                <span class="kw">if </span><span class="self">self</span>.da_membership.get_leader(view) != <span class="self">self</span>.public_key {
+                    <span class="macro">error!</span>(<span class="string">&quot;We are not the committee leader for view {} are we leader for next view? {}&quot;</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.get_leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -1039,40 +725,31 @@
                     } <span class="kw">else </span>{
                         TYPES::Time::new(<span class="number">0</span>)
                     };
-                <span class="kw">let </span>acc = VoteAccumulator {
-                    total_vote_outcomes: HashMap::new(),
-                    da_vote_outcomes: HashMap::new(),
-                    yes_vote_outcomes: HashMap::new(),
-                    no_vote_outcomes: HashMap::new(),
-                    viewsync_precommit_vote_outcomes: HashMap::new(),
-                    viewsync_commit_vote_outcomes: HashMap::new(),
-                    viewsync_finalize_vote_outcomes: HashMap::new(),
-                    success_threshold: <span class="self">self</span>.committee_exchange.success_threshold(),
-                    failure_threshold: <span class="self">self</span>.committee_exchange.failure_threshold(),
-                    sig_lists: Vec::new(),
-                    signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.committee_exchange.total_nodes()],
-                };
-                <span class="kw">let </span>accumulator = <span class="self">self</span>.committee_exchange.accumulate_vote(
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>vote.clone().signature.<span class="number">1</span>,
-                    vote.clone().block_commitment,
-                    vote.clone().vote_data.clone(),
-                    vote.clone().vote_token.clone(),
-                    vote.clone().current_view,
-                    acc,
-                    <span class="prelude-val">None</span>,
-                );
+
                 <span class="kw">if </span>view &gt; collection_view {
+                    <span class="kw">let </span>new_accumulator = VoteAccumulator {
+                        vote_outcomes: HashMap::new(),
+                        sig_lists: Vec::new(),
+                        signers: <span class="macro">bitvec!</span>[<span class="number">0</span>; <span class="self">self</span>.da_membership.total_nodes()],
+                        phantom: PhantomData,
+                    };
+
+                    <span class="kw">let </span>accumulator =
+                        new_accumulator.accumulate(<span class="kw-2">&amp;</span>vote, <span class="self">self</span>.da_membership.as_ref());
+
                     <span class="kw">let </span>state = DAVoteCollectionTaskState {
-                        committee_exchange: <span class="self">self</span>.committee_exchange.clone(),
                         accumulator,
                         cur_view: view,
                         event_stream: <span class="self">self</span>.event_stream.clone(),
                         id: <span class="self">self</span>.id,
+                        da_membership: <span class="self">self</span>.da_membership.clone(),
+                        da_network: <span class="self">self</span>.da_network.clone(),
+                        public_key: <span class="self">self</span>.public_key.clone(),
+                        private_key: <span class="self">self</span>.private_key.clone(),
                     };
                     <span class="kw">let </span>name = <span class="string">&quot;DA Vote Collection&quot;</span>;
                     <span class="kw">let </span>filter = FilterEvent(Arc::new(|event| {
-                        <span class="macro">matches!</span>(event, SequencingHotShotEvent::DAVoteRecv(<span class="kw">_</span>))
+                        <span class="macro">matches!</span>(event, HotShotEvent::DAVoteRecv(<span class="kw">_</span>))
                     }));
                     <span class="kw">let </span>builder =
                         TaskBuilder::&lt;DAVoteCollectionTypes&lt;TYPES, I&gt;&gt;::new(name.to_string())
@@ -1091,12 +768,11 @@
                     <span class="self">self</span>.vote_collector = <span class="prelude-val">Some</span>((view, id, stream_id));
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, stream_id)) = <span class="self">self</span>.vote_collector {
                     <span class="self">self</span>.event_stream
-                        .direct_message(stream_id, SequencingHotShotEvent::DAVoteRecv(vote))
+                        .direct_message(stream_id, HotShotEvent::DAVoteRecv(vote))
                         .<span class="kw">await</span>;
                 };
             }
-            <span class="comment">// TODO ED Update high QC through QCFormed event
-            </span>SequencingHotShotEvent::ViewChange(view) =&gt; {
+            HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1105,263 +781,127 @@
                     <span class="macro">error!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
-                <span class="comment">// Inject view info into network
-                // ED I think it is possible that you receive a quorum proposal, vote on it and update your view before the da leader has sent their proposal, and therefore you skip polling for this view?
 
-                // TODO ED Only poll if you are on the committee
+                <span class="comment">// Inject view info into network
                 </span><span class="kw">let </span>is_da = <span class="self">self
-                    </span>.committee_exchange
-                    .membership()
+                    </span>.da_membership
                     .get_committee(<span class="self">self</span>.cur_view + <span class="number">1</span>)
-                    .contains(<span class="self">self</span>.committee_exchange.public_key());
+                    .contains(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key);
 
                 <span class="kw">if </span>is_da {
                     <span class="macro">debug!</span>(<span class="string">&quot;Polling for DA proposals for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
-                    <span class="self">self</span>.committee_exchange
-                        .network()
+                    <span class="self">self</span>.da_network
                         .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
                             <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>,
                         ))
                         .<span class="kw">await</span>;
                 }
-                <span class="kw">if </span><span class="self">self</span>.committee_exchange.is_leader(<span class="self">self</span>.cur_view + <span class="number">3</span>) {
+                <span class="kw">if </span><span class="self">self</span>.da_membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">3</span>) == <span class="self">self</span>.public_key {
                     <span class="macro">debug!</span>(<span class="string">&quot;Polling for transactions for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">3</span>);
-                    <span class="self">self</span>.committee_exchange
-                        .network()
+                    <span class="self">self</span>.da_network
                         .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
                             <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">3</span>,
                         ))
                         .<span class="kw">await</span>;
                 }
 
-                <span class="comment">// TODO ED Make this a new task so it doesn&#39;t block main DA task
-
-                // If we are not the next leader (DA leader for this view) immediately exit
-                </span><span class="kw">if </span>!<span class="self">self</span>.committee_exchange.is_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) {
+                <span class="comment">// If we are not the next leader (DA leader for this view) immediately exit
+                </span><span class="kw">if </span><span class="self">self</span>.da_membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="comment">// panic!(&quot;We are not the DA leader for view {}&quot;, *self.cur_view + 1);
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="macro">debug!</span>(<span class="string">&quot;Polling for DA votes for view {}&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
 
                 <span class="comment">// Start polling for DA votes for the &quot;next view&quot;
-                </span><span class="self">self</span>.committee_exchange
-                    .network()
+                </span><span class="self">self</span>.da_network
                     .inject_consensus_info(ConsensusIntentEvent::PollForVotes(<span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>))
-                    .<span class="kw">await</span>;
-
-                <span class="comment">// ED Copy of parent_leaf() function from sequencing leader
-
-                </span><span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.view_number;
-
-                <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(
-                        <span class="string">&quot;Couldn&#39;t find high QC parent in state map. Parent view {:?}&quot;</span>,
-                        parent_view_number
-                    );
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
-                <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = parent_view.get_leaf_commitment() <span class="kw">else </span>{
-                    <span class="macro">error!</span>(
-                        <span class="question-mark">?</span>parent_view_number,
-                        <span class="question-mark">?</span>parent_view,
-                        <span class="string">&quot;Parent of high QC points to a view without a proposal&quot;
-                    </span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
-                <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
-                <span class="kw">let </span>parent_leaf = leaf.clone();
-
-                <span class="comment">// Prepare the DA Proposal
-                //         let Some(parent_leaf) = self.parent_leaf().await else {
-                //     warn!(&quot;Couldn&#39;t find high QC parent in state map.&quot;);
-                //     return None;
-                // };
-
-                </span>drop(consensus);
-
-                <span class="comment">// ED This is taking a really long time to return, since is based on application
-                //
-                </span><span class="kw">let </span><span class="kw-2">mut </span>block = &lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType::next_block(<span class="prelude-val">None</span>);
-                <span class="kw">let </span>txns = <span class="self">self</span>.wait_for_transactions(parent_leaf).<span class="kw">await</span><span class="question-mark">?</span>;
-
-                <span class="self">self</span>.committee_exchange
-                    .network()
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(
-                        <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>,
-                    ))
-                    .<span class="kw">await</span>;
-
-                <span class="kw">for </span>txn <span class="kw">in </span>txns {
-                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(new_block) = block.add_transaction_raw(<span class="kw-2">&amp;</span>txn) {
-                        block = new_block;
-                        <span class="kw">continue</span>;
-                    }
-                }
-
-                <span class="kw">let </span>signature = <span class="self">self</span>.committee_exchange.sign_da_proposal(<span class="kw-2">&amp;</span>block.commit());
-                <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
-                    deltas: block.clone(),
-                    <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
-                    </span>view_number: <span class="self">self</span>.cur_view + <span class="number">1</span>,
-                };
-                <span class="macro">debug!</span>(<span class="string">&quot;Sending DA proposal for view {:?}&quot;</span>, data.view_number);
-
-                <span class="comment">// let message = SequencingMessage::&lt;TYPES, I&gt;(Right(
-                //     CommitteeConsensusMessage::DAProposal(Proposal { data, signature }),
-                // ));
-                </span><span class="kw">let </span>message = Proposal { data, signature };
-                <span class="comment">// Brodcast DA proposal
-                // TODO ED We should send an event to do this, but just getting it to work for now
-
-                </span><span class="self">self</span>.event_stream
-                    .publish(SequencingHotShotEvent::SendDABlockData(block.clone()))
-                    .<span class="kw">await</span>;
-                <span class="comment">// if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
-                //     consensus.metrics.failed_to_send_messages.add(1);
-                //     warn!(?message, ?e, &quot;Could not broadcast leader proposal&quot;);
-                // } else {
-                //     consensus.metrics.outgoing_broadcast_messages.add(1);
-                // }
-                </span><span class="self">self</span>.event_stream
-                    .publish(SequencingHotShotEvent::DAProposalSend(
-                        message,
-                        <span class="self">self</span>.committee_exchange.public_key().clone(),
-                    ))
                     .<span class="kw">await</span>;
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
+            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view) =&gt; {
+                <span class="self">self</span>.da_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(<span class="kw-2">*</span>view))
+                    .<span class="kw">await</span>;
 
-            SequencingHotShotEvent::Timeout(view) =&gt; {
-                <span class="self">self</span>.committee_exchange
-                    .network()
+                <span class="comment">// quick hash the encoded txns with sha256
+                </span><span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
+
+                <span class="comment">// sign the encoded transactions as opposed to the VID commitment
+                </span><span class="kw">let </span>signature =
+                    TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash);
+                <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
+                    encoded_transactions,
+                    metadata: metadata.clone(),
+                    <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
+                    </span>view_number: view,
+                };
+                <span class="macro">debug!</span>(<span class="string">&quot;Sending DA proposal for view {:?}&quot;</span>, data.view_number);
+
+                <span class="kw">let </span>message = Proposal {
+                    data,
+                    signature,
+                    _pd: PhantomData,
+                };
+
+                <span class="self">self</span>.event_stream
+                    .publish(HotShotEvent::DAProposalSend(
+                        message.clone(),
+                        <span class="self">self</span>.public_key.clone(),
+                    ))
+                    .<span class="kw">await</span>;
+            }
+
+            HotShotEvent::Timeout(view) =&gt; {
+                <span class="self">self</span>.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
             }
 
-            SequencingHotShotEvent::Shutdown =&gt; {
+            HotShotEvent::Shutdown =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;Shutting down because of shutdown signal!&quot;</span>);
                 <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
             }
-            <span class="kw">_ </span>=&gt; {}
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;unexpected event {:?}&quot;</span>, event);
+            }
         }
         <span class="prelude-val">None
     </span>}
 
-    <span class="doccomment">/// return None if we can&#39;t get transactions
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Vote Collection Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-
-    </span><span class="kw">async fn </span>wait_for_transactions(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        parent_leaf: SequencingLeaf&lt;TYPES&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;TYPES::Transaction&gt;&gt; {
-        <span class="kw">let </span>task_start_time = Instant::now();
-
-        <span class="comment">// let parent_leaf = self.parent_leaf().await?;
-        </span><span class="kw">let </span>previous_used_txns = <span class="kw">match </span>parent_leaf.deltas {
-            Either::Left(block) =&gt; block.contained_transactions(),
-            Either::Right(_commitment) =&gt; HashSet::new(),
-        };
-
-        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-
-        <span class="kw">let </span>receiver = consensus.transactions.subscribe().<span class="kw">await</span>;
-
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>all_txns = consensus.transactions.cloned().<span class="kw">await</span>;
-            <span class="macro">debug!</span>(<span class="string">&quot;Size of transactions: {}&quot;</span>, all_txns.len());
-            <span class="kw">let </span>unclaimed_txns: Vec&lt;<span class="kw">_</span>&gt; = all_txns
-                .iter()
-                .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-                .collect();
-
-            <span class="kw">let </span>time_past = task_start_time.elapsed();
-            <span class="kw">if </span>unclaimed_txns.len() &lt; <span class="self">self</span>.api.min_transactions()
-                &amp;&amp; (time_past &lt; <span class="self">self</span>.api.propose_max_round_time())
-            {
-                <span class="kw">let </span>duration = <span class="self">self</span>.api.propose_max_round_time() - time_past;
-                <span class="kw">let </span>result = async_timeout(duration, receiver.recv()).<span class="kw">await</span>;
-                <span class="kw">match </span>result {
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="comment">// Fall through below to updating new block
-                        </span><span class="macro">debug!</span>(
-                            <span class="string">&quot;propose_max_round_time passed, sending transactions we have so far&quot;
-                        </span>);
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-                        <span class="comment">// Something unprecedented is wrong, and `transactions` has been dropped
-                        </span><span class="macro">error!</span>(<span class="string">&quot;Channel receiver error for SubscribableRwLock {:?}&quot;</span>, e);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; <span class="kw">continue</span>,
-                }
-            }
-            <span class="kw">break</span>;
-        }
-        <span class="kw">let </span>all_txns = consensus.transactions.cloned().<span class="kw">await</span>;
-        <span class="kw">let </span>txns: Vec&lt;TYPES::Transaction&gt; = all_txns
-            .iter()
-            .filter_map(|(txn_hash, txn)| {
-                <span class="kw">if </span>previous_used_txns.contains(txn_hash) {
-                    <span class="prelude-val">None
-                </span>} <span class="kw">else </span>{
-                    <span class="prelude-val">Some</span>(txn.clone())
-                }
-            })
-            .collect();
-        <span class="prelude-val">Some</span>(txns)
-    }
-
     <span class="doccomment">/// Filter the DA event.
-    </span><span class="kw">pub fn </span>filter(event: <span class="kw-2">&amp;</span>SequencingHotShotEvent&lt;TYPES, I&gt;) -&gt; bool {
+    </span><span class="kw">pub fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
         <span class="macro">matches!</span>(
             event,
-            SequencingHotShotEvent::DAProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
-                | SequencingHotShotEvent::DAVoteRecv(<span class="kw">_</span>)
-                | SequencingHotShotEvent::Shutdown
-                | SequencingHotShotEvent::TransactionsRecv(<span class="kw">_</span>)
-                | SequencingHotShotEvent::Timeout(<span class="kw">_</span>)
-                | SequencingHotShotEvent::ViewChange(<span class="kw">_</span>)
+            HotShotEvent::DAProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::DAVoteRecv(<span class="kw">_</span>)
+                | HotShotEvent::Shutdown
+                | HotShotEvent::TransactionsSequenced(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::Timeout(<span class="kw">_</span>)
+                | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }
 }
 
 <span class="doccomment">/// task state implementation for DA Task
-</span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;
-            TYPES,
-            Leaf = SequencingLeaf&lt;TYPES&gt;,
-            ConsensusMessage = SequencingMessage&lt;TYPES, I&gt;,
-        &gt;,
-        A: SequencingConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt; + <span class="lifetime">&#39;static</span>,
-    &gt; TS <span class="kw">for </span>DATaskState&lt;TYPES, I, A&gt;
-<span class="kw">where
-    </span>CommitteeEx&lt;TYPES, I&gt;: ConsensusExchange&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        Certificate = DACertificate&lt;TYPES&gt;,
-        Commitment = TYPES::BlockType,
-    &gt;,
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TS
+    <span class="kw">for </span>DATaskState&lt;TYPES, I, A&gt;
 {
 }
 
 <span class="doccomment">/// Type alias for DA Vote Collection Types
 </span><span class="kw">pub type </span>DAVoteCollectionTypes&lt;TYPES, I&gt; = HSTWithEvent&lt;
     ConsensusTaskError,
-    SequencingHotShotEvent&lt;TYPES, I&gt;,
-    ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    HotShotEvent&lt;TYPES&gt;,
+    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     DAVoteCollectionTaskState&lt;TYPES, I&gt;,
 &gt;;
 
 <span class="doccomment">/// Type alias for DA Task Types
 </span><span class="kw">pub type </span>DATaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
     ConsensusTaskError,
-    SequencingHotShotEvent&lt;TYPES, I&gt;,
-    ChannelStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
+    HotShotEvent&lt;TYPES&gt;,
+    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     DATaskState&lt;TYPES, I, A&gt;,
 &gt;;
 </code></pre></div></section></main></body></html>

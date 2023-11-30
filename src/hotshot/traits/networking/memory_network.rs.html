@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/memory_network.rs`."><title>memory_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/memory_network.rs`."><title>memory_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -563,428 +563,14 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-</span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetrics};
-<span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
+</span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
 <span class="kw">use </span>async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
+    art::async_spawn,
     channel::{bounded, Receiver, SendError, Sender},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
@@ -994,20 +580,16 @@
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
-    data::ProposalType,
     message::{Message, MessageKind},
     traits::{
         election::Membership,
-        metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkMsg,
-            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
-            ViewMessage,
+            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
+            TestableNetworkingImplementation, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>rand::Rng;
@@ -1015,25 +597,12 @@
 <span class="kw">use </span>std::{
     collections::BTreeSet,
     fmt::Debug,
-    marker::PhantomData,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
 };
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
-<span class="attr">#[derive(Debug, Clone, Copy)]
-</span><span class="doccomment">/// dummy implementation of network reliability
-</span><span class="kw">pub struct </span>DummyReliability {}
-<span class="kw">impl </span>NetworkReliability <span class="kw">for </span>DummyReliability {
-    <span class="kw">fn </span>sample_keep(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="bool-val">true
-    </span>}
-    <span class="kw">fn </span>sample_delay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::time::Duration {
-        std::time::Duration::ZERO
-    }
-}
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///
@@ -1068,6 +637,7 @@
 }
 
 <span class="doccomment">/// Internal state for a `MemoryNetwork` instance
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>MemoryNetworkInner&lt;M: NetworkMsg, K: SignatureKey&gt; {
     <span class="doccomment">/// Input for broadcast messages
     </span>broadcast_input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
@@ -1084,7 +654,10 @@
     </span>in_flight_message_count: AtomicUsize,
 
     <span class="doccomment">/// The networking metrics we&#39;re keeping track of
-    </span>metrics: NetworkingMetrics,
+    </span>metrics: NetworkingMetricsValue,
+
+    <span class="doccomment">/// config to introduce unreliability to the network
+    </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// In memory only network simulator.
@@ -1113,9 +686,9 @@
     </span><span class="attr">#[instrument(skip(metrics))]
     </span><span class="kw">pub fn </span>new(
         pub_key: K,
-        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
+        metrics: NetworkingMetricsValue,
         master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
-        reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;M, K&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Attaching new MemoryNetwork&quot;</span>);
         <span class="kw">let </span>(broadcast_input, broadcast_task_recv) = bounded(<span class="number">128</span>);
@@ -1146,30 +719,11 @@
                             <span class="kw">match </span>x {
                                 <span class="prelude-val">Ok</span>(x) =&gt; {
                                     <span class="kw">let </span>dts = direct_task_send.clone();
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = reliability_config.clone() {
-                                        async_spawn(<span class="kw">async move </span>{
-                                            <span class="kw">if </span>r.sample_keep() {
-                                                <span class="kw">let </span>delay = r.sample_delay();
-                                                <span class="kw">if </span>delay &gt; std::time::Duration::ZERO {
-                                                    async_sleep(delay).<span class="kw">await</span>;
-                                                }
-                                                <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
-                                                <span class="kw">if </span>res.is_ok() {
-                                                    <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                                } <span class="kw">else </span>{
-                                                    <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
-                                                }
-                                            } <span class="kw">else </span>{
-                                                <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                            }
-                                        });
+                                    <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
+                                    <span class="kw">if </span>res.is_ok() {
+                                        <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                     } <span class="kw">else </span>{
-                                        <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
-                                        <span class="kw">if </span>res.is_ok() {
-                                            <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                        } <span class="kw">else </span>{
-                                            <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
-                                        }
+                                        <span class="macro">error!</span>(<span class="string">&quot;Output queue receivers are shutdown&quot;</span>);
                                     }
                                 }
                                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1184,28 +738,11 @@
                             <span class="kw">match </span>x {
                                 <span class="prelude-val">Ok</span>(x) =&gt; {
                                     <span class="kw">let </span>bts = broadcast_task_send.clone();
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = reliability_config.clone() {
-                                        async_spawn(<span class="kw">async move </span>{
-                                            <span class="kw">if </span>r.sample_keep() {
-                                                <span class="kw">let </span>delay = r.sample_delay();
-                                                <span class="kw">if </span>delay &gt; std::time::Duration::ZERO {
-                                                    async_sleep(delay).<span class="kw">await</span>;
-                                                }
-                                                <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
-                                                <span class="kw">if </span>res.is_ok() {
-                                                    <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                                } <span class="kw">else </span>{
-                                                    <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                                }
-                                            }
-                                        });
+                                    <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
+                                    <span class="kw">if </span>res.is_ok() {
+                                        <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                     } <span class="kw">else </span>{
-                                        <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
-                                        <span class="kw">if </span>res.is_ok() {
-                                            <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
-                                        } <span class="kw">else </span>{
-                                            <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
-                                        }
+                                        <span class="macro">warn!</span>(<span class="string">&quot;dropping packet!&quot;</span>);
                                     }
                                 }
                                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1229,7 +766,8 @@
                 direct_output: Mutex::new(direct_output),
                 master_map: master_map.clone(),
                 in_flight_message_count,
-                metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
+                metrics,
+                reliability_config,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -1245,7 +783,7 @@
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
         <span class="kw">let </span>input = <span class="self">self</span>.inner.broadcast_input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
-            <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
+            <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(SendError(message))
@@ -1259,7 +797,7 @@
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
         <span class="kw">let </span>input = <span class="self">self</span>.inner.direct_input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
-            <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
+            <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(SendError(message))
@@ -1267,9 +805,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;
-    TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
-    <span class="kw">for </span>MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
+    <span class="kw">for </span>MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
 {
     <span class="kw">fn </span>generator(
         _expected_node_count: usize,
@@ -1279,10 +816,11 @@
         _is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>master: Arc&lt;<span class="kw">_</span>&gt; = MasterMap::new();
-        Box::new(<span class="kw">move </span>|node_id| {
+        <span class="comment">// We assign known_nodes&#39; public key and stake value rather than read from config file since it&#39;s a test
+        </span>Box::new(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), <span class="prelude-val">None</span>)
+            MemoryNetwork::new(pubkey, NetworkingMetricsValue::new(), master.clone(), <span class="prelude-val">None</span>)
         })
     }
 
@@ -1328,20 +866,40 @@
             .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, sending&quot;</span>);
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.master_map.map {
-            <span class="kw">let </span>(key, node) = node.pair();
+            <span class="comment">// TODO delay/drop etc here
+            </span><span class="kw">let </span>(key, node) = node.pair();
             <span class="kw">if </span>!recipients.contains(key) {
                 <span class="kw">continue</span>;
             }
             <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Sending message to node&quot;</span>);
-            <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
-            <span class="kw">match </span>res {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
-                    <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+                {
+                    <span class="kw">let </span>node2 = node.clone();
+                    <span class="kw">let </span>fut = config.chaos_send_msg(
+                        vec.clone(),
+                        Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                            <span class="kw">let </span>node3 = (node2).clone();
+                            boxed_sync(<span class="kw">async move </span>{
+                                <span class="kw">let </span>_res = node3.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="comment">// NOTE we&#39;re dropping metrics here but this is only for testing
+                                // purposes. I think that should be okay
+                            </span>})
+                        }),
+                    );
+                    async_spawn(fut);
                 }
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
+                <span class="kw">match </span>res {
+                    <span class="prelude-val">Ok</span>(()) =&gt; {
+                        <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>);
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                        <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
+                    }
                 }
             }
         }
@@ -1357,18 +915,37 @@
             .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, finding recipient&quot;</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.inner.master_map.map.get(<span class="kw-2">&amp;</span>recipient) {
-            <span class="kw">let </span>node = node.value();
-            <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
-            <span class="kw">match </span>res {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
-                    <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">&quot;Delivered message to remote&quot;</span>);
-                    <span class="prelude-val">Ok</span>(())
+            <span class="kw">let </span>node = node.value().clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+                {
+                    <span class="kw">let </span>fut = config.chaos_send_msg(
+                        vec.clone(),
+                        Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                            <span class="kw">let </span>node2 = node.clone();
+                            boxed_sync(<span class="kw">async move </span>{
+                                <span class="kw">let </span>_res = node2.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="comment">// NOTE we&#39;re dropping metrics here but this is only for testing
+                                // purposes. I think that should be okay
+                            </span>})
+                        }),
+                    );
+                    async_spawn(fut);
                 }
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">&quot;Error delivering direct message&quot;</span>);
-                    <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
+                <span class="prelude-val">Ok</span>(())
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
+                <span class="kw">match </span>res {
+                    <span class="prelude-val">Ok</span>(()) =&gt; {
+                        <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">&quot;Delivered message to remote&quot;</span>);
+                        <span class="prelude-val">Ok</span>(())
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                        <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">&quot;Error delivering direct message&quot;</span>);
+                        <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
+                    }
                 }
             }
         } <span class="kw">else </span>{
@@ -1404,7 +981,10 @@
                     <span class="self">self</span>.inner
                         .in_flight_message_count
                         .fetch_sub(ret.len(), Ordering::Relaxed);
-                    <span class="self">self</span>.inner.metrics.incoming_message_count.add(ret.len());
+                    <span class="self">self</span>.inner
+                        .metrics
+                        .incoming_direct_message_count
+                        .add(ret.len());
                     <span class="prelude-val">Ok</span>(ret)
                 }
                 TransmitType::Broadcast =&gt; {
@@ -1419,63 +999,35 @@
                     <span class="self">self</span>.inner
                         .in_flight_message_count
                         .fetch_sub(ret.len(), Ordering::Relaxed);
-                    <span class="self">self</span>.inner.metrics.incoming_message_count.add(ret.len());
+                    <span class="self">self</span>.inner
+                        .metrics
+                        .incoming_broadcast_message_count
+                        .add(ret.len());
                     <span class="prelude-val">Ok</span>(ret)
                 }
             }
         };
         boxed_sync(closure)
     }
-
-    <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::lookup_node&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, _pk: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="comment">// no lookup required
-        </span><span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
-        <span class="comment">// Not required
-    </span>}
 }
 
 <span class="doccomment">/// memory identity communication channel
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>MemoryCommChannel&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
-    MEMBERSHIP: Membership&lt;TYPES&gt;,
-&gt;(
-    Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;,
-    PhantomData&lt;(I, PROPOSAL, VOTE, MEMBERSHIP)&gt;,
+</span><span class="kw">pub struct </span>MemoryCommChannel&lt;TYPES: NodeType&gt;(
+    Arc&lt;MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;,
 );
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; MemoryCommChannel&lt;TYPES&gt; {
     <span class="doccomment">/// create new communication channel
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(network: Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(network, PhantomData)
+    </span><span class="kw">pub fn </span>new(network: Arc&lt;MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(network)
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>MemoryCommChannel&lt;TYPES&gt;
 <span class="kw">where
-    </span>MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+    </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
 {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
@@ -1485,16 +1037,16 @@
         is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;MemoryNetwork&lt;
-            Message&lt;TYPES, I&gt;,
+            Message&lt;TYPES&gt;,
             TYPES::SignatureKey,
-        &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
+        &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
             da_committee_size,
             is_da
         );
-        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
+        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into()))
     }
 
     <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
@@ -1503,18 +1055,19 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; CommunicationChannel&lt;TYPES&gt; <span class="kw">for </span>MemoryCommChannel&lt;TYPES&gt;
 <span class="kw">where
-    </span>MessageKind&lt;TYPES, I&gt;: ViewMessage&lt;TYPES&gt;,
+    </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
 {
-    <span class="kw">type </span>NETWORK = MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>NETWORK = MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;;
+
+    <span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">unimplemented!</span>(<span class="string">&quot;Pausing not implemented for the memory network&quot;</span>);
+    }
+
+    <span class="kw">fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">unimplemented!</span>(<span class="string">&quot;Resuming not implemented for the memory network&quot;</span>);
+    }
 
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
@@ -1537,10 +1090,10 @@
 
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, I&gt;,
-        election: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        message: Message&lt;TYPES&gt;,
+        election: <span class="kw-2">&amp;</span>TYPES::Membership,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>recipients = &lt;MEMBERSHIP <span class="kw">as </span>Membership&lt;TYPES&gt;&gt;::get_committee(
+        <span class="kw">let </span>recipients = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::get_committee(
             election,
             message.kind.get_view_number(),
         );
@@ -1549,7 +1102,7 @@
 
     <span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, I&gt;,
+        message: Message&lt;TYPES&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
@@ -1558,7 +1111,7 @@
     <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
         <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
@@ -1566,392 +1119,13 @@
         <span class="kw">let </span>closure = <span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await </span>};
         boxed_sync(closure)
     }
-
-    <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.lookup_node(pk).<span class="kw">await
-    </span>}
-
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent) {
-        <span class="comment">// Not required
-    </span>}
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt;
-    TestableChannelImplementation&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        PROPOSAL,
-        VOTE,
-        MEMBERSHIP,
-        MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
-    &gt; <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableChannelImplementation&lt;TYPES&gt; <span class="kw">for </span>MemoryCommChannel&lt;TYPES&gt; {
     <span class="kw">fn </span>generate_network(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;
     {
         Box::new(<span class="kw">move </span>|network| MemoryCommChannel::new(network))
     }
 }
-
-<span class="attr">#[cfg(test)]
-</span><span class="comment">// panic in tests
-</span><span class="attr">#[allow(clippy::panic)]
-</span><span class="kw">mod </span>tests {
-    <span class="comment">// use super::*;
-    // use crate::{
-    //     demos::vdemo::{Addition, Subtraction, VDemoBlock, VDemoState, VDemoTransaction},
-    //     traits::election::static_committee::{
-    //         GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
-    //     },
-    // };
-    //
-    // use crate::traits::implementations::MemoryStorage;
-    // use async_compatibility_layer::logging::setup_logging;
-    // use hotshot_types::traits::election::QuorumExchange;
-    // use hotshot_types::traits::node_implementation::{ChannelMaps, ValidatingExchanges};
-    // use hotshot_types::{
-    //     data::ViewNumber,
-    //     message::{DataMessage, MessageKind, ValidatingMessage},
-    //     traits::{
-    //         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
-    //         state::ConsensusTime,
-    //     },
-    //     vote::QuorumVote,
-    // };
-    // use hotshot_types::{
-    //     data::{ValidatingLeaf, ValidatingProposal},
-    //     traits::consensus_type::validating_consensus::ValidatingConsensus,
-    // };
-    // use serde::{Deserialize, Serialize};
-    //
-    // #[derive(
-    //     Copy,
-    //     Clone,
-    //     Debug,
-    //     Default,
-    //     Hash,
-    //     PartialEq,
-    //     Eq,
-    //     PartialOrd,
-    //     Ord,
-    //     serde::Serialize,
-    //     serde::Deserialize,
-    // )]
-    // struct Test {}
-    // #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-    // struct TestImpl {}
-    //
-    // // impl NetworkMsg for Test {}
-    //
-    // impl NodeType for Test {
-    //     // TODO (da) can this be SequencingConsensus?
-    //     type ConsensusType = ValidatingConsensus;
-    //     type Time = ViewNumber;
-    //     type BlockType = VDemoBlock;
-    //     type SignatureKey = Ed25519Pub;
-    //     type VoteTokenType = StaticVoteToken&lt;Ed25519Pub&gt;;
-    //     type Transaction = VDemoTransaction;
-    //     type ElectionConfigType = StaticElectionConfig;
-    //     type StateType = VDemoState;
-    // }
-    //
-    // type TestMembership = GeneralStaticCommittee&lt;Test, TestLeaf, Ed25519Pub&gt;;
-    // type TestNetwork = MemoryCommChannel&lt;Test, TestImpl, TestProposal, TestVote, TestMembership&gt;;
-    //
-    // impl NodeImplementation&lt;Test&gt; for TestImpl {
-    //     type ConsensusMessage = ValidatingMessage&lt;Test, Self&gt;;
-    //     type Exchanges = ValidatingExchanges&lt;
-    //         Test,
-    //         Message&lt;Test, Self&gt;,
-    //         QuorumExchange&lt;
-    //             Test,
-    //             TestLeaf,
-    //             TestProposal,
-    //             TestMembership,
-    //             TestNetwork,
-    //             Message&lt;Test, Self&gt;,
-    //         &gt;,
-    //         ViewSyncExchange&lt;Test, TestProposal, TestMembership, TestNetwork, Message&lt;Test, Self&gt;&gt;,
-    //     &gt;;
-    //     type Leaf = TestLeaf;
-    //     type Storage = MemoryStorage&lt;Test, TestLeaf&gt;;
-    //
-    //     fn new_channel_maps(
-    //         start_view: ViewNumber,
-    //     ) -&gt; (ChannelMaps&lt;Test, Self&gt;, Option&lt;ChannelMaps&lt;Test, Self&gt;&gt;) {
-    //         (ChannelMaps::new(start_view), None)
-    //     }
-    // }
-    //
-    // type TestLeaf = ValidatingLeaf&lt;Test&gt;;
-    // type TestVote = QuorumVote&lt;Test, TestLeaf&gt;;
-    // type TestProposal = ValidatingProposal&lt;Test, TestLeaf&gt;;
-    //
-    // /// fake Eq
-    // /// we can&#39;t compare the votetokentype for equality, so we can&#39;t
-    // /// derive EQ on `VoteType&lt;TYPES&gt;` and thereby message
-    // /// we are only sending data messages, though so we compare key and
-    // /// data message
-    // fn fake_message_eq(message_1: Message&lt;Test, TestImpl&gt;, message_2: Message&lt;Test, TestImpl&gt;) {
-    //     assert_eq!(message_1.sender, message_2.sender);
-    //     if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
-    //         if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
-    //             assert_eq!(d_1, d_2);
-    //         }
-    //     } else {
-    //         panic!(&quot;Got unexpected message type in memory test!&quot;);
-    //     }
-    // }
-    //
-    // #[instrument]
-    // fn get_pubkey() -&gt; Ed25519Pub {
-    //     let priv_key = Ed25519Priv::generate();
-    //     Ed25519Pub::from_private(&amp;priv_key)
-    // }
-    //
-    // /// create a message
-    // fn gen_messages(num_messages: u64, seed: u64, pk: Ed25519Pub) -&gt; Vec&lt;Message&lt;Test, TestImpl&gt;&gt; {
-    //     let mut messages = Vec::new();
-    //     for i in 0..num_messages {
-    //         let message = Message {
-    //             sender: pk,
-    //             kind: MessageKind::Data(DataMessage::SubmitTransaction(
-    //                 VDemoTransaction {
-    //                     add: Addition {
-    //                         account: &quot;A&quot;.to_string(),
-    //                         amount: 50 + i + seed,
-    //                     },
-    //                     sub: Subtraction {
-    //                         account: &quot;B&quot;.to_string(),
-    //                         amount: 50 + i + seed,
-    //                     },
-    //                     nonce: seed + i,
-    //                     padding: vec![50; 0],
-    //                 },
-    //                 &lt;ViewNumber as ConsensusTime&gt;::new(0),
-    //             )),
-    //             _phantom: PhantomData,
-    //         };
-    //         messages.push(message);
-    //     }
-    //     messages
-    // }
-    //
-    // // Spawning a single MemoryNetwork should produce no errors
-    // #[cfg_attr(
-    //     feature = &quot;tokio-executor&quot;,
-    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
-    // #[instrument]
-    // async fn spawn_single() {
-    //     setup_logging();
-    //     let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key = get_pubkey();
-    //     let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
-    // }
-    //
-    // // // Spawning a two MemoryNetworks and connecting them should produce no errors
-    // #[cfg_attr(
-    //     feature = &quot;tokio-executor&quot;,
-    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
-    // #[instrument]
-    // async fn spawn_double() {
-    //     setup_logging();
-    //     let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let _network_1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-    // }
-    //
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = &quot;tokio-executor&quot;,
-    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
-    // #[allow(deprecated)]
-    // #[instrument]
-    // async fn direct_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //
-    //     // Make and connect the networking instances
-    //     let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-    //
-    //     let first_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 100, pub_key_1);
-    //
-    //     // Test 1 -&gt; 2
-    //     // Send messages
-    //     for sent_message in first_messages {
-    //         network1
-    //             .direct_message(sent_message.clone(), pub_key_2)
-    //             .await
-    //             .expect(&quot;Failed to message node&quot;);
-    //         let mut recv_messages = network2
-    //             .recv_msgs(TransmitType::Direct)
-    //             .await
-    //             .expect(&quot;Failed to receive message&quot;);
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         fake_message_eq(sent_message, recv_message);
-    //     }
-    //
-    //     let second_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 200, pub_key_2);
-    //
-    //     // Test 2 -&gt; 1
-    //     // Send messages
-    //     for sent_message in second_messages {
-    //         network2
-    //             .direct_message(sent_message.clone(), pub_key_1)
-    //             .await
-    //             .expect(&quot;Failed to message node&quot;);
-    //         let mut recv_messages = network1
-    //             .recv_msgs(TransmitType::Direct)
-    //             .await
-    //             .expect(&quot;Failed to receive message&quot;);
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         fake_message_eq(sent_message, recv_message);
-    //     }
-    // }
-    //
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = &quot;tokio-executor&quot;,
-    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
-    // #[allow(deprecated)]
-    // #[instrument]
-    // async fn broadcast_queue() {
-    //     setup_logging();
-    //     // Make and connect the networking instances
-    //     let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-    //
-    //     let first_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 100, pub_key_1);
-    //
-    //     // Test 1 -&gt; 2
-    //     // Send messages
-    //     for sent_message in first_messages {
-    //         network1
-    //             .broadcast_message(
-    //                 sent_message.clone(),
-    //                 vec![pub_key_2].into_iter().collect::&lt;BTreeSet&lt;_&gt;&gt;(),
-    //             )
-    //             .await
-    //             .expect(&quot;Failed to message node&quot;);
-    //         let mut recv_messages = network2
-    //             .recv_msgs(TransmitType::Broadcast)
-    //             .await
-    //             .expect(&quot;Failed to receive message&quot;);
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         fake_message_eq(sent_message, recv_message);
-    //     }
-    //
-    //     let second_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 200, pub_key_2);
-    //
-    //     // Test 2 -&gt; 1
-    //     // Send messages
-    //     for sent_message in second_messages {
-    //         network2
-    //             .broadcast_message(
-    //                 sent_message.clone(),
-    //                 vec![pub_key_1].into_iter().collect::&lt;BTreeSet&lt;_&gt;&gt;(),
-    //             )
-    //             .await
-    //             .expect(&quot;Failed to message node&quot;);
-    //         let mut recv_messages = network1
-    //             .recv_msgs(TransmitType::Broadcast)
-    //             .await
-    //             .expect(&quot;Failed to receive message&quot;);
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         fake_message_eq(sent_message, recv_message);
-    //     }
-    // }
-    //
-    // #[cfg_attr(
-    //     feature = &quot;tokio-executor&quot;,
-    //     tokio::test(flavor = &quot;multi_thread&quot;, worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = &quot;async-std-executor&quot;, async_std::test)]
-    // #[instrument]
-    // #[allow(deprecated)]
-    // async fn test_in_flight_message_count() {
-    //     // setup_logging();
-    //
-    //     // let group: Arc&lt;MasterMap&lt;Message&lt;Test, TestImpl&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;&gt; =
-    //     //     MasterMap::new();
-    //     // trace!(?group);
-    //     // let pub_key_1 = get_pubkey();
-    //     // let network1 =
-    //     //     MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     // let pub_key_2 = get_pubkey();
-    //     // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-    //
-    //     // // Create some dummy messages
-    //     // let messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 100, pub_key_1);
-    //
-    //     // // assert_eq!(network1.in_flight_message_count(), Some(0));
-    //     // // assert_eq!(network2.in_flight_message_count(), Some(0));
-    //
-    //     // for (_count, message) in messages.iter().enumerate() {
-    //     //     network1
-    //     //         .direct_message(message.clone(), pub_key_2)
-    //     //         .await
-    //     //         .unwrap();
-    //     //     // network 2 has received `count` broadcast messages and `count + 1` direct messages
-    //     //     // assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
-    //
-    //     //     // network2.broadcast_message(message.clone()).await.unwrap();
-    //     //     // network 1 has received `count` broadcast messages
-    //     //     // assert_eq!(network1.in_flight_message_count(), Some(count + 1));
-    //
-    //     //     // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
-    //     //     // assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
-    //     // }
-    //
-    //     // for _count in (0..messages.len()).rev() {
-    //     //     network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
-    //     //     // assert_eq!(network1.in_flight_message_count(), Some(count));
-    //
-    //     //     network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
-    //     //     network2.recv_msgs(TransmitType::Direct).await.unwrap();
-    //     //     // assert_eq!(network2.in_flight_message_count(), Some(count * 2));
-    //     // }
-    //
-    //     // // assert_eq!(network1.in_flight_message_count(), Some(0));
-    //     // // assert_eq!(network2.in_flight_message_count(), Some(0));
-    // }
-</span>}
 </code></pre></div></section></main></body></html>

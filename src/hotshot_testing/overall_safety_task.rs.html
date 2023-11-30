@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/testing/src/overall_safety_task.rs`."><title>overall_safety_task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_testing/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/testing/src/overall_safety_task.rs`."><title>overall_safety_task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_testing/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -597,47 +597,30 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>commit::Commitment;
+</pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>hotshot_task::{event_stream::EventStream, Merge};
-<span class="kw">use </span>hotshot_task_impls::events::SequencingHotShotEvent;
-<span class="kw">use </span>std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    sync::Arc,
-};
-
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot::{
-    traits::{NodeImplementation, TestableNodeImplementation},
-    HotShotError,
-};
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
+<span class="kw">use </span>hotshot_task::{event_stream::EventStream, Merge};
+<span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
-    certificate::QuorumCertificate,
-    data::{DeltasType, LeafBlock, LeafType},
+    data::{Leaf, VidCommitment},
     error::RoundTimedoutState,
     event::{Event, EventType},
+    simple_certificate::QuorumCertificate,
     traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    sync::Arc,
+};
 
 <span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node};
 <span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
@@ -689,7 +672,7 @@
     <span class="doccomment">/// handles
     </span><span class="kw">pub </span>handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// ctx
-    </span><span class="kw">pub </span>ctx: RoundCtx&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>ctx: RoundCtx&lt;TYPES&gt;,
     <span class="doccomment">/// event stream for publishing safety violations
     </span><span class="kw">pub </span>test_event_stream: ChannelStream&lt;GlobalTestEvent&gt;,
 }
@@ -698,12 +681,16 @@
 
 <span class="doccomment">/// Result of running a round of consensus
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>RoundResult&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>RoundResult&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Transactions that were submitted
     </span><span class="comment">// pub txns: Vec&lt;TYPES::Transaction&gt;,
+
     </span><span class="doccomment">/// Nodes that committed this round
     /// id -&gt; (leaf, qc)
-    </span><span class="kw">pub </span>success_nodes: HashMap&lt;u64, (Vec&lt;LEAF&gt;, QuorumCertificate&lt;TYPES, LEAF&gt;)&gt;,
+    </span><span class="comment">// TODO GG: isn&#39;t it infeasible to store a Vec&lt;Leaf&lt;TYPES&gt;&gt;?
+    </span><span class="attr">#[allow(clippy::type_complexity)]
+    </span>success_nodes: HashMap&lt;u64, (Vec&lt;Leaf&lt;TYPES&gt;&gt;, QuorumCertificate&lt;TYPES&gt;)&gt;,
+
     <span class="doccomment">/// Nodes that failed to commit this round
     </span><span class="kw">pub </span>failed_nodes: HashMap&lt;u64, Vec&lt;Arc&lt;HotShotError&lt;TYPES&gt;&gt;&gt;&gt;,
 
@@ -713,18 +700,18 @@
     <span class="doccomment">/// NOTE: technically a map is not needed
     /// left one anyway for ease of viewing
     /// leaf -&gt; # entries decided on that leaf
-    </span><span class="kw">pub </span>leaf_map: HashMap&lt;LEAF, usize&gt;,
+    </span><span class="kw">pub </span>leaf_map: HashMap&lt;Leaf&lt;TYPES&gt;, usize&gt;,
 
     <span class="doccomment">/// block -&gt; # entries decided on that block
-    </span><span class="kw">pub </span>block_map: HashMap&lt;Commitment&lt;LeafBlock&lt;LEAF&gt;&gt;, usize&gt;,
+    </span><span class="kw">pub </span>block_map: HashMap&lt;VidCommitment, usize&gt;,
 
     <span class="doccomment">/// state -&gt; # entries decided on that state
-    </span><span class="kw">pub </span>state_map: HashMap&lt;&lt;LEAF <span class="kw">as </span>LeafType&gt;::MaybeState, usize&gt;,
+    </span><span class="kw">pub </span>state_map: HashMap&lt;(), usize&gt;,
 
     <span class="kw">pub </span>num_txns_map: HashMap&lt;u64, usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Default <span class="kw">for </span>RoundResult&lt;TYPES, LEAF&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>RoundResult&lt;TYPES&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             success_nodes: Default::default(),
@@ -740,7 +727,7 @@
 
 <span class="doccomment">/// smh my head I shouldn&#39;t need to implement this
 /// Rust doesn&#39;t realize I doesn&#39;t need to implement default
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>RoundCtx&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>RoundCtx&lt;TYPES&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             round_results: Default::default(),
@@ -755,18 +742,17 @@
 /// that we poll when things are event driven
 /// this context will be passed around
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>RoundCtx&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>RoundCtx&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// results from previous rounds
     /// view number -&gt; round result
-    </span><span class="kw">pub </span>round_results:
-        HashMap&lt;TYPES::Time, RoundResult&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;&gt;,
+    </span><span class="kw">pub </span>round_results: HashMap&lt;TYPES::Time, RoundResult&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// during the run view refactor
     </span><span class="kw">pub </span>failed_views: HashSet&lt;TYPES::Time&gt;,
     <span class="doccomment">/// successful views
     </span><span class="kw">pub </span>successful_views: HashSet&lt;TYPES::Time&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; RoundCtx&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RoundCtx&lt;TYPES&gt; {
     <span class="doccomment">/// inserts an error into the context
     </span><span class="kw">pub fn </span>insert_error_to_context(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -791,17 +777,18 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; RoundResult&lt;TYPES, LEAF&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RoundResult&lt;TYPES&gt; {
     <span class="doccomment">/// insert into round result
+    </span><span class="attr">#[allow(clippy::unit_arg)]
     </span><span class="kw">pub fn </span>insert_into_result(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         idx: usize,
-        result: (Vec&lt;LEAF&gt;, QuorumCertificate&lt;TYPES, LEAF&gt;),
+        result: (Vec&lt;Leaf&lt;TYPES&gt;&gt;, QuorumCertificate&lt;TYPES&gt;),
         maybe_block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;LEAF&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
 
-        <span class="kw">let </span>maybe_leaf: <span class="prelude-ty">Option</span>&lt;LEAF&gt; = result.<span class="number">0</span>.into_iter().last();
+        <span class="kw">let </span>maybe_leaf: <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; = result.<span class="number">0</span>.into_iter().last();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = maybe_leaf.clone() {
             <span class="kw">match </span><span class="self">self</span>.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
@@ -812,9 +799,9 @@
                 }
             }
 
-            <span class="kw">let </span>(state, block) = (leaf.get_state(), leaf.get_deltas());
+            <span class="kw">let </span>(state, payload_commitment) = (leaf.get_state(), leaf.get_payload_commitment());
 
-            <span class="kw">match </span><span class="self">self</span>.state_map.entry(state.clone()) {
+            <span class="kw">match </span><span class="self">self</span>.state_map.entry(state) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                     <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
                 }
@@ -822,7 +809,7 @@
                     v.insert(<span class="number">1</span>);
                 }
             }
-            <span class="kw">match </span><span class="self">self</span>.block_map.entry(block.clone().block_commitment()) {
+            <span class="kw">match </span><span class="self">self</span>.block_map.entry(payload_commitment) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                     <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
                 }
@@ -847,12 +834,12 @@
 
     <span class="doccomment">/// determines whether or not the round passes
     /// also do a safety check
-    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::let_unit_value)]
     </span><span class="kw">pub fn </span>update_status(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         threshold: usize,
         total_num_nodes: usize,
-        key: LEAF,
+        key: Leaf&lt;TYPES&gt;,
         check_leaf: bool,
         check_state: bool,
         check_block: bool,
@@ -898,7 +885,7 @@
             // if neither, continue through
 
             </span><span class="kw">let </span>state_key = key.get_state();
-            <span class="kw">let </span>block_key = key.get_deltas().block_commitment();
+            <span class="kw">let </span>block_key = key.get_payload_commitment();
 
             <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.block_map.get(<span class="kw-2">&amp;</span>block_key).unwrap() == threshold
                 &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>state_key).unwrap() == threshold
@@ -916,8 +903,8 @@
     }
 
     <span class="doccomment">/// generate leaves
-    </span><span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;LEAF, usize&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>leaves = HashMap::&lt;LEAF, usize&gt;::new();
+    </span><span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;Leaf&lt;TYPES&gt;, usize&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>leaves = HashMap::&lt;Leaf&lt;TYPES&gt;, usize&gt;::new();
 
         <span class="kw">for </span>(leaf_vec, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.success_nodes.values() {
             <span class="kw">let </span>most_recent_leaf = leaf_vec.iter().last();
@@ -1205,19 +1192,8 @@
     OverallSafetyTaskErr,
     GlobalTestEvent,
     ChannelStream&lt;GlobalTestEvent&gt;,
-    (
-        usize,
-        Either&lt;
-            Event&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
-            SequencingHotShotEvent&lt;TYPES, I&gt;,
-        &gt;,
-    ),
-    MergeN&lt;
-        Merge&lt;
-            UnboundedStream&lt;Event&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;&gt;,
-            UnboundedStream&lt;SequencingHotShotEvent&lt;TYPES, I&gt;&gt;,
-        &gt;,
-    &gt;,
+    (usize, Either&lt;Event&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;),
+    MergeN&lt;Merge&lt;UnboundedStream&lt;Event&lt;TYPES&gt;&gt;, UnboundedStream&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;,
     OverallSafetyTask&lt;TYPES, I&gt;,
 &gt;;
 </code></pre></div></section></main></body></html>

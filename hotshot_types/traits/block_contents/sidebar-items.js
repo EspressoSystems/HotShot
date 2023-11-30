@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dummy"],"struct":["BlockCommitment"],"trait":["Block","Transaction"]};
+window.SIDEBAR_ITEMS = {"constant":["NUM_CHUNKS","NUM_STORAGE_NODES"],"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","Transaction"]};
