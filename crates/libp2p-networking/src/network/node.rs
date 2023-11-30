@@ -247,6 +247,7 @@ impl NetworkNode {
                 .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC));
             let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
             kconfig
+                .set_parallelism(NonZeroUsize::new(1).unwrap())
                 .set_provider_publication_interval(Some(record_republication_interval))
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);

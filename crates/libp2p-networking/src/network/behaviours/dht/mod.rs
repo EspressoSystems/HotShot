@@ -556,7 +556,7 @@ impl NetworkBehaviour for DHTBehaviour {
         params: &mut impl libp2p::swarm::PollParameters,
     ) -> Poll<ToSwarm<DHTEvent, THandlerInEvent<Self>>> {
         if matches!(self.bootstrap_state.state, State::NotStarted)
-            // && self.bootstrap_state.backoff.is_expired()
+            && self.bootstrap_state.backoff.is_expired()
             && self.begin_bootstrap
         {
             match self.kadem.bootstrap() {
@@ -578,7 +578,7 @@ impl NetworkBehaviour for DHTBehaviour {
         }
 
         if matches!(self.random_walk.state, State::NotStarted)
-            // && self.random_walk.backoff.is_expired()
+            && self.random_walk.backoff.is_expired()
             && matches!(self.bootstrap_state.state, State::Finished)
         {
             self.kadem.get_closest_peers(PeerId::random());
@@ -586,26 +586,26 @@ impl NetworkBehaviour for DHTBehaviour {
         }
 
         // retry put/gets if they are ready
-        // while let Some(req) = self.queued_get_record_queries.pop_front() {
-        //     if req.backoff.is_expired() {
-        //         self.get_record(
-        //             req.key,
-        //             req.notify,
-        //             req.num_replicas,
-        //             req.backoff,
-        //             req.retry_count,
-        //         );
-        //     } else {
-        //         self.queued_get_record_queries.push_back(req);
-        //     }
-        // }
-        // while let Some(req) = self.queued_put_record_queries.pop_front() {
-        //     if req.backoff.is_expired() {
-        //         self.put_record(req);
-        //     } else {
-        //         self.queued_put_record_queries.push_back(req);
-        //     }
-        // }
+        while let Some(req) = self.queued_get_record_queries.pop_front() {
+            if req.backoff.is_expired() {
+                self.get_record(
+                    req.key,
+                    req.notify,
+                    req.num_replicas,
+                    req.backoff,
+                    req.retry_count,
+                );
+            } else {
+                self.queued_get_record_queries.push_back(req);
+            }
+        }
+        while let Some(req) = self.queued_put_record_queries.pop_front() {
+            if req.backoff.is_expired() {
+                self.put_record(req);
+            } else {
+                self.queued_put_record_queries.push_back(req);
+            }
+        }
 
         // poll behaviour which is a passthrough and call inject event
         while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx, params) {
