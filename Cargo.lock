@@ -2880,6 +2880,7 @@ dependencies = [
  "pin-project",
  "rand_chacha 0.3.1",
  "serde",
+ "sha2 0.10.8",
  "snafu",
  "time 0.3.30",
  "tokio",
@@ -2913,6 +2914,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
+ "sha2 0.10.8",
  "snafu",
  "tokio",
  "tracing",
@@ -2924,6 +2926,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "ark-bls12-381",
+ "ark-ed-on-bn254",
  "ark-ff",
  "ark-serialize 0.3.0",
  "ark-std 0.4.0",
