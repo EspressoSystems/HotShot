@@ -293,11 +293,13 @@ impl<S> NetworkNodeHandle<S> {
         key: V,
         dht_timeout: Duration,
     ) -> Result<PeerId, NetworkNodeHandleError> {
+        let now = Instant::now();
         // get record (from DHT)
         let pid = self.get_record_timeout::<PeerId>(&key, dht_timeout).await?;
 
         // pid lookup for routing
-        self.lookup_pid(pid).await?;
+        // self.lookup_pid(pid).await?;
+        println!("{} took {:?} to lookup", self.id, now.elapsed());
 
         Ok(pid)
     }

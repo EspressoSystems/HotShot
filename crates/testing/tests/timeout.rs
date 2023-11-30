@@ -69,7 +69,6 @@ async fn test_timeout_web() {
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-#[ignore]
 async fn test_timeout_libp2p() {
     use std::time::Duration;
 
@@ -86,7 +85,7 @@ async fn test_timeout_libp2p() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 2000,
+        next_view_timeout: 6000,
         ..Default::default()
     };
 
@@ -114,7 +113,7 @@ async fn test_timeout_libp2p() {
     metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(60),
+                duration: Duration::from_secs(180),
             },
         );
 

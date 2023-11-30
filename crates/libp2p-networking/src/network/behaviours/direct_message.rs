@@ -69,13 +69,16 @@ impl DMBehaviour {
             }
             Event::OutboundFailure {
                 peer,
-                request_id: _,
+                request_id,
                 error,
             } => {
                 error!(
                     "outbound failure to send message to {:?} with error {:?}",
                     peer, error
                 );
+
+                self.in_progress_rr.remove(&request_id);
+
                 // RM TODO: make direct messages have n (and not infinite) retries
                 // issue: https://github.com/EspressoSystems/HotShot/issues/2003
                 // if let Some(mut req) = self.in_progress_rr.remove(&request_id) {
@@ -143,13 +146,13 @@ impl NetworkBehaviour for DMBehaviour {
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
     ) -> Poll<ToSwarm<DMEvent, THandlerInEvent<Self>>> {
-        while let Some(req) = self.failed_rr.pop_front() {
-            if req.backoff.is_expired() {
-                self.add_direct_request(req);
-            } else {
-                self.failed_rr.push_back(req);
-            }
-        }
+        // while let Some(req) = self.failed_rr.pop_front() {
+        //     if req.backoff.is_expired() {
+        //         self.add_direct_request(req);
+        //     } else {
+        //         self.failed_rr.push_back(req);
+        //     }
+        // }
         while let Poll::Ready(ready) =
             NetworkBehaviour::poll(&mut self.request_response, cx, params)
         {
