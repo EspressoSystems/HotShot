@@ -6,9 +6,7 @@ description = "Types and traits for the HotShot consesus module"
 authors = ["Espresso Systems <hello@espressosys.com>"]
 
 [features]
-default = ["demo"]
-demo = ["hotshot/demo"]
-
+default = []
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
 
