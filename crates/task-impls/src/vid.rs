@@ -34,7 +34,7 @@ use hotshot_types::{
 };
 
 use snafu::Snafu;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, ops::Div};
 use tracing::{debug, error, instrument, warn};
 
 #[derive(Snafu, Debug)]
@@ -226,7 +226,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // calculate the last power of two
                 // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
                 // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-                let chunk_size = num_quorum_committee.next_power_of_two() / 2;
+                let chunk_size = match num_quorum_committee.checked_next_power_of_two() {
+                    Some(power_of_two) => power_of_two / 2,
+                    // max usize supported power of 2
+                    None => 1usize << (std::mem::size_of::<usize>() * 8 - 1),
+                };
 
                 // calculate vid shares
                 let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();

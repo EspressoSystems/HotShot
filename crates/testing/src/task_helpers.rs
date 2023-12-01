@@ -180,7 +180,11 @@ pub fn vid_init<TYPES: NodeType>(
     // calculate the last power of two
     // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
     // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-    let chunk_size = num_committee.next_power_of_two() / 2;
+    let chunk_size = match num_committee.checked_next_power_of_two() {
+        Some(power_of_two) => power_of_two / 2,
+        // max usize supported power of 2
+        None => 1usize << (std::mem::size_of::<usize>() * 8 - 1),
+    };
 
     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
     let srs = hotshot_types::data::test_srs(num_committee);
