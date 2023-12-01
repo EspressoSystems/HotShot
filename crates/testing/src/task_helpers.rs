@@ -18,8 +18,8 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
+        block_contents::vid_commitment,
         block_contents::BlockHeader,
-        block_contents::{vid_commitment, NUM_CHUNKS, NUM_STORAGE_NODES},
         consensus_api::ConsensusSharedApi,
         election::Membership,
         node_implementation::NodeType,
