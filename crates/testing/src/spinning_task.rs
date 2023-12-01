@@ -134,9 +134,6 @@ impl SpinningTaskDescription {
                                             }
                                         }
                                     }
-
-                                    // update our latest view
-                                    state.latest_view = Some(view_number);
                                 }
 
                                 // update our latest view
