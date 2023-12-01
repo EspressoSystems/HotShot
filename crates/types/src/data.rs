@@ -8,6 +8,7 @@ use crate::{
     traits::{
         block_contents::vid_commitment,
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
@@ -29,8 +30,10 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{
+    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
+    sync::Arc,
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -138,10 +141,42 @@ pub struct VidDisperse<TYPES: NodeType> {
     pub view_number: TYPES::Time,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
-    /// VID shares dispersed among storage nodes
-    pub shares: Vec<<VidScheme as VidSchemeTrait>::Share>,
+    /// A storage node's key and its corresponding VID share
+    pub shares: BTreeMap<TYPES::SignatureKey, <VidScheme as VidSchemeTrait>::Share>,
     /// VID common data sent to all storage nodes
     pub common: <VidScheme as VidSchemeTrait>::Common,
+}
+
+impl<TYPES: NodeType> VidDisperse<TYPES> {
+    /// Create VID dispersal from a specified membership
+    /// Uses the specified function to calculate share dispersal
+    /// Allows for more complex stake table functionality
+    pub fn from_membership(
+        view_number: TYPES::Time,
+        payload_commitment: VidCommitment,
+        mut unassigned_shares: Vec<<VidScheme as VidSchemeTrait>::Share>,
+        common: <VidScheme as VidSchemeTrait>::Common,
+        membership: &Arc<TYPES::Membership>,
+    ) -> Self {
+        println!(
+            "committee: {}, unassigned_shares: {}",
+            membership.get_committee(view_number).len(),
+            unassigned_shares.len()
+        );
+
+        let shares = membership
+            .get_committee(view_number)
+            .iter()
+            .map(|node| (node.clone(), unassigned_shares.remove(0)))
+            .collect();
+
+        Self {
+            view_number,
+            payload_commitment,
+            shares,
+            common,
+        }
+    }
 }
 
 /// Trusted KZG setup for VID.

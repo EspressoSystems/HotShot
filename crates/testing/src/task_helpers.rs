@@ -171,7 +171,24 @@ pub fn key_pair_for_id(node_id: u64) -> (<BLSPubKey as SignatureKey>::PrivateKey
     (private_key, public_key)
 }
 
-pub fn vid_init() -> VidScheme {
-    let srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
-    VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, srs).unwrap()
+pub fn vid_init<TYPES: NodeType>(
+    membership: TYPES::Membership,
+    view_number: TYPES::Time,
+) -> VidScheme {
+    let num_committee = membership.get_committee(view_number).len();
+
+    // calculate the last power of two
+    // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
+    let chunk_size = {
+        let mut power = 1;
+        while (power << 1) <= num_committee {
+            power <<= 1;
+        }
+        power
+    };
+
+    // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
+    let srs = hotshot_types::data::test_srs(num_committee);
+
+    VidScheme::new(chunk_size, num_committee, srs).unwrap()
 }
