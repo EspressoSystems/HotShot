@@ -226,7 +226,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // calculate the last power of two
                 // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
                 // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-                let chunk_size = ((num_quorum_committee as u64).next_power_of_two() / 2) as usize;
+                let chunk_size = num_quorum_committee.next_power_of_two() / 2;
 
                 // calculate vid shares
                 let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
