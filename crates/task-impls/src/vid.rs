@@ -225,12 +225,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // calculate the last power of two
                 // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
+                // issue: https://github.com/EspressoSystems/HotShot/issues/2152
                 let chunk_size = {
-                    let mut power = 1;
-                    while (power << 1) <= num_quorum_committee {
-                        power <<= 1;
-                    }
-                    power
+                    let highest_bit_set_idx = 63 - (num_quorum_committee | 1).leading_zeros();
+                    (1 << highest_bit_set_idx) & num_quorum_committee
                 };
 
                 // calculate vid shares
