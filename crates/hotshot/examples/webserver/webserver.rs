@@ -1,4 +1,4 @@
-use hotshot_testing::demo::DemoTypes;
+use hotshot_testing::state_types::TestTypes;
 use std::sync::Arc;
 
 use async_compatibility_layer::{
@@ -22,7 +22,7 @@ async fn main() {
     let (server_shutdown_sender, server_shutdown) = oneshot();
     let _sender = Arc::new(server_shutdown_sender);
     let _result = hotshot_web_server::run_web_server::<
-        <DemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+        <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
     >(Some(server_shutdown), args.url, args.port)
     .await;
 }

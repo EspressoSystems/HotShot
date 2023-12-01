@@ -27,14 +27,17 @@ pub mod txn_task;
 /// task that decides when things are complete
 pub mod completion_task;
 
-/// node types
-pub mod node_types;
-
 /// task to spin nodes up and down
 pub mod spinning_task;
 
+/// block types
+pub mod block_types;
+
 /// Implementations for testing/examples
-pub mod demo;
+pub mod state_types;
+
+/// node types
+pub mod node_types;
 
 // TODO node changer (spin up and down)
 

@@ -9,9 +9,9 @@ use hotshot::traits::implementations::{
 use hotshot::traits::NodeImplementation;
 use hotshot::types::bn254::{BLSPrivKey, BLSPubKey};
 use hotshot::types::SignatureKey;
-use hotshot_testing::demo::{
-    block::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
-    DemoState,
+use hotshot_testing::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::TestState,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
@@ -45,12 +45,12 @@ pub struct Test;
 
 impl NodeType for Test {
     type Time = ViewNumber;
-    type BlockHeader = VIDBlockHeader;
-    type BlockPayload = VIDBlockPayload;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
-    type Transaction = VIDTransaction;
+    type Transaction = TestTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = DemoState;
+    type StateType = TestState;
     type Membership = GeneralStaticCommittee<Test, Self::SignatureKey>;
 }
 
@@ -111,7 +111,7 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
         let message = Message {
             sender: pk,
             kind: MessageKind::Data(DataMessage::SubmitTransaction(
-                VIDTransaction(bytes.to_vec()),
+                TestTransaction(bytes.to_vec()),
                 <ViewNumber as ConsensusTime>::new(0),
             )),
         };

@@ -4,7 +4,7 @@ use async_compatibility_layer::{
 };
 use clap::Parser;
 use hotshot_orchestrator::client::ValidatorArgs;
-use hotshot_testing::demo::DemoTypes;
+use hotshot_testing::state_types::TestTypes;
 use std::net::IpAddr;
 use tracing::instrument;
 use types::VIDNetwork;
@@ -49,7 +49,7 @@ async fn main() {
         let url = args.url.clone();
         let node = async_spawn(async move {
             infra::main_entry_point::<
-                DemoTypes,
+                TestTypes,
                 DANetwork,
                 QuorumNetwork,
                 ViewSyncNetwork,

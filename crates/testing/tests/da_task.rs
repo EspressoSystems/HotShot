@@ -1,7 +1,7 @@
 use hotshot::{types::SignatureKey, HotShotConsensusApi};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
-    demo::block::VIDTransaction,
+    block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
 };
 use hotshot_types::{
@@ -35,8 +35,8 @@ async fn test_da_task() {
         inner: handle.hotshot.inner.clone(),
     };
     let pub_key = *api.public_key();
-    let transactions = vec![VIDTransaction(vec![0])];
-    let encoded_transactions = VIDTransaction::encode(transactions.clone()).unwrap();
+    let transactions = vec![TestTransaction(vec![0])];
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let payload_commitment = vid_commitment(&encoded_transactions);
     let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 

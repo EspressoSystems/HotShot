@@ -17,7 +17,7 @@ use async_compatibility_layer::{art::async_spawn, channel::oneshot};
 use clap::Parser;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
-use hotshot_testing::demo::DemoTypes;
+use hotshot_testing::state_types::TestTypes;
 use hotshot_types::traits::node_implementation::NodeType;
 use tracing::error;
 use types::VIDNetwork;
@@ -36,7 +36,7 @@ async fn main() {
 
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
-            <DemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_cdn),
             "http://localhost".to_string(),
@@ -49,7 +49,7 @@ async fn main() {
     });
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
-            <DemoTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_da),
             "http://localhost".to_string(),
@@ -63,7 +63,7 @@ async fn main() {
 
     // web server orchestrator
     async_spawn(run_orchestrator::<
-        DemoTypes,
+        TestTypes,
         DANetwork,
         QuorumNetwork,
         ViewSyncNetwork,
@@ -77,14 +77,14 @@ async fn main() {
 
     // multi validator run
     let config: NetworkConfig<
-        <DemoTypes as NodeType>::SignatureKey,
-        <DemoTypes as NodeType>::ElectionConfigType,
-    > = load_config_from_file::<DemoTypes>(args.config_file);
+        <TestTypes as NodeType>::SignatureKey,
+        <TestTypes as NodeType>::ElectionConfigType,
+    > = load_config_from_file::<TestTypes>(args.config_file);
     let mut nodes = Vec::new();
     for _ in 0..(config.config.total_nodes.get()) {
         let node = async_spawn(async move {
             infra::main_entry_point::<
-                DemoTypes,
+                TestTypes,
                 DANetwork,
                 QuorumNetwork,
                 ViewSyncNetwork,
