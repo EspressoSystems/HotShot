@@ -158,12 +158,6 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         common: <VidScheme as VidSchemeTrait>::Common,
         membership: &Arc<TYPES::Membership>,
     ) -> Self {
-        println!(
-            "committee: {}, unassigned_shares: {}",
-            membership.get_committee(view_number).len(),
-            unassigned_shares.len()
-        );
-
         let shares = membership
             .get_committee(view_number)
             .iter()
