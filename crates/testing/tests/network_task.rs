@@ -60,9 +60,7 @@ async fn test_network_task() {
 
     let da_vid_disperse_inner = VidDisperse::from_membership(
         da_proposal.data.view_number,
-        payload_commitment,
-        vid_disperse.shares,
-        vid_disperse.common,
+        vid_disperse,
         &quorum_membership.into(),
     );
 

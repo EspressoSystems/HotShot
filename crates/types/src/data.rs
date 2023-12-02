@@ -24,8 +24,10 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use hotshot_constants::GENESIS_PROPOSER_ID;
 use hotshot_utils::bincode::bincode_opts;
-// use jf_primitives::pcs::prelude::Commitment;
-use jf_primitives::pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme};
+use jf_primitives::{
+    pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
+    vid::VidDisperse as JfVidDisperse,
+};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -153,22 +155,20 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// Allows for more complex stake table functionality
     pub fn from_membership(
         view_number: TYPES::Time,
-        payload_commitment: VidCommitment,
-        mut unassigned_shares: Vec<<VidScheme as VidSchemeTrait>::Share>,
-        common: <VidScheme as VidSchemeTrait>::Common,
+        mut vid_disperse: JfVidDisperse<VidScheme>,
         membership: &Arc<TYPES::Membership>,
     ) -> Self {
         let shares = membership
             .get_committee(view_number)
             .iter()
-            .map(|node| (node.clone(), unassigned_shares.remove(0)))
+            .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
             .collect();
 
         Self {
             view_number,
-            payload_commitment,
             shares,
-            common,
+            common: vid_disperse.common,
+            payload_commitment: vid_disperse.commit,
         }
     }
 }

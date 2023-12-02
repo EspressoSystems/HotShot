@@ -58,9 +58,7 @@ async fn test_vid_task() {
 
     let vid_disperse = VidDisperse::from_membership(
         message.data.view_number,
-        payload_commitment,
-        vid_disperse.shares,
-        vid_disperse.common,
+        vid_disperse,
         &quorum_membership.into(),
     );
 

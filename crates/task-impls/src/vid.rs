@@ -87,11 +87,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // calculate the last power of two
                 // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
                 // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-                let chunk_size = match num_quorum_committee.checked_next_power_of_two() {
-                    Some(power_of_two) => power_of_two / 2,
-                    // max usize supported power of 2
-                    None => 1usize << (std::mem::size_of::<usize>() * 8 - 1),
-                };
+                let chunk_size = 1 << num_quorum_committee.ilog2();
 
                 // calculate vid shares
                 let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
@@ -108,13 +104,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // send the block to the VID dispersal function
                 self.event_stream
                     .publish(HotShotEvent::BlockReady(
-                        VidDisperse::from_membership(
-                            view_number,
-                            vid_disperse.commit,
-                            vid_disperse.shares,
-                            vid_disperse.common,
-                            &self.membership,
-                        ),
+                        VidDisperse::from_membership(view_number, vid_disperse, &self.membership),
                         view_number,
                     ))
                     .await;
