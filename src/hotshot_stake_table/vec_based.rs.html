@@ -866,7 +866,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">super</span>::config::{BLSVerKey, FieldType <span class="kw">as </span>F, SchnorrVerKey};
+    <span class="kw">use </span><span class="kw">super</span>::config::{FieldType <span class="kw">as </span>F, QCVerKey, StateVerKey};
     <span class="kw">use </span><span class="kw">super</span>::StakeTable;
     <span class="kw">use </span>ark_std::{rand::SeedableRng, vec::Vec};
     <span class="kw">use </span>ethereum_types::U256;
@@ -876,7 +876,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>crypto_test_stake_table() -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>st = StakeTable::&lt;BLSVerKey, SchnorrVerKey, F&gt;::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>st = StakeTable::&lt;QCVerKey, StateVerKey, F&gt;::new();
         <span class="kw">let </span><span class="kw-2">mut </span>prng = jf_utils::test_rng();
         <span class="kw">let </span>keys = (<span class="number">0</span>..<span class="number">10</span>)
             .map(|<span class="kw">_</span>| {

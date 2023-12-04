@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["generate_state_update_proof","preprocess"],"mod":["circuit"],"struct":["BLSVerKey","EdwardsConfig"],"type":["BaseField","Proof","ProvingKey","SchnorrVerKey","UniversalSrs","VerifyingKey"]};
+window.SIDEBAR_ITEMS = {"fn":["generate_state_update_proof","preprocess"],"mod":["circuit"],"struct":["QCVerKey"],"type":["BaseField","Proof","ProvingKey","UniversalSrs","VerifyingKey"]};

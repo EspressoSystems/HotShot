@@ -577,8 +577,6 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Circuit implementation for verifying light client state update
 
 </span><span class="kw">use </span>ark_ec::twisted_edwards::TECurveConfig;
@@ -586,7 +584,7 @@
 <span class="kw">use </span>ark_std::borrow::Borrow;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_stake_table::config::STAKE_TABLE_CAPACITY;
-<span class="kw">use </span>hotshot_types::traits::state::LightClientState;
+<span class="kw">use </span>hotshot_types::light_client::LightClientState;
 <span class="kw">use </span>jf_plonk::errors::PlonkError;
 <span class="kw">use </span>jf_primitives::{
     circuit::{
@@ -608,21 +606,21 @@
 <span class="doccomment">/// Variable for stake table entry
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>StakeTableEntryVar {
-    <span class="doccomment">/// Schnorr verification keys
-    </span><span class="kw">pub </span>schnorr_ver_key: VerKeyVar,
+    <span class="doccomment">/// state verification keys
+    </span><span class="kw">pub </span>state_ver_key: VerKeyVar,
     <span class="doccomment">/// Stake amount
     </span><span class="kw">pub </span>stake_amount: Variable,
 }
 
 <span class="doccomment">/// Light client state Variable
-/// The stake table commitment is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm).
+/// The stake table commitment is a triple (qc_keys_comm, state_keys_comm, stake_amount_comm).
 /// Variable for a stake table commitment
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>StakeTableCommVar {
-    <span class="doccomment">/// Commitment for BLS keys
-    </span><span class="kw">pub </span>bls_keys_comm: Variable,
-    <span class="doccomment">/// Commitment for Schnorr keys
-    </span><span class="kw">pub </span>schnorr_keys_comm: Variable,
+    <span class="doccomment">/// Commitment for QC verification keys
+    </span><span class="kw">pub </span>qc_keys_comm: Variable,
+    <span class="doccomment">/// Commitment for state verification keys
+    </span><span class="kw">pub </span>state_keys_comm: Variable,
     <span class="doccomment">/// Commitment for stake amount
     </span><span class="kw">pub </span>stake_amount_comm: Variable,
 }
@@ -685,13 +683,13 @@
         (<span class="self">self</span>.<span class="number">0</span>[<span class="number">5</span>], <span class="self">self</span>.<span class="number">0</span>[<span class="number">6</span>], <span class="self">self</span>.<span class="number">0</span>[<span class="number">7</span>])
     }
 
-    <span class="doccomment">/// Return the bls key commitment of the light client state
-    </span><span class="kw">pub fn </span>bls_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
+    <span class="doccomment">/// Return the qc key commitment of the light client state
+    </span><span class="kw">pub fn </span>qc_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">5</span>]
     }
 
-    <span class="doccomment">/// Return the schnorr key commitment of the light client state
-    </span><span class="kw">pub fn </span>schnorr_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
+    <span class="doccomment">/// Return the state key commitment of the light client state
+    </span><span class="kw">pub fn </span>state_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">6</span>]
     }
 
@@ -739,8 +737,8 @@
 
     <span class="kw">pub fn </span>stake_table_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StakeTableCommVar {
         StakeTableCommVar {
-            bls_keys_comm: <span class="self">self</span>.vars[<span class="number">4</span>],
-            schnorr_keys_comm: <span class="self">self</span>.vars[<span class="number">5</span>],
+            qc_keys_comm: <span class="self">self</span>.vars[<span class="number">4</span>],
+            state_keys_comm: <span class="self">self</span>.vars[<span class="number">5</span>],
             stake_amount_comm: <span class="self">self</span>.vars[<span class="number">6</span>],
         }
     }
@@ -763,7 +761,7 @@
 /// It checks that
 /// - the signer&#39;s accumulated weight exceeds the quorum threshold
 /// - the stake table corresponds to the one committed in the light client state
-/// - all signed schnorr signatures are valid
+/// - all signed Schnorr signatures are valid
 /// and returns
 /// - A circuit for proof generation
 /// - A list of public inputs for verification
@@ -826,10 +824,10 @@
     <span class="kw">let </span><span class="kw-2">mut </span>stake_table_var = stake_table_entries
         .map(|item| {
             <span class="kw">let </span>item = item.borrow();
-            <span class="kw">let </span>schnorr_ver_key = circuit.create_signature_vk_variable(<span class="kw-2">&amp;</span>item.<span class="number">0</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>state_ver_key = circuit.create_signature_vk_variable(<span class="kw-2">&amp;</span>item.<span class="number">0</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>stake_amount = circuit.create_variable(u256_to_field::&lt;F&gt;(<span class="kw-2">&amp;</span>item.<span class="number">1</span>))<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(StakeTableEntryVar {
-                schnorr_ver_key,
+                state_ver_key,
                 stake_amount,
             })
         })
@@ -837,11 +835,11 @@
     stake_table_var.extend(
         (<span class="number">0</span>..stake_table_entries_pad_len)
             .map(|<span class="kw">_</span>| {
-                <span class="kw">let </span>schnorr_ver_key =
+                <span class="kw">let </span>state_ver_key =
                     circuit.create_signature_vk_variable(<span class="kw-2">&amp;</span>SchnorrVerKey::&lt;P&gt;::default())<span class="question-mark">?</span>;
                 <span class="kw">let </span>stake_amount = circuit.create_variable(F::default())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(StakeTableEntryVar {
-                    schnorr_ver_key,
+                    state_ver_key,
                     stake_amount,
                 })
             })
@@ -913,20 +911,18 @@
     circuit.enforce_leq(threshold_pub_var, acc_amount_var)<span class="question-mark">?</span>;
 
     <span class="comment">// checking the commitment for the list of schnorr keys
-    </span><span class="kw">let </span>schnorr_ver_key_preimage_vars = stake_table_var
+    </span><span class="kw">let </span>state_ver_key_preimage_vars = stake_table_var
         .iter()
-        .flat_map(|var| [var.schnorr_ver_key.<span class="number">0</span>.get_x(), var.schnorr_ver_key.<span class="number">0</span>.get_y()])
+        .flat_map(|var| [var.state_ver_key.<span class="number">0</span>.get_x(), var.state_ver_key.<span class="number">0</span>.get_y()])
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-    <span class="kw">let </span>schnorr_ver_key_comm = RescueNativeGadget::&lt;F&gt;::rescue_sponge_with_padding(
+    <span class="kw">let </span>state_ver_key_comm = RescueNativeGadget::&lt;F&gt;::rescue_sponge_with_padding(
         <span class="kw-2">&amp;mut </span>circuit,
-        <span class="kw-2">&amp;</span>schnorr_ver_key_preimage_vars,
+        <span class="kw-2">&amp;</span>state_ver_key_preimage_vars,
         <span class="number">1</span>,
     )<span class="question-mark">?</span>[<span class="number">0</span>];
     circuit.enforce_equal(
-        schnorr_ver_key_comm,
-        lightclient_state_pub_var
-            .stake_table_comm()
-            .schnorr_keys_comm,
+        state_ver_key_comm,
+        lightclient_state_pub_var.stake_table_comm().state_keys_comm,
     )<span class="question-mark">?</span>;
 
     <span class="comment">// checking the commitment for the list of stake amounts
@@ -953,7 +949,7 @@
         .map(|(entry, sig)| {
             SignatureGadget::&lt;<span class="kw">_</span>, P&gt;::check_signature_validity(
                 <span class="kw-2">&amp;mut </span>circuit,
-                <span class="kw-2">&amp;</span>entry.schnorr_ver_key,
+                <span class="kw-2">&amp;</span>entry.state_ver_key,
                 lightclient_state_pub_var.as_ref(),
                 <span class="kw-2">&amp;</span>sig,
             )
@@ -1013,13 +1009,13 @@
         <span class="kw">let </span>num_validators = <span class="number">10</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>prng = test_rng();
 
-        <span class="kw">let </span>(bls_keys, schnorr_keys) = key_pairs_for_testing(num_validators, <span class="kw-2">&amp;mut </span>prng);
-        <span class="kw">let </span>st = stake_table_for_testing(<span class="kw-2">&amp;</span>bls_keys, <span class="kw-2">&amp;</span>schnorr_keys);
+        <span class="kw">let </span>(qc_keys, state_keys) = key_pairs_for_testing(num_validators, <span class="kw-2">&amp;mut </span>prng);
+        <span class="kw">let </span>st = stake_table_for_testing(<span class="kw-2">&amp;</span>qc_keys, <span class="kw-2">&amp;</span>state_keys);
 
         <span class="kw">let </span>entries = st
             .try_iter(SnapshotVersion::LastEpochStart)
             .unwrap()
-            .map(|(<span class="kw">_</span>, stake_amount, schnorr_key)| (schnorr_key, stake_amount))
+            .map(|(<span class="kw">_</span>, stake_amount, state_key)| (state_key, stake_amount))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let </span>block_comm_root =
@@ -1038,7 +1034,7 @@
         };
         <span class="kw">let </span>state_msg: [F; <span class="number">7</span>] = lightclient_state.clone().into();
 
-        <span class="kw">let </span>sigs = schnorr_keys
+        <span class="kw">let </span>sigs = state_keys
             .iter()
             .map(|(key, <span class="kw">_</span>)| SchnorrSignatureScheme::&lt;Config&gt;::sign(<span class="kw-2">&amp;</span>(), key, state_msg, <span class="kw-2">&amp;mut </span>prng))
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, PrimitivesError&gt;&gt;()
@@ -1116,7 +1112,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>bad_lightclient_state = lightclient_state.clone();
         bad_lightclient_state.stake_table_comm.<span class="number">1 </span>= F::default();
         <span class="kw">let </span>bad_state_msg: [F; <span class="number">7</span>] = bad_lightclient_state.clone().into();
-        <span class="kw">let </span>sig_for_bad_state = schnorr_keys
+        <span class="kw">let </span>sig_for_bad_state = state_keys
             .iter()
             .map(|(key, <span class="kw">_</span>)| {
                 SchnorrSignatureScheme::&lt;Config&gt;::sign(<span class="kw-2">&amp;</span>(), key, bad_state_msg, <span class="kw-2">&amp;mut </span>prng)
@@ -1137,10 +1133,10 @@
 
         <span class="comment">// bad path: incorrect signatures
         </span><span class="kw">let </span><span class="kw-2">mut </span>wrong_light_client_state = lightclient_state.clone();
-        <span class="comment">// state with a different bls key commitment
+        <span class="comment">// state with a different qc key commitment
         </span>wrong_light_client_state.stake_table_comm.<span class="number">0 </span>= F::default();
         <span class="kw">let </span>wrong_state_msg: [F; <span class="number">7</span>] = wrong_light_client_state.into();
-        <span class="kw">let </span>wrong_sigs = schnorr_keys
+        <span class="kw">let </span>wrong_sigs = state_keys
             .iter()
             .map(|(key, <span class="kw">_</span>)| {
                 SchnorrSignatureScheme::&lt;Config&gt;::sign(<span class="kw-2">&amp;</span>(), key, wrong_state_msg, <span class="kw-2">&amp;mut </span>prng)

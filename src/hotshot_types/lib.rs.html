@@ -102,6 +102,11 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="attr">#![warn(
     clippy::all,
@@ -121,6 +126,7 @@
 <span class="kw">pub mod </span>data;
 <span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>event;
+<span class="kw">pub mod </span>light_client;
 <span class="kw">pub mod </span>message;
 <span class="kw">pub mod </span>simple_certificate;
 <span class="kw">pub mod </span>simple_vote;
@@ -150,6 +156,8 @@
     </span><span class="kw">pub </span>private_key: KEY::PrivateKey,
     <span class="doccomment">/// The validator&#39;s stake
     </span><span class="kw">pub </span>stake_value: u64,
+    <span class="doccomment">/// the validator&#39;s key pairs for state signing/verification
+    </span><span class="kw">pub </span>state_key_pair: light_client::StateKeyPair,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; ValidatorConfig&lt;KEY&gt; {
@@ -157,10 +165,12 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64, stake_value: u64) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(public_key, private_key) = KEY::generated_from_seed_indexed(seed, index);
+        <span class="kw">let </span>state_key_pairs = light_client::StateKeyPair::generate_from_seed_indexed(seed, index);
         <span class="self">Self </span>{
             public_key,
             private_key,
             stake_value,
+            state_key_pair: state_key_pairs,
         }
     }
 }

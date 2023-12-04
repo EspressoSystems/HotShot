@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["consensus","da","events","harness","network","transactions","vid","view_sync"]};
+window.SIDEBAR_ITEMS = {"mod":["consensus","da","events","harness","network","transactions","vid","view_sync","vote"]};

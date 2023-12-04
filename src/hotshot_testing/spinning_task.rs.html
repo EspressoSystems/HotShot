@@ -163,43 +163,55 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::HashMap,
-    sync::{atomic::AtomicUsize, Arc},
-    time::Duration,
-};
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
-<span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
+<span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotType, SystemContext};
 <span class="kw">use </span>hotshot_task::{
-    boxed_sync,
     event_stream::ChannelStream,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    GeneratedStream,
+    MergeN,
 };
-
-<span class="kw">use </span>hotshot_types::traits::{network::CommunicationChannel, node_implementation::NodeType};
+<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
+<span class="kw">use </span>hotshot_types::{event::Event, traits::node_implementation::NodeType};
 <span class="kw">use </span>snafu::Snafu;
+
+<span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node};
+<span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
+
+<span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
+
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>SpinningTaskErr {}
 
-<span class="doccomment">/// Completion task types
-</span><span class="kw">pub type </span>SpinningTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
-    SpinningTaskErr,
-    GlobalTestEvent,
-    ChannelStream&lt;GlobalTestEvent&gt;,
-    (),
-    GeneratedStream&lt;()&gt;,
-    SpinningTask&lt;TYPES, I&gt;,
-&gt;;
-
-<span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+<span class="doccomment">/// Spinning task state
+</span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) changes: Vec&lt;Vec&lt;ChangeNode&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) changes: HashMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) latest_view: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {}
@@ -228,17 +240,15 @@
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>SpinningTaskDescription {
-    <span class="kw">pub </span>node_changes: Vec&lt;(Duration, Vec&lt;ChangeNode&gt;)&gt;,
+    <span class="kw">pub </span>node_changes: Vec&lt;(u64, Vec&lt;ChangeNode&gt;)&gt;,
 }
 
 <span class="kw">impl </span>SpinningTaskDescription {
-    <span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
+    <span class="doccomment">/// build a task
+    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
-    ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;
-    <span class="kw">where
-        </span>SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
-    {
-        Box::new(<span class="kw">move </span>|state, <span class="kw-2">mut </span>registry, test_event_stream| {
+    ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt; {
+        Box::new(<span class="kw">move </span>|<span class="kw-2">mut </span>state, <span class="kw-2">mut </span>registry, test_event_stream| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>event_handler =
                     HandleEvent::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(<span class="kw">move </span>|event, state| {
@@ -251,65 +261,85 @@
                         }
                         .boxed()
                     }));
-                <span class="kw">let </span>atomic_idx = Arc::new(AtomicUsize::new(<span class="number">0</span>));
-                <span class="kw">let </span>sleep_durations = Arc::new(
-                    <span class="self">self</span>.node_changes
-                        .clone()
-                        .into_iter()
-                        .map(|(d, <span class="kw">_</span>)| d)
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-                );
-                <span class="kw">let </span>stream_generator = GeneratedStream::new(Arc::new(<span class="kw">move </span>|| {
-                    <span class="kw">let </span>atomic_idx = atomic_idx.clone();
-                    <span class="kw">let </span>sleep_durations = sleep_durations.clone();
-                    <span class="kw">let </span>atomic_idx = atomic_idx.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst);
-                    sleep_durations.get(atomic_idx).copied().map(|duration| {
-                        <span class="kw">let </span>fut = <span class="kw">async move </span>{
-                            async_sleep(duration).<span class="kw">await</span>;
-                        };
-                        boxed_sync(fut)
-                    })
-                }));
+
                 <span class="kw">let </span>message_handler = HandleMessage::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(
-                    <span class="kw">move </span>|_msg, <span class="kw-2">mut </span>state| {
+                    <span class="kw">move </span>|msg, <span class="kw-2">mut </span>state| {
                         <span class="kw">async move </span>{
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(nodes_to_change) = state.changes.pop() {
-                                <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>nodes_to_change {
-                                    <span class="kw">match </span>updown {
-                                        UpDown::Up =&gt; {
-                                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) =
-                                                state.late_start.remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap())
-                                            {
-                                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Spinning up node late&quot;</span>);
-                                                <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
-                                                handle.hotshot.start_consensus().<span class="kw">await</span>;
+                            <span class="kw">let </span>Event {
+                                view_number,
+                                event: <span class="kw">_</span>,
+                            } = msg.<span class="number">1</span>;
+
+                            <span class="comment">// if we have not seen this view before
+                            </span><span class="kw">if </span>state.latest_view.is_none()
+                                || view_number &gt; state.latest_view.unwrap()
+                            {
+                                <span class="comment">// perform operations on the nodes
+                                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = state.changes.remove(<span class="kw-2">&amp;</span>view_number) {
+                                    <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
+                                        <span class="kw">match </span>updown {
+                                            UpDown::Up =&gt; {
+                                                <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state
+                                                    .late_start
+                                                    .remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap())
+                                                {
+                                                    <span class="macro">tracing::error!</span>(
+                                                        <span class="string">&quot;Node {} spinning up late&quot;</span>,
+                                                        idx
+                                                    );
+                                                    <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
+                                                    handle.hotshot.start_consensus().<span class="kw">await</span>;
+                                                }
                                             }
-                                        }
-                                        UpDown::Down =&gt; {
-                                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
-                                                node.handle.shut_down().<span class="kw">await</span>;
+                                            UpDown::Down =&gt; {
+                                                <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
+                                                    <span class="macro">tracing::error!</span>(<span class="string">&quot;Node {} shutting down&quot;</span>, idx);
+                                                    node.handle.shut_down().<span class="kw">await</span>;
+                                                }
                                             }
-                                        }
-                                        UpDown::NetworkUp =&gt; {
-                                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
-                                                handle.networks.<span class="number">0</span>.resume();
-                                                handle.networks.<span class="number">1</span>.resume();
+                                            UpDown::NetworkUp =&gt; {
+                                                <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                                                    <span class="macro">tracing::error!</span>(
+                                                        <span class="string">&quot;Node {} networks resuming&quot;</span>,
+                                                        idx
+                                                    );
+                                                    handle.networks.<span class="number">0</span>.resume();
+                                                    handle.networks.<span class="number">1</span>.resume();
+                                                }
                                             }
-                                        }
-                                        UpDown::NetworkDown =&gt; {
-                                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
-                                                handle.networks.<span class="number">0</span>.pause();
-                                                handle.networks.<span class="number">1</span>.pause();
+                                            UpDown::NetworkDown =&gt; {
+                                                <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                                                    <span class="macro">tracing::error!</span>(
+                                                        <span class="string">&quot;Node {} networks pausing&quot;</span>,
+                                                        idx
+                                                    );
+                                                    handle.networks.<span class="number">0</span>.pause();
+                                                    handle.networks.<span class="number">1</span>.pause();
+                                                }
                                             }
                                         }
                                     }
                                 }
+
+                                <span class="comment">// update our latest view
+                                </span>state.latest_view = <span class="prelude-val">Some</span>(view_number);
                             }
+
                             (<span class="prelude-val">None</span>, state)
                         }
                         .boxed()
                     },
                 ));
+
+                <span class="kw">let </span><span class="kw-2">mut </span>streams = <span class="macro">vec!</span>[];
+                <span class="kw">for </span>handle <span class="kw">in </span><span class="kw-2">&amp;mut </span>state.handles {
+                    <span class="kw">let </span>s1 = handle
+                        .handle
+                        .get_event_stream_known_impl(FilterEvent::default())
+                        .<span class="kw">await
+                        </span>.<span class="number">0</span>;
+                    streams.push(s1);
+                }
                 <span class="kw">let </span>builder = TaskBuilder::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;::new(
                     <span class="string">&quot;Test Spinning Task&quot;</span>.to_string(),
                 )
@@ -317,10 +347,10 @@
                 .<span class="kw">await
                 </span>.register_registry(<span class="kw-2">&amp;mut </span>registry)
                 .<span class="kw">await
-                </span>.register_state(state)
+                </span>.register_message_handler(message_handler)
+                .register_message_stream(MergeN::new(streams))
                 .register_event_handler(event_handler)
-                .register_message_handler(message_handler)
-                .register_message_stream(stream_generator);
+                .register_state(state);
                 <span class="kw">let </span>task_id = builder.get_task_id().unwrap();
                 (task_id, SpinningTaskTypes::build(builder).launch())
             }
@@ -328,4 +358,14 @@
         })
     }
 }
+
+<span class="doccomment">/// types for safety task
+</span><span class="kw">pub type </span>SpinningTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
+    SpinningTaskErr,
+    GlobalTestEvent,
+    ChannelStream&lt;GlobalTestEvent&gt;,
+    (usize, Event&lt;TYPES&gt;),
+    MergeN&lt;UnboundedStream&lt;Event&lt;TYPES&gt;&gt;&gt;,
+    SpinningTask&lt;TYPES, I&gt;,
+&gt;;
 </code></pre></div></section></main></body></html>

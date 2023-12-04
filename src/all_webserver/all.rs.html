@@ -94,6 +94,12 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::load_config_from_file;
@@ -115,6 +121,7 @@
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
 <span class="kw">use </span>types::VIDNetwork;
 
@@ -133,7 +140,10 @@
     async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;DemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_cdn), <span class="number">9000</span>)
+        &gt;(
+            <span class="prelude-val">Some</span>(server_shutdown_cdn),
+            Url::parse(<span class="string">&quot;http://localhost:9000&quot;</span>).unwrap(),
+        )
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Problem starting cdn web server: {:?}&quot;</span>, e);
@@ -142,7 +152,10 @@
     async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;DemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_da), <span class="number">9001</span>)
+        &gt;(
+            <span class="prelude-val">Some</span>(server_shutdown_da),
+            Url::parse(<span class="string">&quot;http://localhost:9001&quot;</span>).unwrap(),
+        )
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Problem starting da web server: {:?}&quot;</span>, e);
@@ -158,8 +171,7 @@
         VIDNetwork,
         NodeImpl,
     &gt;(OrchestratorArgs {
-        host: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-        port: <span class="number">4444</span>,
+        url: Url::parse(<span class="string">&quot;http://localhost:4444&quot;</span>).unwrap(),
         config_file: args.config_file.clone(),
     }));
 
@@ -180,7 +192,7 @@
                 NodeImpl,
                 ThisRun,
             &gt;(ValidatorArgs {
-                host: <span class="string">&quot;127.0.0.1&quot;</span>.to_string(),
+                url: <span class="string">&quot;http://localhost&quot;</span>.to_string(),
                 port: <span class="number">4444</span>,
                 public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             })

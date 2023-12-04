@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["vote_handle"],"struct":["ConsensusTaskError","ConsensusTaskSnafu","VIDTaskState","VIDVoteCollectionTaskState"],"type":["VIDTaskTypes","VIDVoteCollectionTypes"]};
+window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","VIDTaskState"],"type":["VIDTaskTypes"]};

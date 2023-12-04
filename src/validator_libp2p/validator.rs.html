@@ -65,7 +65,7 @@
     <span class="kw">let </span>args = ValidatorArgs::parse();
     <span class="macro">info!</span>(
         <span class="string">&quot;connecting to orchestrator at {:?}:{:?}&quot;</span>,
-        args.host, args.port
+        args.url, args.port
     );
     infra::main_entry_point::&lt;
         DemoTypes,

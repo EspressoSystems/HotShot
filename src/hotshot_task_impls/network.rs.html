@@ -381,31 +381,6 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
@@ -506,17 +481,10 @@
                                 HotShotEvent::DAVoteRecv(vote.clone())
                             }
                             CommitteeConsensusMessage::DACertificate(cert) =&gt; {
-                                <span class="comment">// panic!(&quot;Recevid DA C! &quot;);
-                                </span>HotShotEvent::DACRecv(cert)
+                                HotShotEvent::DACRecv(cert)
                             }
                             CommitteeConsensusMessage::VidDisperseMsg(proposal) =&gt; {
                                 HotShotEvent::VidDisperseRecv(proposal, sender)
-                            }
-                            CommitteeConsensusMessage::VidVote(vote) =&gt; {
-                                HotShotEvent::VidVoteRecv(vote.clone())
-                            }
-                            CommitteeConsensusMessage::VidCertificate(cert) =&gt; {
-                                HotShotEvent::VidCertRecv(cert)
                             }
                         },
                     };
@@ -565,7 +533,7 @@
     /// # Panics
     /// Panic sif a direct message event is received with no recipient
     </span><span class="attr">#[allow(clippy::too_many_lines)] </span><span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/1704
-    </span><span class="attr">#[instrument(skip_all, fields(view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">&quot;Newtork Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">&quot;Network Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
     </span><span class="kw">pub async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -607,14 +575,6 @@
                 TransmitType::Broadcast,
                 <span class="prelude-val">None</span>,
             ),
-            HotShotEvent::VidVoteSend(vote) =&gt; (
-                vote.get_signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number())),
-            ),
             HotShotEvent::DAVoteSend(vote) =&gt; (
                 vote.get_signing_key(),
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
@@ -622,14 +582,6 @@
                 ))),
                 TransmitType::Direct,
                 <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number())),
-            ),
-            HotShotEvent::VidCertSend(certificate, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidCertificate(certificate),
-                ))),
-                TransmitType::Broadcast,
-                <span class="prelude-val">None</span>,
             ),
             <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             </span>HotShotEvent::DACSend(certificate, sender) =&gt; (
@@ -772,8 +724,6 @@
             event,
             HotShotEvent::Shutdown
                 | HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::VidCertSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::VidVoteSend(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }

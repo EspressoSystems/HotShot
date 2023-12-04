@@ -336,12 +336,6 @@
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
@@ -354,6 +348,7 @@
     path::PathBuf,
     time::Duration,
 };
+<span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>toml;
 <span class="kw">use </span>tracing::error;
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -396,8 +391,7 @@
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>WebServerConfig {
-    <span class="kw">pub </span>host: IpAddr,
-    <span class="kw">pub </span>port: u16,
+    <span class="kw">pub </span>url: Url,
     <span class="kw">pub </span>wait_between_polls: Duration,
 }
 
@@ -636,13 +630,7 @@
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>ValidatorConfig&lt;K&gt; {
     <span class="kw">fn </span>from(val: ValidatorConfigFile) -&gt; <span class="self">Self </span>{
         <span class="comment">// here stake_value is set to 1, since we don&#39;t input stake_value from ValidatorConfigFile for now
-        </span><span class="kw">let </span>validator_config =
-            ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, <span class="number">1</span>);
-        ValidatorConfig {
-            public_key: validator_config.public_key,
-            private_key: validator_config.private_key,
-            stake_value: validator_config.stake_value,
-        }
+        </span>ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, <span class="number">1</span>)
     }
 }
 <span class="kw">impl</span>&lt;KEY: SignatureKey, E: ElectionConfig&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;KEY, E&gt; {

@@ -138,8 +138,6 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -154,7 +152,7 @@
 <span class="kw">use crate</span>::{
     data::Leaf,
     simple_vote::{
-        DAData, QuorumData, TimeoutData, VIDData, ViewSyncCommitData, ViewSyncFinalizeData,
+        DAData, QuorumData, TimeoutData, ViewSyncCommitData, ViewSyncFinalizeData,
         ViewSyncPreCommitData, Voteable,
     },
     traits::{
@@ -270,8 +268,6 @@
 </span><span class="kw">pub type </span>DACertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, DAData&gt;;
 <span class="doccomment">/// Type alias for a Timeout certificate over a view number
 </span><span class="kw">pub type </span>TimeoutCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, TimeoutData&lt;TYPES&gt;&gt;;
-<span class="doccomment">/// type alias for a VID certificate
-</span><span class="kw">pub type </span>VIDCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, VIDData&gt;;
 
 <span class="comment">// TODO ED Update this to use the correct threshold instead of the default `success_threshold`
 </span><span class="doccomment">/// Type alias for a `ViewSyncPreCommit` certificate over a view number

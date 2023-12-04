@@ -264,13 +264,23 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
     txn_task::TxnTask,
 };
 <span class="kw">use crate</span>::{
-    spinning_task::UpDown,
+    spinning_task::{ChangeNode, UpDown},
     test_launcher::{Networks, TestLauncher},
 };
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
@@ -282,7 +292,7 @@
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    traits::{election::Membership, node_implementation::NodeType},
+    traits::{election::Membership, node_implementation::NodeType, state::ConsensusTime},
     HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>std::{
@@ -375,10 +385,20 @@
         task_runner = task_runner.add_task(id, <span class="string">&quot;Test Completion Task&quot;</span>.to_string(), task);
 
         <span class="comment">// add spinning task
-        </span><span class="kw">let </span>spinning_task_state = <span class="kw">crate</span>::spinning_task::SpinningTask {
+        // map spinning to view
+        </span><span class="kw">let </span><span class="kw-2">mut </span>changes: HashMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt; = HashMap::new();
+        <span class="kw">for </span>(view, <span class="kw-2">mut </span>change) <span class="kw">in </span>spinning_changes {
+            changes
+                .entry(TYPES::Time::new(view))
+                .or_insert_with(Vec::new)
+                .append(<span class="kw-2">&amp;mut </span>change);
+        }
+
+        <span class="kw">let </span>spinning_task_state = <span class="kw">crate</span>::spinning_task::SpinningTask {
             handles: nodes.clone(),
             late_start,
-            changes: spinning_changes.into_iter().map(|(<span class="kw">_</span>, b)| b).collect(),
+            latest_view: <span class="prelude-val">None</span>,
+            changes,
         };
 
         <span class="kw">let </span>(id, task) = (launcher.spinning_task_generator)(

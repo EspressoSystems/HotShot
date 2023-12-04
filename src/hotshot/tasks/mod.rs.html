@@ -513,6 +513,7 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{async_spawn, types::SystemContextHandle, HotShotConsensusApi};
@@ -732,11 +733,12 @@
         api: c_api.clone(),
         _pd: PhantomData,
         vote_collector: <span class="prelude-val">None</span>,
+        timeout_vote_collector: <span class="prelude-val">None</span>,
         timeout_task: async_spawn(<span class="kw">async move </span>{}),
         event_stream: event_stream.clone(),
         output_event_stream: output_stream,
         da_certs: HashMap::new(),
-        vid_certs: HashMap::new(),
+        vid_shares: HashMap::new(),
         current_proposal: <span class="prelude-val">None</span>,
         id: handle.hotshot.inner.id,
         public_key: c_api.public_key().clone(),

@@ -11,9 +11,9 @@ var srcIndex = JSON.parse('{\
 "hotshot_stake_table":["",[["mt_based",[],["config.rs","internal.rs"]],["vec_based",[],["config.rs"]]],["config.rs","lib.rs","mt_based.rs","utils.rs","vec_based.rs"]],\
 "hotshot_state_prover":["",[],["circuit.rs","lib.rs"]],\
 "hotshot_task":["",[],["event_stream.rs","global_registry.rs","lib.rs","task.rs","task_impls.rs","task_launcher.rs","task_state.rs"]],\
-"hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","lib.rs","network.rs","transactions.rs","vid.rs","view_sync.rs"]],\
+"hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","lib.rs","network.rs","transactions.rs","vid.rs","view_sync.rs","vote.rs"]],\
 "hotshot_testing":["",[],["completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","task_helpers.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs"]],\
-"hotshot_types":["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["block_impl.rs","consensus.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","simple_certificate.rs","simple_vote.rs","traits.rs","utils.rs","vote.rs"]],\
+"hotshot_types":["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","state.rs","storage.rs"]]],["block_impl.rs","consensus.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","simple_certificate.rs","simple_vote.rs","traits.rs","utils.rs","vote.rs"]],\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "hotshot_web_server":["",[],["config.rs","lib.rs"]],\
 "libp2p_networking":["",[["network",[["behaviours",[["dht",[],["cache.rs","mod.rs"]]],["direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\

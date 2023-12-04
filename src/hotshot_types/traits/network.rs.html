@@ -610,18 +610,6 @@
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -766,8 +754,6 @@
 </span><span class="kw">pub enum </span>ConsensusIntentEvent&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// Poll for votes for a particular view
     </span>PollForVotes(u64),
-    <span class="doccomment">/// Poll for VID votes for a particular view
-    </span>PollForVIDVotes(u64),
     <span class="doccomment">/// Poll for a proposal for a particular view
     </span>PollForProposal(u64),
     <span class="doccomment">/// Poll for VID disperse data for a particular view
@@ -776,8 +762,6 @@
     </span>PollForCurrentProposal,
     <span class="doccomment">/// Poll for a DAC for a particular view
     </span>PollForDAC(u64),
-    <span class="doccomment">/// Poll for a VID certificate for a certain view
-    </span>PollForVIDCertificate(u64),
     <span class="doccomment">/// Poll for view sync votes starting at a particular view
     </span>PollForViewSyncVotes(u64),
     <span class="doccomment">/// Poll for view sync proposals (certificates) for a particular view
@@ -788,16 +772,12 @@
     </span>PollFutureLeader(u64, K),
     <span class="doccomment">/// Cancel polling for votes
     </span>CancelPollForVotes(u64),
-    <span class="doccomment">/// Cancel polling for VID votes for a particular view
-    </span>CancelPollForVIDVotes(u64),
     <span class="doccomment">/// Cancel polling for view sync votes.
     </span>CancelPollForViewSyncVotes(u64),
     <span class="doccomment">/// Cancel polling for proposals.
     </span>CancelPollForProposal(u64),
     <span class="doccomment">/// Cancal polling for DAC.
     </span>CancelPollForDAC(u64),
-    <span class="doccomment">/// Cancel polling for VID certificate
-    </span>CancelPollForVIDCertificate(u64),
     <span class="doccomment">/// Cancel polling for view sync certificate.
     </span>CancelPollForViewSyncCertificate(u64),
     <span class="doccomment">/// Cancel polling for VID disperse data
@@ -818,13 +798,9 @@
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForVotes(view_number)
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
-            | ConsensusIntentEvent::PollForVIDCertificate(view_number)
-            | ConsensusIntentEvent::PollForVIDVotes(view_number)
             | ConsensusIntentEvent::PollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
-            | ConsensusIntentEvent::CancelPollForVIDCertificate(view_number)
-            | ConsensusIntentEvent::CancelPollForVIDVotes(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForTransactions(view_number)

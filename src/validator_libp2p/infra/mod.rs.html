@@ -915,44 +915,6 @@
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_lock::RwLock;
@@ -1008,23 +970,12 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>std::{collections::BTreeSet, sync::Arc};
 <span class="kw">use </span>std::{num::NonZeroUsize, str::FromStr};
+<span class="kw">use </span>surf_disco::Url;
 
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="comment">// use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-</span><span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::{
-    <span class="comment">//collections::{BTreeSet, VecDeque},
-    </span>fs,
-    net::IpAddr,
-    <span class="comment">//num::NonZeroUsize,
-    //str::FromStr,
-    //sync::Arc,
-    //time::{Duration, Instant},
-    </span>time::Instant,
-};
-<span class="comment">//use surf_disco::error::ClientError;
-//use surf_disco::Client;
-</span><span class="kw">use </span>tracing::{error, info, warn};
+<span class="kw">use </span>std::fmt::Debug;
+<span class="kw">use </span>std::{fs, time::Instant};
+<span class="kw">use </span>tracing::{error, info, warn};
 
 <span class="attr">#[derive(Parser, Debug, Clone)]
 #[command(
@@ -1033,10 +984,8 @@
 </span>)]
 </span><span class="doccomment">/// Arguments passed to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorArgs {
-    <span class="doccomment">/// The address the orchestrator runs on
-    </span><span class="kw">pub </span>host: IpAddr,
-    <span class="doccomment">/// The port the orchestrator runs on
-    </span><span class="kw">pub </span>port: u16,
+    <span class="doccomment">/// The url the orchestrator runs on; this should be in the form of `http://localhost:5555` or `http://0.0.0.0:5555`
+    </span><span class="kw">pub </span>url: Url,
     <span class="doccomment">/// The configuration file to be used for this run
     </span><span class="kw">pub </span>config_file: String,
 }
@@ -1092,18 +1041,14 @@
     VIDCHANNEL: CommunicationChannel&lt;TYPES&gt; + Debug,
     NODE: NodeImplementation&lt;TYPES, Storage = MemoryStorage&lt;TYPES&gt;&gt;,
 &gt;(
-    OrchestratorArgs {
-        host,
-        port,
-        config_file,
-    }: OrchestratorArgs,
+    OrchestratorArgs { url, config_file }: OrchestratorArgs,
 ) {
     <span class="macro">error!</span>(<span class="string">&quot;Starting orchestrator&quot;</span>,);
     <span class="kw">let </span>run_config = load_config_from_file::&lt;TYPES&gt;(config_file);
     <span class="kw">let </span>_result = hotshot_orchestrator::run_orchestrator::&lt;
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
-    &gt;(run_config, host, port)
+    &gt;(run_config, url)
     .<span class="kw">await</span>;
 }
 
@@ -1124,18 +1069,11 @@
 ) -&gt; WebServerNetwork&lt;TYPES&gt; {
     <span class="comment">// Get the configuration for the web server
     </span><span class="kw">let </span>WebServerConfig {
-        host,
-        port,
+        url,
         wait_between_polls,
     }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-    WebServerNetwork::create(
-        <span class="kw-2">&amp;</span>host.to_string(),
-        port,
-        wait_between_polls,
-        pub_key.clone(),
-        <span class="bool-val">false</span>,
-    )
+    WebServerNetwork::create(url, wait_between_polls, pub_key.clone(), <span class="bool-val">false</span>)
 }
 
 <span class="kw">async fn </span>libp2p_network_from_config&lt;TYPES: NodeType&gt;(
@@ -1505,8 +1443,7 @@
 
         <span class="comment">// extract values from config (for DA network)
         </span><span class="kw">let </span>WebServerConfig {
-            host,
-            port,
+            url,
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
@@ -1524,19 +1461,11 @@
             WebCommChannel::new(underlying_quorum_network.into());
 
         <span class="kw">let </span>da_channel: WebCommChannel&lt;TYPES&gt; = WebCommChannel::new(
-            WebServerNetwork::create(
-                <span class="kw-2">&amp;</span>host.to_string(),
-                port,
-                wait_between_polls,
-                pub_key.clone(),
-                <span class="bool-val">true</span>,
-            )
-            .into(),
+            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), <span class="bool-val">true</span>).into(),
         );
 
         <span class="kw">let </span>vid_channel: WebCommChannel&lt;TYPES&gt; = WebCommChannel::new(
-            WebServerNetwork::create(<span class="kw-2">&amp;</span>host.to_string(), port, wait_between_polls, pub_key, <span class="bool-val">true</span>)
-                .into(),
+            WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">true</span>).into(),
         );
 
         WebServerDARun {
@@ -1719,8 +1648,7 @@
 
         <span class="comment">// extract values from config (for webserver DA network)
         </span><span class="kw">let </span>WebServerConfig {
-            host,
-            port,
+            url,
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
@@ -1729,7 +1657,7 @@
             webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone()).<span class="kw">await</span>;
 
         <span class="kw">let </span>webserver_underlying_da_network =
-            WebServerNetwork::create(<span class="kw-2">&amp;</span>host.to_string(), port, wait_between_polls, pub_key, <span class="bool-val">true</span>);
+            WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">true</span>);
 
         webserver_underlying_quorum_network.wait_for_ready().<span class="kw">await</span>;
 
@@ -1839,16 +1767,12 @@
 
     run_config.node_index = node_index.into();
 
-    <span class="kw">let </span>(public_key, private_key) =
-        &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed(
+    run_config.config.my_own_validator_config =
+        ValidatorConfig::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;::generated_from_seed_indexed(
             run_config.seed,
             node_index.into(),
+            <span class="number">1</span>,
         );
-    run_config.config.my_own_validator_config = ValidatorConfig {
-        public_key,
-        private_key,
-        stake_value: <span class="number">1</span>,
-    };
     <span class="comment">//run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
     </span><span class="macro">error!</span>(<span class="string">&quot;Initializing networking&quot;</span>);

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BLSVerKey"],"type":["FieldType","SchnorrVerKey"]};
+window.SIDEBAR_ITEMS = {"struct":["QCVerKey"],"type":["FieldType","StateVerKey"]};

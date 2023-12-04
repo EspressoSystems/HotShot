@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["vote_handle"],"struct":["ConsensusTaskError","ConsensusTaskSnafu","DATaskState","DAVoteCollectionTaskState"],"type":["DATaskTypes","DAVoteCollectionTypes"]};
+window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","DATaskState"],"type":["DATaskTypes"]};

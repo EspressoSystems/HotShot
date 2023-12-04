@@ -254,7 +254,6 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
 <span class="kw">pub mod </span>config;
 
@@ -267,7 +266,7 @@
 };
 <span class="kw">use </span>tide_disco::{Api, App};
 
-<span class="kw">use </span>surf_disco::error::ClientError;
+<span class="kw">use </span>surf_disco::{error::ClientError, Url};
 <span class="kw">use </span>tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -494,8 +493,7 @@
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY, ELECTION&gt;(
     network_config: NetworkConfig&lt;KEY, ELECTION&gt;,
-    host: IpAddr,
-    port: u16,
+    url: Url,
 ) -&gt; io::Result&lt;()&gt;
 <span class="kw">where
     </span>KEY: SignatureKey + <span class="lifetime">&#39;static </span>+ serde::Serialize,
@@ -509,7 +507,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
-    <span class="macro">tracing::error!</span>(<span class="string">&quot;lisening on {:?}:{:?}&quot;</span>, host, port);
-    app.serve(<span class="macro">format!</span>(<span class="string">&quot;http://{host}:{port}&quot;</span>)).<span class="kw">await
+    <span class="macro">tracing::error!</span>(<span class="string">&quot;listening on {:?}&quot;</span>, url);
+    app.serve(url).<span class="kw">await
 </span>}
 </code></pre></div></section></main></body></html>

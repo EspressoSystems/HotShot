@@ -58,13 +58,13 @@
 };
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::demo::DemoTypes;
+<span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
 
 <span class="attr">#[derive(Parser, Debug)]
 </span><span class="kw">struct </span>MultiWebServerArgs {
-    cdn_port: u16,
-    da_port: u16,
-    view_sync_port: u16,
+    consensus_url: Url,
+    da_url: Url,
 }
 
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">&quot;tokio&quot;</span>, tokio::main)]
@@ -79,10 +79,10 @@
     <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender_cdn);
     <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender_da);
 
-    <span class="kw">let </span>cdn_server = async_spawn(<span class="kw">async move </span>{
+    <span class="kw">let </span>consensus_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;DemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_cdn), args.cdn_port)
+        &gt;(<span class="prelude-val">Some</span>(server_shutdown_cdn), args.consensus_url)
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Problem starting cdn web server: {:?}&quot;</span>, e);
@@ -91,13 +91,13 @@
     <span class="kw">let </span>da_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;DemoTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_da), args.da_port)
+        &gt;(<span class="prelude-val">Some</span>(server_shutdown_da), args.da_url)
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Problem starting da web server: {:?}&quot;</span>, e);
         }
     });
 
-    <span class="kw">let </span>_result = futures::future::join_all(<span class="macro">vec!</span>[cdn_server, da_server]).<span class="kw">await</span>;
+    <span class="kw">let </span>_result = futures::future::join_all(<span class="macro">vec!</span>[consensus_server, da_server]).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

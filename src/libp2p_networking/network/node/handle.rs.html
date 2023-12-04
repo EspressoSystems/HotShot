@@ -998,9 +998,9 @@
         </span><span class="kw">let </span>pid = <span class="self">self</span>.get_record_timeout::&lt;PeerId&gt;(<span class="kw-2">&amp;</span>key, dht_timeout).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// pid lookup for routing
-        </span><span class="self">self</span>.lookup_pid(pid).<span class="kw">await</span><span class="question-mark">?</span>;
+        // self.lookup_pid(pid).await?;
 
-        <span class="prelude-val">Ok</span>(pid)
+        </span><span class="prelude-val">Ok</span>(pid)
     }
 
     <span class="doccomment">/// Insert a record into the kademlia DHT

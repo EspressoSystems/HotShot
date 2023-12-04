@@ -267,8 +267,6 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! SNARK-assisted light client state update verification in HotShot
 
 /// State verifier circuit builder
@@ -278,15 +276,16 @@
 </span><span class="kw">mod </span>utils;
 
 <span class="kw">use </span>ark_bn254::Bn254;
+<span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig;
 <span class="kw">use </span>ark_std::{
     borrow::Borrow,
     rand::{CryptoRng, RngCore},
 };
 <span class="kw">use </span>circuit::PublicInput;
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>hotshot_types::traits::{
-    stake_table::{SnapshotVersion, StakeTableScheme},
-    state::LightClientState,
+<span class="kw">use </span>hotshot_types::{
+    light_client::{LightClientState, StateVerKey},
+    traits::stake_table::{SnapshotVersion, StakeTableScheme},
 };
 <span class="kw">use </span>jf_plonk::{
     errors::PlonkError,
@@ -296,9 +295,7 @@
 <span class="kw">use </span>jf_primitives::signatures::schnorr::Signature;
 
 <span class="doccomment">/// BLS verification key, base field and Schnorr verification key
-</span><span class="kw">pub use </span>hotshot_stake_table::vec_based::config::{
-    BLSVerKey, FieldType <span class="kw">as </span>BaseField, SchnorrVerKey,
-};
+</span><span class="kw">pub use </span>hotshot_stake_table::vec_based::config::{FieldType <span class="kw">as </span>BaseField, QCVerKey};
 <span class="doccomment">/// Proving key
 </span><span class="kw">pub type </span>ProvingKey = jf_plonk::proof_system::structs::ProvingKey&lt;Bn254&gt;;
 <span class="doccomment">/// Verifying key
@@ -307,8 +304,6 @@
 </span><span class="kw">pub type </span>Proof = jf_plonk::proof_system::structs::Proof&lt;Bn254&gt;;
 <span class="doccomment">/// Universal SRS
 </span><span class="kw">pub type </span>UniversalSrs = jf_plonk::proof_system::structs::UniversalSrs&lt;Bn254&gt;;
-<span class="doccomment">/// Curve config for Schnorr signatures
-</span><span class="kw">pub use </span>ark_ed_on_bn254::EdwardsConfig;
 
 <span class="doccomment">/// Given a SRS, returns the proving key and verifying key for state update
 </span><span class="kw">pub fn </span>preprocess(srs: <span class="kw-2">&amp;</span>UniversalSrs) -&gt; <span class="prelude-ty">Result</span>&lt;(ProvingKey, VerifyingKey), PlonkError&gt; {
@@ -336,7 +331,7 @@
     threshold: <span class="kw-2">&amp;</span>U256,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof, PublicInput&lt;BaseField&gt;), PlonkError&gt;
 <span class="kw">where
-    </span>ST: StakeTableScheme&lt;Key = BLSVerKey, Amount = U256, Aux = SchnorrVerKey&gt;,
+    </span>ST: StakeTableScheme&lt;Key = QCVerKey, Amount = U256, Aux = StateVerKey&gt;,
     ST::IntoIter: ExactSizeIterator,
     R: CryptoRng + RngCore,
     BitIter: IntoIterator,
@@ -376,9 +371,9 @@
         One,
     };
     <span class="kw">use </span>ethereum_types::U256;
-    <span class="kw">use </span>hotshot_types::traits::{
-        stake_table::{SnapshotVersion, StakeTableScheme},
-        state::LightClientState,
+    <span class="kw">use </span>hotshot_types::{
+        light_client::LightClientState,
+        traits::stake_table::{SnapshotVersion, StakeTableScheme},
     };
     <span class="kw">use </span>jf_plonk::{
         proof_system::{PlonkKzgSnark, UniversalSNARK},
@@ -440,6 +435,7 @@
             powers_of_g,
             h,
             beta_h,
+            powers_of_h: <span class="macro">vec!</span>[h, beta_h],
         };
         <span class="macro">end_timer!</span>(setup_time);
         <span class="prelude-val">Ok</span>(pp)

@@ -41,17 +41,17 @@
 <span class="kw">use </span>ark_std::vec;
 <span class="kw">use </span>jf_utils::to_bytes;
 
-<span class="doccomment">/// BLS verification key as indexing key
-</span><span class="kw">pub use </span>jf_primitives::signatures::bls_over_bn254::VerKey <span class="kw">as </span>BLSVerKey;
 <span class="doccomment">/// Schnorr verification key as auxiliary information
-</span><span class="kw">pub type </span>SchnorrVerKey = jf_primitives::signatures::schnorr::VerKey&lt;ark_ed_on_bn254::EdwardsConfig&gt;;
+</span><span class="kw">pub use </span>hotshot_types::light_client::StateVerKey;
+<span class="doccomment">/// BLS verification key as indexing key
+</span><span class="kw">pub use </span>jf_primitives::signatures::bls_over_bn254::VerKey <span class="kw">as </span>QCVerKey;
 <span class="doccomment">/// Type for commitment
 </span><span class="kw">pub type </span>FieldType = ark_ed_on_bn254::Fq;
 
 <span class="doccomment">/// Hashable representation of a key
 /// NOTE: commitment is only used in light client contract.
 /// For this application, we needs only hash the Schnorr verfication key.
-</span><span class="kw">impl </span>ToFields&lt;FieldType&gt; <span class="kw">for </span>SchnorrVerKey {
+</span><span class="kw">impl </span>ToFields&lt;FieldType&gt; <span class="kw">for </span>StateVerKey {
     <span class="kw">const </span>SIZE: usize = <span class="number">2</span>;
 
     <span class="kw">fn </span>to_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;FieldType&gt; {
@@ -60,7 +60,7 @@
     }
 }
 
-<span class="kw">impl </span>ToFields&lt;FieldType&gt; <span class="kw">for </span>BLSVerKey {
+<span class="kw">impl </span>ToFields&lt;FieldType&gt; <span class="kw">for </span>QCVerKey {
     <span class="kw">const </span>SIZE: usize = <span class="number">2</span>;
 
     <span class="kw">fn </span>to_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;FieldType&gt; {
