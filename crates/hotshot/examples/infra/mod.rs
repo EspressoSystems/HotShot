@@ -52,6 +52,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 use std::{collections::BTreeSet, sync::Arc};
 use std::{num::NonZeroUsize, str::FromStr};
+use surf_disco::Url;
 
 use libp2p_identity::PeerId;
 use std::fmt::Debug;
@@ -65,10 +66,8 @@ use tracing::{error, info, warn};
 )]
 /// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
-    /// The url the orchestrator runs on; this should be in the form of `http://localhost` or `http://0.0.0.0`
-    pub url: String,
-    /// The port the orchestrator runs on
-    pub port: u16,
+    /// The url the orchestrator runs on; this should be in the form of `http://localhost:5555` or `http://0.0.0.0:5555`
+    pub url: Url,
     /// The configuration file to be used for this run
     pub config_file: String,
 }
@@ -124,18 +123,14 @@ pub async fn run_orchestrator<
     VIDCHANNEL: CommunicationChannel<TYPES> + Debug,
     NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
 >(
-    OrchestratorArgs {
-        url,
-        port,
-        config_file,
-    }: OrchestratorArgs,
+    OrchestratorArgs { url, config_file }: OrchestratorArgs,
 ) {
     error!("Starting orchestrator",);
     let run_config = load_config_from_file::<TYPES>(config_file);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
-    >(run_config, url, port)
+    >(run_config, url)
     .await;
 }
 
@@ -157,11 +152,10 @@ async fn webserver_network_from_config<TYPES: NodeType>(
     // Get the configuration for the web server
     let WebServerConfig {
         url,
-        port,
         wait_between_polls,
     }: WebServerConfig = config.clone().web_server_config.unwrap();
 
-    WebServerNetwork::create(&url, port, wait_between_polls, pub_key.clone(), false)
+    WebServerNetwork::create(url, wait_between_polls, pub_key.clone(), false)
 }
 
 async fn libp2p_network_from_config<TYPES: NodeType>(
@@ -532,7 +526,6 @@ where
         // extract values from config (for DA network)
         let WebServerConfig {
             url,
-            port,
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
@@ -550,11 +543,11 @@ where
             WebCommChannel::new(underlying_quorum_network.into());
 
         let da_channel: WebCommChannel<TYPES> = WebCommChannel::new(
-            WebServerNetwork::create(&url, port, wait_between_polls, pub_key.clone(), true).into(),
+            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true).into(),
         );
 
         let vid_channel: WebCommChannel<TYPES> = WebCommChannel::new(
-            WebServerNetwork::create(&url, port, wait_between_polls, pub_key, true).into(),
+            WebServerNetwork::create(url, wait_between_polls, pub_key, true).into(),
         );
 
         WebServerDARun {
@@ -738,7 +731,6 @@ where
         // extract values from config (for webserver DA network)
         let WebServerConfig {
             url,
-            port,
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
@@ -747,7 +739,7 @@ where
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
 
         let webserver_underlying_da_network =
-            WebServerNetwork::create(&url, port, wait_between_polls, pub_key, true);
+            WebServerNetwork::create(url, wait_between_polls, pub_key, true);
 
         webserver_underlying_quorum_network.wait_for_ready().await;
 
