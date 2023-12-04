@@ -1,4 +1,4 @@
-name: Crypto tests
+name: Crypto Tests
 
 on:
   push:
@@ -48,3 +48,4 @@ jobs:
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
+
