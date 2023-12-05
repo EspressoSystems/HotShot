@@ -1,11 +1,7 @@
-use bincode::config::Options;
 use hotshot_types::{
-    traits::{
-        election::ElectionConfig, node_implementation::NodeType, signature_key::SignatureKey,
-    },
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
 };
-use hotshot_utils::bincode::bincode_opts;
 use std::fs;
 use std::{
     env,
@@ -16,7 +12,7 @@ use std::{
 };
 use surf_disco::Url;
 use toml;
-use tracing::{error, warn};
+use tracing::error;
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
@@ -102,54 +98,6 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
         }
-    }
-}
-#[allow(clippy::type_complexity)]
-pub fn load_index_and_config_from_file<TYPES>(
-    file: String,
-) -> Option<(
-    u16,
-    NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-)>
-where
-    TYPES: NodeType,
-{
-    let data = match fs::read(file) {
-        Ok(data) => data,
-        Err(e) => {
-            error!("Failed to load index and config from file: {}", e);
-            None?
-        }
-    };
-
-    match bincode::deserialize(&data) {
-        Ok(data) => Some(data),
-        Err(e) => {
-            error!("Failed to deserialize index and config from file: {}", e);
-            None
-        }
-    }
-}
-
-pub fn save_index_and_config_to_file<TYPES>(
-    node_index: u16,
-    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    file: String,
-) where
-    TYPES: NodeType,
-{
-    // serialize
-    let serialized = match bincode::serialize(&(node_index, config)) {
-        Ok(data) => data,
-        Err(e) => {
-            error!("Failed to serialize index and config to file: {}", e);
-            return;
-        }
-    };
-
-    // write
-    if let Err(e) = fs::write(file, serialized) {
-        warn!("Failed to write index and config to file: {}", e);
     }
 }
 
