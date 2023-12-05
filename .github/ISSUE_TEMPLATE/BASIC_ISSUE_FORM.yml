@@ -51,6 +51,13 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: branch
+    attributes:
+      label: Branch work will be merged to (if not the default branch)
+    validations:
+      required: false
+
   - type: markdown
     attributes:
       value: |
