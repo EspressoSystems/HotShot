@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
+    block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
     test_builder::TestMetadata,
 };
@@ -12,7 +13,6 @@ use hotshot::{
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload},
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
     message::Proposal,
@@ -125,7 +125,7 @@ async fn build_quorum_proposal_and_signature(
     let parent_leaf = leaf.clone();
 
     // every event input is seen on the event stream in the output.
-    let block = <VIDBlockPayload as TestableBlock>::genesis();
+    let block = <TestBlockPayload as TestableBlock>::genesis();
     let payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
         handle
@@ -135,7 +135,7 @@ async fn build_quorum_proposal_and_signature(
             .quorum_membership
             .total_nodes(),
     );
-    let block_header = VIDBlockHeader::new(payload_commitment, (), &parent_leaf.block_header);
+    let block_header = TestBlockHeader::new(payload_commitment, (), &parent_leaf.block_header);
     let leaf = Leaf {
         view_number: ViewNumber::new(view),
         justify_qc: consensus.high_qc.clone(),

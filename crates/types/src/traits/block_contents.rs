@@ -60,7 +60,7 @@ pub trait BlockPayload:
         num_storage_nodes: usize,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
-    /// Build a payload with the encoded transaction bytes, metadata, 
+    /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
     ///
     /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.

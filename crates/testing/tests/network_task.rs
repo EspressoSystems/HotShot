@@ -19,8 +19,8 @@ use std::{collections::HashMap, marker::PhantomData};
 #[ignore]
 async fn test_network_task() {
     use hotshot_task_impls::harness::run_harness;
-    use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::{block_impl::VIDTransaction, data::VidDisperse, message::Proposal};
+    use hotshot_testing::{block_types::TestTransaction, task_helpers::build_system_handle};
+    use hotshot_types::{data::VidDisperse, message::Proposal};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -32,14 +32,12 @@ async fn test_network_task() {
     };
     let pub_key = *api.public_key();
     let priv_key = api.private_key();
-
     // quorum membership for VID share distribution
     let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
 
     let vid = vid_init::<TestTypes>(quorum_membership.clone(), ViewNumber::new(0));
-
-    let transactions = vec![VIDTransaction(vec![0])];
-    let encoded_transactions = VIDTransaction::encode(transactions.clone()).unwrap();
+    let transactions = vec![TestTransaction(vec![0])];
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
     let signature =
