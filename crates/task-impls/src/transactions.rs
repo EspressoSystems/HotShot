@@ -210,7 +210,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // <https://github.com/EspressoSystems/HotShot/issues/1822>
                 let txns = self.wait_for_transactions(parent_leaf).await?;
                 let (payload, metadata) =
-                    match <TYPES::BlockPayload as BlockPayload>::from_transactions(txns) {
+                    match <TYPES::BlockPayload as BlockPayload>::from_transactions(
+                        txns,
+                        self.membership.total_nodes(),
+                    ) {
                         Ok((payload, metadata)) => (payload, metadata),
                         Err(e) => {
                             error!("Failed to build the block payload: {:?}.", e);

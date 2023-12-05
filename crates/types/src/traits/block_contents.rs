@@ -57,12 +57,18 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        num_storage_nodes: usize,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
-    /// Build a payload with the encoded transaction bytes and metadata.
+    /// Build a payload with the encoded transaction bytes, metadata, 
+    /// and the associated number of VID storage nodes
     ///
     /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    fn from_bytes<I>(encoded_transactions: I, metadata: Self::Metadata) -> Self
+    fn from_bytes<I>(
+        encoded_transactions: I,
+        metadata: Self::Metadata,
+        num_storage_nodes: usize,
+    ) -> Self
     where
         I: Iterator<Item = u8>;
 
@@ -83,13 +89,16 @@ pub trait BlockPayload:
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
-pub fn vid_commitment(encoded_transactions: &Vec<u8>) -> <VidScheme as VidSchemeTrait>::Commit {
+pub fn vid_commitment(
+    encoded_transactions: &Vec<u8>,
+    num_storage_nodes: usize,
+) -> <VidScheme as VidSchemeTrait>::Commit {
+    let num_chunks = 1 << num_storage_nodes.ilog2();
+
     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-    let srs = test_srs(NUM_STORAGE_NODES);
-    // TODO We are using constant numbers for now, but they will change as the quorum size
-    // changes.
-    // TODO <https://github.com/EspressoSystems/HotShot/issues/1693>
-    let vid = VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, srs).unwrap();
+    let srs = test_srs(num_storage_nodes);
+
+    let vid = VidScheme::new(num_chunks, num_storage_nodes, srs).unwrap();
     vid.commit_only(encoded_transactions).unwrap()
 }
 

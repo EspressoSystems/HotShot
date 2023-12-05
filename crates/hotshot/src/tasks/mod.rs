@@ -23,6 +23,7 @@ use hotshot_task_impls::{
     vid::{VIDTaskState, VIDTaskTypes},
     view_sync::{ViewSyncTaskState, ViewSyncTaskStateTypes},
 };
+use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     event::Event,
     message::Messages,
@@ -206,7 +207,15 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let registry = task_runner.registry.clone();
     let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
     // Impossible for `unwrap` to fail on the genesis payload.
-    let payload_commitment = vid_commitment(&payload.encode().unwrap().collect());
+    let payload_commitment = vid_commitment(
+        &payload.encode().unwrap().collect(),
+        handle
+            .hotshot
+            .inner
+            .memberships
+            .quorum_membership
+            .total_nodes(),
+    );
     // build the consensus task
     let consensus_state = ConsensusTaskState {
         registry: registry.clone(),
@@ -352,6 +361,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
         da_membership: c_api.inner.memberships.da_membership.clone().into(),
+        quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         da_network: c_api.inner.networks.da_network.clone().into(),
         cur_view: TYPES::Time::new(0),
         vote_collector: None,

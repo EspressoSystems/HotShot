@@ -403,6 +403,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn fill_block_payload(
         &mut self,
         block_payload: TYPES::BlockPayload,
+        num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
         let encoded_txns = match block_payload.encode() {
             // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
@@ -410,7 +411,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             Ok(encoded) => encoded.into_iter().collect(),
             Err(_) => return Err(BlockError::InvalidTransactionLength),
         };
-        let commitment = vid_commitment(&encoded_txns);
+        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }

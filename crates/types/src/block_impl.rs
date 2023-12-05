@@ -9,7 +9,7 @@ use std::{
 use crate::{
     data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
+        block_contents::{vid_commitment, BlockHeader, Transaction, NUM_STORAGE_NODES},
         state::TestableBlock,
         BlockPayload,
     },
@@ -86,7 +86,7 @@ impl VIDBlockPayload {
         let encoded = VIDTransaction::encode(vec![VIDTransaction(txns.clone())]).unwrap();
         VIDBlockPayload {
             transactions: vec![VIDTransaction(txns)],
-            payload_commitment: vid_commitment(&encoded),
+            payload_commitment: vid_commitment(&encoded, NUM_STORAGE_NODES),
         }
     }
 }
@@ -115,19 +115,24 @@ impl BlockPayload for VIDBlockPayload {
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        num_storage_nodes: usize,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<VIDTransaction> = transactions.into_iter().collect();
         let encoded = VIDTransaction::encode(txns_vec.clone())?;
         Ok((
             Self {
                 transactions: txns_vec,
-                payload_commitment: vid_commitment(&encoded),
+                payload_commitment: vid_commitment(&encoded, num_storage_nodes),
             },
             (),
         ))
     }
 
-    fn from_bytes<E>(encoded_transactions: E, _metadata: Self::Metadata) -> Self
+    fn from_bytes<E>(
+        encoded_transactions: E,
+        _metadata: Self::Metadata,
+        num_storage_nodes: usize,
+    ) -> Self
     where
         E: Iterator<Item = u8>,
     {
@@ -151,7 +156,7 @@ impl BlockPayload for VIDBlockPayload {
 
         Self {
             transactions,
-            payload_commitment: vid_commitment(&encoded_vec),
+            payload_commitment: vid_commitment(&encoded_vec, num_storage_nodes),
         }
     }
 

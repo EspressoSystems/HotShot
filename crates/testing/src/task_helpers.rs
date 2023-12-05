@@ -126,7 +126,15 @@ async fn build_quorum_proposal_and_signature(
 
     // every event input is seen on the event stream in the output.
     let block = <VIDBlockPayload as TestableBlock>::genesis();
-    let payload_commitment = vid_commitment(&block.encode().unwrap().collect());
+    let payload_commitment = vid_commitment(
+        &block.encode().unwrap().collect(),
+        handle
+            .hotshot
+            .inner
+            .memberships
+            .quorum_membership
+            .total_nodes(),
+    );
     let block_header = VIDBlockHeader::new(payload_commitment, (), &parent_leaf.block_header);
     let leaf = Leaf {
         view_number: ViewNumber::new(view),
