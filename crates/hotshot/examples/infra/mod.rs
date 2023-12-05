@@ -16,6 +16,9 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     HotShotType, Memberships, Networks, SystemContext,
 };
+use hotshot_orchestrator::config::{
+    load_index_and_config_from_file, save_index_and_config_to_file,
+};
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
@@ -837,15 +840,38 @@ pub async fn main_entry_point<
         "Identifying with orchestrator using IP address {}",
         public_ip.to_string()
     );
-    let node_index: u16 = orchestrator_client
-        .identify_with_orchestrator(public_ip.to_string())
-        .await;
-    error!("Finished identifying; our node index is {node_index}");
-    error!("Getting config from orchestrator");
 
-    let mut run_config = orchestrator_client
-        .get_config_from_orchestrator::<TYPES>(node_index)
-        .await;
+    // conditionally save/load config from file
+    let (node_index, mut run_config) = if let Some(file) = args.config_file {
+        // load from file, if fail load from orchestrator and save
+        match load_index_and_config_from_file::<TYPES>(file.clone()) {
+            Some(res) => {
+                error!("Loaded config from file");
+                res
+            }
+            None => {
+                error!("Loading config from orchestrator");
+                // load from orchestrator
+                let (node_index, run_config) = orchestrator_client
+                    .get_config_from_orchestrator::<TYPES>(public_ip.to_string())
+                    .await;
+
+                // save to file
+                save_index_and_config_to_file::<TYPES>(node_index, run_config.clone(), file);
+
+                (node_index, run_config)
+            }
+        }
+    } else {
+        // load from orchestrator
+        orchestrator_client
+            .get_config_from_orchestrator::<TYPES>(public_ip.to_string())
+            .await
+    };
+
+    error!(
+        "Finished identifying and getting config from orchestrator; our node index is {node_index}"
+    );
 
     run_config.node_index = node_index.into();
 

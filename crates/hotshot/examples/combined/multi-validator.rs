@@ -27,6 +27,10 @@ struct MultiValidatorArgs {
     /// This node's public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
     pub public_ip: Option<IpAddr>,
+    /// An optional network config file to save to/load from
+    /// Allows for rejoining the network on a complete state loss
+    #[arg(short, long)]
+    pub config_file: Option<String>,
 }
 
 #[cfg_attr(
@@ -45,8 +49,9 @@ async fn main() {
         args.port
     );
     let mut nodes = Vec::new();
-    for _ in 0..args.num_nodes {
-        let url: String = args.url.clone();
+
+    for node_index in 0..args.num_nodes {
+        let args = args.clone();
 
         let node = async_spawn(async move {
             infra::main_entry_point::<
@@ -58,9 +63,10 @@ async fn main() {
                 NodeImpl,
                 ThisRun,
             >(ValidatorArgs {
-                url,
+                url: args.url,
                 port: args.port,
                 public_ip: args.public_ip,
+                config_file: args.config_file.map(|s| format!("{}-{}", s, node_index)),
             })
             .await
         });

@@ -29,6 +29,10 @@ pub struct ValidatorArgs {
     /// This node's public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
     pub public_ip: Option<IpAddr>,
+    /// An optional network config file to save to/load from
+    /// Allows for rejoining the network on a complete state loss
+    #[arg(short, long)]
+    pub config_file: Option<String>,
 }
 
 impl OrchestratorClient {
@@ -40,11 +44,20 @@ impl OrchestratorClient {
         OrchestratorClient { client }
     }
 
-    /// Sends an identify message to the server
-    /// Returns this validator's node_index in the network
-    pub async fn identify_with_orchestrator(&self, identity: String) -> u16 {
+    /// Sends an identify message to the orchestrator and attempts to get its config
+    /// Returns both the node_index and the run configuration from the orchestrator
+    /// Will block until both are returned
+    #[allow(clippy::type_complexity)]
+    pub async fn get_config_from_orchestrator<TYPES: NodeType>(
+        &self,
+        identity: String,
+    ) -> (
+        u16,
+        NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) {
+        // get the node index
         let identity = identity.as_str();
-        let f = |client: Client<ClientError>| {
+        let identity = |client: Client<ClientError>| {
             async move {
                 let node_index: Result<u16, ClientError> = client
                     .post(&format!("api/identity/{identity}"))
@@ -54,17 +67,9 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        self.wait_for_fn_from_orchestrator(f).await
-    }
+        let node_index = self.wait_for_fn_from_orchestrator(identity).await;
 
-    /// Returns the run configuration from the orchestrator
-    /// Will block until the configuration is returned
-    #[allow(clippy::type_complexity)]
-
-    pub async fn get_config_from_orchestrator<TYPES: NodeType>(
-        &self,
-        node_index: u16,
-    ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        // get the corresponding config
         let f = |client: Client<ClientError>| {
             async move {
                 let config: Result<
@@ -78,7 +83,8 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        self.wait_for_fn_from_orchestrator(f).await
+
+        (node_index, self.wait_for_fn_from_orchestrator(f).await)
     }
 
     /// Tells the orchestrator this validator is ready to start
