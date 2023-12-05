@@ -20,7 +20,7 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         block_contents::{vid_commitment, NUM_CHUNKS, NUM_STORAGE_NODES},
-        consensus_api::ConsensusSharedApi,
+        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::NodeType,
         signature_key::EncodedSignature,

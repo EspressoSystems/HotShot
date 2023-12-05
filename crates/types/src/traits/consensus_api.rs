@@ -4,10 +4,8 @@ use crate::{
     data::Leaf,
     error::HotShotError,
     event::{Event, EventType},
-    message::{DataMessage, SequencingMessage},
     simple_certificate::QuorumCertificate,
     traits::{
-        network::NetworkError,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::StorageError,
@@ -17,10 +15,9 @@ use async_trait::async_trait;
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-/// The API that [`HotStuff`] needs to talk to the system, implemented for both validating and
-/// sequencing consensus.
+/// The API that [`HotStuff`] needs to talk to the system
 #[async_trait]
-pub trait ConsensusSharedApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sync {
+pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -113,44 +110,4 @@ pub trait ConsensusSharedApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Sen
         })
         .await;
     }
-}
-
-/// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
-#[async_trait]
-pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>:
-    ConsensusSharedApi<TYPES, I>
-{
-    /// Send a direct message to the given recipient
-    async fn send_direct_message(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// send a direct message using the DA communication channel
-    async fn send_direct_da_message(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a broadcast message to the entire network.
-    async fn send_broadcast_message(
-        &self,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a broadcast to the DA comitee, stub for now
-    async fn send_da_broadcast(
-        &self,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
-
-    /// Send a message with a transaction.
-    /// This function is deprecated in favor of `submit_transaction` in `handle.rs`
-    #[deprecated]
-    async fn send_transaction(
-        &self,
-        message: DataMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError>;
 }
