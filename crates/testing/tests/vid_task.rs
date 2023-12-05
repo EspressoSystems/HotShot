@@ -33,6 +33,7 @@ async fn test_vid_task() {
     };
     let pub_key = *api.public_key();
 
+    
     // quorum membership for VID share distribution
     let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
 
