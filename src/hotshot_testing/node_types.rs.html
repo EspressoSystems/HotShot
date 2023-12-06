@@ -137,10 +137,17 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 
+<span class="kw">use crate</span>::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::TestState,
+};
+
 <span class="kw">use </span>hotshot::{
-    demo::DemoState,
     traits::{
         election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{
@@ -152,7 +159,6 @@
     types::bn254::BLSPubKey,
 };
 <span class="kw">use </span>hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
     data::ViewNumber,
     traits::node_implementation::{ChannelMaps, NodeType},
 };
@@ -174,12 +180,12 @@
 </span><span class="kw">pub struct </span>TestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypes {
     <span class="kw">type </span>Time = ViewNumber;
-    <span class="kw">type </span>BlockHeader = VIDBlockHeader;
-    <span class="kw">type </span>BlockPayload = VIDBlockPayload;
+    <span class="kw">type </span>BlockHeader = TestBlockHeader;
+    <span class="kw">type </span>BlockPayload = TestBlockPayload;
     <span class="kw">type </span>SignatureKey = BLSPubKey;
-    <span class="kw">type </span>Transaction = VIDTransaction;
+    <span class="kw">type </span>Transaction = TestTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
-    <span class="kw">type </span>StateType = DemoState;
+    <span class="kw">type </span>StateType = TestState;
     <span class="kw">type </span>Membership = GeneralStaticCommittee&lt;TestTypes, <span class="self">Self</span>::SignatureKey&gt;;
 }
 

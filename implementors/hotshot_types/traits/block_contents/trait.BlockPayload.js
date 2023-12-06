@@ -1,4 +1,3 @@
 (function() {var implementors = {
-"hotshot":[],
-"hotshot_types":[]
+"hotshot_testing":[["impl BlockPayload for <a class=\"struct\" href=\"hotshot_testing/block_types/struct.TestBlockPayload.html\" title=\"struct hotshot_testing::block_types::TestBlockPayload\">TestBlockPayload</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

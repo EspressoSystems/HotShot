@@ -121,7 +121,6 @@
 </span><span class="kw">use </span>displaydoc::Display;
 <span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
 <span class="kw">use </span>traits::{election::ElectionConfig, signature_key::SignatureKey};
-<span class="kw">pub mod </span>block_impl;
 <span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>data;
 <span class="kw">pub mod </span>error;
@@ -133,6 +132,7 @@
 <span class="kw">pub mod </span>traits;
 <span class="kw">pub mod </span>utils;
 <span class="kw">pub mod </span>vote;
+
 <span class="doccomment">/// the type of consensus to run. Either:
 /// wait for a signal to start a view,
 /// or constantly run

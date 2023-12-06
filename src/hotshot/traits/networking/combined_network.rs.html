@@ -822,7 +822,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
-    <span class="kw">use </span>hotshot_types::block_impl::VIDTransaction;
+    <span class="kw">use </span>hotshot_testing::block_types::TestTransaction;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>tracing::instrument;
@@ -859,8 +859,8 @@
     #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
     #[instrument]
     </span><span class="kw">async fn </span>test_hash_calculation() {
-        <span class="kw">let </span>message1 = VIDTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
-        <span class="kw">let </span>message2 = VIDTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message1 = TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message2 = TestTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
 
         <span class="macro">assert_eq!</span>(calculate_hash_of(<span class="kw-2">&amp;</span>message1), calculate_hash_of(<span class="kw-2">&amp;</span>message1));
         <span class="macro">assert_ne!</span>(calculate_hash_of(<span class="kw-2">&amp;</span>message1), calculate_hash_of(<span class="kw-2">&amp;</span>message2));
@@ -873,8 +873,8 @@
     #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
     #[instrument]
     </span><span class="kw">async fn </span>test_cache_integrity() {
-        <span class="kw">let </span>message1 = VIDTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
-        <span class="kw">let </span>message2 = VIDTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message1 = TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message2 = TestTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
 
         <span class="kw">let </span><span class="kw-2">mut </span>cache = Cache::new(<span class="number">3</span>);
 

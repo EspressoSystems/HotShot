@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dummy"],"trait":["ConsensusTime","State","TestableBlock","TestableState"]};
+window.SIDEBAR_ITEMS = {"trait":["ConsensusTime","State","TestableBlock","TestableState"]};

@@ -176,31 +176,6 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -310,60 +285,35 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
-    <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::{GeneralStaticCommittee, StaticElectionConfig};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>commit::Committable;
-    <span class="kw">use </span>hotshot_signature_key::bn254::BLSPubKey;
-    <span class="kw">use </span>hotshot_types::{
-        block_impl::{VIDBlockHeader, VIDBlockPayload, VIDTransaction},
-        data::{fake_commitment, genesis_proposer_id, Leaf, ViewNumber},
-        simple_certificate::QuorumCertificate,
-        traits::{node_implementation::NodeType, state::dummy::DummyState, state::ConsensusTime},
+    <span class="kw">use </span>hotshot_testing::{
+        block_types::{TestBlockHeader, TestBlockPayload},
+        node_types::TestTypes,
     };
-    <span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData};
+    <span class="kw">use </span>hotshot_types::{
+        data::{fake_commitment, genesis_proposer_id, Leaf},
+        simple_certificate::QuorumCertificate,
+        traits::{node_implementation::NodeType, state::ConsensusTime},
+    };
+    <span class="kw">use </span>std::marker::PhantomData;
     <span class="kw">use </span>tracing::instrument;
 
-    <span class="attr">#[derive(
-        Copy,
-        Clone,
-        Debug,
-        Default,
-        Hash,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
-    </span><span class="kw">struct </span>DummyTypes;
-
-    <span class="kw">impl </span>NodeType <span class="kw">for </span>DummyTypes {
-        <span class="kw">type </span>Time = ViewNumber;
-        <span class="kw">type </span>BlockHeader = VIDBlockHeader;
-        <span class="kw">type </span>BlockPayload = VIDBlockPayload;
-        <span class="kw">type </span>SignatureKey = BLSPubKey;
-        <span class="kw">type </span>Transaction = VIDTransaction;
-        <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
-        <span class="kw">type </span>StateType = DummyState;
-        <span class="kw">type </span>Membership = GeneralStaticCommittee&lt;DummyTypes, BLSPubKey&gt;;
-    }
-
-    <span class="kw">fn </span>random_stored_view(view_number: &lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time) -&gt; StoredView&lt;DummyTypes&gt; {
-        <span class="kw">let </span>payload = VIDBlockPayload::genesis();
-        <span class="kw">let </span>header = VIDBlockHeader {
+    <span class="kw">fn </span>random_stored_view(view_number: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Time) -&gt; StoredView&lt;TestTypes&gt; {
+        <span class="kw">let </span>payload = TestBlockPayload::genesis();
+        <span class="kw">let </span>header = TestBlockHeader {
             block_number: <span class="number">0</span>,
             payload_commitment: payload.payload_commitment,
         };
-        <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;DummyTypes&gt;&gt;();
+        <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;TestTypes&gt;&gt;();
         <span class="kw">let </span>data = hotshot_types::simple_vote::QuorumData {
             leaf_commit: dummy_leaf_commit,
         };
         <span class="kw">let </span>commit = data.commit();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
-                is_genesis: view_number == &lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time::genesis(),
+                is_genesis: view_number == &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Time::genesis(),
                 data,
                 vote_commitment: commit,
                 signatures: <span class="prelude-val">None</span>,
@@ -386,7 +336,7 @@
     #[instrument]
     </span><span class="kw">async fn </span>memory_storage() {
         <span class="kw">let </span>storage = MemoryStorage::construct_tmp_storage().unwrap();
-        <span class="kw">let </span>genesis = random_stored_view(&lt;DummyTypes <span class="kw">as </span>NodeType&gt;::Time::genesis());
+        <span class="kw">let </span>genesis = random_stored_view(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Time::genesis());
         storage
             .append_single_view(genesis.clone())
             .<span class="kw">await

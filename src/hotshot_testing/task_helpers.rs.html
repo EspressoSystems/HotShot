@@ -178,6 +178,7 @@
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
+    block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
     test_builder::TestMetadata,
 };
@@ -189,7 +190,6 @@
 <span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
-    block_impl::{VIDBlockHeader, VIDBlockPayload},
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
     message::Proposal,
@@ -302,9 +302,9 @@
     <span class="kw">let </span>parent_leaf = leaf.clone();
 
     <span class="comment">// every event input is seen on the event stream in the output.
-    </span><span class="kw">let </span>block = &lt;VIDBlockPayload <span class="kw">as </span>TestableBlock&gt;::genesis();
+    </span><span class="kw">let </span>block = &lt;TestBlockPayload <span class="kw">as </span>TestableBlock&gt;::genesis();
     <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>block.encode().unwrap().collect());
-    <span class="kw">let </span>block_header = VIDBlockHeader::new(payload_commitment, (), <span class="kw-2">&amp;</span>parent_leaf.block_header);
+    <span class="kw">let </span>block_header = TestBlockHeader::new(payload_commitment, (), <span class="kw-2">&amp;</span>parent_leaf.block_header);
     <span class="kw">let </span>leaf = Leaf {
         view_number: ViewNumber::new(view),
         justify_qc: consensus.high_qc.clone(),

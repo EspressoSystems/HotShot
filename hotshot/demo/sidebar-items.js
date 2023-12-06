@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["DemoNode","DemoState","DemoTypes"],"type":["DemoMembership"]};
