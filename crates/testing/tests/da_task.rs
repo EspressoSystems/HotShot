@@ -68,6 +68,9 @@ async fn test_da_task() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
+    // the number of quorum committee members for VID
+    let num_quorum_committee = 10;
+
     // In view 1, node 2 is the next leader.
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
@@ -75,17 +78,30 @@ async fn test_da_task() {
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
+        num_quorum_committee,
     ));
-    input.push(HotShotEvent::DAProposalRecv(message.clone(), pub_key));
+    input.push(HotShotEvent::DAProposalRecv(
+        message.clone(),
+        pub_key,
+        num_quorum_committee,
+    ));
 
     input.push(HotShotEvent::Shutdown);
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(
+            encoded_transactions,
+            (),
+            ViewNumber::new(2),
+            num_quorum_committee,
+        ),
         1,
     );
-    output.insert(HotShotEvent::DAProposalSend(message.clone(), pub_key), 1);
+    output.insert(
+        HotShotEvent::DAProposalSend(message.clone(), pub_key, num_quorum_committee),
+        1,
+    );
     let da_vote = DAVote::create_signed_vote(
         DAData {
             payload_commit: payload_commitment,
@@ -96,7 +112,10 @@ async fn test_da_task() {
     );
     output.insert(HotShotEvent::DAVoteSend(da_vote), 1);
 
-    output.insert(HotShotEvent::DAProposalRecv(message, pub_key), 1);
+    output.insert(
+        HotShotEvent::DAProposalRecv(message, pub_key, num_quorum_committee),
+        1,
+    );
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::Shutdown, 1);

@@ -29,7 +29,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send a timeout vote to the network; emitted by consensus task replicas
     TimeoutVoteSend(TimeoutVote<TYPES>),
     /// A DA proposal has been received from the network; handled by the DA task
-    DAProposalRecv(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
+    DAProposalRecv(
+        Proposal<TYPES, DAProposal<TYPES>>,
+        TYPES::SignatureKey,
+        usize,
+    ),
     /// A DA vote has been received by the network; handled by the DA task
     DAVoteRecv(DAVote<TYPES>),
     /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
@@ -39,7 +43,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
-    DAProposalSend(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
+    DAProposalSend(
+        Proposal<TYPES, DAProposal<TYPES>>,
+        TYPES::SignatureKey,
+        usize,
+    ),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
     DAVoteSend(DAVote<TYPES>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
@@ -97,6 +105,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        usize,
     ),
     /// Event when the transactions task has a block formed
     BlockReady(VidDisperse<TYPES>, TYPES::Time),

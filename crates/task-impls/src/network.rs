@@ -91,9 +91,14 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             }
                         },
                         Either::Right(committee_message) => match committee_message {
-                            CommitteeConsensusMessage::DAProposal(proposal) => {
-                                HotShotEvent::DAProposalRecv(proposal.clone(), sender)
-                            }
+                            CommitteeConsensusMessage::DAProposal(
+                                proposal,
+                                num_quorum_committee,
+                            ) => HotShotEvent::DAProposalRecv(
+                                proposal.clone(),
+                                sender,
+                                num_quorum_committee,
+                            ),
                             CommitteeConsensusMessage::DAVote(vote) => {
                                 HotShotEvent::DAVoteRecv(vote.clone())
                             }
@@ -184,10 +189,10 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                 TransmitType::Broadcast, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
                 None,
             ),
-            HotShotEvent::DAProposalSend(proposal, sender) => (
+            HotShotEvent::DAProposalSend(proposal, sender, num_quorum_committee) => (
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::DAProposal(proposal),
+                    CommitteeConsensusMessage::DAProposal(proposal, num_quorum_committee),
                 ))),
                 TransmitType::Broadcast,
                 None,
@@ -328,7 +333,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
     fn committee_filter(event: &HotShotEvent<TYPES>) -> bool {
         matches!(
             event,
-            HotShotEvent::DAProposalSend(_, _)
+            HotShotEvent::DAProposalSend(_, _, _)
                 | HotShotEvent::DAVoteSend(_)
                 | HotShotEvent::Shutdown
                 | HotShotEvent::ViewChange(_)

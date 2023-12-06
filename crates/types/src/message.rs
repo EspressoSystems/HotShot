@@ -191,7 +191,11 @@ impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType> {
     /// Proposal for the DA committee.
-    DAProposal(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
+    DAProposal(
+        Proposal<TYPES, DAProposal<TYPES>>,
+        TYPES::SignatureKey,
+        usize,
+    ),
     /// Vote from the DA committee.
     DAVote(DAVote<TYPES>, TYPES::SignatureKey),
     /// Certificate for the DA.
@@ -205,8 +209,8 @@ impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
 {
     fn from(value: ProcessedCommitteeConsensusMessage<TYPES>) -> Self {
         match value {
-            ProcessedCommitteeConsensusMessage::DAProposal(p, _) => {
-                CommitteeConsensusMessage::DAProposal(p)
+            ProcessedCommitteeConsensusMessage::DAProposal(p, _, num_quorum_committee) => {
+                CommitteeConsensusMessage::DAProposal(p, num_quorum_committee)
             }
             ProcessedCommitteeConsensusMessage::DAVote(v, _) => {
                 CommitteeConsensusMessage::DAVote(v)
@@ -225,8 +229,8 @@ impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
     /// Create a [`ProcessedCommitteeConsensusMessage`] from a [`CommitteeConsensusMessage`].
     pub fn new(value: CommitteeConsensusMessage<TYPES>, sender: TYPES::SignatureKey) -> Self {
         match value {
-            CommitteeConsensusMessage::DAProposal(p) => {
-                ProcessedCommitteeConsensusMessage::DAProposal(p, sender)
+            CommitteeConsensusMessage::DAProposal(p, num_quorum_committee) => {
+                ProcessedCommitteeConsensusMessage::DAProposal(p, sender, num_quorum_committee)
             }
             CommitteeConsensusMessage::DAVote(v) => {
                 ProcessedCommitteeConsensusMessage::DAVote(v, sender)
@@ -302,8 +306,9 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the sequencing consensus protocol for the DA committee.
 pub enum CommitteeConsensusMessage<TYPES: NodeType> {
-    /// Proposal for data availability committee
-    DAProposal(Proposal<TYPES, DAProposal<TYPES>>),
+    /// Proposal for data availability committee and the corresponding total
+    /// number of nodes in the quorum committee
+    DAProposal(Proposal<TYPES, DAProposal<TYPES>>, usize),
 
     /// vote for data availability committee
     DAVote(DAVote<TYPES>),
@@ -366,7 +371,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
             }
             Right(committee_message) => {
                 match committee_message {
-                    CommitteeConsensusMessage::DAProposal(p) => {
+                    CommitteeConsensusMessage::DAProposal(p, _) => {
                         // view of leader in the leaf when proposal
                         // this should match replica upon receipt
                         p.data.get_view_number()
@@ -405,7 +410,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 }
             },
             Right(committee_message) => match committee_message {
-                CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
+                CommitteeConsensusMessage::DAProposal(_, _) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
