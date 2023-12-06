@@ -180,6 +180,19 @@ pub struct VIDBlockHeader {
     pub payload_commitment: VidCommitment,
 }
 
+impl Committable for VIDBlockHeader {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("VIDBlockHeader")
+            .u64_field("block_number", self.block_number)
+            .fixed_size_bytes(&self.payload_commitment.into())
+            .finalize()
+    }
+
+    fn tag() -> String {
+        "HEADER".into()
+    }
+}
+
 impl BlockHeader for VIDBlockHeader {
     type Payload = VIDBlockPayload;
 

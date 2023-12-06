@@ -95,7 +95,7 @@ pub fn vid_commitment(encoded_transactions: &Vec<u8>) -> <VidScheme as VidScheme
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader:
-    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
+    Serialize + Clone + Committable + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
 {
     /// Block payload associated with the commitment.
     type Payload: BlockPayload;
