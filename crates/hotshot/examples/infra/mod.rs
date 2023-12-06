@@ -14,7 +14,7 @@ use hotshot::{
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
-    HotShotType, Memberships, Networks, SystemContext,
+    Memberships, Networks, SystemContext,
 };
 use hotshot_orchestrator::{
     self,
@@ -293,7 +293,6 @@ pub trait RunDA<
     TYPES: NodeType<Transaction = TestTransaction>,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
-    SystemContext<TYPES, NODE>: HotShotType<TYPES, NODE>,
 {
     /// Initializes networking, returns self
     async fn initialize_networking(
