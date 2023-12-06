@@ -563,6 +563,11 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -820,7 +825,12 @@
         </span>Box::new(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            MemoryNetwork::new(pubkey, NetworkingMetricsValue::new(), master.clone(), <span class="prelude-val">None</span>)
+            MemoryNetwork::new(
+                pubkey,
+                NetworkingMetricsValue::default(),
+                master.clone(),
+                <span class="prelude-val">None</span>,
+            )
         })
     }
 

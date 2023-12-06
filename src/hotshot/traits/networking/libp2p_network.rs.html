@@ -1130,7 +1130,7 @@
                 <span class="kw">let </span>da = da_keys.clone();
                 async_block_on(<span class="kw">async move </span>{
                     <span class="kw">match </span>Libp2pNetwork::new(
-                        NetworkingMetricsValue::new(),
+                        NetworkingMetricsValue::default(),
                         config,
                         pubkey.clone(),
                         bootstrap_addrs_ref,

@@ -183,14 +183,6 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! This module contains a trait abstracting over network access, as well as implementations of that
@@ -208,7 +200,7 @@
 };
 
 <span class="kw">use </span>custom_debug::Debug;
-<span class="kw">use </span>hotshot_types::traits::metrics::{Counter, Gauge, Histogram, Label, Metrics};
+<span class="kw">use </span>hotshot_types::traits::metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics};
 <span class="kw">pub use </span>hotshot_types::traits::network::{
     ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
     NetworkError, NetworkReliability, NoSuchNodeSnafu, ShutDownSnafu,
@@ -218,9 +210,7 @@
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>NetworkingMetricsValue {
     <span class="attr">#[allow(dead_code)]
-    </span><span class="doccomment">/// The values that are being tracked
-    </span><span class="kw">pub </span>values: Arc&lt;Mutex&lt;InnerNetworkingMetrics&gt;&gt;,
-    <span class="doccomment">/// A [`Gauge`] which tracks how many peers are connected
+    </span><span class="doccomment">/// A [`Gauge`] which tracks how many peers are connected
     </span><span class="kw">pub </span>connected_peers: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// A [`Counter`] which tracks how many messages have been received directly
     </span><span class="kw">pub </span>incoming_direct_message_count: Box&lt;<span class="kw">dyn </span>Counter&gt;,
@@ -356,14 +346,8 @@
 <span class="kw">impl </span>NetworkingMetricsValue {
     <span class="doccomment">/// Create a new instance of this [`NetworkingMetricsValue`] struct, setting all the counters and gauges
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>values = Arc::default();
-        <span class="kw">let </span>metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt; = Box::new(NetworkingMetrics {
-            prefix: String::new(),
-            values: Arc::clone(<span class="kw-2">&amp;</span>values),
-        });
+    </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            values,
             connected_peers: metrics.create_gauge(String::from(<span class="string">&quot;connected_peers&quot;</span>), <span class="prelude-val">None</span>),
             incoming_direct_message_count: metrics
                 .create_counter(String::from(<span class="string">&quot;incoming_direct_message_count&quot;</span>), <span class="prelude-val">None</span>),
@@ -381,7 +365,7 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>NetworkingMetricsValue {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
+        <span class="self">Self</span>::new(<span class="kw-2">&amp;*</span>NoMetrics::boxed())
     }
 }
 </code></pre></div></section></main></body></html>

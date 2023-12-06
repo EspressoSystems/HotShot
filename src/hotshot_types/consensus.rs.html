@@ -395,14 +395,6 @@
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">pub use crate</span>::{
@@ -416,7 +408,7 @@
     error::HotShotError,
     simple_certificate::QuorumCertificate,
     traits::{
-        metrics::{Counter, Gauge, Histogram, Label, Metrics},
+        metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
     },
     utils::Terminator,
@@ -471,9 +463,7 @@
 <span class="doccomment">/// Contains several `ConsensusMetrics` that we&#39;re interested in from the consensus interfaces
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ConsensusMetricsValue {
-    <span class="doccomment">/// The values that are being tracked
-    </span><span class="kw">pub </span>values: Arc&lt;Mutex&lt;InnerConsensusMetrics&gt;&gt;,
-    <span class="doccomment">/// The number of last synced synced block height
+    <span class="doccomment">/// The number of last synced block height
     </span><span class="kw">pub </span>last_synced_block_height: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// The number of last decided view
     </span><span class="kw">pub </span>last_decided_view: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
@@ -610,14 +600,8 @@
 <span class="kw">impl </span>ConsensusMetricsValue {
     <span class="doccomment">/// Create a new instance of this [`ConsensusMetricsValue`] struct, setting all the counters and gauges
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>values = Arc::default();
-        <span class="kw">let </span>metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt; = Box::new(ConsensusMetrics {
-            prefix: String::new(),
-            values: Arc::clone(<span class="kw-2">&amp;</span>values),
-        });
+    </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            values,
             last_synced_block_height: metrics
                 .create_gauge(String::from(<span class="string">&quot;last_synced_block_height&quot;</span>), <span class="prelude-val">None</span>),
             last_decided_view: metrics.create_gauge(String::from(<span class="string">&quot;last_decided_view&quot;</span>), <span class="prelude-val">None</span>),
@@ -638,7 +622,7 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>ConsensusMetricsValue {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
+        <span class="self">Self</span>::new(<span class="kw-2">&amp;*</span>NoMetrics::boxed())
     }
 }
 
