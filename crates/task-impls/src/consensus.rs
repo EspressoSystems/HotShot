@@ -614,21 +614,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 if let Some(encoded_txns) =
                                     consensus.saved_payloads.get(leaf.get_payload_commitment())
                                 {
-                                    let num_quorum_committee = self.quorum_membership.total_nodes();
-
                                     let payload = BlockPayload::from_bytes(
                                         encoded_txns.clone().into_iter(),
                                         leaf.get_block_header().metadata(),
-                                        num_quorum_committee,
                                     );
-                                    if let Err(e) =
-                                        leaf.fill_block_payload(payload, num_quorum_committee)
-                                    {
-                                        error!(
-                                            "Saved block payload and commitment don't match: {:?}",
-                                            e
-                                        );
-                                    }
+
+                                    leaf.fill_block_payload_unchecked(payload);
                                 }
 
                                 leaf_views.push(leaf.clone());

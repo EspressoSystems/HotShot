@@ -399,7 +399,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     ///
     /// # Errors
     ///
-    /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`.
+    /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
+    /// or if the transactions are of invalid length
     pub fn fill_block_payload(
         &mut self,
         block_payload: TYPES::BlockPayload,
@@ -418,6 +419,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         self.block_payload = Some(block_payload);
         Ok(())
     }
+
+    /// Fill this leaf with the block payload, without checking
+    /// header and payload consistency
+    pub fn fill_block_payload_unchecked(&mut self, block_payload: TYPES::BlockPayload) {
+        self.block_payload = Some(block_payload);
+    }
+
     /// Optional block payload.
     pub fn get_block_payload(&self) -> Option<TYPES::BlockPayload> {
         self.block_payload.clone()

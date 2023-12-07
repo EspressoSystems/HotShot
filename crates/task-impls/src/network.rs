@@ -56,7 +56,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     let event = match consensus_message.0 {
                         Either::Left(general_message) => match general_message {
                             GeneralConsensusMessage::Proposal(proposal) => {
-                                HotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
+                                HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
                             GeneralConsensusMessage::Vote(vote) => {
                                 HotShotEvent::QuorumVoteRecv(vote.clone())
@@ -94,11 +94,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             CommitteeConsensusMessage::DAProposal(
                                 proposal,
                                 num_quorum_committee,
-                            ) => HotShotEvent::DAProposalRecv(
-                                proposal.clone(),
-                                sender,
-                                num_quorum_committee,
-                            ),
+                            ) => {
+                                HotShotEvent::DAProposalRecv(proposal, sender, num_quorum_committee)
+                            }
                             CommitteeConsensusMessage::DAVote(vote) => {
                                 HotShotEvent::DAVoteRecv(vote.clone())
                             }
@@ -241,7 +239,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate.clone()),
+                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
                 ))),
                 TransmitType::Broadcast,
                 None,

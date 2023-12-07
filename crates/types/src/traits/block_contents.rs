@@ -57,18 +57,13 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        num_storage_nodes: usize,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
     ///
     /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    fn from_bytes<I>(
-        encoded_transactions: I,
-        metadata: Self::Metadata,
-        num_storage_nodes: usize,
-    ) -> Self
+    fn from_bytes<I>(encoded_transactions: I, metadata: Self::Metadata) -> Self
     where
         I: Iterator<Item = u8>;
 
@@ -100,6 +95,12 @@ pub fn vid_commitment(
 
     let vid = VidScheme::new(num_chunks, num_storage_nodes, srs).unwrap();
     vid.commit_only(encoded_transactions).unwrap()
+}
+
+/// Computes the (empty) genesis VID commitment
+#[must_use]
+pub fn genesis_vid_commitment() -> <VidScheme as VidSchemeTrait>::Commit {
+    vid_commitment(&vec![], 8)
 }
 
 /// Header of a block, which commits to a [`BlockPayload`].
