@@ -77,12 +77,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event: HotShotEvent<TYPES>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::TransactionsSequenced(
-                encoded_transactions,
-                metadata,
-                view_number,
-                num_quorum_committee,
-            ) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
+                // get the number of quorum committee members to be used for VID calculation
+                let num_quorum_committee = self.membership.total_nodes();
+
                 // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
                 let srs = test_srs(num_quorum_committee);
 
@@ -170,7 +168,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         matches!(
             event,
             HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )

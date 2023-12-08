@@ -206,9 +206,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 drop(consensus);
 
-                // get the number of storage nodes for VID
-                let num_quorum_committee = self.membership.total_nodes();
-
                 // TODO (Keyao) Determine whether to allow empty blocks.
                 // <https://github.com/EspressoSystems/HotShot/issues/1822>
                 let txns = self.wait_for_transactions(parent_leaf).await?;
@@ -236,7 +233,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         encoded_transactions,
                         metadata,
                         view + 1,
-                        num_quorum_committee,
                     ))
                     .await;
 

@@ -362,6 +362,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         consensus: handle.hotshot.get_consensus(),
         da_membership: c_api.inner.memberships.da_membership.clone().into(),
         da_network: c_api.inner.networks.da_network.clone().into(),
+        quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         cur_view: TYPES::Time::new(0),
         vote_collector: None,
         event_stream: event_stream.clone(),

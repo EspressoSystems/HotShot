@@ -4,7 +4,6 @@ use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
     task_helpers::{build_quorum_proposal, vid_init},
 };
-use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     data::{DAProposal, VidSchemeTrait, ViewNumber},
     traits::{consensus_api::ConsensusSharedApi, state::ConsensusTime},
@@ -75,25 +74,17 @@ async fn test_network_task() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    // the number of quorum committee members for VID
-    let num_quorum_committee = quorum_membership.total_nodes();
-
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::TransactionsSequenced(
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
-        num_quorum_committee,
     ));
     input.push(HotShotEvent::BlockReady(
         da_vid_disperse_inner.clone(),
         ViewNumber::new(2),
     ));
-    input.push(HotShotEvent::DAProposalSend(
-        da_proposal.clone(),
-        pub_key,
-        num_quorum_committee,
-    ));
+    input.push(HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key));
     input.push(HotShotEvent::VidDisperseSend(
         da_vid_disperse.clone(),
         pub_key,
@@ -107,16 +98,11 @@ async fn test_network_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 2);
     output.insert(
-        HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key, num_quorum_committee),
+        HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
         2, // 2 occurrences: 1 from `input`, 1 from the DA task
     );
     output.insert(
-        HotShotEvent::TransactionsSequenced(
-            encoded_transactions,
-            (),
-            ViewNumber::new(2),
-            num_quorum_committee,
-        ),
+        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
         2,
     );
     output.insert(
@@ -147,10 +133,7 @@ async fn test_network_task() {
         HotShotEvent::BlockReady(da_vid_disperse_inner, ViewNumber::new(2)),
         2,
     );
-    output.insert(
-        HotShotEvent::DAProposalRecv(da_proposal, pub_key, num_quorum_committee),
-        1,
-    );
+    output.insert(HotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
     output.insert(
         HotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
         1,

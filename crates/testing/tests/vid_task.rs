@@ -5,7 +5,6 @@ use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
     task_helpers::vid_init,
 };
-use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::{
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
@@ -72,9 +71,6 @@ async fn test_vid_task() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    // the number of quorum committee members for VID
-    let num_quorum_committee = quorum_membership.total_nodes();
-
     // In view 1, node 2 is the next leader.
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
@@ -82,7 +78,6 @@ async fn test_vid_task() {
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
-        num_quorum_committee,
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),
@@ -94,12 +89,7 @@ async fn test_vid_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
     output.insert(
-        HotShotEvent::TransactionsSequenced(
-            encoded_transactions,
-            (),
-            ViewNumber::new(2),
-            num_quorum_committee,
-        ),
+        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
         1,
     );
 

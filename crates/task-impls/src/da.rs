@@ -57,6 +57,11 @@ pub struct DATaskState<
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
 
+    /// Membership for the quorum committee
+    /// We need this only for calculating the proper VID scheme
+    /// from the number of nodes in the quorum.
+    pub quorum_membership: Arc<TYPES::Membership>,
+
     /// Network for DA
     pub da_network: Arc<I::CommitteeNetwork>,
 
@@ -86,7 +91,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event: HotShotEvent<TYPES>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::DAProposalRecv(proposal, sender, num_quorum_committee) => {
+            HotShotEvent::DAProposalRecv(proposal, sender) => {
                 debug!(
                     "DA proposal received for view: {:?}",
                     proposal.data.get_view_number()
@@ -113,8 +118,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let payload_commitment =
-                    vid_commitment(&proposal.data.encoded_transactions, num_quorum_committee);
+                let payload_commitment = vid_commitment(
+                    &proposal.data.encoded_transactions,
+                    self.quorum_membership.total_nodes(),
+                );
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
@@ -252,12 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::TransactionsSequenced(
-                encoded_transactions,
-                metadata,
-                view,
-                num_quorum_committee,
-            ) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;
@@ -286,7 +288,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .publish(HotShotEvent::DAProposalSend(
                         message.clone(),
                         self.public_key.clone(),
-                        num_quorum_committee,
                     ))
                     .await;
             }
@@ -312,10 +313,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     pub fn filter(event: &HotShotEvent<TYPES>) -> bool {
         matches!(
             event,
-            HotShotEvent::DAProposalRecv(_, _, _)
+            HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _, _)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::ViewChange(_)
         )
