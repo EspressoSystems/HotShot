@@ -55,7 +55,6 @@ use hotshot_types::{
     error::StorageSnafu,
     message::{
         DataMessage, InternalTrigger, Message, MessageKind, ProcessedGeneralConsensusMessage,
-        SequencingMessage,
     },
     simple_certificate::QuorumCertificate,
     traits::{
@@ -691,101 +690,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
         storage.append_single_view(view_to_insert).await?;
         storage.cleanup_storage_up_to_view(old_anchor_view).await?;
         storage.commit().await?;
-        Ok(())
-    }
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShotConsensusApi<TYPES, I> {
-    /// Send a direct message to the given recipient
-    ///
-    /// # Errors
-    /// - [`NetworkError`] if sending the message failed
-    pub async fn send_direct_message(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError> {
-        let inner = self.inner.clone();
-        debug!(?message, ?recipient, "send_direct_message");
-        inner
-            .networks
-            .quorum_network
-            .direct_message(
-                Message {
-                    sender: inner.public_key.clone(),
-                    kind: MessageKind::from_consensus_message(message),
-                },
-                recipient,
-            )
-            .await
-    }
-
-    /// send a direct message using the DA communication channel
-    ///
-    /// # Errors
-    /// - [`NetworkError`] if sending the message failed
-    pub async fn send_direct_da_message(
-        &self,
-        recipient: TYPES::SignatureKey,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError> {
-        let inner = self.inner.clone();
-        debug!(?message, ?recipient, "send_direct_message");
-        inner
-            .networks
-            .da_network
-            .direct_message(
-                Message {
-                    sender: inner.public_key.clone(),
-                    kind: MessageKind::from_consensus_message(message),
-                },
-                recipient,
-            )
-            .await
-    }
-
-    /// Send a broadcast message to the entire network.
-    ///
-    /// # Errors
-    /// - [`NetworkError`] if broadcast failed
-    pub async fn send_broadcast_message(
-        &self,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError> {
-        debug!(?message, "send_broadcast_message");
-        self.inner
-            .networks
-            .quorum_network
-            .broadcast_message(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: MessageKind::from_consensus_message(message),
-                },
-                &self.inner.memberships.quorum_membership.clone(),
-            )
-            .await
-    }
-
-    /// Send a broadcast to the DA comitee, stub for now
-    ///
-    /// # Errors
-    /// - [`NetworkError`] if broadcast failed
-    pub async fn send_da_broadcast(
-        &self,
-        message: SequencingMessage<TYPES>,
-    ) -> std::result::Result<(), NetworkError> {
-        debug!(?message, "send_da_broadcast_message");
-        self.inner
-            .networks
-            .da_network
-            .broadcast_message(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: MessageKind::from_consensus_message(message),
-                },
-                &self.inner.memberships.da_membership.clone(),
-            )
-            .await?;
         Ok(())
     }
 }
