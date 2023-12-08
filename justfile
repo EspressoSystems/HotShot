@@ -2,8 +2,8 @@ default: run_ci
 
 set export
 
-original_rustflags := env_var_or_default('RUSTFLAGS', '')
-original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '')
+original_rustflags := env_var_or_default('RUSTFLAGS', '--cfg hotshot_example')
+original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_example')
 
 run_ci: lint build test
 
@@ -19,7 +19,7 @@ build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
 example *ARGS:
-  RUSTFLAGS='--cfg hotshot_example {{original_rustflags}}' cargo run --profile=release-lto --example {{ARGS}}
+  cargo run --profile=release-lto --example {{ARGS}}
 
 test:
   echo Testing
