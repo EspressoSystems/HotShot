@@ -662,12 +662,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
         self.inner.config.min_transactions
     }
 
-    /// Generates and encodes a vote token
-
-    async fn should_start_round(&self, _: TYPES::Time) -> bool {
-        false
-    }
-
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;

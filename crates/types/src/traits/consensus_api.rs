@@ -2,9 +2,7 @@
 
 use crate::{
     data::Leaf,
-    error::HotShotError,
-    event::{Event, EventType},
-    simple_certificate::QuorumCertificate,
+    event::Event,
     traits::{
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -13,7 +11,7 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system
 #[async_trait]
@@ -28,26 +26,11 @@ pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sy
     /// If this time is reached, the leader has to send a propose without transactions.
     fn propose_max_round_time(&self) -> Duration;
 
-    /// Store a leaf in the storage
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
-    ) -> Result<(), StorageError>;
-
     /// Retuns the maximum transactions allowed in a block
     fn max_transactions(&self) -> NonZeroUsize;
 
     /// Returns the minimum transactions that must be in a block
     fn min_transactions(&self) -> usize;
-
-    /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
-    ///
-    /// In production code this should probably always return `true`.
-    async fn should_start_round(&self, view_number: TYPES::Time) -> bool;
-
-    /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<TYPES>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &TYPES::SignatureKey;
@@ -55,59 +38,13 @@ pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sy
     /// Get a reference to the private key.
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
-    // Utility functions
+    /// Notify the system of an event within `hotshot-consensus`.
+    async fn send_event(&self, event: Event<TYPES>);
 
-    /// notifies client of an error
-    async fn send_view_error(&self, view_number: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
-        self.send_event(Event {
-            view_number,
-            event: EventType::Error { error },
-        })
-        .await;
-    }
-
-    /// notifies client of a replica timeout
-    async fn send_replica_timeout(&self, view_number: TYPES::Time) {
-        self.send_event(Event {
-            view_number,
-            event: EventType::ReplicaViewTimeout { view_number },
-        })
-        .await;
-    }
-
-    /// notifies client of a next leader timeout
-    async fn send_next_leader_timeout(&self, view_number: TYPES::Time) {
-        self.send_event(Event {
-            view_number,
-            event: EventType::NextLeaderViewTimeout { view_number },
-        })
-        .await;
-    }
-
-    /// sends a decide event down the channel
-    async fn send_decide(
+    /// Store a leaf in the storage
+    async fn store_leaf(
         &self,
-        view_number: TYPES::Time,
-        leaf_views: Vec<Leaf<TYPES>>,
-        decide_qc: QuorumCertificate<TYPES>,
-    ) {
-        self.send_event(Event {
-            view_number,
-            event: EventType::Decide {
-                leaf_chain: Arc::new(leaf_views),
-                qc: Arc::new(decide_qc),
-                block_size: None,
-            },
-        })
-        .await;
-    }
-
-    /// Sends a `ViewFinished` event
-    async fn send_view_finished(&self, view_number: TYPES::Time) {
-        self.send_event(Event {
-            view_number,
-            event: EventType::ViewFinished { view_number },
-        })
-        .await;
-    }
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf<TYPES>,
+    ) -> Result<(), StorageError>;
 }
