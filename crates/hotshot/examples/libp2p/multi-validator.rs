@@ -30,7 +30,7 @@ struct MultiValidatorArgs {
     /// An optional network config file to save to/load from
     /// Allows for rejoining the network on a complete state loss
     #[arg(short, long)]
-    pub config_file: Option<String>,
+    pub network_config_file: Option<String>,
 }
 
 #[cfg_attr(
@@ -65,7 +65,9 @@ async fn main() {
                 url: args.url,
                 port: args.port,
                 public_ip: args.public_ip,
-                config_file: args.config_file.map(|s| format!("{}-{}", s, node_index)),
+                network_config_file: args
+                    .network_config_file
+                    .map(|s| format!("{}-{}", s, node_index)),
             })
             .await
         });

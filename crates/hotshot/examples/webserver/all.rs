@@ -93,7 +93,7 @@ async fn main() {
                 url: "http://localhost".to_string(),
                 port: 4444,
                 public_ip: Some(IpAddr::V4(Ipv4Addr::LOCALHOST)),
-                config_file: None,
+                network_config_file: None,
             })
             .await
         });
