@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["NUM_CHUNKS","NUM_STORAGE_NODES"],"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","Transaction"]};
+window.SIDEBAR_ITEMS = {"constant":["NUM_CHUNKS","NUM_STORAGE_NODES"],"fn":["genesis_vid_commitment","vid_commitment"],"trait":["BlockHeader","BlockPayload","Transaction"]};

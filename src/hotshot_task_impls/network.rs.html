@@ -439,7 +439,7 @@
                     <span class="kw">let </span>event = <span class="kw">match </span>consensus_message.<span class="number">0 </span>{
                         Either::Left(general_message) =&gt; <span class="kw">match </span>general_message {
                             GeneralConsensusMessage::Proposal(proposal) =&gt; {
-                                HotShotEvent::QuorumProposalRecv(proposal.clone(), sender)
+                                HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
                             GeneralConsensusMessage::Vote(vote) =&gt; {
                                 HotShotEvent::QuorumVoteRecv(vote.clone())
@@ -475,7 +475,7 @@
                         },
                         Either::Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
                             CommitteeConsensusMessage::DAProposal(proposal) =&gt; {
-                                HotShotEvent::DAProposalRecv(proposal.clone(), sender)
+                                HotShotEvent::DAProposalRecv(proposal, sender)
                             }
                             CommitteeConsensusMessage::DAVote(vote) =&gt; {
                                 HotShotEvent::DAVoteRecv(vote.clone())
@@ -619,7 +619,7 @@
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; (
                 sender,
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate.clone()),
+                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
                 ))),
                 TransmitType::Broadcast,
                 <span class="prelude-val">None</span>,

@@ -328,6 +328,14 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -387,6 +395,11 @@
     <span class="doccomment">/// Membership for the DA committee
     </span><span class="kw">pub </span>da_membership: Arc&lt;TYPES::Membership&gt;,
 
+    <span class="doccomment">/// Membership for the quorum committee
+    /// We need this only for calculating the proper VID scheme
+    /// from the number of nodes in the quorum.
+    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+
     <span class="doccomment">/// Network for DA
     </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
 
@@ -443,7 +456,10 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
+                <span class="kw">let </span>payload_commitment = vid_commitment(
+                    <span class="kw-2">&amp;</span>proposal.data.encoded_transactions,
+                    <span class="self">self</span>.quorum_membership.total_nodes(),
+                );
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
                 <span class="comment">// ED Is this the right leader?

@@ -528,6 +528,44 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -538,6 +576,7 @@
     traits::{
         block_contents::vid_commitment,
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, SignatureKey},
         state::{ConsensusTime, TestableBlock, TestableState},
@@ -553,14 +592,18 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>hotshot_constants::GENESIS_PROPOSER_ID;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="comment">// use jf_primitives::pcs::prelude::Commitment;
-</span><span class="kw">use </span>jf_primitives::pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme};
+<span class="kw">use </span>jf_primitives::{
+    pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
+    vid::VidDisperse <span class="kw">as </span>JfVidDisperse,
+};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
+    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
+    sync::Arc,
 };
 
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we&#39;re talking about is a view number.
@@ -668,10 +711,34 @@
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// Block payload commitment
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
-    <span class="doccomment">/// VID shares dispersed among storage nodes
-    </span><span class="kw">pub </span>shares: Vec&lt;&lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Share&gt;,
+    <span class="doccomment">/// A storage node&#39;s key and its corresponding VID share
+    </span><span class="kw">pub </span>shares: BTreeMap&lt;TYPES::SignatureKey, &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Share&gt;,
     <span class="doccomment">/// VID common data sent to all storage nodes
     </span><span class="kw">pub </span>common: &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Common,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperse&lt;TYPES&gt; {
+    <span class="doccomment">/// Create VID dispersal from a specified membership
+    /// Uses the specified function to calculate share dispersal
+    /// Allows for more complex stake table functionality
+    </span><span class="kw">pub fn </span>from_membership(
+        view_number: TYPES::Time,
+        <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidScheme&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>shares = membership
+            .get_committee(view_number)
+            .iter()
+            .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
+            .collect();
+
+        <span class="self">Self </span>{
+            view_number,
+            shares,
+            common: vid_disperse.common,
+            payload_commitment: vid_disperse.commit,
+        }
+    }
 }
 
 <span class="doccomment">/// Trusted KZG setup for VID.
@@ -900,10 +967,12 @@
     ///
     /// # Errors
     ///
-    /// Fails if the payload commitment doesn&#39;t match `self.block_header.payload_commitment()`.
+    /// Fails if the payload commitment doesn&#39;t match `self.block_header.payload_commitment()`
+    /// or if the transactions are of invalid length
     </span><span class="kw">pub fn </span>fill_block_payload(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_payload: TYPES::BlockPayload,
+        num_storage_nodes: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), BlockError&gt; {
         <span class="kw">let </span>encoded_txns = <span class="kw">match </span>block_payload.encode() {
             <span class="comment">// TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
@@ -911,13 +980,20 @@
             </span><span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect(),
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidTransactionLength),
         };
-        <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns);
+        <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes);
         <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InconsistentPayloadCommitment);
         }
         <span class="self">self</span>.block_payload = <span class="prelude-val">Some</span>(block_payload);
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="doccomment">/// Fill this leaf with the block payload, without checking
+    /// header and payload consistency
+    </span><span class="kw">pub fn </span>fill_block_payload_unchecked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_payload: TYPES::BlockPayload) {
+        <span class="self">self</span>.block_payload = <span class="prelude-val">Some</span>(block_payload);
+    }
+
     <span class="doccomment">/// Optional block payload.
     </span><span class="kw">pub fn </span>get_block_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt; {
         <span class="self">self</span>.block_payload.clone()

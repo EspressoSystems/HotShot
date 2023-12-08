@@ -1162,10 +1162,6 @@
 <a href="#1162" id="1162">1162</a>
 <a href="#1163" id="1163">1163</a>
 <a href="#1164" id="1164">1164</a>
-<a href="#1165" id="1165">1165</a>
-<a href="#1166" id="1166">1166</a>
-<a href="#1167" id="1167">1167</a>
-<a href="#1168" id="1168">1168</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -1786,12 +1782,8 @@
                                         encoded_txns.clone().into_iter(),
                                         leaf.get_block_header().metadata(),
                                     );
-                                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = leaf.fill_block_payload(payload) {
-                                        <span class="macro">error!</span>(
-                                            <span class="string">&quot;Saved block payload and commitment don&#39;t match: {:?}&quot;</span>,
-                                            e
-                                        );
-                                    }
+
+                                    leaf.fill_block_payload_unchecked(payload);
                                 }
 
                                 leaf_views.push(leaf.clone());

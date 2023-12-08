@@ -175,6 +175,26 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
@@ -195,8 +215,8 @@
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
+        block_contents::vid_commitment,
         block_contents::BlockHeader,
-        block_contents::{vid_commitment, NUM_CHUNKS, NUM_STORAGE_NODES},
         consensus_api::ConsensusSharedApi,
         election::Membership,
         node_implementation::NodeType,
@@ -303,7 +323,15 @@
 
     <span class="comment">// every event input is seen on the event stream in the output.
     </span><span class="kw">let </span>block = &lt;TestBlockPayload <span class="kw">as </span>TestableBlock&gt;::genesis();
-    <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>block.encode().unwrap().collect());
+    <span class="kw">let </span>payload_commitment = vid_commitment(
+        <span class="kw-2">&amp;</span>block.encode().unwrap().collect(),
+        handle
+            .hotshot
+            .inner
+            .memberships
+            .quorum_membership
+            .total_nodes(),
+    );
     <span class="kw">let </span>block_header = TestBlockHeader::new(payload_commitment, (), <span class="kw-2">&amp;</span>parent_leaf.block_header);
     <span class="kw">let </span>leaf = Leaf {
         view_number: ViewNumber::new(view),
@@ -348,8 +376,20 @@
     (private_key, public_key)
 }
 
-<span class="kw">pub fn </span>vid_init() -&gt; VidScheme {
-    <span class="kw">let </span>srs = hotshot_types::data::test_srs(NUM_STORAGE_NODES);
-    VidScheme::new(NUM_CHUNKS, NUM_STORAGE_NODES, srs).unwrap()
+<span class="kw">pub fn </span>vid_init&lt;TYPES: NodeType&gt;(
+    membership: TYPES::Membership,
+    view_number: TYPES::Time,
+) -&gt; VidScheme {
+    <span class="kw">let </span>num_committee = membership.get_committee(view_number).len();
+
+    <span class="comment">// calculate the last power of two
+    // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
+    // issue: https://github.com/EspressoSystems/HotShot/issues/2152
+    </span><span class="kw">let </span>chunk_size = <span class="number">1 </span>&lt;&lt; num_committee.ilog2();
+
+    <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
+    </span><span class="kw">let </span>srs = hotshot_types::data::test_srs(num_committee);
+
+    VidScheme::new(chunk_size, num_committee, srs).unwrap()
 }
 </code></pre></div></section></main></body></html>

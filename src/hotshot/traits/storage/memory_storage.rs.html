@@ -176,6 +176,9 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -295,7 +298,10 @@
     <span class="kw">use </span>hotshot_types::{
         data::{fake_commitment, genesis_proposer_id, Leaf},
         simple_certificate::QuorumCertificate,
-        traits::{node_implementation::NodeType, state::ConsensusTime},
+        traits::{
+            block_contents::genesis_vid_commitment, node_implementation::NodeType,
+            state::ConsensusTime,
+        },
     };
     <span class="kw">use </span>std::marker::PhantomData;
     <span class="kw">use </span>tracing::instrument;
@@ -304,7 +310,7 @@
         <span class="kw">let </span>payload = TestBlockPayload::genesis();
         <span class="kw">let </span>header = TestBlockHeader {
             block_number: <span class="number">0</span>,
-            payload_commitment: payload.payload_commitment,
+            payload_commitment: genesis_vid_commitment(),
         };
         <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;TestTypes&gt;&gt;();
         <span class="kw">let </span>data = hotshot_types::simple_vote::QuorumData {
