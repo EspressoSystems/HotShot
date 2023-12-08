@@ -3,11 +3,11 @@ use std::{
     mem::size_of,
 };
 
-use commit::{Commitment, Committable};
+use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, VidCommitment},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
+        block_contents::{genesis_vid_commitment, BlockHeader, Transaction},
         state::TestableBlock,
         BlockPayload,
     },
@@ -56,7 +56,7 @@ impl Committable for TestTransaction {
     }
 
     fn tag() -> String {
-        "SEQUENCING_TXN".to_string()
+        "TEST_TXN".to_string()
     }
 }
 
@@ -67,8 +67,6 @@ impl Transaction for TestTransaction {}
 pub struct TestBlockPayload {
     /// List of transactions.
     pub transactions: Vec<TestTransaction>,
-    /// VID commitment to the block payload.
-    pub payload_commitment: <VidScheme as VidSchemeTrait>::Commit,
 }
 
 impl TestBlockPayload {
@@ -80,10 +78,8 @@ impl TestBlockPayload {
     pub fn genesis() -> Self {
         let txns: Vec<u8> = vec![0];
         // It's impossible for `encode` to fail because the transaciton length is very small.
-        let encoded = TestTransaction::encode(vec![TestTransaction(txns.clone())]).unwrap();
         TestBlockPayload {
             transactions: vec![TestTransaction(txns)],
-            payload_commitment: vid_commitment(&encoded),
         }
     }
 }
@@ -114,11 +110,9 @@ impl BlockPayload for TestBlockPayload {
         transactions: impl IntoIterator<Item = Self::Transaction>,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
-        let encoded = TestTransaction::encode(txns_vec.clone())?;
         Ok((
             Self {
                 transactions: txns_vec,
-                payload_commitment: vid_commitment(&encoded),
             },
             (),
         ))
@@ -146,10 +140,7 @@ impl BlockPayload for TestBlockPayload {
             current_index = next_index;
         }
 
-        Self {
-            transactions,
-            payload_commitment: vid_commitment(&encoded_vec),
-        }
+        Self { transactions }
     }
 
     fn genesis() -> (Self, Self::Metadata) {
@@ -200,7 +191,7 @@ impl BlockHeader for TestBlockHeader {
         (
             Self {
                 block_number: 0,
-                payload_commitment: payload.payload_commitment,
+                payload_commitment: genesis_vid_commitment(),
             },
             payload,
             metadata,
@@ -216,4 +207,20 @@ impl BlockHeader for TestBlockHeader {
     }
 
     fn metadata(&self) -> <Self::Payload as BlockPayload>::Metadata {}
+}
+
+impl Committable for TestBlockHeader {
+    fn commit(&self) -> Commitment<Self> {
+        let payload_commitment_bytes: [u8; 32] = self.payload_commitment().into();
+
+        RawCommitmentBuilder::new("Header Comm")
+            .u64_field("block number", self.block_number())
+            .constant_str("payload commitment")
+            .fixed_size_bytes(&payload_commitment_bytes)
+            .finalize()
+    }
+
+    fn tag() -> String {
+        "TEST_HEADER".to_string()
+    }
 }

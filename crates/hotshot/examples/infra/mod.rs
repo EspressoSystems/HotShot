@@ -154,9 +154,9 @@ async fn webserver_network_from_config<TYPES: NodeType>(
     let WebServerConfig {
         url,
         wait_between_polls,
-    }: WebServerConfig = config.clone().web_server_config.unwrap();
+    }: WebServerConfig = config.web_server_config.unwrap();
 
-    WebServerNetwork::create(url, wait_between_polls, pub_key.clone(), false)
+    WebServerNetwork::create(url, wait_between_polls, pub_key, false)
 }
 
 async fn libp2p_network_from_config<TYPES: NodeType>(
@@ -253,7 +253,7 @@ match node_type {
     let node_config = config_builder.build().unwrap();
 
     Libp2pNetwork::new(
-        NetworkingMetricsValue::new(),
+        NetworkingMetricsValue::default(),
         node_config,
         pub_key.clone(),
         Arc::new(RwLock::new(
@@ -361,7 +361,7 @@ pub trait RunDA<
             memberships,
             networks_bundle,
             initializer,
-            ConsensusMetricsValue::new(),
+            ConsensusMetricsValue::default(),
         )
         .await
         .expect("Could not init hotshot")
