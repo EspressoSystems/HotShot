@@ -76,6 +76,7 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::load_config_from_file;
@@ -147,6 +148,7 @@
             &gt;(ValidatorArgs {
                 url: orchestrator_url,
                 public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                network_config_file: <span class="prelude-val">None</span>,
             })
             .<span class="kw">await
         </span>});

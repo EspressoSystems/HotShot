@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["infra","types"],"struct":["MultiValidatorArgs"]};
+window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["infra","types"]};

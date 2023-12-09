@@ -910,10 +910,6 @@
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_lock::RwLock;
@@ -932,6 +928,7 @@
     types::{SignatureKey, SystemContextHandle},
     HotShotType, Memberships, Networks, SystemContext,
 };
+<span class="kw">use </span>hotshot_orchestrator::config::NetworkConfigSource;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
     client::{OrchestratorClient, ValidatorArgs},
@@ -1741,34 +1738,27 @@
 
     <span class="macro">error!</span>(<span class="string">&quot;Starting validator&quot;</span>);
 
-    <span class="kw">let </span>orchestrator_client: OrchestratorClient =
-        OrchestratorClient::connect_to_orchestrator(args.clone()).<span class="kw">await</span>;
-
-    <span class="comment">// Identify with the orchestrator
+    <span class="comment">// see what our public identity will be
     </span><span class="kw">let </span>public_ip = <span class="kw">match </span>args.public_ip {
         <span class="prelude-val">Some</span>(ip) =&gt; ip,
         <span class="prelude-val">None </span>=&gt; local_ip_address::local_ip().unwrap(),
     };
-    <span class="macro">error!</span>(
-        <span class="string">&quot;Identifying with orchestrator using IP address {}&quot;</span>,
-        public_ip.to_string()
-    );
-    <span class="kw">let </span>node_index: u16 = orchestrator_client
-        .identify_with_orchestrator(public_ip.to_string())
-        .<span class="kw">await</span>;
-    <span class="macro">error!</span>(<span class="string">&quot;Finished identifying; our node index is {node_index}&quot;</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;Getting config from orchestrator&quot;</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>run_config = orchestrator_client
-        .get_config_from_orchestrator::&lt;TYPES&gt;(node_index)
-        .<span class="kw">await</span>;
+    <span class="kw">let </span>orchestrator_client: OrchestratorClient =
+        OrchestratorClient::new(args.clone(), public_ip.to_string()).<span class="kw">await</span>;
 
-    run_config.node_index = node_index.into();
+    <span class="comment">// conditionally save/load config from file or orchestrator
+    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
+        NetworkConfig::from_file_or_orchestrator(<span class="kw-2">&amp;</span>orchestrator_client, args.network_config_file)
+            .<span class="kw">await</span>;
+
+    <span class="kw">let </span>node_index = run_config.node_index;
+    <span class="macro">error!</span>(<span class="string">&quot;Retrieved config; our node index is {node_index}&quot;</span>);
 
     run_config.config.my_own_validator_config =
         ValidatorConfig::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;::generated_from_seed_indexed(
             run_config.seed,
-            node_index.into(),
+            node_index,
             <span class="number">1</span>,
         );
     <span class="comment">//run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
@@ -1808,12 +1798,14 @@
         }
     }
 
-    <span class="macro">error!</span>(<span class="string">&quot;Waiting for start command from orchestrator&quot;</span>);
-    orchestrator_client
-        .wait_for_all_nodes_ready(run_config.clone().node_index)
-        .<span class="kw">await</span>;
+    <span class="kw">if let </span>NetworkConfigSource::Orchestrator = source {
+        <span class="macro">error!</span>(<span class="string">&quot;Waiting for the start command from orchestrator&quot;</span>);
+        orchestrator_client
+            .wait_for_all_nodes_ready(run_config.clone().node_index)
+            .<span class="kw">await</span>;
+    }
 
-    <span class="macro">error!</span>(<span class="string">&quot;All nodes are ready!  Starting HotShot&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Starting HotShot&quot;</span>);
     run.run_hotshot(
         hotshot,
         <span class="kw-2">&amp;mut </span>transactions,

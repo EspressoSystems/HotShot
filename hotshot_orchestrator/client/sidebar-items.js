@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["OrchestratorClient","ValidatorArgs"]};
+window.SIDEBAR_ITEMS = {"struct":["MultiValidatorArgs","OrchestratorClient","ValidatorArgs"]};

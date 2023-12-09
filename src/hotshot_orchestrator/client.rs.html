@@ -123,6 +123,58 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
@@ -130,13 +182,14 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
 
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
 
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     client: surf_disco::Client&lt;ClientError&gt;,
+    <span class="kw">pub </span>identity: String,
 }
 
 <span class="comment">// VALIDATOR
@@ -153,21 +206,78 @@
     <span class="doccomment">/// This node&#39;s public IP address, for libp2p
     /// If no IP address is passed in, it will default to 127.0.0.1
     </span><span class="kw">pub </span>public_ip: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    <span class="doccomment">/// An optional network config file to save to/load from
+    /// Allows for rejoining the network on a complete state loss
+    </span><span class="attr">#[arg(short, long)]
+    </span><span class="kw">pub </span>network_config_file: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="attr">#[derive(Parser, Debug, Clone)]
+</span><span class="kw">pub struct </span>MultiValidatorArgs {
+    <span class="doccomment">/// Number of validators to run
+    </span><span class="kw">pub </span>num_nodes: u16,
+    <span class="doccomment">/// The address the orchestrator runs on
+    </span><span class="kw">pub </span>url: Url,
+    <span class="doccomment">/// This node&#39;s public IP address, for libp2p
+    /// If no IP address is passed in, it will default to 127.0.0.1
+    </span><span class="kw">pub </span>public_ip: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    <span class="doccomment">/// An optional network config file to save to/load from
+    /// Allows for rejoining the network on a complete state loss
+    </span><span class="attr">#[arg(short, long)]
+    </span><span class="kw">pub </span>network_config_file: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="kw">impl </span>ValidatorArgs {
+    <span class="doccomment">/// Constructs `ValidatorArgs` from `MultiValidatorArgs` and a node index.
+    ///
+    /// If `network_config_file` is present in `MultiValidatorArgs`, it appends the node index to it to create a unique file name for each node.
+    ///
+    /// # Arguments
+    ///
+    /// * `multi_args` - A `MultiValidatorArgs` instance containing the base arguments for the construction.
+    /// * `node_index` - A `u16` representing the index of the node for which the args are being constructed.
+    ///
+    /// # Returns
+    ///
+    /// This function returns a new instance of `ValidatorArgs`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let multi_args = MultiValidatorArgs::new();
+    /// let node_index = 1;
+    /// let instance = Self::from_multi_args(multi_args, node_index);
+    /// ```
+    </span><span class="kw">pub fn </span>from_multi_args(multi_args: MultiValidatorArgs, node_index: u16) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            url: multi_args.url,
+            public_ip: multi_args.public_ip,
+            network_config_file: multi_args
+                .network_config_file
+                .map(|s| <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, s, node_index)),
+        }
+    }
 }
 
 <span class="kw">impl </span>OrchestratorClient {
-    <span class="doccomment">/// Creates the client that connects to the orchestrator
-    </span><span class="kw">pub async fn </span>connect_to_orchestrator(args: ValidatorArgs) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates the client that will connect to the orchestrator
+    </span><span class="kw">pub async fn </span>new(args: ValidatorArgs, identity: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>client = surf_disco::Client::&lt;ClientError&gt;::new(args.url);
         <span class="comment">// TODO ED: Add healthcheck wait here
-        </span>OrchestratorClient { client }
+        </span>OrchestratorClient { client, identity }
     }
 
-    <span class="doccomment">/// Sends an identify message to the server
-    /// Returns this validator&#39;s node_index in the network
-    </span><span class="kw">pub async fn </span>identify_with_orchestrator(<span class="kw-2">&amp;</span><span class="self">self</span>, identity: String) -&gt; u16 {
-        <span class="kw">let </span>identity = identity.as_str();
-        <span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
+    <span class="doccomment">/// Sends an identify message to the orchestrator and attempts to get its config
+    /// Returns both the node_index and the run configuration from the orchestrator
+    /// Will block until both are returned
+    </span><span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="kw">pub async fn </span>get_config&lt;K: SignatureKey, E: ElectionConfig&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        identity: String,
+    ) -&gt; NetworkConfig&lt;K, E&gt; {
+        <span class="comment">// get the node index
+        </span><span class="kw">let </span>identity = identity.as_str();
+        <span class="kw">let </span>identity = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;api/identity/{identity}&quot;</span>))
@@ -177,23 +287,12 @@
             }
             .boxed()
         };
-        <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await
-    </span>}
+        <span class="kw">let </span>node_index = <span class="self">self</span>.wait_for_fn_from_orchestrator(identity).<span class="kw">await</span>;
 
-    <span class="doccomment">/// Returns the run configuration from the orchestrator
-    /// Will block until the configuration is returned
-    </span><span class="attr">#[allow(clippy::type_complexity)]
-
-    </span><span class="kw">pub async fn </span>get_config_from_orchestrator&lt;TYPES: NodeType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        node_index: u16,
-    ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
-        <span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
+        <span class="comment">// get the corresponding config
+        </span><span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{
-                <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;
-                    NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-                    ClientError,
-                &gt; = client
+                <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;K, E&gt;, ClientError&gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;api/config/{node_index}&quot;</span>))
                     .send()
                     .<span class="kw">await</span>;
@@ -201,8 +300,13 @@
             }
             .boxed()
         };
-        <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await
-    </span>}
+
+        <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await</span>;
+
+        config.node_index = node_index <span class="kw">as </span>u64;
+
+        config
+    }
 
     <span class="doccomment">/// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
