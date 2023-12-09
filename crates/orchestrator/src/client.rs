@@ -35,6 +35,53 @@ pub struct ValidatorArgs {
     pub network_config_file: Option<String>,
 }
 
+#[derive(Parser, Debug, Clone)]
+pub struct MultiValidatorArgs {
+    /// Number of validators to run
+    pub num_nodes: u16,
+    /// The address the orchestrator runs on
+    pub url: Url,
+    /// This node's public IP address, for libp2p
+    /// If no IP address is passed in, it will default to 127.0.0.1
+    pub public_ip: Option<IpAddr>,
+    /// An optional network config file to save to/load from
+    /// Allows for rejoining the network on a complete state loss
+    #[arg(short, long)]
+    pub network_config_file: Option<String>,
+}
+
+impl ValidatorArgs {
+    /// Constructs `ValidatorArgs` from `MultiValidatorArgs` and a node index.
+    ///
+    /// If `network_config_file` is present in `MultiValidatorArgs`, it appends the node index to it to create a unique file name for each node.
+    ///
+    /// # Arguments
+    ///
+    /// * `multi_args` - A `MultiValidatorArgs` instance containing the base arguments for the construction.
+    /// * `node_index` - A `u16` representing the index of the node for which the args are being constructed.
+    ///
+    /// # Returns
+    ///
+    /// This function returns a new instance of `ValidatorArgs`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let multi_args = MultiValidatorArgs::new();
+    /// let node_index = 1;
+    /// let instance = Self::from_multi_args(multi_args, node_index);
+    /// ```
+    pub fn from_multi_args(multi_args: MultiValidatorArgs, node_index: u16) -> Self {
+        Self {
+            url: multi_args.url,
+            public_ip: multi_args.public_ip,
+            network_config_file: multi_args
+                .network_config_file
+                .map(|s| format!("{}-{}", s, node_index)),
+        }
+    }
+}
+
 impl OrchestratorClient {
     /// Creates the client that will connect to the orchestrator
     pub async fn new(args: ValidatorArgs, identity: String) -> Self {
