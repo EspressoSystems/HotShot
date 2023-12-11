@@ -283,8 +283,6 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -305,7 +303,6 @@
 <span class="kw">use super</span>::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
 };
-<span class="kw">use </span>hotshot::{HotShotType, SystemContext};
 <span class="doccomment">/// data describing how a round should be timed.
 </span><span class="attr">#[derive(Clone, Debug, Copy)]
 </span><span class="kw">pub struct </span>TimingData {
@@ -472,7 +469,6 @@
     ) -&gt; TestLauncher&lt;TYPES, I&gt;
     <span class="kw">where
         </span>I: NodeImplementation&lt;TYPES&gt;,
-        SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
     {
         <span class="kw">let </span>TestMetadata {
             total_nodes,

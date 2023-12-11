@@ -273,7 +273,6 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
@@ -285,7 +284,7 @@
 };
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
 
-<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, HotShotType, SystemContext};
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
 };
@@ -322,8 +321,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>SystemContext&lt;TYPES, I&gt;: HotShotType&lt;TYPES, I&gt;,
-    I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
+    </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
 {
     <span class="doccomment">/// excecute test
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>) {

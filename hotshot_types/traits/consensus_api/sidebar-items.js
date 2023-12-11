@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["ConsensusApi","ConsensusSharedApi"]};
+window.SIDEBAR_ITEMS = {"trait":["ConsensusApi"]};
