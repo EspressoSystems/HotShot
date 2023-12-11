@@ -1167,6 +1167,7 @@
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -1778,11 +1779,12 @@
                             <span class="comment">// starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                             </span><span class="kw">if </span>new_decide_reached {
                                 <span class="kw">let </span><span class="kw-2">mut </span>leaf = leaf.clone();
-                                consensus
-                                    .metrics
-                                    .last_synced_block_height
-                                    .set(usize::try_from(leaf.get_height()).unwrap_or(<span class="number">0</span>));
-
+                                <span class="kw">if </span>leaf.view_number == new_anchor_view {
+                                    consensus
+                                        .metrics
+                                        .last_synced_block_height
+                                        .set(usize::try_from(leaf.get_height()).unwrap_or(<span class="number">0</span>));
+                                }
                                 <span class="comment">// If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
                                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(encoded_txns) =
