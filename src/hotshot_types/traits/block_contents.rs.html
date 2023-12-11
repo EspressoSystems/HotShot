@@ -133,6 +133,10 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -233,6 +237,10 @@
 }
 
 <span class="doccomment">/// Computes the (empty) genesis VID commitment
+/// The number of storage nodes does not do anything, unless in the future we add fake transactions
+/// to the genesis payload.
+/// 
+/// In that case, the payloads may mismatch and cause problems.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>genesis_vid_commitment() -&gt; &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Commit {
     vid_commitment(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[], <span class="number">8</span>)
