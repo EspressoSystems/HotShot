@@ -2752,6 +2752,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "surf-disco",
+ "thiserror",
  "tide-disco",
  "tokio",
  "toml 0.8.8",
