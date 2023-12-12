@@ -1168,6 +1168,11 @@
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -2164,6 +2169,11 @@
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata) =&gt; {
                 <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>((payload_commitment, metadata));
+                <span class="kw">let </span>high_qc = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.clone();
+                <span class="kw">let </span>leader_view = high_qc.get_view_number() + <span class="number">1</span>;
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(leader_view) == <span class="self">self</span>.public_key {
+                    <span class="self">self</span>.publish_proposal_if_able(high_qc, leader_view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+                }
             }
             <span class="kw">_ </span>=&gt; {}
         }
