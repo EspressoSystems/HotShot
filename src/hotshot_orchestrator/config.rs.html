@@ -497,11 +497,18 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
 };
-<span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -509,6 +516,7 @@
     path::PathBuf,
     time::Duration,
 };
+<span class="kw">use </span>std::{fs, path::Path};
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>toml;
@@ -605,6 +613,7 @@
     ///
     /// If a file path is provided, the function will first attempt to load the `NetworkConfig` from the file.
     /// If the file does not exist or cannot be read, the function will fall back to retrieving the `NetworkConfig` from the orchestrator.
+    /// In this case, if the path to the file does not exist, it will be created.
     /// The retrieved `NetworkConfig` is then saved back to the file for future use.
     ///
     /// If no file path is provided, the function will directly retrieve the `NetworkConfig` from the orchestrator.
@@ -637,12 +646,19 @@
                 <span class="prelude-val">Ok</span>(config) =&gt; (config, NetworkConfigSource::File),
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="comment">// fallback to orchestrator
-                    </span><span class="macro">error!</span>(<span class="string">&quot;{e}&quot;</span>);
+                    </span><span class="macro">error!</span>(<span class="string">&quot;{e}, falling back to orchestrator&quot;</span>);
 
                     <span class="kw">let </span>config = client.get_config(client.identity.clone()).<span class="kw">await</span>;
 
                     <span class="comment">// save to file if we fell back
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = config.to_file(file) {
+                    // ensure the directory containing the config file exists
+                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = Path::new(<span class="kw-2">&amp;</span>file).parent() {
+                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = fs::create_dir_all(dir) {
+                            <span class="macro">error!</span>(<span class="string">&quot;Failed to recursively create path to config file: {e}&quot;</span>)
+                        }
+                    }
+
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = config.to_file(file) {
                         <span class="macro">error!</span>(<span class="string">&quot;{e}&quot;</span>);
                     };
 
