@@ -71,6 +71,8 @@ pub enum NetworkConfigError {
     WriteToFileError(std::io::Error),
     #[error("Failed to serialize NetworkConfig")]
     SerializeError(bincode::Error),
+    #[error("Failed to recursively create path to NetworkConfig")]
+    FailedToCreatePath(std::io::Error)
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -144,13 +146,6 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
                     let config = client.get_config(client.identity.clone()).await;
 
                     // save to file if we fell back
-                    // ensure the directory containing the config file exists
-                    if let Some(dir) = Path::new(&file).parent() {
-                        if let Err(e) = fs::create_dir_all(dir) {
-                            error!("Failed to recursively create path to config file: {e}")
-                        }
-                    }
-
                     if let Err(e) = config.to_file(file) {
                         error!("{e}");
                     };
@@ -231,6 +226,13 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
     /// config.to_file(file).unwrap();
     /// ```
     pub fn to_file(&self, file: String) -> Result<(), NetworkConfigError> {
+        // ensure the directory containing the config file exists
+        if let Some(dir) = Path::new(&file).parent() {
+            if let Err(e) = fs::create_dir_all(dir) {
+                return Err(NetworkConfigError::FailedToCreatePath(e))
+            }
+        }
+
         // serialize
         let serialized = match bincode::serialize(self) {
             Ok(data) => data,
