@@ -86,15 +86,15 @@ async fn test_timeout_libp2p() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 7000,
-        start_delay: 4000,
-        round_start_delay: 5000,
+        start_delay: 7000,
+        round_start_delay: 7000,
         ..Default::default()
     };
 
     let mut metadata = TestMetadata {
         total_nodes: 10,
         start_nodes: 10,
-        num_bootstrap_nodes: 5,
+        num_bootstrap_nodes: 10,
         ..Default::default()
     };
     let dead_nodes = vec![ChangeNode {
