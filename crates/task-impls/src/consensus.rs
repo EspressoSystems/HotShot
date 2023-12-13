@@ -414,7 +414,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!(
-                    "Receved Quorum Proposal for view {}",
+                    "Receved Quorum Propsoal for view {}",
                     *proposal.data.view_number
                 );
 
@@ -840,13 +840,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 debug!("QC Formed event happened!");
 
                 if let either::Right(qc) = cert.clone() {
-                    // cancel poll for votes
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *qc.view_number,
-                        ))
-                        .await;
-
                     debug!(
                         "Attempting to publish proposal after forming a TC for view {}",
                         *qc.view_number
@@ -868,13 +861,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let mut consensus = self.consensus.write().await;
                     consensus.high_qc = qc.clone();
 
-                    // cancel poll for votes
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *qc.view_number,
-                        ))
-                        .await;
-
                     drop(consensus);
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",
@@ -895,10 +881,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
-                    .await;
-
-                self.committee_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
 
                 self.da_certs.insert(view, cert);
@@ -993,11 +975,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                // cancel poll for votes
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
-
                 let vote = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
                     view,
@@ -1020,8 +997,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let high_qc = self.consensus.read().await.high_qc.clone();
                 let leader_view = high_qc.get_view_number() + 1;
                 if self.quorum_membership.get_leader(leader_view) == self.public_key {
-                    self.publish_proposal_if_able(high_qc, leader_view, None)
-                        .await;
+                    self.publish_proposal_if_able(high_qc, leader_view, None).await;
                 }
             }
             _ => {}

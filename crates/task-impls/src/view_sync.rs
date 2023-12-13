@@ -465,11 +465,6 @@ impl<
                     return;
                 }
 
-                // cancel poll for votes
-                self.network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view_number))
-                    .await;
-
                 self.num_timeouts_tracked += 1;
                 error!(
                     "Num timeouts tracked since last view change is {}. View {} timed out",
@@ -791,13 +786,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if last_seen_certificate <= self.phase {
                     return (None, self);
                 }
-
-                // cancel poll for votes
-                self.network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                        *certificate.view_number,
-                    ))
-                    .await;
 
                 self.phase = last_seen_certificate;
 
