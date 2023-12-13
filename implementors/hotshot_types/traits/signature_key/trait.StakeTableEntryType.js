@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"hotshot_qc":[["impl&lt;V&gt; <a class=\"trait\" href=\"hotshot_types/traits/signature_key/trait.StakeTableEntryType.html\" title=\"trait hotshot_types::traits::signature_key::StakeTableEntryType\">StakeTableEntryType</a> for <a class=\"struct\" href=\"hotshot_qc/bit_vector_old/struct.StakeTableEntry.html\" title=\"struct hotshot_qc::bit_vector_old::StakeTableEntry\">StakeTableEntry</a>&lt;V&gt;"]]
+"hotshot_qc":[["impl&lt;V&gt; StakeTableEntryType for <a class=\"struct\" href=\"hotshot_qc/bit_vector_old/struct.StakeTableEntry.html\" title=\"struct hotshot_qc::bit_vector_old::StakeTableEntry\">StakeTableEntry</a>&lt;V&gt;"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
