@@ -998,6 +998,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
 
+                // cancel poll for proposal
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
+                    .await;
+
                 let vote = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
                     view,
