@@ -66,13 +66,13 @@ pub enum NetworkConfigError {
     #[error("Failed to read NetworkConfig from file")]
     ReadFromFileError(std::io::Error),
     #[error("Failed to deserialize loaded NetworkConfig")]
-    DeserializeError(bincode::Error),
+    DeserializeError(serde_json::Error),
     #[error("Failed to write NetworkConfig to file")]
     WriteToFileError(std::io::Error),
     #[error("Failed to serialize NetworkConfig")]
-    SerializeError(bincode::Error),
+    SerializeError(serde_json::Error),
     #[error("Failed to recursively create path to NetworkConfig")]
-    FailedToCreatePath(std::io::Error)
+    FailedToCreatePath(std::io::Error),
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -196,7 +196,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         };
 
         // deserialize
-        match bincode::deserialize(&data) {
+        match serde_json::from_slice(&data) {
             Ok(data) => Ok(data),
             Err(e) => Err(NetworkConfigError::DeserializeError(e)),
         }
@@ -204,7 +204,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
 
     /// Serializes the `NetworkConfig` and writes it to a file.
     ///
-    /// This function takes a file path as a string, serializes the `NetworkConfig` into binary format using `bincode`, and then writes the serialized data to the file.
+    /// This function takes a file path as a string, serializes the `NetworkConfig` into JSON format using `serde_json` and then writes the serialized data to the file.
     ///
     /// # Arguments
     ///
@@ -229,12 +229,12 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         // ensure the directory containing the config file exists
         if let Some(dir) = Path::new(&file).parent() {
             if let Err(e) = fs::create_dir_all(dir) {
-                return Err(NetworkConfigError::FailedToCreatePath(e))
+                return Err(NetworkConfigError::FailedToCreatePath(e));
             }
         }
 
         // serialize
-        let serialized = match bincode::serialize(self) {
+        let serialized = match serde_json::to_string_pretty(self) {
             Ok(data) => data,
             Err(e) => {
                 return Err(NetworkConfigError::SerializeError(e));
