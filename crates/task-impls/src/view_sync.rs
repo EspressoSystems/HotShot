@@ -467,9 +467,7 @@ impl<
 
                 // cancel poll for votes
                 self.network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncVotes(
-                        *view_number,
-                    ))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view_number))
                     .await;
 
                 self.num_timeouts_tracked += 1;
