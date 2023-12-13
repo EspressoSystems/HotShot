@@ -175,8 +175,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
             };
 
-            println!("getting {}", endpoint);
-
             if message_purpose == MessagePurpose::Data {
                 let possible_message = self.get_txs_from_web_server(endpoint).await;
                 match possible_message {
@@ -801,9 +799,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForProposal(*view))
@@ -839,9 +837,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForVIDDisperse(*view))
@@ -892,9 +890,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForVotes(*view))
@@ -927,9 +925,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForDAC(*view))
@@ -979,9 +977,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
@@ -1019,9 +1017,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(*view))
@@ -1082,9 +1080,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
 
                 // Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                let view_minus_2 = view_number.checked_sub(2).unwrap_or(0);
-                let mut range = task_map.range(..view_minus_2);
-                while let Some((view, task)) = range.next() {
+                let view_minus_2 = view_number.saturating_sub(2);
+                let range = task_map.range(..view_minus_2);
+                for (view, task) in range {
                     // Cancel the old task by sending a message to it. If the task already exited we expect an error
                     let _res = task
                         .send(ConsensusIntentEvent::CancelPollForTransactions(*view))
