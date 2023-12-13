@@ -211,7 +211,6 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
     let replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - 2).unwrap();
     config_builder.replication_factor(replicated_nodes);
     config_builder.identity(identity.clone());
-
     config_builder.bound_addr(Some(bound_addr.clone()));
 
     let to_connect_addrs = bootstrap_nodes
