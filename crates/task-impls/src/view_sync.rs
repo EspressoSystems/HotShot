@@ -467,7 +467,9 @@ impl<
 
                 // cancel poll for votes
                 self.network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view_number))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncVotes(
+                        *view_number,
+                    ))
                     .await;
 
                 self.num_timeouts_tracked += 1;
@@ -789,7 +791,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // cancel poll for votes
                 self.network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncVotes(
+                        *certificate.view_number,
+                    ))
+                    .await;
+
+                // cancel poll for view sync cert
+                self.network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
                         *certificate.view_number,
                     ))
                     .await;
