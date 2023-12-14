@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/web_server_network.rs`."><title>web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/web_server_network.rs`."><title>web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1167,6 +1167,25 @@
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1199,8 +1218,9 @@
 <span class="kw">use </span>surf_disco::Url;
 
 <span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
+<span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::{
-    collections::{hash_map::Entry, BTreeSet, HashMap},
+    collections::{btree_map::Entry, BTreeSet},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -1288,25 +1308,25 @@
 
     <span class="doccomment">/// Task map for quorum proposals.
     </span>proposal_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for quorum votes.
     </span>vote_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for VID disperse data
     </span>vid_disperse_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for DACs.
     </span>dac_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync certificates.
     </span>view_sync_cert_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync votes.
     </span>view_sync_vote_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for transactions
     </span>txn_task_map:
-        Arc&lt;RwLock&lt;HashMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Inner&lt;TYPES&gt; {
@@ -1499,6 +1519,7 @@
                         </span>ConsensusIntentEvent::CancelPollForVotes(event_view)
                         | ConsensusIntentEvent::CancelPollForProposal(event_view)
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
+                        | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
                         | ConsensusIntentEvent::CancelPollForVIDDisperse(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) =&gt; {
                             <span class="kw">if </span>view_number == event_view {
@@ -1937,8 +1958,6 @@
         );
 
         <span class="comment">// TODO ED Need to handle canceling tasks that don&#39;t receive their expected output (such a proposal that never comes)
-        // TODO ED Need to GC all old views, not just singular views, could lead to a network leak
-
         </span><span class="kw">match </span>event {
             ConsensusIntentEvent::PollForProposal(view_number) =&gt; {
                 <span class="comment">// Check if we already have a task for this (we shouldn&#39;t)
@@ -1968,15 +1987,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// GC proposal collection if we are two views in the future
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, sender)) = task_map.remove_entry(<span class="kw-2">&amp;</span>view_number.wrapping_sub(<span class="number">2</span>)) {
-                    <span class="comment">// Send task cancel message to old task
-
-                    // If task already exited we expect an error
-                    </span><span class="kw">let </span>_res = sender
-                        .send(ConsensusIntentEvent::CancelPollForProposal(
-                            view_number.wrapping_sub(<span class="number">2</span>),
-                        ))
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForProposal(<span class="kw-2">*</span>view))
                         .<span class="kw">await</span>;
                 }
             }
@@ -2008,15 +2025,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// GC proposal collection if we are two views in the future
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, sender)) = task_map.remove_entry(<span class="kw-2">&amp;</span>view_number.wrapping_sub(<span class="number">2</span>)) {
-                    <span class="comment">// Send task cancel message to old task
-
-                    // If task already exited we expect an error
-                    </span><span class="kw">let </span>_res = sender
-                        .send(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                            view_number.wrapping_sub(<span class="number">2</span>),
-                        ))
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForVIDDisperse(<span class="kw-2">*</span>view))
                         .<span class="kw">await</span>;
                 }
             }
@@ -2063,16 +2078,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// GC proposal collection if we are two views in the future
-                // TODO ED This won&#39;t work for vote collection, last task is more than 2 view ago depending on size of network, will need to rely on cancel task from consensus
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, sender)) = task_map.remove_entry(<span class="kw-2">&amp;</span>(view_number.wrapping_sub(<span class="number">2</span>))) {
-                    <span class="comment">// Send task cancel message to old task
-
-                    // If task already exited we expect an error
-                    </span><span class="kw">let </span>_res = sender
-                        .send(ConsensusIntentEvent::CancelPollForVotes(
-                            view_number.wrapping_sub(<span class="number">2</span>),
-                        ))
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
                         .<span class="kw">await</span>;
                 }
             }
@@ -2101,15 +2113,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// GC proposal collection if we are two views in the future
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, sender)) = task_map.remove_entry(<span class="kw-2">&amp;</span>(view_number.wrapping_sub(<span class="number">2</span>))) {
-                    <span class="comment">// Send task cancel message to old task
-
-                    // If task already exited we expect an error
-                    </span><span class="kw">let </span>_res = sender
-                        .send(ConsensusIntentEvent::CancelPollForDAC(
-                            view_number.wrapping_sub(<span class="number">2</span>),
-                        ))
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForDAC(<span class="kw-2">*</span>view))
                         .<span class="kw">await</span>;
                 }
             }
@@ -2155,8 +2165,18 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// TODO ED Do we need to GC before returning?  Or will view sync task handle that?
-            </span>}
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
+                            <span class="kw-2">*</span>view,
+                        ))
+                        .<span class="kw">await</span>;
+                }
+            }
             ConsensusIntentEvent::PollForViewSyncVotes(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.view_sync_vote_task_map.write().<span class="kw">await</span>;
                 <span class="kw">if let </span>Entry::Vacant(e) = task_map.entry(view_number) {
@@ -2183,6 +2203,16 @@
                     });
                 } <span class="kw">else </span>{
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                }
+
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(<span class="kw-2">*</span>view))
+                        .<span class="kw">await</span>;
                 }
             }
 
@@ -2216,7 +2246,7 @@
             }
             ConsensusIntentEvent::PollForTransactions(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.txn_task_map.write().<span class="kw">await</span>;
-                <span class="kw">if let </span>std::collections::hash_map::Entry::Vacant(e) = task_map.entry(view_number) {
+                <span class="kw">if let </span>Entry::Vacant(e) = task_map.entry(view_number) {
                     <span class="comment">// create new task
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
@@ -2238,8 +2268,16 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// TODO ED Do we need to GC before returning?  Or will view sync task handle that?
-            </span>}
+                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
+                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
+                <span class="kw">let </span>range = task_map.range(..view_minus_2);
+                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
+                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
+                    </span><span class="kw">let </span>_res = task
+                        .send(ConsensusIntentEvent::CancelPollForTransactions(<span class="kw-2">*</span>view))
+                        .<span class="kw">await</span>;
+                }
+            }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.txn_task_map.write().<span class="kw">await</span>;
 
