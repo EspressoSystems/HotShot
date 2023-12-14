@@ -505,6 +505,8 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
@@ -573,11 +575,13 @@
     <span class="attr">#[error(<span class="string">&quot;Failed to read NetworkConfig from file&quot;</span>)]
     </span>ReadFromFileError(std::io::Error),
     <span class="attr">#[error(<span class="string">&quot;Failed to deserialize loaded NetworkConfig&quot;</span>)]
-    </span>DeserializeError(bincode::Error),
+    </span>DeserializeError(serde_json::Error),
     <span class="attr">#[error(<span class="string">&quot;Failed to write NetworkConfig to file&quot;</span>)]
     </span>WriteToFileError(std::io::Error),
     <span class="attr">#[error(<span class="string">&quot;Failed to serialize NetworkConfig&quot;</span>)]
-    </span>SerializeError(bincode::Error),
+    </span>SerializeError(serde_json::Error),
+    <span class="attr">#[error(<span class="string">&quot;Failed to recursively create path to NetworkConfig&quot;</span>)]
+    </span>FailedToCreatePath(std::io::Error),
 }
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -651,14 +655,7 @@
                     <span class="kw">let </span>config = client.get_config(client.identity.clone()).<span class="kw">await</span>;
 
                     <span class="comment">// save to file if we fell back
-                    // ensure the directory containing the config file exists
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = Path::new(<span class="kw-2">&amp;</span>file).parent() {
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = fs::create_dir_all(dir) {
-                            <span class="macro">error!</span>(<span class="string">&quot;Failed to recursively create path to config file: {e}&quot;</span>)
-                        }
-                    }
-
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = config.to_file(file) {
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = config.to_file(file) {
                         <span class="macro">error!</span>(<span class="string">&quot;{e}&quot;</span>);
                     };
 
@@ -708,7 +705,7 @@
         };
 
         <span class="comment">// deserialize
-        </span><span class="kw">match </span>bincode::deserialize(<span class="kw-2">&amp;</span>data) {
+        </span><span class="kw">match </span>serde_json::from_slice(<span class="kw-2">&amp;</span>data) {
             <span class="prelude-val">Ok</span>(data) =&gt; <span class="prelude-val">Ok</span>(data),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(NetworkConfigError::DeserializeError(e)),
         }
@@ -716,7 +713,7 @@
 
     <span class="doccomment">/// Serializes the `NetworkConfig` and writes it to a file.
     ///
-    /// This function takes a file path as a string, serializes the `NetworkConfig` into binary format using `bincode`, and then writes the serialized data to the file.
+    /// This function takes a file path as a string, serializes the `NetworkConfig` into JSON format using `serde_json` and then writes the serialized data to the file.
     ///
     /// # Arguments
     ///
@@ -738,8 +735,15 @@
     /// config.to_file(file).unwrap();
     /// ```
     </span><span class="kw">pub fn </span>to_file(<span class="kw-2">&amp;</span><span class="self">self</span>, file: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkConfigError&gt; {
+        <span class="comment">// ensure the directory containing the config file exists
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = Path::new(<span class="kw-2">&amp;</span>file).parent() {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = fs::create_dir_all(dir) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkConfigError::FailedToCreatePath(e));
+            }
+        }
+
         <span class="comment">// serialize
-        </span><span class="kw">let </span>serialized = <span class="kw">match </span>bincode::serialize(<span class="self">self</span>) {
+        </span><span class="kw">let </span>serialized = <span class="kw">match </span>serde_json::to_string_pretty(<span class="self">self</span>) {
             <span class="prelude-val">Ok</span>(data) =&gt; data,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkConfigError::SerializeError(e));
