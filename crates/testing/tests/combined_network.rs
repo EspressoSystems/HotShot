@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-#[cfg(async_executor_impl = "async-std")]
 use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     node_types::{CombinedImpl, TestTypes},
