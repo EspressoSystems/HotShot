@@ -156,7 +156,15 @@ async fn webserver_network_from_config<TYPES: NodeType>(
         wait_between_polls,
     }: WebServerConfig = config.web_server_config.unwrap();
 
-    WebServerNetwork::create(url, wait_between_polls, pub_key, false)
+    WebServerNetwork::create(
+        url,
+        Duration::from_millis(500),
+        wait_between_polls,
+        pub_key,
+        false,
+    )
+    .await
+    .expect("Failed to connect to web server")
 }
 
 async fn libp2p_network_from_config<TYPES: NodeType>(
@@ -543,11 +551,29 @@ where
             WebCommChannel::new(underlying_quorum_network.into());
 
         let da_channel: WebCommChannel<TYPES> = WebCommChannel::new(
-            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true).into(),
+            WebServerNetwork::create(
+                url.clone(),
+                Duration::from_millis(500),
+                wait_between_polls,
+                pub_key.clone(),
+                true,
+            )
+            .await
+            .expect("Failed to connect to web server")
+            .into(),
         );
 
         let vid_channel: WebCommChannel<TYPES> = WebCommChannel::new(
-            WebServerNetwork::create(url, wait_between_polls, pub_key, true).into(),
+            WebServerNetwork::create(
+                url,
+                Duration::from_millis(500),
+                wait_between_polls,
+                pub_key,
+                true,
+            )
+            .await
+            .expect("Failed to connect to web server")
+            .into(),
         );
 
         WebServerDARun {
@@ -738,8 +764,15 @@ where
         let webserver_underlying_quorum_network =
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
 
-        let webserver_underlying_da_network =
-            WebServerNetwork::create(url, wait_between_polls, pub_key, true);
+        let webserver_underlying_da_network = WebServerNetwork::create(
+            url,
+            Duration::from_millis(500),
+            wait_between_polls,
+            pub_key,
+            true,
+        )
+        .await
+        .expect("Failed to connect to da network");
 
         webserver_underlying_quorum_network.wait_for_ready().await;
 

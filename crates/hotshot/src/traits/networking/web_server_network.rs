@@ -3,6 +3,7 @@
 //! To run the web server, see the `./web_server/` folder in this repo.
 //!
 
+use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 
 use async_compatibility_layer::{
@@ -474,18 +475,25 @@ impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
 impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
     /// Creates a new instance of the `WebServerNetwork`
+    /// # Errors
+    /// if couldn't connect to server before `connect_timeout`
     /// # Panics
     /// if the web server url is malformed
-    pub fn create(
+    pub async fn create(
         url: Url,
+        connect_timeout: Duration,
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
         is_da_server: bool,
-    ) -> Self {
+    ) -> Result<Self, WebServerNetworkError> {
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
-        // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(url);
+        client
+            .connect(Some(connect_timeout))
+            .await
+            .then_some(())
+            .ok_or(WebServerNetworkError::ClientError)?;
 
         let inner = Arc::new(Inner {
             broadcast_poll_queue: Arc::default(),
@@ -509,10 +517,10 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 
         inner.connected.store(true, Ordering::Relaxed);
 
-        Self {
+        Ok(Self {
             inner,
             server_shutdown_signal: None,
-        }
+        })
     }
 
     /// Parses a message to find the appropriate endpoint
@@ -1161,12 +1169,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
-            let mut network = WebServerNetwork::create(
+            let mut network = async_block_on(WebServerNetwork::create(
                 url,
+                Duration::from_millis(500),
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
                 is_da,
-            );
+            ))
+            .expect("Failed to connect to web server");
             network.server_shutdown_signal = Some(sender);
             network
         })
