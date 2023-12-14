@@ -1186,6 +1186,16 @@
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
 <a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1327,6 +1337,9 @@
     <span class="doccomment">/// Task map for transactions
     </span>txn_task_map:
         Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Task polling for current propsal
+    </span>current_proposal_task:
+        Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Inner&lt;TYPES&gt; {
@@ -1690,6 +1703,7 @@
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
+            current_proposal_task: Arc::default(),
         });
 
         inner.connected.store(<span class="bool-val">true</span>, Ordering::Relaxed);
@@ -2036,23 +2050,29 @@
                 }
             }
             ConsensusIntentEvent::PollForCurrentProposal =&gt; {
-                <span class="comment">// create new task
-                </span><span class="kw">let </span>(<span class="kw">_</span>, receiver) = unbounded();
+                <span class="kw">let </span><span class="kw-2">mut </span>proposal_task = <span class="self">self</span>.inner.current_proposal_task.write().<span class="kw">await</span>;
+                <span class="kw">if </span>proposal_task.is_none() {
+                    <span class="comment">// create new task
+                    </span><span class="kw">let </span>(sender, receiver) = unbounded();
+                    <span class="kw-2">*</span>proposal_task = <span class="prelude-val">Some</span>(sender);
 
-                async_spawn({
-                    <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
-                    <span class="kw">async move </span>{
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
-                            .poll_web_server(receiver, MessagePurpose::CurrentProposal, <span class="number">1</span>)
-                            .<span class="kw">await
-                        </span>{
-                            <span class="macro">warn!</span>(
+                    async_spawn({
+                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">async move </span>{
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
+                                .poll_web_server(receiver, MessagePurpose::CurrentProposal, <span class="number">1</span>)
+                                .<span class="kw">await
+                            </span>{
+                                <span class="macro">warn!</span>(
                                 <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
                                 e
                             );
+                            }
+                            <span class="kw">let </span><span class="kw-2">mut </span>proposal_task = inner_clone.current_proposal_task.write().<span class="kw">await</span>;
+                            <span class="kw-2">*</span>proposal_task = <span class="prelude-val">None</span>;
                         }
-                    }
-                });
+                    });
+                }
             }
             ConsensusIntentEvent::PollForVotes(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.vote_task_map.write().<span class="kw">await</span>;

@@ -953,6 +953,10 @@
 <a href="#953" id="953">953</a>
 <a href="#954" id="954">954</a>
 <a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -1820,6 +1824,10 @@
                     &amp;&amp; relay == <span class="self">self</span>.relay
                     &amp;&amp; last_seen_certificate == <span class="self">self</span>.phase
                 {
+                    <span class="comment">// Keep tyring to get a more recent proposal to catch up to
+                    </span><span class="self">self</span>.network
+                        .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
+                        .<span class="kw">await</span>;
                     <span class="self">self</span>.relay += <span class="number">1</span>;
                     <span class="kw">match </span><span class="self">self</span>.phase {
                         ViewSyncPhase::None =&gt; {
