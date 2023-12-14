@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hotshot":[["impl&lt;K: <a class=\"trait\" href=\"hotshot/types/trait.SignatureKey.html\" title=\"trait hotshot::types::SignatureKey\">SignatureKey</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.74.1/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"hotshot/traits/networking/web_server_network/struct.TaskMap.html\" title=\"struct hotshot::traits::networking::web_server_network::TaskMap\">TaskMap</a>&lt;K&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

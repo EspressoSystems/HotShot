@@ -1198,6 +1198,42 @@
 <a href="#1198" id="1198">1198</a>
 <a href="#1199" id="1199">1199</a>
 <a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1211,6 +1247,7 @@
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>derive_more::{Deref, DerefMut};
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
     message::{Message, MessagePurpose},
@@ -1294,6 +1331,79 @@
     }
 }
 
+<span class="doccomment">/// `TaskChannel` is a type alias for an unbounded sender channel that sends `ConsensusIntentEvent`s.
+///
+/// This channel is used to send events to a task. The `K` type parameter is the type of the key used in the `ConsensusIntentEvent`.
+///
+/// # Examples
+///
+/// ```
+/// let (tx, _rx): (TaskChannel&lt;MyKey&gt;, _) = tokio::sync::mpsc::unbounded_channel();
+/// ```
+///
+/// # Note
+///
+/// This type alias is used in the context of a `TaskMap`, where each task is represented by a `TaskChannel`.
+</span><span class="kw">type </span>TaskChannel&lt;K&gt; = UnboundedSender&lt;ConsensusIntentEvent&lt;K&gt;&gt;;
+
+<span class="doccomment">/// `TaskMap` is a wrapper around a `BTreeMap` that maps view numbers to tasks.
+///
+/// Each task is represented by a `TaskChannel` that can be used to send events to the task.
+/// The key `K` is a type that implements the `SignatureKey` trait.
+///
+/// # Examples
+///
+/// ```
+/// use your_crate::TaskMap;
+/// let mut map: TaskMap&lt;MyKey&gt; = TaskMap::default();
+/// ```
+///
+/// # Note
+///
+/// This struct is `Clone`, `Deref`, and `DerefMut`, so it can be used just like a `BTreeMap`.
+</span><span class="attr">#[derive(Debug, Clone, Deref, DerefMut)]
+</span><span class="kw">struct </span>TaskMap&lt;K: SignatureKey&gt;(BTreeMap&lt;u64, TaskChannel&lt;K&gt;&gt;);
+
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; Default <span class="kw">for </span>TaskMap&lt;K&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(BTreeMap::default())
+    }
+}
+
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; TaskMap&lt;K&gt; {
+    <span class="doccomment">/// Prunes tasks that are polling for a view less than or equal to `current_view - 2`.
+    ///
+    /// This method cancels and removes all entries in the task map that are polling for a view less than or equal to `current_view - 2`.
+    /// The cancellation is performed by sending a `cancel_event` to the task.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_view` - The current view number. Tasks polling for a view less than or equal to `current_view - 2` will be pruned.
+    /// * `cancel_event_fn` - A function that takes a view number and returns a `ConsensusIntentEvent` to be sent to the task for cancellation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut map: TaskMap&lt;MyKey&gt; = TaskMap::default();
+    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal).await;
+    /// ```
+    </span><span class="kw">async fn </span>prune_tasks(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        current_view: u64,
+        cancel_event_fn: <span class="kw">fn</span>(u64) -&gt; ConsensusIntentEvent&lt;K&gt;,
+    ) {
+        <span class="kw">let </span>cutoff_view = current_view.saturating_sub(<span class="number">2</span>);
+        <span class="kw">let </span>views_to_remove: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self</span>.range(..cutoff_view).map(|(key, <span class="kw">_</span>)| <span class="kw-2">*</span>key).collect();
+
+        <span class="kw">for </span>view <span class="kw">in </span>views_to_remove {
+            <span class="kw">let </span>task = <span class="self">self</span>.remove(<span class="kw-2">&amp;</span>view);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = task {
+                <span class="kw">let _ </span>= task.send(cancel_event_fn(view)).<span class="kw">await</span>;
+            }
+        }
+    }
+}
+
 <span class="doccomment">/// Represents the core of web server networking
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>Inner&lt;TYPES: NodeType&gt; {
@@ -1318,26 +1428,19 @@
     </span>tx_index: Arc&lt;RwLock&lt;u64&gt;&gt;,
 
     <span class="doccomment">/// Task map for quorum proposals.
-    </span>proposal_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>proposal_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for quorum votes.
-    </span>vote_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>vote_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for VID disperse data
-    </span>vid_disperse_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>vid_disperse_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for DACs.
-    </span>dac_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>dac_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync certificates.
-    </span>view_sync_cert_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>view_sync_cert_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for view sync votes.
-    </span>view_sync_vote_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>view_sync_vote_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task map for transactions
-    </span>txn_task_map:
-        Arc&lt;RwLock&lt;BTreeMap&lt;u64, UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
+    </span>txn_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="doccomment">/// Task polling for current propsal
     </span>current_proposal_task:
         Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;&gt;,
@@ -2002,15 +2105,10 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForProposal(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForProposal)
+                    .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::PollForVIDDisperse(view_number) =&gt; {
                 <span class="comment">// Check if we already have a task for this (we shouldn&#39;t)
@@ -2040,15 +2138,10 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForVIDDisperse(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
+                    .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::PollForCurrentProposal =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>proposal_task = <span class="self">self</span>.inner.current_proposal_task.write().<span class="kw">await</span>;
@@ -2099,15 +2192,10 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVotes)
+                    .<span class="kw">await</span>;
             }
 
             ConsensusIntentEvent::PollForDAC(view_number) =&gt; {
@@ -2134,15 +2222,10 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForDAC(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForDAC)
+                    .<span class="kw">await</span>;
             }
 
             ConsensusIntentEvent::CancelPollForVotes(view_number) =&gt; {
@@ -2186,17 +2269,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
-                            <span class="kw-2">*</span>view,
-                        ))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(
+                        view_number,
+                        ConsensusIntentEvent::CancelPollForViewSyncCertificate,
+                    )
+                    .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::PollForViewSyncVotes(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.view_sync_vote_task_map.write().<span class="kw">await</span>;
@@ -2226,15 +2305,13 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForViewSyncVotes(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(
+                        view_number,
+                        ConsensusIntentEvent::CancelPollForViewSyncVotes,
+                    )
+                    .<span class="kw">await</span>;
             }
 
             ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number) =&gt; {
@@ -2289,15 +2366,10 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
                 }
 
-                <span class="comment">// Remove all entries in the task map that are polling for a view less than or equal to `view_number - 2`.
-                </span><span class="kw">let </span>view_minus_2 = view_number.saturating_sub(<span class="number">2</span>);
-                <span class="kw">let </span>range = task_map.range(..view_minus_2);
-                <span class="kw">for </span>(view, task) <span class="kw">in </span>range {
-                    <span class="comment">// Cancel the old task by sending a message to it. If the task already exited we expect an error
-                    </span><span class="kw">let </span>_res = task
-                        .send(ConsensusIntentEvent::CancelPollForTransactions(<span class="kw-2">*</span>view))
-                        .<span class="kw">await</span>;
-                }
+                <span class="comment">// Cancel old, stale tasks
+                </span>task_map
+                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForTransactions)
+                    .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::CancelPollForTransactions(view_number) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.txn_task_map.write().<span class="kw">await</span>;
