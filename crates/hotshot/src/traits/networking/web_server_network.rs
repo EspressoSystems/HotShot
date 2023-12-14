@@ -207,7 +207,8 @@ struct Inner<TYPES: NodeType> {
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task polling for current propsal
-    current_proposal_task: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
+    current_proposal_task:
+        Arc<RwLock<Option<UnboundedSender<ConsensusIntentEvent<TYPES::SignatureKey>>>>>,
 }
 
 impl<TYPES: NodeType> Inner<TYPES> {
