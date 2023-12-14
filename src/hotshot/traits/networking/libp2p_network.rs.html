@@ -900,6 +900,10 @@
 <a href="#900" id="900">900</a>
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1044,7 +1048,7 @@
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
+        _network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
@@ -1075,9 +1079,13 @@
                     node_id,
                     node_id &lt; num_bootstrap <span class="kw">as </span>u64
                 );
+
+                <span class="comment">// pick a free, unused UDP port for testing
+                </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">&quot;Could not find an open port&quot;</span>);
+
                 <span class="kw">let </span>addr =
-                    <span class="comment">// Multiaddr::from_str(&amp;format!(&quot;/ip4/127.0.0.1/udp/0/quic-v1&quot;)).unwrap();
-                    </span>Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/udp/{}{}/quic-v1&quot;</span>, <span class="number">5000 </span>+ node_id, network_id)).unwrap();
+                    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/udp/{port}/quic-v1&quot;</span>)).unwrap();
+
                 <span class="comment">// We assign node&#39;s public key and stake value rather than read from config file since it&#39;s a test
                 </span><span class="kw">let </span>privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;

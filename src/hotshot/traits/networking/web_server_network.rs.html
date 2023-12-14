@@ -1196,6 +1196,8 @@
 <a href="#1196" id="1196">1196</a>
 <a href="#1197" id="1197">1197</a>
 <a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1223,7 +1225,6 @@
     },
 };
 <span class="kw">use </span>hotshot_web_server::{<span class="self">self</span>, config};
-<span class="kw">use </span>rand::random;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>surf_disco::Url;
 
@@ -2328,7 +2329,10 @@
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
-        <span class="kw">let </span>port = random::&lt;u16&gt;();
+
+        <span class="comment">// pick random, unused port
+        </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">&quot;Could not find an open port&quot;</span>);
+
         <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">&quot;http://localhost:{port}&quot;</span>).as_str()).unwrap();
         <span class="macro">info!</span>(<span class="string">&quot;Launching web server on port {port}&quot;</span>);
         <span class="comment">// Start web server

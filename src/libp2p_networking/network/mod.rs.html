@@ -254,6 +254,9 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="kw">mod </span>def;
@@ -451,13 +454,16 @@
     <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), Udp(port), QuicV1)
 }
 
+<span class="doccomment">/// `BoxedTransport` is a type alias for a boxed tuple containing a `PeerId` and a `StreamMuxerBox`.
+///
+/// This type is used to represent a transport in the libp2p network framework. The `PeerId` is a unique identifier for each peer in the network, and the `StreamMuxerBox` is a type of multiplexer that can handle multiple substreams over a single connection.
+</span><span class="kw">type </span>BoxedTransport = Boxed&lt;(PeerId, StreamMuxerBox)&gt;;
+
 <span class="doccomment">/// Generate authenticated transport
 /// # Errors
 /// could not sign the quic key with `identity`
 </span><span class="attr">#[instrument(skip(identity))]
-</span><span class="kw">pub async fn </span>gen_transport(
-    identity: Keypair,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boxed&lt;(PeerId, StreamMuxerBox)&gt;, NetworkError&gt; {
+</span><span class="kw">pub async fn </span>gen_transport(identity: Keypair) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedTransport, NetworkError&gt; {
     <span class="kw">let </span>quic_transport = {
         <span class="kw">let </span><span class="kw-2">mut </span>config = quic::Config::new(<span class="kw-2">&amp;</span>identity);
         config.handshake_timeout = std::time::Duration::from_secs(<span class="number">20</span>);

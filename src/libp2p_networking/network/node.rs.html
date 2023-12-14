@@ -653,7 +653,8 @@
 <span class="kw">use super</span>::{
     behaviours::gossip::GossipBehaviour,
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
+    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
+    NetworkNodeType,
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::network::{
@@ -675,7 +676,6 @@
 <span class="kw">use </span>hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 <span class="kw">use </span>libp2p::core::transport::ListenerId;
 <span class="kw">use </span>libp2p::{
-    core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
         Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder,
         Message <span class="kw">as </span>GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
@@ -790,7 +790,7 @@
     /// Currently:
     ///   * Generates a random key pair and associated [`PeerId`]
     ///   * Launches a hopefully production ready transport:
-    ///       QUIC v1 (RFC 9000) + DNS + Websocket + XX auth
+    ///       QUIC v1 (RFC 9000) + DNS
     ///   * Generates a connection to the &quot;broadcast&quot; topic
     ///   * Creates a swarm to manage peers and events
     </span><span class="attr">#[instrument]
@@ -803,7 +803,7 @@
         };
         <span class="kw">let </span>peer_id = PeerId::from(identity.public());
         <span class="macro">debug!</span>(<span class="question-mark">?</span>peer_id);
-        <span class="kw">let </span>transport: Boxed&lt;(PeerId, StreamMuxerBox)&gt; = gen_transport(identity.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>transport: BoxedTransport = gen_transport(identity.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Launched network transport&quot;</span>);
         <span class="comment">// Generate the swarm
         </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&gt; = {

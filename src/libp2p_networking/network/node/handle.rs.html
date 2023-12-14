@@ -789,7 +789,7 @@
     <span class="doccomment">/// constructs a new node listening on `known_addr`
     </span><span class="attr">#[instrument]
     </span><span class="kw">pub async fn </span>new(config: NetworkNodeConfig, id: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkNodeHandleError&gt; {
-        <span class="comment">//`randomly assigned port
+        <span class="comment">// randomly assigned port
         </span><span class="kw">let </span>listen_addr = config
             .bound_addr
             .clone()
