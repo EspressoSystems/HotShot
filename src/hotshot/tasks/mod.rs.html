@@ -520,10 +520,6 @@
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{async_spawn, types::SystemContextHandle, HotShotConsensusApi};
@@ -771,10 +767,6 @@
     consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
-        .<span class="kw">await</span>;
-    consensus_state
-        .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(<span class="number">1</span>))
         .<span class="kw">await</span>;
     <span class="kw">let </span>filter = FilterEvent(Arc::new(consensus_event_filter));
     <span class="kw">let </span>consensus_name = <span class="string">&quot;Consensus Task&quot;</span>;

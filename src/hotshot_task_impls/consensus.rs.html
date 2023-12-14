@@ -1178,6 +1178,34 @@
 <a href="#1178" id="1178">1178</a>
 <a href="#1179" id="1179">1179</a>
 <a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -1594,7 +1622,7 @@
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(
-                    <span class="string">&quot;Receved Quorum Propsoal for view {}&quot;</span>,
+                    <span class="string">&quot;Receved Quorum Proposal for view {}&quot;</span>,
                     <span class="kw-2">*</span>proposal.data.view_number
                 );
 
@@ -2020,6 +2048,13 @@
                 <span class="macro">debug!</span>(<span class="string">&quot;QC Formed event happened!&quot;</span>);
 
                 <span class="kw">if let </span>either::Right(qc) = cert.clone() {
+                    <span class="comment">// cancel poll for votes
+                    </span><span class="self">self</span>.quorum_network
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            <span class="kw-2">*</span>qc.view_number,
+                        ))
+                        .<span class="kw">await</span>;
+
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;Attempting to publish proposal after forming a TC for view {}&quot;</span>,
                         <span class="kw-2">*</span>qc.view_number
@@ -2040,6 +2075,13 @@
                 <span class="kw">if let </span>either::Left(qc) = cert {
                     <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                     consensus.high_qc = qc.clone();
+
+                    <span class="comment">// cancel poll for votes
+                    </span><span class="self">self</span>.quorum_network
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            <span class="kw-2">*</span>qc.view_number,
+                        ))
+                        .<span class="kw">await</span>;
 
                     drop(consensus);
                     <span class="macro">debug!</span>(
@@ -2063,6 +2105,10 @@
 
                 <span class="self">self</span>.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(<span class="kw-2">*</span>view))
+                    .<span class="kw">await</span>;
+
+                <span class="self">self</span>.committee_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
 
                 <span class="self">self</span>.da_certs.insert(view, cert);
@@ -2156,6 +2202,16 @@
                     );
                     <span class="kw">return</span>;
                 }
+
+                <span class="comment">// cancel poll for votes
+                </span><span class="self">self</span>.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
+                    .<span class="kw">await</span>;
+
+                <span class="comment">// cancel poll for proposal
+                </span><span class="self">self</span>.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(<span class="kw-2">*</span>view))
+                    .<span class="kw">await</span>;
 
                 <span class="kw">let </span>vote = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
