@@ -1206,6 +1206,10 @@
 <a href="#1206" id="1206">1206</a>
 <a href="#1207" id="1207">1207</a>
 <a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
@@ -1439,17 +1443,19 @@
                 }
             }
 
-            <span class="comment">// Only vote if you has seen the VID share for this view
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = <span class="self">self</span>.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
-            } <span class="kw">else </span>{
-                <span class="macro">debug!</span>(
-                    <span class="string">&quot;We have not seen the VID share for this view {:?} yet, so we cannot vote.&quot;</span>,
-                    proposal.view_number
-                );
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            }
+            <span class="comment">// TODO: re-enable this when HotShot/the sequencer needs the shares for something
+            // issue: https://github.com/EspressoSystems/HotShot/issues/2236
+            // Only vote if you has seen the VID share for this view
+            // if let Some(_vid_share) = self.vid_shares.get(&amp;proposal.view_number) {
+            // } else {
+            //     debug!(
+            //         &quot;We have not seen the VID share for this view {:?} yet, so we cannot vote.&quot;,
+            //         proposal.view_number
+            //     );
+            //     return false;
+            // }
 
-            <span class="comment">// Only vote if you have the DA cert
+            // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.da_certs.get(<span class="kw-2">&amp;</span>(proposal.get_view_number())) {
                 <span class="kw">let </span>view = cert.view_number;
@@ -2160,8 +2166,10 @@
                     .<span class="kw">await</span>;
 
                 <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
-                </span><span class="self">self</span>.vid_shares.insert(view, disperse);
-            }
+                // TODO: re-enable this when HotShot/the sequencer needs the shares for something
+                // issue: https://github.com/EspressoSystems/HotShot/issues/2236
+                // self.vid_shares.insert(view, disperse);
+            </span>}
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;View Change event for view {} in consensus task&quot;</span>, <span class="kw-2">*</span>new_view);
 
