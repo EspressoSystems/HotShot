@@ -2734,6 +2734,7 @@ dependencies = [
  "custom_debug",
  "dashmap",
  "derivative",
+ "derive_more",
  "dyn-clone 1.0.16 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.16)",
  "either",
  "embed-doc-image",
