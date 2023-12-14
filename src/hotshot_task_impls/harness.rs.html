@@ -110,6 +110,8 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
@@ -210,6 +212,7 @@
         state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),
         <span class="string">&quot;Got an unexpected event: {event:?}&quot;</span>,
     );
+
     <span class="kw">let </span>num_expected = state.expected_output.get_mut(<span class="kw-2">&amp;</span>event).unwrap();
     <span class="kw">if </span><span class="kw-2">*</span>num_expected == <span class="number">1 </span>{
         state.expected_output.remove(<span class="kw-2">&amp;</span>event);
@@ -220,6 +223,7 @@
     <span class="kw">if </span>state.expected_output.is_empty() {
         <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state);
     }
+
     (<span class="prelude-val">None</span>, state)
 }
 </code></pre></div></section></main></body></html>

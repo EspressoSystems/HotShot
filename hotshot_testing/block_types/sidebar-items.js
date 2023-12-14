@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TestBlockHeader","TestBlockPayload","TestTransaction"]};
+window.SIDEBAR_ITEMS = {"fn":["genesis_vid_commitment"],"struct":["TestBlockHeader","TestBlockPayload","TestTransaction"]};
