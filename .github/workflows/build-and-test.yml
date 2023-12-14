@@ -119,7 +119,7 @@ jobs:
           - async_std
           - tokio
     runs-on: ubuntu-latest
-    needs: [build, build-arm]
+    needs: [build-and-test, build-arm]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
