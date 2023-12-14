@@ -2755,6 +2755,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
+ "portpicker",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -5387,6 +5388,15 @@ dependencies = [
  "cpufeatures",
  "opaque-debug",
  "universal-hash 0.5.1",
+]
+
+[[package]]
+name = "portpicker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
+dependencies = [
+ "rand 0.8.5",
 ]
 
 [[package]]
