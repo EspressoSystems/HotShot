@@ -157,7 +157,6 @@ impl<K: SignatureKey> TaskMap<K> {
         current_view: u64,
         cancel_event_fn: fn(u64) -> ConsensusIntentEvent<K>,
     ) {
-        println!("len {:?}: {}", cancel_event_fn(0), self.len());
         let cutoff_view = current_view.saturating_sub(2);
         let views_to_remove: Vec<_> = self.range(..cutoff_view).map(|(key, _)| *key).collect();
 
@@ -835,17 +834,6 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             "Injecting event: {:?} is da {}",
             event.clone(),
             self.inner.is_da
-        );
-
-        println!(
-            "{},{},{},{},{},{},{}",
-            self.inner.proposal_task_map.read().await.len(),
-            self.inner.vote_task_map.read().await.len(),
-            self.inner.vid_disperse_task_map.read().await.len(),
-            self.inner.dac_task_map.read().await.len(),
-            self.inner.view_sync_cert_task_map.read().await.len(),
-            self.inner.view_sync_vote_task_map.read().await.len(),
-            self.inner.txn_task_map.read().await.len()
         );
 
         // TODO ED Need to handle canceling tasks that don't receive their expected output (such a proposal that never comes)
