@@ -1,6 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::{
     events::HotShotEvent,
+    helpers::cancel_task,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
 };
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -21,6 +22,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
 
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use hotshot_task::global_registry::GlobalRegistry;
 use hotshot_types::{
     message::GeneralConsensusMessage,
@@ -34,6 +37,8 @@ use hotshot_types::{
 };
 use snafu::Snafu;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 /// Phases of view sync
@@ -138,6 +143,8 @@ pub struct ViewSyncReplicaTaskState<
     pub finalized: bool,
     /// Whether we have already sent a view change event for `next_view`
     pub sent_view_change_event: bool,
+    /// Timeout task handle, when it expires we try the next relay
+    pub timeout_task: Option<JoinHandle<()>>,
     /// Our node id; for logging
     pub id: u64,
 
@@ -254,6 +261,7 @@ impl<
                         finalized: false,
                         sent_view_change_event: false,
                         phase: ViewSyncPhase::None,
+                        timeout_task: None,
                         membership: self.membership.clone(),
                         network: self.network.clone(),
                         public_key: self.public_key.clone(),
@@ -527,6 +535,7 @@ impl<
                         finalized: false,
                         sent_view_change_event: false,
                         phase: ViewSyncPhase::None,
+                        timeout_task: None,
                         membership: self.membership.clone(),
                         network: self.network.clone(),
                         public_key: self.public_key.clone(),
@@ -677,7 +686,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                 }
 
-                async_spawn({
+                if let Some(timeout_task) = self.timeout_task.take() {
+                    cancel_task(timeout_task).await;
+                }
+
+                self.timeout_task = Some(async_spawn({
                     let stream = self.event_stream.clone();
                     let phase = self.phase.clone();
                     async move {
@@ -691,7 +704,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             ))
                             .await;
                     }
-                });
+                }));
             }
 
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
@@ -754,7 +767,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .publish(HotShotEvent::ViewChange(self.next_view))
                     .await;
 
-                async_spawn({
+                if let Some(timeout_task) = self.timeout_task.take() {
+                    cancel_task(timeout_task).await;
+                }
+                self.timeout_task = Some(async_spawn({
                     let stream = self.event_stream.clone();
                     let phase = self.phase.clone();
                     async move {
@@ -768,7 +784,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             ))
                             .await;
                     }
-                });
+                }));
             }
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
@@ -819,6 +835,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.relay = certificate.get_data().relay;
                 }
 
+                if let Some(timeout_task) = self.timeout_task.take() {
+                    cancel_task(timeout_task).await;
+                }
+
                 self.event_stream
                     .publish(HotShotEvent::ViewChange(self.next_view))
                     .await;
@@ -848,7 +868,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                 }
 
-                async_spawn({
+                self.timeout_task = Some(async_spawn({
                     let stream = self.event_stream.clone();
                     async move {
                         async_sleep(self.view_sync_timeout).await;
@@ -861,7 +881,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             ))
                             .await;
                     }
-                });
+                }));
 
                 return (None, self);
             }
@@ -872,6 +892,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     && relay == self.relay
                     && last_seen_certificate == self.phase
                 {
+                    if let Some(timeout_task) = self.timeout_task.take() {
+                        cancel_task(timeout_task).await;
+                    }
                     // Keep tyring to get a more recent proposal to catch up to
                     self.network
                         .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
@@ -941,7 +964,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         }
                     }
 
-                    async_spawn({
+                    self.timeout_task = Some(async_spawn({
                         let stream = self.event_stream.clone();
                         async move {
                             async_sleep(self.view_sync_timeout).await;
@@ -954,7 +977,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 ))
                                 .await;
                         }
-                    });
+                    }));
 
                     return (None, self);
                 }

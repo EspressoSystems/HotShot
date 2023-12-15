@@ -48,10 +48,10 @@ async fn test_catchup() {
             },
         );
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+        num_failed_views: 25,
         check_leaf: true,
         ..Default::default()
     };
-    metadata.overall_safety_properties.num_failed_views = 2;
 
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
@@ -104,6 +104,7 @@ async fn test_catchup_web() {
             },
         );
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+        num_failed_views: 25,
         check_leaf: true,
         ..Default::default()
     };
@@ -161,6 +162,7 @@ async fn test_catchup_one_node() {
             },
         );
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+        num_failed_views: 25,
         check_leaf: true,
         ..Default::default()
     };
@@ -228,6 +230,7 @@ async fn test_catchup_in_view_sync() {
         );
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         check_leaf: true,
+        num_failed_views: 25,
         ..Default::default()
     };
 
