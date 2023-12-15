@@ -59,7 +59,7 @@ impl<TYPES: NodeType> WebCommChannel<TYPES> {
 
 /// # Note
 ///
-/// This function uses `DefaultHasher` instead of cryptographic hash functions like SHA-256 because `DefaultHasher` can hash a value directly from a reference, while SHA-256 requires owning the value or copying/cloning it.
+/// This function uses `DefaultHasher` instead of cryptographic hash functions like SHA-256 because of an `AsRef` requirement.
 fn hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
