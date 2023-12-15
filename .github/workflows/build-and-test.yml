@@ -60,7 +60,7 @@ jobs:
           RUST_BACKTRACE: full
 
       - name: Upload Binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: |
@@ -98,7 +98,7 @@ jobs:
         run: just ${{ matrix.just_variants }} build
 
       - name: Upload Binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: |
