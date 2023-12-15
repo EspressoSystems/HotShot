@@ -1210,8 +1210,20 @@
 <a href="#1210" id="1210">1210</a>
 <a href="#1211" id="1211">1211</a>
 <a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
+    helpers::cancel_task,
     vote::{spawn_vote_accumulator, AccumulatorInfo},
 };
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -1317,7 +1329,7 @@
     </span><span class="kw">pub </span>timeout_vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
 
     <span class="doccomment">/// timeout task handle
-    </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
+    </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// Global events stream to publish events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -1554,6 +1566,10 @@
                 <span class="string">&quot;Updating view from {} to {} in consensus task&quot;</span>,
                 <span class="kw-2">*</span><span class="self">self</span>.cur_view, <span class="kw-2">*</span>new_view
             );
+            <span class="comment">// cancel the old timeout task
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
+                cancel_task(timeout_task).<span class="kw">await</span>;
+            }
 
             <span class="comment">// Remove old certs, we won&#39;t vote on past views
             </span><span class="kw">for </span>view <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.cur_view..<span class="kw-2">*</span>new_view - <span class="number">1 </span>{
@@ -1595,7 +1611,7 @@
 
             <span class="comment">// Spawn a timeout task if we did actually update view
             </span><span class="kw">let </span>timeout = <span class="self">self</span>.timeout;
-            <span class="self">self</span>.timeout_task = async_spawn({
+            <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
                 <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
                 <span class="comment">// Nuance: We timeout on the view + 1 here because that means that we have
                 // not seen evidence to transition to this new view
@@ -1606,7 +1622,7 @@
                         .publish(HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number)))
                         .<span class="kw">await</span>;
                 }
-            });
+            }));
             <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
             consensus
                 .metrics
@@ -2235,6 +2251,12 @@
                     <span class="string">&quot;We did not receive evidence for view {} in time, sending timeout vote for that view!&quot;</span>,
                     <span class="kw-2">*</span>view
                 );
+                <span class="self">self</span>.output_event_stream
+                    .publish(Event {
+                        view_number: view,
+                        event: EventType::ReplicaViewTimeout { view_number: view },
+                    })
+                    .<span class="kw">await</span>;
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
             }

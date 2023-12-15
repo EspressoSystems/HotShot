@@ -597,6 +597,25 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::FutureExt;
@@ -629,28 +648,26 @@
 
 <span class="doccomment">/// the status of a view
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub enum </span>ViewStatus {
+</span><span class="kw">pub enum </span>ViewStatus&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// success
     </span><span class="prelude-val">Ok</span>,
     <span class="doccomment">/// failure
     </span>Failed,
     <span class="doccomment">/// safety violation
-    </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr),
+    </span><span class="prelude-val">Err</span>(OverallSafetyTaskErr&lt;TYPES&gt;),
     <span class="doccomment">/// in progress
     </span>InProgress,
 }
 
 <span class="doccomment">/// possible errors
 </span><span class="attr">#[derive(Snafu, Debug, Clone)]
-</span><span class="kw">pub enum </span>OverallSafetyTaskErr {
+</span><span class="kw">pub enum </span>OverallSafetyTaskErr&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// inconsistent txn nums
     </span>InconsistentTxnsNum { map: HashMap&lt;u64, usize&gt; },
     <span class="doccomment">/// too many failed  views
     </span>TooManyFailures {
-        <span class="doccomment">/// expected number of failures
-        </span>expected: usize,
-        <span class="doccomment">/// actual number of failures
-        </span>got: usize,
+        <span class="doccomment">/// vec of failed views
+        </span>failed_views: HashSet&lt;TYPES::Time&gt;,
     },
     <span class="doccomment">/// not enough decides
     </span>NotEnoughDecides {
@@ -692,10 +709,10 @@
     </span>success_nodes: HashMap&lt;u64, (Vec&lt;Leaf&lt;TYPES&gt;&gt;, QuorumCertificate&lt;TYPES&gt;)&gt;,
 
     <span class="doccomment">/// Nodes that failed to commit this round
-    </span><span class="kw">pub </span>failed_nodes: HashMap&lt;u64, Vec&lt;Arc&lt;HotShotError&lt;TYPES&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>failed_nodes: HashMap&lt;u64, Arc&lt;HotShotError&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// whether or not the round succeeded (for a custom defn of succeeded)
-    </span><span class="kw">pub </span>status: ViewStatus,
+    </span><span class="kw">pub </span>status: ViewStatus&lt;TYPES&gt;,
 
     <span class="doccomment">/// NOTE: technically a map is not needed
     /// left one anyway for ease of viewing
@@ -757,20 +774,21 @@
     </span><span class="kw">pub fn </span>insert_error_to_context(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::Time,
+        idx: usize,
         error: Arc&lt;HotShotError&lt;TYPES&gt;&gt;,
     ) {
         <span class="kw">match </span><span class="self">self</span>.round_results.entry(view_number) {
-            Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; <span class="kw">match </span>o.get_mut().failed_nodes.entry(<span class="kw-2">*</span>view_number) {
+            Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; <span class="kw">match </span>o.get_mut().failed_nodes.entry(idx <span class="kw">as </span>u64) {
                 Entry::Occupied(<span class="kw-2">mut </span>o2) =&gt; {
-                    o2.get_mut().push(error);
+                    <span class="kw-2">*</span>o2.get_mut() = error;
                 }
                 Entry::Vacant(v) =&gt; {
-                    v.insert(<span class="macro">vec!</span>[error]);
+                    v.insert(error);
                 }
             },
             Entry::Vacant(v) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
-                round_result.failed_nodes.insert(<span class="kw-2">*</span>view_number, <span class="macro">vec!</span>[error]);
+                round_result.failed_nodes.insert(idx <span class="kw">as </span>u64, error);
                 v.insert(round_result);
             }
         }
@@ -832,6 +850,10 @@
         maybe_leaf
     }
 
+    <span class="kw">pub fn </span>check_if_failed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, threshold: usize, total_num_nodes: usize) -&gt; bool {
+        <span class="kw">let </span>num_failed = <span class="self">self</span>.failed_nodes.len();
+        total_num_nodes - num_failed &gt;= threshold
+    }
     <span class="doccomment">/// determines whether or not the round passes
     /// also do a safety check
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::let_unit_value)]
@@ -1002,7 +1024,7 @@
                                     <span class="kw">if </span>state.ctx.successful_views.len() &lt; num_successful_views {
                                         <span class="kw">return </span>(
                                             <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                                                OverallSafetyTaskErr::NotEnoughDecides {
+                                                OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughDecides {
                                                     got: state.ctx.successful_views.len(),
                                                     expected: num_successful_views,
                                                 },
@@ -1016,9 +1038,8 @@
                                     {
                                         <span class="kw">return </span>(
                                             <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                                                OverallSafetyTaskErr::TooManyFailures {
-                                                    got: state.ctx.failed_views.len(),
-                                                    expected: num_failed_rounds_total,
+                                                OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                                                    failed_views: state.ctx.failed_views.clone(),
                                                 },
                                             ))),
                                             state,
@@ -1042,7 +1063,7 @@
                             <span class="kw">if let </span>Either::Left(Event { view_number, event }) = maybe_event {
                                 <span class="kw">let </span>key = <span class="kw">match </span>event {
                                     EventType::Error { error } =&gt; {
-                                        state.ctx.insert_error_to_context(view_number, error);
+                                        state.ctx.insert_error_to_context(view_number, idx, error);
                                         <span class="prelude-val">None
                                     </span>}
                                     EventType::Decide {
@@ -1069,13 +1090,12 @@
                                             }
                                         }
                                     }
-                                    <span class="comment">// TODO Emit this event in the consensus task once canceling the timeout task is implemented
-                                    </span>EventType::ReplicaViewTimeout { view_number } =&gt; {
+                                    EventType::ReplicaViewTimeout { view_number } =&gt; {
                                         <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimeoutError {
                                             view_number,
                                             state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                                         });
-                                        state.ctx.insert_error_to_context(view_number, error);
+                                        state.ctx.insert_error_to_context(view_number, idx, error);
                                         <span class="prelude-val">None
                                     </span>}
                                     <span class="kw">_ </span>=&gt; <span class="kw">return </span>(<span class="prelude-val">None</span>, state),
@@ -1113,16 +1133,15 @@
                                         }
                                         ViewStatus::Failed =&gt; {
                                             state.ctx.failed_views.insert(view_number);
-                                            <span class="kw">if </span>state.ctx.failed_views.len() &gt;= <span class="self">self</span>.num_failed_views {
+                                            <span class="kw">if </span>state.ctx.failed_views.len() &gt; <span class="self">self</span>.num_failed_views {
                                                 state
                                                     .test_event_stream
                                                     .publish(GlobalTestEvent::ShutDown)
                                                     .<span class="kw">await</span>;
                                                 <span class="kw">return </span>(
                                                     <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                                                                OverallSafetyTaskErr::TooManyFailures {
-                                                                    got: state.ctx.failed_views.len(),
-                                                                    expected: num_failed_rounds_total,
+                                                                OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                                                                    failed_views: state.ctx.failed_views.clone(),
                                                                 },
                                                                 ))),
                                                                 state,
@@ -1141,6 +1160,25 @@
                                         }
                                     }
                                 }
+                                <span class="kw">else if </span>view.check_if_failed(threshold, state.handles.len()) {
+                                        view.status = ViewStatus::Failed;
+                                        state.ctx.failed_views.insert(view_number);
+                                        <span class="kw">if </span>state.ctx.failed_views.len() &gt; <span class="self">self</span>.num_failed_views {
+                                            state
+                                                .test_event_stream
+                                                .publish(GlobalTestEvent::ShutDown)
+                                                .<span class="kw">await</span>;
+                                            <span class="kw">return </span>(
+                                                <span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
+                                                            OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                                                                failed_views: state.ctx.failed_views.clone(),
+                                                            },
+                                                            ))),
+                                                            state,
+                                                            );
+                                        }
+                                        <span class="kw">return </span>(<span class="prelude-val">None</span>, state);
+                                    }
 
                             }
 
@@ -1189,7 +1227,7 @@
 
 <span class="doccomment">/// overall types for safety task
 </span><span class="kw">pub type </span>OverallSafetyTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
-    OverallSafetyTaskErr,
+    OverallSafetyTaskErr&lt;TYPES&gt;,
     GlobalTestEvent,
     ChannelStream&lt;GlobalTestEvent&gt;,
     (usize, Either&lt;Event&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;),
