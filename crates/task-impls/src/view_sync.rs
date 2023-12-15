@@ -502,6 +502,12 @@ impl<
                             *view_number + 1,
                         ))
                         .await;
+
+                    // Poll for future view sync certificates
+                    self.network
+                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncProposal)
+                        .await;
+
                     // Spawn replica task
                     let next_view = *view_number + 1;
                     // Subscribe to the view after we are leader since we know we won't propose in the next view if we are leader.
@@ -521,7 +527,7 @@ impl<
                     // Also subscribe to the latest view for the same reason. The GC will remove the above poll
                     // in the case that one doesn't resolve but this one does.
                     self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
+                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
                         .await;
 
                     self.network
@@ -829,6 +835,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
+                // Cancel poll for future view sync certificates
+                self.network
+                    .inject_consensus_info(
+                        ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
+                    )
+                    .await;
+
                 self.phase = last_seen_certificate;
 
                 if certificate.get_data().relay > self.relay {
@@ -895,9 +908,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     if let Some(timeout_task) = self.timeout_task.take() {
                         cancel_task(timeout_task).await;
                     }
-                    // Keep tyring to get a more recent proposal to catch up to
+                    // Keep trying to get a more recent proposal to catch up to
                     self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
+                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
                         .await;
                     self.relay += 1;
                     match self.phase {
