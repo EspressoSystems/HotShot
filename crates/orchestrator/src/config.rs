@@ -258,7 +258,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             seed: [0u8; 32],
             transaction_size: default_transaction_size(),
             libp2p_config: None,
-            config: HotShotConfigFile::default().into(),
+            config: HotShotConfigFile::default_with_seed_index([0u8; 32], 0).into(),
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
@@ -476,10 +476,17 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<ValidatorConfigFile> for HotShot
 
 impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
     fn default() -> Self {
+        HotShotConfigFile::default_with_seed_index([0u8; 32], 0)
+    }
+}
+
+impl<KEY: SignatureKey> HotShotConfigFile<KEY> {
+    fn default_with_seed_index(seed: [u8; 32], node_index: u64) -> Self {
+        // In practice, we should input stake_value and peer's public key
         let gen_known_nodes_with_stake = (0..10)
-            .map(|node_id| {
+            .map(|peer_node_id| {
                 let cur_validator_config: ValidatorConfig<KEY> =
-                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
+                    ValidatorConfig::generated_from_seed_indexed(seed, peer_node_id, 1);
 
                 cur_validator_config
                     .public_key
@@ -488,7 +495,9 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             .collect();
         Self {
             total_nodes: NonZeroUsize::new(10).unwrap(),
-            my_own_validator_config: ValidatorConfig::default(),
+            my_own_validator_config: ValidatorConfig::generated_from_seed_indexed(
+                seed, node_index, 1,
+            ),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             committee_nodes: 5,
             max_transactions: NonZeroUsize::new(100).unwrap(),

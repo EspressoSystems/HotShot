@@ -128,5 +128,5 @@ lint_imports:
   cargo fmt --all -- --config unstable_features=true,imports_granularity=Crate
 
 gen_key_pair:
-  echo Generating key pair from config file in config/
+  echo Generating key pair from config file in validator_config/
   cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture 

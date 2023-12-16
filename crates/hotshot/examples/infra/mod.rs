@@ -16,7 +16,7 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
-use hotshot_orchestrator::config::NetworkConfigSource;
+use hotshot_orchestrator::config::{HotShotConfigFile, NetworkConfigSource};
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
@@ -94,23 +94,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
         toml::from_str::<NetworkConfigFile<TYPES::SignatureKey>>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
 
-    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
-        config_toml.into();
-
-    // Generate network's public keys
-    let known_nodes: Vec<_> = (0..config.config.total_nodes.get())
-        .map(|node_id| {
-            TYPES::SignatureKey::generated_from_seed_indexed(
-                config.seed,
-                node_id.try_into().unwrap(),
-            )
-            .0
-        })
-        .collect();
-
-    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
-        .map(|node_id| known_nodes[node_id].get_stake_table_entry(1u64))
-        .collect();
+    let config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = config_toml.into();
 
     config
 }
@@ -243,8 +227,13 @@ match node_type {
     let mut all_keys = BTreeSet::new();
     let mut da_keys = BTreeSet::new();
     for i in 0..config.config.total_nodes.get() as u64 {
-        let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
-        let pub_key = TYPES::SignatureKey::from_private(&privkey);
+        let pub_key = <<TYPES as NodeType>::SignatureKey>::get_public_key(
+            config
+                .config
+                .known_nodes_with_stake
+                .get(i as usize)
+                .expect("node_id should be within the range of known_nodes"),
+        );
         if i < config.config.da_committee_size as u64 {
             da_keys.insert(pub_key.clone());
         }
@@ -715,12 +704,8 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> CombinedDARun<TYPES> {
-        // generate our own key
-        let (pub_key, _privkey) =
-            <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                config.seed,
-                config.node_index,
-            );
+        // Get our own key
+        let pub_key = config.config.my_own_validator_config.public_key.clone();
 
         // create and wait for libp2p network
         let libp2p_underlying_quorum_network =
@@ -842,12 +827,16 @@ pub async fn main_entry_point<
     let node_index = run_config.node_index;
     error!("Retrieved config; our node index is {node_index}");
 
+    // We use input seed to calculate node's own key pair because its type is too complex to directly input through the config file
     run_config.config.my_own_validator_config =
         ValidatorConfig::<<TYPES as NodeType>::SignatureKey>::generated_from_seed_indexed(
             run_config.seed,
             node_index,
             1,
         );
+    // Here is a way to generate peer's public key, in practice we should input peer's stake_value and public key
+    run_config.config.known_nodes_with_stake =
+        HotShotConfigFile::<<TYPES as NodeType>::SignatureKey>::default().known_nodes_with_stake;
     //run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
     error!("Initializing networking");
