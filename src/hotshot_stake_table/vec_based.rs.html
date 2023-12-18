@@ -493,8 +493,6 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A vector based stake table implementation. The commitment is the rescue hash of the list of (key, amount) pairs;
 
 </span><span class="kw">use crate</span>::{
@@ -541,6 +539,8 @@
     K2: Eq + Hash + Clone + Default + ToFields&lt;F&gt;,
     F: RescueParameter,
 {
+    <span class="doccomment">/// upper bound on table size
+    </span>capacity: usize,
     <span class="doccomment">/// The most up-to-date stake table, where the incoming transactions shall be performed on.
     </span>head: StakeTableSnapshot&lt;K1, K2&gt;,
     <span class="doccomment">/// The snapshot of stake table at the beginning of the current epoch
@@ -737,20 +737,19 @@
     F: RescueParameter,
 {
     <span class="doccomment">/// Initiating an empty stake table.
-    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>bls_comm_preimage =
-            <span class="macro">vec!</span>[F::default(); STAKE_TABLE_CAPACITY * &lt;K1 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE];
+    </span><span class="kw">pub fn </span>new(capacity: usize) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>bls_comm_preimage = <span class="macro">vec!</span>[F::default(); capacity * &lt;K1 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE];
         <span class="kw">let </span>default_bls_comm =
             VariableLengthRescueCRHF::&lt;F, <span class="number">1</span>&gt;::evaluate(<span class="kw-2">&amp;</span>bls_comm_preimage).unwrap()[<span class="number">0</span>];
-        <span class="kw">let </span>schnorr_comm_preimage =
-            <span class="macro">vec!</span>[F::default(); STAKE_TABLE_CAPACITY * &lt;K2 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE];
+        <span class="kw">let </span>schnorr_comm_preimage = <span class="macro">vec!</span>[F::default(); capacity * &lt;K2 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE];
         <span class="kw">let </span>default_schnorr_comm =
             VariableLengthRescueCRHF::&lt;F, <span class="number">1</span>&gt;::evaluate(<span class="kw-2">&amp;</span>schnorr_comm_preimage).unwrap()[<span class="number">0</span>];
-        <span class="kw">let </span>stake_comm_preimage = <span class="macro">vec!</span>[F::default(); STAKE_TABLE_CAPACITY];
+        <span class="kw">let </span>stake_comm_preimage = <span class="macro">vec!</span>[F::default(); capacity];
         <span class="kw">let </span>default_stake_comm =
             VariableLengthRescueCRHF::&lt;F, <span class="number">1</span>&gt;::evaluate(<span class="kw-2">&amp;</span>stake_comm_preimage).unwrap()[<span class="number">0</span>];
         <span class="kw">let </span>default_comm = (default_bls_comm, default_schnorr_comm, default_stake_comm);
         <span class="self">Self </span>{
+            capacity,
             head: StakeTableSnapshot::default(),
             epoch_start: StakeTableSnapshot::default(),
             last_epoch_start: StakeTableSnapshot::default(),
@@ -793,7 +792,7 @@
     /// Commitment of a stake table is a triple (bls_keys_comm, schnorr_keys_comm, stake_amount_comm)
     /// TODO(Chengyu): The BLS verification keys doesn&#39;t implement Default. Thus we directly pad with `F::default()`.
     </span><span class="kw">fn </span>compute_head_comm(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (F, F, F) {
-        <span class="kw">let </span>padding_len = STAKE_TABLE_CAPACITY - <span class="self">self</span>.head.bls_keys.len();
+        <span class="kw">let </span>padding_len = <span class="self">self</span>.capacity - <span class="self">self</span>.head.bls_keys.len();
         <span class="comment">// Compute rescue hash for bls keys
         </span><span class="kw">let </span><span class="kw-2">mut </span>bls_comm_preimage = <span class="self">self
             </span>.head
@@ -801,10 +800,7 @@
             .iter()
             .flat_map(|key| key.to_fields())
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        bls_comm_preimage.resize(
-            STAKE_TABLE_CAPACITY * &lt;K1 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE,
-            F::default(),
-        );
+        bls_comm_preimage.resize(<span class="self">self</span>.capacity * &lt;K1 <span class="kw">as </span>ToFields&lt;F&gt;&gt;::SIZE, F::default());
         <span class="kw">let </span>bls_comm = VariableLengthRescueCRHF::&lt;F, <span class="number">1</span>&gt;::evaluate(bls_comm_preimage).unwrap()[<span class="number">0</span>];
 
         <span class="comment">// Compute rescue hash for Schnorr keys
@@ -825,7 +821,7 @@
             .iter()
             .map(|x| u256_to_field(x))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        stake_comm_preimage.resize(STAKE_TABLE_CAPACITY, F::default());
+        stake_comm_preimage.resize(<span class="self">self</span>.capacity, F::default());
         <span class="kw">let </span>stake_comm =
             VariableLengthRescueCRHF::&lt;F, <span class="number">1</span>&gt;::evaluate(stake_comm_preimage).unwrap()[<span class="number">0</span>];
         (bls_comm, schnorr_comm, stake_comm)
@@ -860,7 +856,7 @@
     F: RescueParameter,
 {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
+        <span class="self">Self</span>::new(STAKE_TABLE_CAPACITY)
     }
 }
 
@@ -876,7 +872,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>crypto_test_stake_table() -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>st = StakeTable::&lt;QCVerKey, StateVerKey, F&gt;::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>st = StakeTable::&lt;QCVerKey, StateVerKey, F&gt;::default();
         <span class="kw">let </span><span class="kw-2">mut </span>prng = jf_utils::test_rng();
         <span class="kw">let </span>keys = (<span class="number">0</span>..<span class="number">10</span>)
             .map(|<span class="kw">_</span>| {
