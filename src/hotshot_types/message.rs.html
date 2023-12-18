@@ -437,6 +437,8 @@
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -499,8 +501,10 @@
 </span><span class="kw">pub enum </span>MessagePurpose {
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal,
-    <span class="doccomment">/// Message with most recent proposal the server has
-    </span>CurrentProposal,
+    <span class="doccomment">/// Message with most recent quorum proposal the server has
+    </span>LatestQuorumProposal,
+    <span class="doccomment">/// Message with most recent view sync proposal the server has
+    </span>LatestViewSyncProposal,
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote,
     <span class="doccomment">/// Message with a view sync vote.

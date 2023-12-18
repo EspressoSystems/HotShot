@@ -88,6 +88,10 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
@@ -107,8 +111,12 @@
     <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_recent_proposal_route() -&gt; String {
-    <span class="string">&quot;api/proposal/recent&quot;</span>.to_string()
+<span class="kw">pub fn </span>get_latest_quorum_proposal_route() -&gt; String {
+    <span class="string">&quot;api/proposal/latest&quot;</span>.to_string()
+}
+
+<span class="kw">pub fn </span>get_latest_view_sync_proposal_route() -&gt; String {
+    <span class="string">&quot;api/view_sync_proposal/latest&quot;</span>.to_string()
 }
 
 <span class="kw">pub fn </span>get_da_certificate_route(view_number: u64) -&gt; String {

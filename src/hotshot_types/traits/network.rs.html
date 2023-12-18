@@ -610,6 +610,12 @@
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -758,8 +764,10 @@
     </span>PollForProposal(u64),
     <span class="doccomment">/// Poll for VID disperse data for a particular view
     </span>PollForVIDDisperse(u64),
-    <span class="doccomment">/// Poll for the most recent proposal the webserver has
-    </span>PollForCurrentProposal,
+    <span class="doccomment">/// Poll for the most recent quorum proposal the webserver has
+    </span>PollForLatestQuorumProposal,
+    <span class="doccomment">/// Poll for the most recent view sync proposal the webserver has
+    </span>PollForLatestViewSyncProposal,
     <span class="doccomment">/// Poll for a DAC for a particular view
     </span>PollForDAC(u64),
     <span class="doccomment">/// Poll for view sync votes starting at a particular view
@@ -784,6 +792,8 @@
     </span>CancelPollForVIDDisperse(u64),
     <span class="doccomment">/// Cancel polling for transactions
     </span>CancelPollForTransactions(u64),
+    <span class="doccomment">/// Cancel polling for most recent view sync proposal
+    </span>CancelPollForLatestViewSyncProposal,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; ConsensusIntentEvent&lt;K&gt; {
@@ -806,7 +816,9 @@
             | ConsensusIntentEvent::PollForTransactions(view_number)
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
-            ConsensusIntentEvent::PollForCurrentProposal =&gt; <span class="number">1</span>,
+            ConsensusIntentEvent::PollForLatestQuorumProposal
+            | ConsensusIntentEvent::PollForLatestViewSyncProposal
+            | ConsensusIntentEvent::CancelPollForLatestViewSyncProposal =&gt; <span class="number">1</span>,
         }
     }
 }

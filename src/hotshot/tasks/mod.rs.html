@@ -766,7 +766,7 @@
     };
     consensus_state
         .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForCurrentProposal)
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
         .<span class="kw">await</span>;
     <span class="kw">let </span>filter = FilterEvent(Arc::new(consensus_event_filter));
     <span class="kw">let </span>consensus_name = <span class="string">&quot;Consensus Task&quot;</span>;

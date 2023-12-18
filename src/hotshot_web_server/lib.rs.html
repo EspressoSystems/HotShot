@@ -839,6 +839,18 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
@@ -875,7 +887,10 @@
     <span class="doccomment">/// view for oldest proposals in memory
     </span>oldest_proposal: u64,
     <span class="doccomment">/// view for the most recent proposal to help nodes catchup
-    </span>recent_proposal: u64,
+    </span>latest_quorum_proposal: u64,
+    <span class="doccomment">/// view for the most recent view sync proposal
+    </span>latest_view_sync_proposal: u64,
+
     <span class="doccomment">/// view for teh oldest DA certificate
     </span>oldest_certificate: u64,
 
@@ -929,7 +944,8 @@
             num_txns: <span class="number">0</span>,
             oldest_vote: <span class="number">0</span>,
             oldest_proposal: <span class="number">0</span>,
-            recent_proposal: <span class="number">0</span>,
+            latest_quorum_proposal: <span class="number">0</span>,
+            latest_view_sync_proposal: <span class="number">0</span>,
             oldest_certificate: <span class="number">0</span>,
             shutdown: <span class="prelude-val">None</span>,
             stake_table: Vec::new(),
@@ -970,7 +986,8 @@
 <span class="doccomment">/// Trait defining methods needed for the `WebServerState`
 </span><span class="kw">pub trait </span>WebServerDataSource&lt;KEY&gt; {
     <span class="kw">fn </span>get_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_recent_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="kw">fn </span>get_latest_view_sync_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
     <span class="kw">fn </span>get_view_sync_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: u64,
@@ -1055,8 +1072,12 @@
         }
     }
 
-    <span class="kw">fn </span>get_recent_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
-        <span class="self">self</span>.get_proposal(<span class="self">self</span>.recent_proposal)
+    <span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
+        <span class="self">self</span>.get_proposal(<span class="self">self</span>.latest_quorum_proposal)
+    }
+
+    <span class="kw">fn </span>get_latest_view_sync_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
+        <span class="self">self</span>.get_view_sync_proposal(<span class="self">self</span>.latest_view_sync_proposal, <span class="number">0</span>)
     }
 
     <span class="kw">fn </span>get_view_sync_proposal(
@@ -1274,12 +1295,8 @@
     </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
 
-        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.recent_proposal {
-            <span class="self">self</span>.recent_proposal = view_number;
-        }
-
-        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.recent_proposal {
-            <span class="self">self</span>.recent_proposal = view_number;
+        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.latest_quorum_proposal {
+            <span class="self">self</span>.latest_quorum_proposal = view_number;
         }
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
@@ -1321,6 +1338,10 @@
         view_number: u64,
         proposal: Vec&lt;u8&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.latest_view_sync_proposal {
+            <span class="self">self</span>.latest_view_sync_proposal = view_number;
+        }
+
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.view_sync_proposals.len() &gt;= MAX_VIEWS {
             <span class="self">self</span>.view_sync_proposals
@@ -1513,8 +1534,11 @@
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getrecentproposal&quot;</span>, |_req, state| {
-        <span class="kw">async move </span>{ state.get_recent_proposal() }.boxed()
+    </span>.get(<span class="string">&quot;get_latest_quorum_proposal&quot;</span>, |_req, state| {
+        <span class="kw">async move </span>{ state.get_latest_quorum_proposal() }.boxed()
+    })<span class="question-mark">?
+    </span>.get(<span class="string">&quot;get_latest_view_sync_proposal&quot;</span>, |_req, state| {
+        <span class="kw">async move </span>{ state.get_latest_view_sync_proposal() }.boxed()
     })<span class="question-mark">?
     </span>.get(<span class="string">&quot;getviewsyncproposal&quot;</span>, |req, state| {
         <span class="kw">async move </span>{

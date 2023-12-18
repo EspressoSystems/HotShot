@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Inner","RecvMsg","SendMsg","TaskMap","WebCommChannel","WebServerNetwork"],"trait":["RecvMsgTrait","SendMsgTrait"],"type":["TaskChannel"]};
+window.SIDEBAR_ITEMS = {"fn":["hash"],"struct":["Inner","RecvMsg","SendMsg","TaskMap","WebCommChannel","WebServerNetwork"],"trait":["RecvMsgTrait","SendMsgTrait"],"type":["TaskChannel"]};
