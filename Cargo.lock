@@ -2755,6 +2755,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
+ "lru",
  "portpicker",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
