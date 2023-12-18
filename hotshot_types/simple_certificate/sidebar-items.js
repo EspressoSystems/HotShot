@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SimpleCertificate"],"type":["DACertificate","QuorumCertificate","TimeoutCertificate","ViewSyncCommitCertificate2","ViewSyncFinalizeCertificate2","ViewSyncPreCommitCertificate2"]};
+window.SIDEBAR_ITEMS = {"struct":["OneHonestThreshold","SimpleCertificate","SuccessThreshold"],"trait":["Threshold"],"type":["DACertificate","QuorumCertificate","TimeoutCertificate","ViewSyncCommitCertificate2","ViewSyncFinalizeCertificate2","ViewSyncPreCommitCertificate2"]};

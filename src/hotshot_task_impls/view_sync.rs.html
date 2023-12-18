@@ -926,88 +926,6 @@
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
 <a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
-<a href="#999" id="999">999</a>
-<a href="#1000" id="1000">1000</a>
-<a href="#1001" id="1001">1001</a>
-<a href="#1002" id="1002">1002</a>
-<a href="#1003" id="1003">1003</a>
-<a href="#1004" id="1004">1004</a>
-<a href="#1005" id="1005">1005</a>
-<a href="#1006" id="1006">1006</a>
-<a href="#1007" id="1007">1007</a>
-<a href="#1008" id="1008">1008</a>
-<a href="#1009" id="1009">1009</a>
-<a href="#1010" id="1010">1010</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -1015,7 +933,6 @@
     vote::{spawn_vote_accumulator, AccumulatorInfo},
 };
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -1029,7 +946,7 @@
         ViewSyncPreCommitVote,
     },
     traits::network::ConsensusIntentEvent,
-    vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 
 <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
@@ -1108,7 +1025,7 @@
     </span><span class="kw">pub </span>replica_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
 
     <span class="doccomment">/// Map of running relay tasks
-    </span><span class="kw">pub </span>relay_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
+    </span><span class="kw">pub </span>relay_task_map: HashMap&lt;(TYPES::Time, ViewSyncPhase), ViewSyncTaskInfo&gt;,
 
     <span class="doccomment">/// Timeout duration for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
@@ -1145,8 +1062,6 @@
     </span><span class="kw">pub </span>current_view: TYPES::Time,
     <span class="doccomment">/// Round HotShot wishes to be in
     </span><span class="kw">pub </span>next_view: TYPES::Time,
-    <span class="doccomment">/// The last seen phase of the view sync protocol
-    </span><span class="kw">pub </span>phase: ViewSyncPhase,
     <span class="doccomment">/// The relay index we are currently on
     </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// Whether we have seen a finalized certificate
@@ -1183,51 +1098,6 @@
     HotShotEvent&lt;TYPES&gt;,
     ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ViewSyncReplicaTaskState&lt;TYPES, I, A&gt;,
-&gt;;
-
-<span class="doccomment">/// State of a view sync relay task
-</span><span class="kw">pub struct </span>ViewSyncRelayTaskState&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    VOTE: Vote&lt;TYPES&gt;,
-    CERTIFICATE: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
-&gt; {
-    <span class="doccomment">/// Event stream to publish events to
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    <span class="doccomment">/// Network for all nodes
-    </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
-    <span class="doccomment">/// Membership for teh quorum
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
-    <span class="doccomment">/// This Nodes Public Key
-    </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
-    <span class="doccomment">/// Our Private Key
-    </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-
-    <span class="doccomment">/// Vote accumulator
-    </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>accumulator: Either&lt;VoteAccumulator&lt;TYPES, VOTE, CERTIFICATE&gt;, CERTIFICATE&gt;,
-    <span class="doccomment">/// Our node id; for logging
-    </span><span class="kw">pub </span>id: u64,
-}
-
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        VOTE: Vote&lt;TYPES&gt; + std::marker::Send + std::marker::Sync + <span class="lifetime">&#39;static</span>,
-        CERTIFICATE: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;
-            + std::marker::Send
-            + std::marker::Sync
-            + <span class="lifetime">&#39;static</span>,
-    &gt; TS <span class="kw">for </span>ViewSyncRelayTaskState&lt;TYPES, I, VOTE, CERTIFICATE&gt;
-{
-}
-
-<span class="doccomment">/// Types used by the view sync relay task
-</span><span class="kw">pub type </span>ViewSyncRelayTaskStateTypes&lt;TYPES, I, VOTE, CERTIFICATE&gt; = HSTWithEvent&lt;
-    ViewSyncTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    ViewSyncRelayTaskState&lt;TYPES, I, VOTE, CERTIFICATE&gt;,
 &gt;;
 
 <span class="kw">impl</span>&lt;
@@ -1270,7 +1140,6 @@
                         relay: <span class="number">0</span>,
                         finalized: <span class="bool-val">false</span>,
                         sent_view_change_event: <span class="bool-val">false</span>,
-                        phase: ViewSyncPhase::None,
                         timeout_task: <span class="prelude-val">None</span>,
                         membership: <span class="self">self</span>.membership.clone(),
                         network: <span class="self">self</span>.network.clone(),
@@ -1325,7 +1194,8 @@
 
             HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::PreCommit);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
                     <span class="comment">// Forward event then return
                     </span><span class="self">self</span>.event_stream
                         .direct_message(relay_task.event_stream_id, event)
@@ -1357,13 +1227,14 @@
                     spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
                     <span class="self">self</span>.relay_task_map
-                        .insert(vote_view, ViewSyncTaskInfo { event_stream_id });
+                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
                 }
             }
 
             HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::Commit);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
                     <span class="comment">// Forward event then return
                     </span><span class="self">self</span>.event_stream
                         .direct_message(relay_task.event_stream_id, event)
@@ -1395,13 +1266,14 @@
                     spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
                     <span class="self">self</span>.relay_task_map
-                        .insert(vote_view, ViewSyncTaskInfo { event_stream_id });
+                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
                 }
             }
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::Finalize);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
                     <span class="comment">// Forward event then return
                     </span><span class="self">self</span>.event_stream
                         .direct_message(relay_task.event_stream_id, event)
@@ -1433,7 +1305,7 @@
                     spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
                     <span class="self">self</span>.relay_task_map
-                        .insert(vote_view, ViewSyncTaskInfo { event_stream_id });
+                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
                 }
             }
 
@@ -1470,8 +1342,31 @@
                                 )
                                 .<span class="kw">await</span>;
                         }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) =
-                            <span class="self">self</span>.relay_task_map.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i))
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
+                            </span>.relay_task_map
+                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::PreCommit))
+                        {
+                            <span class="self">self</span>.event_stream
+                                .direct_message(
+                                    relay_task_info.event_stream_id,
+                                    HotShotEvent::Shutdown,
+                                )
+                                .<span class="kw">await</span>;
+                        }
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
+                            </span>.relay_task_map
+                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::Commit))
+                        {
+                            <span class="self">self</span>.event_stream
+                                .direct_message(
+                                    relay_task_info.event_stream_id,
+                                    HotShotEvent::Shutdown,
+                                )
+                                .<span class="kw">await</span>;
+                        }
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
+                            </span>.relay_task_map
+                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::Finalize))
                         {
                             <span class="self">self</span>.event_stream
                                 .direct_message(
@@ -1558,7 +1453,6 @@
                         relay: <span class="number">0</span>,
                         finalized: <span class="bool-val">false</span>,
                         sent_view_change_event: <span class="bool-val">false</span>,
-                        phase: ViewSyncPhase::None,
                         timeout_task: <span class="prelude-val">None</span>,
                         membership: <span class="self">self</span>.membership.clone(),
                         network: <span class="self">self</span>.network.clone(),
@@ -1682,13 +1576,6 @@
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);
                 }
 
-                <span class="comment">// Ignore if the certificate is for an already seen phase
-                </span><span class="kw">if </span>last_seen_certificate &lt;= <span class="self">self</span>.phase {
-                    <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
-                }
-
-                <span class="self">self</span>.phase = last_seen_certificate;
-
                 <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
                     <span class="self">self</span>.relay = certificate.get_data().relay;
                 }
@@ -1716,10 +1603,10 @@
 
                 <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
                     <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
-                    <span class="kw">let </span>phase = <span class="self">self</span>.phase.clone();
+                    <span class="kw">let </span>phase = last_seen_certificate;
                     <span class="kw">async move </span>{
                         async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
-                        <span class="macro">info!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncCertificateRecv&quot;</span>);
+                        <span class="macro">info!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}&quot;</span>, <span class="self">self</span>.relay);
                         stream
                             .publish(HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
@@ -1753,13 +1640,6 @@
                 </span><span class="kw">if </span>certificate.get_view_number() &gt; <span class="self">self</span>.next_view {
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);
                 }
-
-                <span class="comment">// Ignore if the certificate is for an already seen phase
-                </span><span class="kw">if </span>last_seen_certificate &lt;= <span class="self">self</span>.phase {
-                    <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
-                }
-
-                <span class="self">self</span>.phase = last_seen_certificate;
 
                 <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
                     <span class="self">self</span>.relay = certificate.get_data().relay;
@@ -1796,10 +1676,13 @@
                 }
                 <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
                     <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
-                    <span class="kw">let </span>phase = <span class="self">self</span>.phase.clone();
+                    <span class="kw">let </span>phase = last_seen_certificate;
                     <span class="kw">async move </span>{
                         async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
-                        <span class="macro">info!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncCertificateRecv&quot;</span>);
+                        <span class="macro">info!</span>(
+                            <span class="string">&quot;Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}&quot;</span>,
+                            <span class="self">self</span>.relay
+                        );
                         stream
                             .publish(HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),
@@ -1812,8 +1695,6 @@
             }
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
-                <span class="kw">let </span>last_seen_certificate = ViewSyncPhase::Finalize;
-
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate.get_view_number() &lt; <span class="self">self</span>.next_view {
                     <span class="macro">warn!</span>(<span class="string">&quot;We&#39;re already in a higher round&quot;</span>);
@@ -1832,11 +1713,6 @@
                 // since another task should have been started for the higher round
                 </span><span class="kw">if </span>certificate.get_view_number() &gt; <span class="self">self</span>.next_view {
                     <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), <span class="self">self</span>);
-                }
-
-                <span class="comment">// Ignore if the certificate is for an already seen phase
-                </span><span class="kw">if </span>last_seen_certificate &lt;= <span class="self">self</span>.phase {
-                    <span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="self">self</span>);
                 }
 
                 <span class="comment">// cancel poll for votes
@@ -1859,8 +1735,6 @@
                         ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
                     )
                     .<span class="kw">await</span>;
-
-                <span class="self">self</span>.phase = last_seen_certificate;
 
                 <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
                     <span class="self">self</span>.relay = certificate.get_data().relay;
@@ -1919,10 +1793,7 @@
 
             HotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) =&gt; {
                 <span class="comment">// Shouldn&#39;t ever receive a timeout for a relay higher than ours
-                </span><span class="kw">if </span>TYPES::Time::new(<span class="kw-2">*</span>round) == <span class="self">self</span>.next_view
-                    &amp;&amp; relay == <span class="self">self</span>.relay
-                    &amp;&amp; last_seen_certificate == <span class="self">self</span>.phase
-                {
+                </span><span class="kw">if </span>TYPES::Time::new(<span class="kw-2">*</span>round) == <span class="self">self</span>.next_view &amp;&amp; relay == <span class="self">self</span>.relay {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
                         cancel_task(timeout_task).<span class="kw">await</span>;
                     }
@@ -1931,8 +1802,8 @@
                         .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
                         .<span class="kw">await</span>;
                     <span class="self">self</span>.relay += <span class="number">1</span>;
-                    <span class="kw">match </span><span class="self">self</span>.phase {
-                        ViewSyncPhase::None =&gt; {
+                    <span class="kw">match </span>last_seen_certificate {
+                        ViewSyncPhase::None | ViewSyncPhase::PreCommit | ViewSyncPhase::Commit =&gt; {
                             <span class="kw">let </span>vote = ViewSyncPreCommitVote::&lt;TYPES&gt;::create_signed_vote(
                                 ViewSyncPreCommitData {
                                     relay: <span class="self">self</span>.relay,
@@ -1951,44 +1822,6 @@
                                     .<span class="kw">await</span>;
                             }
                         }
-                        ViewSyncPhase::PreCommit =&gt; {
-                            <span class="kw">let </span>vote = ViewSyncCommitVote::&lt;TYPES&gt;::create_signed_vote(
-                                ViewSyncCommitData {
-                                    relay: <span class="self">self</span>.relay,
-                                    round: <span class="self">self</span>.next_view,
-                                },
-                                <span class="self">self</span>.next_view,
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                            );
-                            <span class="kw">let </span>message =
-                                GeneralConsensusMessage::&lt;TYPES&gt;::ViewSyncCommitVote(vote);
-
-                            <span class="kw">if let </span>GeneralConsensusMessage::ViewSyncCommitVote(vote) = message {
-                                <span class="self">self</span>.event_stream
-                                    .publish(HotShotEvent::ViewSyncCommitVoteSend(vote))
-                                    .<span class="kw">await</span>;
-                            }
-                        }
-                        ViewSyncPhase::Commit =&gt; {
-                            <span class="kw">let </span>vote = ViewSyncFinalizeVote::&lt;TYPES&gt;::create_signed_vote(
-                                ViewSyncFinalizeData {
-                                    relay: <span class="self">self</span>.relay,
-                                    round: <span class="self">self</span>.next_view,
-                                },
-                                <span class="self">self</span>.next_view,
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                            );
-                            <span class="kw">let </span>message =
-                                GeneralConsensusMessage::&lt;TYPES&gt;::ViewSyncFinalizeVote(vote);
-
-                            <span class="kw">if let </span>GeneralConsensusMessage::ViewSyncFinalizeVote(vote) = message {
-                                <span class="self">self</span>.event_stream
-                                    .publish(HotShotEvent::ViewSyncFinalizeVoteSend(vote))
-                                    .<span class="kw">await</span>;
-                            }
-                        }
                         ViewSyncPhase::Finalize =&gt; {
                             <span class="comment">// This should never occur
                             </span><span class="macro">unimplemented!</span>()
@@ -1999,7 +1832,10 @@
                         <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
                         <span class="kw">async move </span>{
                             async_sleep(<span class="self">self</span>.view_sync_timeout).<span class="kw">await</span>;
-                            <span class="macro">info!</span>(<span class="string">&quot;Vote sending timed out in ViewSyncTimeout&quot;</span>);
+                            <span class="macro">info!</span>(
+                                <span class="string">&quot;Vote sending timed out in ViewSyncTimeout relay = {}&quot;</span>,
+                                <span class="self">self</span>.relay
+                            );
                             stream
                                 .publish(HotShotEvent::ViewSyncTimeout(
                                     TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.next_view),

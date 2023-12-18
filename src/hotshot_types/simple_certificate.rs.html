@@ -138,6 +138,32 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -164,9 +190,35 @@
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
+<span class="doccomment">/// Trait which allows use to inject different threshold calculations into a Certificate type
+</span><span class="kw">pub trait </span>Threshold&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Calculate a threshold based on the membership
+    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64;
+}
+
+<span class="doccomment">/// Defines a threshold which is 2f + 1 (Amount needed for Quorum)
+</span><span class="attr">#[derive(Serialize, Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>SuccessThreshold {}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Threshold&lt;TYPES&gt; <span class="kw">for </span>SuccessThreshold {
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
+        membership.success_threshold().into()
+    }
+}
+
+<span class="doccomment">/// Defines a threshold which is f + 1 (i.e at least one of the stake is honest)
+</span><span class="attr">#[derive(Serialize, Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>OneHonestThreshold {}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Threshold&lt;TYPES&gt; <span class="kw">for </span>OneHonestThreshold {
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
+        membership.failure_threshold().into()
+    }
+}
+
 <span class="doccomment">/// A certificate which can be created by aggregating many simple votes on the commitment.
 </span><span class="attr">#[derive(Serialize, Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
-</span><span class="kw">pub struct </span>SimpleCertificate&lt;TYPES: NodeType, VOTEABLE: Voteable&gt; {
+</span><span class="kw">pub struct </span>SimpleCertificate&lt;TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Threshold&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     </span><span class="kw">pub </span>data: VOTEABLE,
     <span class="doccomment">/// commitment of all the votes this cert should be signed over
@@ -177,14 +229,15 @@
     </span><span class="kw">pub </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType&gt;,
     <span class="doccomment">/// If this QC is for the genesis block
     </span><span class="kw">pub </span>is_genesis: bool,
-    <span class="doccomment">/// phantom data for `MEMBERSHIP` and `TYPES`
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;TYPES&gt;,
+    <span class="doccomment">/// phantom data for `THRESHOLD` and `TYPES`
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, THRESHOLD)&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">&#39;static</span>&gt; Certificate&lt;TYPES&gt;
-    <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">&#39;static</span>, THRESHOLD: Threshold&lt;TYPES&gt;&gt; Certificate&lt;TYPES&gt;
+    <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
 {
     <span class="kw">type </span>Voteable = VOTEABLE;
+    <span class="kw">type </span>Threshold = THRESHOLD;
 
     <span class="kw">fn </span>create_signed_certificate(
         vote_commitment: Commitment&lt;VOTEABLE&gt;,
@@ -207,7 +260,7 @@
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
             membership.get_committee_qc_stake_table(),
-            U256::from(membership.success_threshold().get()),
+            U256::from(<span class="self">Self</span>::threshold(membership)),
         );
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
             <span class="kw-2">&amp;</span>real_qc_pp,
@@ -216,7 +269,7 @@
         )
     }
     <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        membership.success_threshold().into()
+        THRESHOLD::threshold(membership)
     }
     <span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
         <span class="kw-2">&amp;</span><span class="self">self</span>.data
@@ -226,8 +279,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">&#39;static</span>&gt; HasViewNumber&lt;TYPES&gt;
-    <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">&#39;static</span>, THRESHOLD: Threshold&lt;TYPES&gt;&gt;
+    HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
 {
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
@@ -263,19 +316,18 @@
 }
 
 <span class="doccomment">/// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
-</span><span class="kw">pub type </span>QuorumCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, QuorumData&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>QuorumCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, QuorumData&lt;TYPES&gt;, SuccessThreshold&gt;;
 <span class="doccomment">/// Type alias for a DA certificate over `DAData`
-</span><span class="kw">pub type </span>DACertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, DAData&gt;;
+</span><span class="kw">pub type </span>DACertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, DAData, SuccessThreshold&gt;;
 <span class="doccomment">/// Type alias for a Timeout certificate over a view number
-</span><span class="kw">pub type </span>TimeoutCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, TimeoutData&lt;TYPES&gt;&gt;;
-
-<span class="comment">// TODO ED Update this to use the correct threshold instead of the default `success_threshold`
-</span><span class="doccomment">/// Type alias for a `ViewSyncPreCommit` certificate over a view number
+</span><span class="kw">pub type </span>TimeoutCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, TimeoutData&lt;TYPES&gt;, SuccessThreshold&gt;;
+<span class="doccomment">/// Type alias for a `ViewSyncPreCommit` certificate over a view number
 </span><span class="kw">pub type </span>ViewSyncPreCommitCertificate2&lt;TYPES&gt; =
-    SimpleCertificate&lt;TYPES, ViewSyncPreCommitData&lt;TYPES&gt;&gt;;
+    SimpleCertificate&lt;TYPES, ViewSyncPreCommitData&lt;TYPES&gt;, OneHonestThreshold&gt;;
 <span class="doccomment">/// Type alias for a `ViewSyncCommit` certificate over a view number
-</span><span class="kw">pub type </span>ViewSyncCommitCertificate2&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, ViewSyncCommitData&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>ViewSyncCommitCertificate2&lt;TYPES&gt; =
+    SimpleCertificate&lt;TYPES, ViewSyncCommitData&lt;TYPES&gt;, SuccessThreshold&gt;;
 <span class="doccomment">/// Type alias for a `ViewSyncFinalize` certificate over a view number
 </span><span class="kw">pub type </span>ViewSyncFinalizeCertificate2&lt;TYPES&gt; =
-    SimpleCertificate&lt;TYPES, ViewSyncFinalizeData&lt;TYPES&gt;&gt;;
+    SimpleCertificate&lt;TYPES, ViewSyncFinalizeData&lt;TYPES&gt;, SuccessThreshold&gt;;
 </code></pre></div></section></main></body></html>

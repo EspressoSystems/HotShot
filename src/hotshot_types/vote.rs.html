@@ -183,6 +183,10 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote, Accumulator, and Certificate Types
 
 </span><span class="kw">use </span>std::{
@@ -199,6 +203,7 @@
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use crate</span>::{
+    simple_certificate::Threshold,
     simple_vote::Voteable,
     traits::{
         election::Membership,
@@ -237,6 +242,9 @@ The votes all must be over the `Commitment` associated type.
 </span><span class="kw">pub trait </span>Certificate&lt;TYPES: NodeType&gt;: HasViewNumber&lt;TYPES&gt; {
     <span class="doccomment">/// The data commitment this certificate certifies.
     </span><span class="kw">type </span>Voteable: Voteable;
+
+    <span class="doccomment">/// Threshold Functions
+    </span><span class="kw">type </span>Threshold: Threshold&lt;TYPES&gt;;
 
     <span class="doccomment">/// Build a certificate from the data commitment and the quorum of signers
     </span><span class="kw">fn </span>create_signed_certificate(
