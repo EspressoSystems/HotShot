@@ -391,7 +391,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if self.oldest_vote > view_number {
             return Err(ServerError {
                 status: StatusCode::Gone,
-                message: format!("Posted vote is too old"),
+                message: "Posted vote is too old".to_string(),
             });
         }
 
@@ -420,7 +420,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if self.oldest_vid_vote > view_number {
             return Err(ServerError {
                 status: StatusCode::Gone,
-                message: format!("Posted vid vote is too old"),
+                message: "Posted vid vote is too old".to_string(),
             });
         }
 
@@ -451,7 +451,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if self.oldest_view_sync_vote > view_number {
             return Err(ServerError {
                 status: StatusCode::Gone,
-                message: format!("Posted view sync vote is too old"),
+                message: "Posted view sync vote is too old".to_string(),
             });
         }
 
