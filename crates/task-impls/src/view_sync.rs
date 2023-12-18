@@ -441,6 +441,14 @@ impl<
 
                     // Garbage collect old tasks
                     // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
+                    // cancel poll for votes
+                    self.network
+                        .inject_consensus_info(
+                            ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
+                        )
+                        .await;
+
+                    // run GC
                     for i in *self.last_garbage_collected_view..*self.current_view {
                         if let Some((_key, replica_task_info)) =
                             self.replica_task_map.remove_entry(&TYPES::Time::new(i))
