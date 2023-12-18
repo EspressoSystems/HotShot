@@ -5485,6 +5485,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "449811d15fbdf5ceb5c1144416066429cf82316e2ec8ce0c1f6f8a02e7bbcf8c"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot",
+ "protobuf",
+ "thiserror",
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5538,6 +5553,12 @@ checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
  "prost",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "quick-error"
@@ -6677,8 +6698,8 @@ dependencies = [
 
 [[package]]
 name = "surf-disco"
-version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.4#52f701be20e01bf0b6ede2e52049af0ed02c296f"
+version = "0.4.5"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.5#d9f1e3c7ded5ef3388e0e1f305bf43a9861b2021"
 dependencies = [
  "async-std",
  "async-tungstenite 0.15.0",
@@ -6918,7 +6939,7 @@ dependencies = [
 [[package]]
 name = "tide-disco"
 version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.4#0f296940165c7a027642b0d18fe2b58f6d11db10"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.5#7ff4abaebe32d86603fc7978722a8f244c7d73c9"
 dependencies = [
  "async-std",
  "async-trait",
@@ -6938,6 +6959,7 @@ dependencies = [
  "markdown",
  "maud",
  "parking_lot",
+ "prometheus",
  "routefinder",
  "semver 1.0.20",
  "serde",
@@ -6957,7 +6979,7 @@ dependencies = [
  "tracing",
  "tracing-distributed",
  "tracing-futures",
- "tracing-log 0.1.4",
+ "tracing-log",
  "tracing-subscriber",
  "url",
 ]
@@ -7318,17 +7340,6 @@ dependencies = [
 
 [[package]]
 name = "tracing-log"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f751112709b4e791d8ce53e32c4ed2d353565a795ce84da2285393f41557bdf2"
-dependencies = [
- "log",
- "once_cell",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-log"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
@@ -7365,7 +7376,7 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
- "tracing-log 0.2.0",
+ "tracing-log",
  "tracing-serde",
 ]
 
