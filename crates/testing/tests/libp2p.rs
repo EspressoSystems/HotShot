@@ -21,6 +21,7 @@ async fn libp2p_network() {
     let metadata = TestMetadata {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
+            num_failed_views: 2,
             ..Default::default()
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
