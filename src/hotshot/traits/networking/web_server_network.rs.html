@@ -1319,6 +1319,13 @@
 <a href="#1319" id="1319">1319</a>
 <a href="#1320" id="1320">1320</a>
 <a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -2578,10 +2585,17 @@
         <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">&quot;http://localhost:{port}&quot;</span>).as_str()).unwrap();
         <span class="macro">info!</span>(<span class="string">&quot;Launching web server on port {port}&quot;</span>);
         <span class="comment">// Start web server
-        </span>async_spawn(hotshot_web_server::run_web_server::&lt;TYPES::SignatureKey&gt;(
-            <span class="prelude-val">Some</span>(server_shutdown),
-            url,
-        ));
+        </span>async_spawn(<span class="kw">async </span>{
+            <span class="kw">match </span>hotshot_web_server::run_web_server::&lt;TYPES::SignatureKey&gt;(
+                <span class="prelude-val">Some</span>(server_shutdown),
+                url,
+            )
+            .<span class="kw">await
+            </span>{
+                <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">error!</span>(<span class="string">&quot;Web server future finished unexpectedly&quot;</span>),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">&quot;Web server task failed: {e}&quot;</span>),
+            }
+        });
 
         <span class="comment">// We assign known_nodes&#39; public key and stake value rather than read from config file since it&#39;s a test
         </span><span class="kw">let </span>known_nodes = (<span class="number">0</span>..expected_node_count <span class="kw">as </span>u64)
