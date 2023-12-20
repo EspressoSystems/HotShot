@@ -9,7 +9,8 @@ mod tests {
     use std::io::prelude::*;
     #[test]
     fn gen_key_pair_gen_from_config_file() {
-        let config_file = ValidatorConfigFile::from_file("validator_config/ValidatorConfigFile.toml");
+        let config_file =
+            ValidatorConfigFile::from_file("validator_config/ValidatorConfigFile.toml");
         let my_own_validator_config = ValidatorConfig::<BLSPubKey>::from(config_file.clone());
         if config_file.seed == [0u8; 32] && config_file.node_id == 0 {
             assert_eq!(
