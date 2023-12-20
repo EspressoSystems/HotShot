@@ -345,7 +345,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             );
 
             if *self.cur_view / 100 != *new_view / 100 {
-                info!("Progress: entered view {:>6}", *new_view);
+                // TODO AG: switch to info! when INFO
+                // logs become less cluttered
+                error!("Progress: entered view {:>6}", *new_view);
             }
 
             // cancel the old timeout task
