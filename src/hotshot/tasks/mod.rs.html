@@ -519,7 +519,6 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
@@ -752,7 +751,6 @@
         timeout_task: <span class="prelude-val">None</span>,
         event_stream: event_stream.clone(),
         output_event_stream: output_stream,
-        da_certs: HashMap::new(),
         vid_shares: HashMap::new(),
         current_proposal: <span class="prelude-val">None</span>,
         id: handle.hotshot.inner.id,

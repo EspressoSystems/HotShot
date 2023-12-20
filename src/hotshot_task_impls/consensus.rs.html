@@ -1217,10 +1217,6 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1244,7 +1240,7 @@
     data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{DACertificate, QuorumCertificate, TimeoutCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -1336,9 +1332,6 @@
 
     <span class="doccomment">/// Event stream to publish events to the application layer
     </span><span class="kw">pub </span>output_event_stream: ChannelStream&lt;Event&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// All the DA certs we&#39;ve received for current and future views.
-    </span><span class="kw">pub </span>da_certs: HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// All the VID shares we&#39;ve received for current and future views.
     /// In the future we will need a different struct similar to VidDisperse except
@@ -1469,7 +1462,13 @@
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.da_certs.get(<span class="kw-2">&amp;</span>(proposal.get_view_number())) {
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
+                </span>.consensus
+                .read()
+                .<span class="kw">await
+                </span>.saved_da_certs
+                .get(<span class="kw-2">&amp;</span>(proposal.get_view_number()))
+            {
                 <span class="kw">let </span>view = cert.view_number;
                 <span class="comment">// TODO: do some of this logic without the vote token check, only do that when voting.
                 </span><span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
@@ -1569,12 +1568,6 @@
             <span class="comment">// cancel the old timeout task
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
                 cancel_task(timeout_task).<span class="kw">await</span>;
-            }
-
-            <span class="comment">// Remove old certs, we won&#39;t vote on past views
-            </span><span class="kw">for </span>view <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.cur_view..<span class="kw-2">*</span>new_view - <span class="number">1 </span>{
-                <span class="kw">let </span>v = TYPES::Time::new(view);
-                <span class="self">self</span>.da_certs.remove(<span class="kw-2">&amp;</span>v);
             }
             <span class="self">self</span>.cur_view = new_view;
 
@@ -1962,11 +1955,6 @@
                     <span class="kw">return</span>;
                 }
                 <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
-
-                <span class="kw">for </span>v <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.cur_view)..=(<span class="kw-2">*</span>view) {
-                    <span class="kw">let </span>time = TYPES::Time::new(v);
-                    <span class="self">self</span>.da_certs.remove(<span class="kw-2">&amp;</span>time);
-                }
             }
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;Received quroum vote: {:?}&quot;</span>, vote.get_view_number());
@@ -2133,7 +2121,11 @@
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
 
-                <span class="self">self</span>.da_certs.insert(view, cert);
+                <span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.saved_da_certs
+                    .insert(view, cert);
 
                 <span class="kw">if </span><span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
