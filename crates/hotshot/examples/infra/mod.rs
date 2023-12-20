@@ -94,7 +94,16 @@ pub fn load_config_from_file<TYPES: NodeType>(
         toml::from_str::<NetworkConfigFile<TYPES::SignatureKey>>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
 
-    let config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = config_toml.into();
+    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = config_toml.into();
+    // Here is a way to generate peer's public key, in practice we should input peer's stake_value and public key
+    config.config.known_nodes_with_stake =
+        HotShotConfigFile::<<TYPES as NodeType>::SignatureKey>::default_with_seed_index(config.seed, config.node_index, config.config.total_nodes.get() as u64).known_nodes_with_stake;
+    config.config.my_own_validator_config =
+        ValidatorConfig::<<TYPES as NodeType>::SignatureKey>::generated_from_seed_indexed(
+            config.seed,
+            config.node_index,
+            1,
+        );
 
     config
 }
