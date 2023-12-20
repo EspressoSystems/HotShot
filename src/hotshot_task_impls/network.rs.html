@@ -676,12 +676,12 @@
             TransmitType::Broadcast =&gt; <span class="self">self</span>.channel.broadcast_message(message, membership).<span class="kw">await</span>,
         };
 
-        <span class="comment">// match transmit_result {
-        //     Ok(()) =&gt; {}
-        //     Err(e) =&gt; error!(&quot;Failed to send message from network task: {:?}&quot;, e),
-        // }
+        <span class="kw">match </span>transmit_result {
+            <span class="prelude-val">Ok</span>(()) =&gt; {}
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">&quot;Failed to send message from network task: {:?}&quot;</span>, e),
+        }
 
-        </span><span class="prelude-val">None
+        <span class="prelude-val">None
     </span>}
 
     <span class="doccomment">/// network filter
