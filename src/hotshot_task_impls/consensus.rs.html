@@ -1217,6 +1217,15 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1327,6 +1336,9 @@
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
 
+    <span class="doccomment">/// last Timeout Certificate this node formed
+    </span><span class="kw">pub </span>timeout_cert: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Global events stream to publish events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
 
@@ -1378,7 +1390,7 @@
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus vote if able&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
         <span class="kw">if </span>!<span class="self">self</span>.quorum_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>,
@@ -1434,6 +1446,8 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 );
+
+                <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote);
 
                 <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
@@ -1512,7 +1526,7 @@
                         &amp;&amp; cert.get_data().payload_commit
                             != proposal.block_header.payload_commitment()
                     {
-                        <span class="macro">error!</span>(<span class="string">&quot;Block payload commitment does not equal parent commitment&quot;</span>);
+                        <span class="macro">error!</span>(<span class="string">&quot;Block payload commitment does not equal da cert payload commitment. View = {}&quot;</span>, <span class="kw-2">*</span>view);
                         <span class="kw">return </span><span class="bool-val">false</span>;
                     }
                     <span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
@@ -1948,7 +1962,7 @@
                         <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
                         <span class="kw-2">*</span>new_view
                     );
-                    <span class="self">self</span>.publish_proposal_if_able(qc.clone(), qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
                         .<span class="kw">await</span>;
                 }
                 <span class="kw">if </span>!<span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
@@ -2058,6 +2072,7 @@
                 <span class="macro">debug!</span>(<span class="string">&quot;QC Formed event happened!&quot;</span>);
 
                 <span class="kw">if let </span>either::Right(qc) = cert.clone() {
+                    <span class="self">self</span>.timeout_cert = <span class="prelude-val">Some</span>(qc.clone());
                     <span class="comment">// cancel poll for votes
                     </span><span class="self">self</span>.quorum_network
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -2072,12 +2087,7 @@
 
                     <span class="kw">let </span>view = qc.view_number + <span class="number">1</span>;
 
-                    <span class="kw">let </span>high_qc = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.clone();
-
-                    <span class="kw">if </span><span class="self">self
-                        </span>.publish_proposal_if_able(high_qc, view, <span class="prelude-val">Some</span>(qc.clone()))
-                        .<span class="kw">await
-                    </span>{
+                    <span class="kw">if </span><span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">Some</span>(qc.clone())).<span class="kw">await </span>{
                     } <span class="kw">else </span>{
                         <span class="macro">warn!</span>(<span class="string">&quot;Wasn&#39;t able to publish proposal&quot;</span>);
                     }
@@ -2100,7 +2110,7 @@
                     );
 
                     <span class="kw">if </span>!<span class="self">self
-                        </span>.publish_proposal_if_able(qc.clone(), qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
                         .<span class="kw">await
                     </span>{
                         <span class="macro">debug!</span>(
@@ -2252,13 +2262,21 @@
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata) =&gt; {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;got commit and meta {:?}&quot;</span>, payload_commitment);
                 <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>((payload_commitment, metadata));
-                <span class="kw">let </span>high_qc = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.clone();
-                <span class="kw">let </span>leader_view = high_qc.get_view_number() + <span class="number">1</span>;
-                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(leader_view) == <span class="self">self</span>.public_key {
-                    <span class="self">self</span>.publish_proposal_if_able(high_qc, leader_view, <span class="prelude-val">None</span>)
-                        .<span class="kw">await</span>;
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
+                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() == view
+                {
+                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+                }
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = <span class="kw-2">&amp;</span><span class="self">self</span>.timeout_cert {
+                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
+                        == <span class="self">self</span>.public_key
+                    {
+                        <span class="self">self</span>.publish_proposal_if_able(view, <span class="self">self</span>.timeout_cert.clone())
+                            .<span class="kw">await</span>;
+                    }
                 }
             }
             <span class="kw">_ </span>=&gt; {}
@@ -2269,7 +2287,6 @@
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        _qc: QuorumCertificate&lt;TYPES&gt;,
         view: TYPES::Time,
         timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
     ) -&gt; bool {
@@ -2364,6 +2381,7 @@
                 proposer_id: leaf.proposer_id,
             };
 
+            <span class="self">self</span>.timeout_cert = <span class="prelude-val">None</span>;
             <span class="kw">let </span>message = Proposal {
                 data: proposal,
                 signature,
@@ -2429,10 +2447,10 @@
             | HotShotEvent::QCFormed(<span class="kw">_</span>)
             | HotShotEvent::DACRecv(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
-            | HotShotEvent::SendPayloadCommitmentAndMetadata(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
             | HotShotEvent::Timeout(<span class="kw">_</span>)
             | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
-            | HotShotEvent::VidDisperseRecv(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::VidDisperseRecv(..)
             | HotShotEvent::Shutdown,
     )
 }

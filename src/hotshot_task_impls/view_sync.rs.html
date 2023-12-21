@@ -926,6 +926,10 @@
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
 <a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -1666,6 +1670,10 @@
                     <span class="string">&quot;View sync protocol has received view sync evidence to update the view to {}&quot;</span>,
                     <span class="kw-2">*</span><span class="self">self</span>.next_view
                 );
+
+                <span class="self">self</span>.event_stream
+                    .publish(HotShotEvent::ViewChange(<span class="self">self</span>.next_view - <span class="number">1</span>))
+                    .<span class="kw">await</span>;
 
                 <span class="self">self</span>.event_stream
                     .publish(HotShotEvent::ViewChange(<span class="self">self</span>.next_view))

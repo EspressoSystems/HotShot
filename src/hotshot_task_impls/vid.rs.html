@@ -188,6 +188,7 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::{
@@ -288,6 +289,7 @@
                     .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,
                         metadata,
+                        view_number,
                     ))
                     .<span class="kw">await</span>;
 

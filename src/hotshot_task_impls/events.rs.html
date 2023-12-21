@@ -111,6 +111,7 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -204,6 +205,7 @@
     </span>SendPayloadCommitmentAndMetadata(
         VidCommitment,
         &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        TYPES::Time,
     ),
     <span class="doccomment">/// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     </span>TransactionsSequenced(

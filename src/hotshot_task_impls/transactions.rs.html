@@ -339,6 +339,10 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_timeout,
@@ -510,12 +514,15 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                <span class="kw">let </span><span class="kw-2">mut </span>make_block = <span class="bool-val">false</span>;
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
+                    <span class="macro">error!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
+                    make_block = <span class="self">self</span>.membership.get_leader(view) == <span class="self">self</span>.public_key;
                 }
                 <span class="self">self</span>.cur_view = view;
 
-                <span class="kw">if </span><span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
+                <span class="comment">// return if we aren&#39;t the next leader or we skipped last view and aren&#39;t the current leader.
+                </span><span class="kw">if </span>!make_block &amp;&amp; <span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -569,11 +576,12 @@
                 };
 
                 <span class="comment">// send the sequenced transactions to VID and DA tasks
-                </span><span class="self">self</span>.event_stream
+                </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
+                <span class="self">self</span>.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
                         metadata,
-                        view + <span class="number">1</span>,
+                        block_view,
                     ))
                     .<span class="kw">await</span>;
 
