@@ -2,8 +2,8 @@ default: run_ci
 
 set export
 
-original_rustflags := env_var_or_default('RUSTFLAGS', '')
-original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '')
+original_rustflags := env_var_or_default('RUSTFLAGS', '--cfg hotshot_example')
+original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_example')
 
 run_ci: lint build test
 
@@ -30,13 +30,13 @@ test:
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
+test_catchup:
+  echo Testing with async std executor
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+
 test_crypto:
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
-
-test_catchup:
-    echo Testing with async std executor
-    ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
-
+  
 test_success:
   echo Testing success test
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture

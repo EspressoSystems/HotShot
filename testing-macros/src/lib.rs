@@ -136,7 +136,9 @@ impl ToLowerSnakeStr for ExprTuple {
         self.elems
             .iter()
             .map(|x| {
-                let Expr::Path(expr_path) = x else { panic!("Expected path expr, got {:?}", x) };
+                let Expr::Path(expr_path) = x else {
+                    panic!("Expected path expr, got {:?}", x)
+                };
                 expr_path
             })
             .fold("".to_string(), |mut acc, s| {
@@ -165,8 +167,12 @@ impl TestData {
                 .next()
                 .expect("First element of tuple must be the consensus type.");
 
-            let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
-            let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
+            let Expr::Path(expr_path) = first_ele else {
+                panic!("Expected path expr, got {:?}", first_ele)
+            };
+            let Some(ident) = expr_path.path.get_ident() else {
+                panic!("Expected ident, got {:?}", expr_path.path)
+            };
             let consensus_type = if ident == "Consensus" {
                 SupportedConsensusTypes::Consensus
             } else {
@@ -418,28 +424,38 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
         .elems
         .iter()
         .map(|t| {
-            let Expr::Tuple(p) = t else { panic!("Expected Tuple! Got {:?}", t) };
+            let Expr::Tuple(p) = t else {
+                panic!("Expected Tuple! Got {:?}", t)
+            };
             p
         })
         .collect::<Vec<_>>();
 
     let comm_channels = test_spec.comm_channels.elems.iter().map(|t| {
-        let Expr::Path(p) = t else { panic!("Expected Path for Comm Channel! Got {:?}", t) };
+        let Expr::Path(p) = t else {
+            panic!("Expected Path for Comm Channel! Got {:?}", t)
+        };
         p
     });
 
     let storages = test_spec.storages.elems.iter().map(|t| {
-        let Expr::Path(p) = t else { panic!("Expected Path for Storage! Got {:?}", t) };
+        let Expr::Path(p) = t else {
+            panic!("Expected Path for Storage! Got {:?}", t)
+        };
         p
     });
 
     let time_types = test_spec.time_types.elems.iter().map(|t| {
-        let Expr::Path(p) = t else { panic!("Expected Path for Time Type! Got {:?}", t) };
+        let Expr::Path(p) = t else {
+            panic!("Expected Path for Time Type! Got {:?}", t)
+        };
         p
     });
 
     let signature_key_types = test_spec.signature_key_types.elems.iter().map(|t| {
-        let Expr::Path(p) = t else { panic!("Expected Path for Signature Key Type! Got {:?}", t) };
+        let Expr::Path(p) = t else {
+            panic!("Expected Path for Signature Key Type! Got {:?}", t)
+        };
         p
     });
 
@@ -580,7 +596,7 @@ pub fn cross_all_types(input: TokenStream) -> TokenStream {
         slow,
     } = parse_macro_input!(input as CrossAllTypesSpec);
     let tokens = quote! {
-            DemoType: [ /* (Consensus, hotshot::demo::DemoState), */ (hotshot::demos::vdemo::VDemoState) ],
+            DemoType: [ /* (Consensus, hotshot_testing::demo::DemoState), */ (hotshot::demos::vdemo::VDemoState) ],
             SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
             CommChannel: [ hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
             Time: [ hotshot_types::data::ViewNumber ],

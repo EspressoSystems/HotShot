@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 description = "Macros for creating hotshot tests"
 
-[features]
-default = ["demo"]
-demo = ["hotshot/demo"]
-
 [dependencies]
 ark-bls12-381 = { workspace = true }
 async-compatibility-layer = { workspace = true }
