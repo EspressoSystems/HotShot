@@ -452,45 +452,17 @@
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
-    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEvent, TaskBuilder},
+    task::{HotShotTaskCompleted, TS},
+    task_impls::HSTWithEvent,
 };
 <span class="kw">use </span>hotshot_types::{
     simple_certificate::{
@@ -655,12 +627,11 @@
 <span class="doccomment">/// Generic function for spawnnig a vote task.  Returns the event stream id of the spawned task if created
 /// # Panics
 /// Calls unwrap but should never panic.
-</span><span class="kw">pub async fn </span>spawn_vote_accumulator&lt;TYPES, VOTE, CERT&gt;(
+</span><span class="kw">pub async fn </span>create_vote_accumulator&lt;TYPES, VOTE, CERT&gt;(
     info: <span class="kw-2">&amp;</span>AccumulatorInfo&lt;TYPES&gt;,
     vote: VOTE,
     event: HotShotEvent&lt;TYPES&gt;,
-    name: String,
-) -&gt; <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;
+) -&gt; <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt;
@@ -707,30 +678,7 @@
     }
 
     state = result.<span class="number">1</span>;
-
-    <span class="kw">let </span>relay_handle_event = HandleEvent(Arc::new(
-        <span class="kw">move </span>|event, state: VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;| {
-            <span class="kw">async move </span>{ state.handle_event(event).<span class="kw">await </span>}.boxed()
-        },
-    ));
-
-    <span class="kw">let </span>filter = FilterEvent(Arc::new(
-        &lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt; <span class="kw">as </span>HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;&gt;::filter,
-    ));
-    <span class="kw">let </span>builder = TaskBuilder::&lt;VoteTaskStateTypes&lt;TYPES, VOTE, CERT&gt;&gt;::new(name)
-        .register_event_stream(state.event_stream.clone(), filter)
-        .<span class="kw">await
-        </span>.register_registry(<span class="kw-2">&amp;mut </span>info.registry.clone())
-        .<span class="kw">await
-        </span>.register_state(state)
-        .register_event_handler(relay_handle_event);
-
-    <span class="kw">let </span>event_stream_id = builder.get_stream_id().unwrap();
-    <span class="kw">let </span>id = builder.get_task_id().unwrap();
-
-    <span class="kw">let </span>_task = async_spawn(<span class="kw">async move </span>{ VoteTaskStateTypes::build(builder).launch().<span class="kw">await </span>});
-
-    <span class="prelude-val">Some</span>((vote.get_view_number(), id, event_stream_id))
+    <span class="prelude-val">Some</span>(state)
 }
 
 <span class="doccomment">/// Alias for Quorum vote accumulator

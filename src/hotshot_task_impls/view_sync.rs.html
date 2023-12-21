@@ -863,87 +863,26 @@
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
-    vote::{spawn_vote_accumulator, AccumulatorInfo},
+    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEvent, TaskBuilder},
+    task::{HotShotTaskCompleted, TS},
+    task_impls::HSTWithEvent,
 };
-<span class="kw">use </span>hotshot_types::{simple_vote::ViewSyncFinalizeData, traits::signature_key::SignatureKey};
+<span class="kw">use </span>hotshot_types::{
+    simple_certificate::{
+        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+    },
+    simple_vote::ViewSyncFinalizeData,
+    traits::signature_key::SignatureKey,
+};
 <span class="kw">use </span>hotshot_types::{
     simple_vote::{
         ViewSyncCommitData, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitData,
@@ -967,7 +906,7 @@
     },
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
@@ -984,16 +923,13 @@
     </span>Finalize,
 }
 
-<span class="attr">#[derive(Default)]
-</span><span class="doccomment">/// Information about view sync sub-tasks
-</span><span class="kw">pub struct </span>ViewSyncTaskInfo {
-    <span class="doccomment">/// Id of the event stream of a certain task
-    </span>event_stream_id: usize,
-}
-
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="doccomment">/// Stub of a view sync error
 </span><span class="kw">pub struct </span>ViewSyncTaskError {}
+
+<span class="doccomment">/// Type alias for a map from View Number to Vote Task
+</span><span class="kw">type </span>RelayMap&lt;TYPES, VOTE, CERT&gt; =
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
 
 <span class="doccomment">/// Main view sync task state
 </span><span class="kw">pub struct </span>ViewSyncTaskState&lt;
@@ -1026,10 +962,17 @@
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
 
     <span class="doccomment">/// Map of running replica tasks
-    </span><span class="kw">pub </span>replica_task_map: HashMap&lt;TYPES::Time, ViewSyncTaskInfo&gt;,
+    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::Time, ViewSyncReplicaTaskState&lt;TYPES, I, A&gt;&gt;&gt;,
 
-    <span class="doccomment">/// Map of running relay tasks
-    </span><span class="kw">pub </span>relay_task_map: HashMap&lt;(TYPES::Time, ViewSyncPhase), ViewSyncTaskInfo&gt;,
+    <span class="doccomment">/// Map of pre-commit vote accumulates for the relay
+    </span><span class="kw">pub </span>pre_commit_relay_map:
+        RwLock&lt;RelayMap&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// Map of commit vote accumulates for the relay
+    </span><span class="kw">pub </span>commit_relay_map:
+        RwLock&lt;RelayMap&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// Map of finalize vote accumulates for the relay
+    </span><span class="kw">pub </span>finalize_relay_map:
+        RwLock&lt;RelayMap&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Timeout duration for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
@@ -1113,97 +1056,102 @@
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     #[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles incoming events for the main view sync task
+    </span><span class="kw">pub async fn </span>send_to_or_create_replica(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: HotShotEvent&lt;TYPES&gt;,
+        view: TYPES::Time,
+    ) {
+        <span class="comment">// This certificate is old, we can throw it away
+        // If next view = cert round, then that means we should already have a task running for it
+        </span><span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.replica_task_map.write().<span class="kw">await</span>;
+        <span class="kw">if </span><span class="self">self</span>.current_view &gt; view {
+            <span class="macro">debug!</span>(<span class="string">&quot;Already in a higher view than the view sync message&quot;</span>);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(replica_task) = task_map.remove(<span class="kw-2">&amp;</span>view) {
+            <span class="comment">// Forward event then return
+            </span><span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
+            <span class="kw">let </span>result = replica_task.handle_event(event.clone()).<span class="kw">await</span>;
+
+            <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                <span class="comment">// The protocol has finished
+                </span><span class="kw">return</span>;
+            }
+
+            task_map.insert(view, result.<span class="number">1</span>);
+            <span class="kw">return</span>;
+        }
+
+        <span class="comment">// We do not have a replica task already running, so start one
+        </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, A&gt; = ViewSyncReplicaTaskState {
+            current_view: view,
+            next_view: view,
+            relay: <span class="number">0</span>,
+            finalized: <span class="bool-val">false</span>,
+            sent_view_change_event: <span class="bool-val">false</span>,
+            timeout_task: <span class="prelude-val">None</span>,
+            membership: <span class="self">self</span>.membership.clone(),
+            network: <span class="self">self</span>.network.clone(),
+            public_key: <span class="self">self</span>.public_key.clone(),
+            private_key: <span class="self">self</span>.private_key.clone(),
+            api: <span class="self">self</span>.api.clone(),
+            event_stream: <span class="self">self</span>.event_stream.clone(),
+            view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
+            id: <span class="self">self</span>.id,
+        };
+
+        <span class="kw">let </span>result = replica_state.handle_event(event.clone()).<span class="kw">await</span>;
+
+        <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+            <span class="comment">// The protocol has finished
+            </span><span class="kw">return</span>;
+        }
+
+        replica_state = result.<span class="number">1</span>;
+
+        task_map.insert(view, replica_state);
+    }
+
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">&quot;View Sync Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    #[allow(clippy::type_complexity)]
+    </span><span class="doccomment">/// Handles incoming events for the main view sync task
     </span><span class="kw">pub async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: HotShotEvent&lt;TYPES&gt;) {
         <span class="kw">match </span><span class="kw-2">&amp;</span>event {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>, certificate);
-
-                <span class="comment">// This certificate is old, we can throw it away
-                // If next view = cert round, then that means we should already have a task running for it
-                </span><span class="kw">if </span><span class="self">self</span>.current_view &gt; certificate.get_view_number() {
-                    <span class="macro">debug!</span>(<span class="string">&quot;Already in a higher view than the view sync message&quot;</span>);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(replica_task) =
-                    <span class="self">self</span>.replica_task_map.get(<span class="kw-2">&amp;</span>certificate.get_view_number())
-                {
-                    <span class="comment">// Forward event then return
-                    </span><span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
-                    <span class="self">self</span>.event_stream
-                        .direct_message(replica_task.event_stream_id, event)
-                        .<span class="kw">await</span>;
-                    <span class="kw">return</span>;
-                }
-
-                <span class="comment">// We do not have a replica task already running, so start one
-                </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, A&gt; =
-                    ViewSyncReplicaTaskState {
-                        current_view: certificate.get_view_number(),
-                        next_view: certificate.get_view_number(),
-                        relay: <span class="number">0</span>,
-                        finalized: <span class="bool-val">false</span>,
-                        sent_view_change_event: <span class="bool-val">false</span>,
-                        timeout_task: <span class="prelude-val">None</span>,
-                        membership: <span class="self">self</span>.membership.clone(),
-                        network: <span class="self">self</span>.network.clone(),
-                        public_key: <span class="self">self</span>.public_key.clone(),
-                        private_key: <span class="self">self</span>.private_key.clone(),
-                        api: <span class="self">self</span>.api.clone(),
-                        event_stream: <span class="self">self</span>.event_stream.clone(),
-                        view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
-                        id: <span class="self">self</span>.id,
-                    };
-
-                <span class="kw">let </span>result = replica_state.handle_event(event.clone()).<span class="kw">await</span>;
-
-                <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
-                    <span class="comment">// The protocol has finished
-                    </span><span class="kw">return</span>;
-                }
-
-                replica_state = result.<span class="number">1</span>;
-
-                <span class="kw">let </span>name = <span class="macro">format!</span>(
-                    <span class="string">&quot;View Sync Replica Task: Attempting to enter view {:?} from view {:?}&quot;</span>,
-                    <span class="self">self</span>.next_view, <span class="self">self</span>.current_view
-                );
-
-                <span class="kw">let </span>replica_handle_event = HandleEvent(Arc::new(
-                    <span class="kw">move </span>|event, state: ViewSyncReplicaTaskState&lt;TYPES, I, A&gt;| {
-                        <span class="kw">async move </span>{ state.handle_event(event).<span class="kw">await </span>}.boxed()
-                    },
-                ));
-
-                <span class="kw">let </span>filter = FilterEvent::default();
-                <span class="kw">let </span>builder = TaskBuilder::&lt;ViewSyncReplicaTaskStateTypes&lt;TYPES, I, A&gt;&gt;::new(name)
-                    .register_event_stream(replica_state.event_stream.clone(), filter)
-                    .<span class="kw">await
-                    </span>.register_registry(<span class="kw-2">&amp;mut </span><span class="self">self</span>.registry.clone())
-                    .<span class="kw">await
-                    </span>.register_state(replica_state)
-                    .register_event_handler(replica_handle_event);
-
-                <span class="kw">let </span>event_stream_id = builder.get_stream_id().unwrap();
-
-                <span class="self">self</span>.replica_task_map.insert(
-                    certificate.get_view_number(),
-                    ViewSyncTaskInfo { event_stream_id },
-                );
-
-                <span class="kw">let </span>_view_sync_replica_task = async_spawn(<span class="kw">async move </span>{
-                    ViewSyncReplicaTaskStateTypes::build(builder).launch().<span class="kw">await
-                </span>});
+                <span class="macro">debug!</span>(<span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>, certificate);
+                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="self">self</span>.send_to_or_create_replica(event, view).<span class="kw">await</span>;
+            }
+            HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>, certificate);
+                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="self">self</span>.send_to_or_create_replica(event, view).<span class="kw">await</span>;
+            }
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;Received view sync cert for phase {:?}&quot;</span>, certificate);
+                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="self">self</span>.send_to_or_create_replica(event, view).<span class="kw">await</span>;
+            }
+            HotShotEvent::ViewSyncTimeout(view, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;view sync timeout in main task {:?}&quot;</span>, view);
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
+                <span class="self">self</span>.send_to_or_create_replica(event, view).<span class="kw">await</span>;
             }
 
             HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.pre_commit_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::PreCommit);
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
-                    <span class="comment">// Forward event then return
-                    </span><span class="self">self</span>.event_stream
-                        .direct_message(relay_task.event_stream_id, event)
-                        .<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                    <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
+                    <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return</span>;
+                    }
+
+                    map.insert(vote_view, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
@@ -1218,7 +1166,6 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;View Sync Relay Task for view {vote_view:?}&quot;</span>);
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: <span class="self">self</span>.membership.clone(),
@@ -1227,22 +1174,25 @@
                     id: <span class="self">self</span>.id,
                     registry: <span class="self">self</span>.registry.clone(),
                 };
-                <span class="kw">let </span>vote_collector =
-                    spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
-                    <span class="self">self</span>.relay_task_map
-                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
+                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
+                    map.insert(vote_view, vote_task);
                 }
             }
 
             HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.commit_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::Commit);
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
-                    <span class="comment">// Forward event then return
-                    </span><span class="self">self</span>.event_stream
-                        .direct_message(relay_task.event_stream_id, event)
-                        .<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                    <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
+                    <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return</span>;
+                    }
+
+                    map.insert(vote_view, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
@@ -1257,7 +1207,6 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;View Sync Relay Task for view {vote_view:?}&quot;</span>);
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: <span class="self">self</span>.membership.clone(),
@@ -1266,22 +1215,25 @@
                     id: <span class="self">self</span>.id,
                     registry: <span class="self">self</span>.registry.clone(),
                 };
-                <span class="kw">let </span>vote_collector =
-                    spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
-                    <span class="self">self</span>.relay_task_map
-                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
+                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
+                    map.insert(vote_view, vote_task);
                 }
             }
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.finalize_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>view_phase = (vote_view, ViewSyncPhase::Finalize);
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = <span class="self">self</span>.relay_task_map.get(<span class="kw-2">&amp;</span>view_phase) {
-                    <span class="comment">// Forward event then return
-                    </span><span class="self">self</span>.event_stream
-                        .direct_message(relay_task.event_stream_id, event)
-                        .<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                    <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
+                    <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return</span>;
+                    }
+
+                    map.insert(vote_view, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
@@ -1296,20 +1248,17 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;View Sync Relay Task for view {vote_view:?}&quot;</span>);
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: <span class="self">self</span>.membership.clone(),
-                    view: vote.get_view_number(),
+                    view: vote_view,
                     event_stream: <span class="self">self</span>.event_stream.clone(),
                     id: <span class="self">self</span>.id,
                     registry: <span class="self">self</span>.registry.clone(),
                 };
-                <span class="kw">let </span>vote_collector =
-                    spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, event_stream_id)) = vote_collector {
-                    <span class="self">self</span>.relay_task_map
-                        .insert(view_phase, ViewSyncTaskInfo { event_stream_id });
+                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
+                    map.insert(vote_view, vote_task);
                 }
             }
 
@@ -1336,49 +1285,22 @@
 
                     <span class="comment">// run GC
                     </span><span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.last_garbage_collected_view..<span class="kw-2">*</span><span class="self">self</span>.current_view {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, replica_task_info)) =
-                            <span class="self">self</span>.replica_task_map.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i))
-                        {
-                            <span class="self">self</span>.event_stream
-                                .direct_message(
-                                    replica_task_info.event_stream_id,
-                                    HotShotEvent::Shutdown,
-                                )
-                                .<span class="kw">await</span>;
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
-                            </span>.relay_task_map
-                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::PreCommit))
-                        {
-                            <span class="self">self</span>.event_stream
-                                .direct_message(
-                                    relay_task_info.event_stream_id,
-                                    HotShotEvent::Shutdown,
-                                )
-                                .<span class="kw">await</span>;
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
-                            </span>.relay_task_map
-                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::Commit))
-                        {
-                            <span class="self">self</span>.event_stream
-                                .direct_message(
-                                    relay_task_info.event_stream_id,
-                                    HotShotEvent::Shutdown,
-                                )
-                                .<span class="kw">await</span>;
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_key, relay_task_info)) = <span class="self">self
-                            </span>.relay_task_map
-                            .remove_entry(<span class="kw-2">&amp;</span>(TYPES::Time::new(i), ViewSyncPhase::Finalize))
-                        {
-                            <span class="self">self</span>.event_stream
-                                .direct_message(
-                                    relay_task_info.event_stream_id,
-                                    HotShotEvent::Shutdown,
-                                )
-                                .<span class="kw">await</span>;
-                        }
+                        <span class="self">self</span>.replica_task_map
+                            .write()
+                            .<span class="kw">await
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                        <span class="self">self</span>.pre_commit_relay_map
+                            .write()
+                            .<span class="kw">await
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                        <span class="self">self</span>.commit_relay_map
+                            .write()
+                            .<span class="kw">await
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                        <span class="self">self</span>.finalize_relay_map
+                            .write()
+                            .<span class="kw">await
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
                     }
 
                     <span class="self">self</span>.last_garbage_collected_view = <span class="self">self</span>.current_view - <span class="number">1</span>;
@@ -1450,67 +1372,11 @@
                     <span class="self">self</span>.network
                         .inject_consensus_info(ConsensusIntentEvent::PollForDAC(subscribe_view))
                         .<span class="kw">await</span>;
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>replica_state = ViewSyncReplicaTaskState {
-                        current_view: <span class="self">self</span>.current_view,
-                        next_view: TYPES::Time::new(next_view),
-                        relay: <span class="number">0</span>,
-                        finalized: <span class="bool-val">false</span>,
-                        sent_view_change_event: <span class="bool-val">false</span>,
-                        timeout_task: <span class="prelude-val">None</span>,
-                        membership: <span class="self">self</span>.membership.clone(),
-                        network: <span class="self">self</span>.network.clone(),
-                        public_key: <span class="self">self</span>.public_key.clone(),
-                        private_key: <span class="self">self</span>.private_key.clone(),
-                        api: <span class="self">self</span>.api.clone(),
-                        event_stream: <span class="self">self</span>.event_stream.clone(),
-                        view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
-                        id: <span class="self">self</span>.id,
-                    };
-
-                    <span class="kw">let </span>result = replica_state
-                        .handle_event(HotShotEvent::ViewSyncTrigger(view_number + <span class="number">1</span>))
-                        .<span class="kw">await</span>;
-
-                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
-                        <span class="comment">// The protocol has finished
-                        </span><span class="kw">return</span>;
-                    }
-
-                    replica_state = result.<span class="number">1</span>;
-
-                    <span class="kw">let </span>name = <span class="macro">format!</span>(
-                        <span class="string">&quot;View Sync Replica Task: Attempting to enter view {:?} from view {:?}&quot;</span>,
-                        <span class="kw-2">*</span>view_number + <span class="number">1</span>,
-                        <span class="kw-2">*</span>view_number
-                    );
-
-                    <span class="kw">let </span>replica_handle_event = HandleEvent(Arc::new(
-                        <span class="kw">move </span>|event, state: ViewSyncReplicaTaskState&lt;TYPES, I, A&gt;| {
-                            <span class="kw">async move </span>{ state.handle_event(event).<span class="kw">await </span>}.boxed()
-                        },
-                    ));
-
-                    <span class="kw">let </span>filter = FilterEvent::default();
-                    <span class="kw">let </span>builder =
-                        TaskBuilder::&lt;ViewSyncReplicaTaskStateTypes&lt;TYPES, I, A&gt;&gt;::new(name)
-                            .register_event_stream(replica_state.event_stream.clone(), filter)
-                            .<span class="kw">await
-                            </span>.register_registry(<span class="kw-2">&amp;mut </span><span class="self">self</span>.registry.clone())
-                            .<span class="kw">await
-                            </span>.register_state(replica_state)
-                            .register_event_handler(replica_handle_event);
-
-                    <span class="kw">let </span>event_stream_id = builder.get_stream_id().unwrap();
-
-                    <span class="self">self</span>.replica_task_map.insert(
-                        TYPES::Time::new(<span class="kw-2">*</span>view_number + <span class="number">1</span>),
-                        ViewSyncTaskInfo { event_stream_id },
-                    );
-
-                    <span class="kw">let </span>_view_sync_replica_task = async_spawn(<span class="kw">async move </span>{
-                        ViewSyncReplicaTaskStateTypes::build(builder).launch().<span class="kw">await
-                    </span>});
+                    <span class="self">self</span>.send_to_or_create_replica(
+                        HotShotEvent::ViewSyncTrigger(view_number + <span class="number">1</span>),
+                        view_number + <span class="number">1</span>,
+                    )
+                    .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="comment">// If this is the first timeout we&#39;ve seen advance to the next view
                     </span><span class="self">self</span>.current_view = view_number;
@@ -1666,7 +1532,7 @@
                         .<span class="kw">await</span>;
                 }
 
-                <span class="macro">error!</span>(
+                <span class="macro">info!</span>(
                     <span class="string">&quot;View sync protocol has received view sync evidence to update the view to {}&quot;</span>,
                     <span class="kw-2">*</span><span class="self">self</span>.next_view
                 );

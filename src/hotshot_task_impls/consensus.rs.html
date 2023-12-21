@@ -1226,10 +1226,12 @@
 <a href="#1226" id="1226">1226</a>
 <a href="#1227" id="1227">1227</a>
 <a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
-    vote::{spawn_vote_accumulator, AccumulatorInfo},
+    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -1266,6 +1268,7 @@
 };
 <span class="kw">use </span>tracing::warn;
 
+<span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1282,6 +1285,9 @@
 
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
 </span><span class="kw">type </span>CommitmentAndMetadata&lt;PAYLOAD&gt; = (VidCommitment, &lt;PAYLOAD <span class="kw">as </span>BlockPayload&gt;::Metadata);
+
+<span class="doccomment">/// Alias for Optional type for Vote Collectors
+</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
@@ -1328,10 +1334,12 @@
     </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 
     <span class="doccomment">/// Current Vote collection task, with it&#39;s view.
-    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
+    </span><span class="kw">pub </span>vote_collector:
+        RwLock&lt;VoteCollectorOption&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Current timeout vote collection task with its view
-    </span><span class="kw">pub </span>timeout_vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
+    </span><span class="kw">pub </span>timeout_vote_collector:
+        RwLock&lt;VoteCollectorOption&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
@@ -1986,19 +1994,13 @@
                     );
                     <span class="kw">return</span>;
                 }
+                <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">let </span>collection_view =
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>((collection_view, collection_task, <span class="kw">_</span>)) = <span class="kw-2">&amp;</span><span class="self">self</span>.vote_collector {
-                        <span class="kw">if </span>vote.get_view_number() &gt; <span class="kw-2">*</span>collection_view {
-                            <span class="comment">// ED I think we&#39;d want to let that task timeout to avoid a griefing vector
-                            </span><span class="self">self</span>.registry.shutdown_task(<span class="kw-2">*</span>collection_task).<span class="kw">await</span>;
-                        }
-                        <span class="kw-2">*</span>collection_view
-                    } <span class="kw">else </span>{
-                        TYPES::Time::new(<span class="number">0</span>)
-                    };
+                <span class="kw">let </span>maybe_task = collector.take();
 
-                <span class="kw">if </span>vote.get_view_number() &gt; collection_view {
+                <span class="kw">if </span>maybe_task.is_none()
+                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
@@ -2008,19 +2010,20 @@
                         id: <span class="self">self</span>.id,
                         registry: <span class="self">self</span>.registry.clone(),
                     };
-                    <span class="kw">let </span>name = <span class="string">&quot;Quorum Vote Collection&quot;</span>;
-                    <span class="self">self</span>.vote_collector = spawn_vote_accumulator::&lt;
+                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
                         TYPES,
                         QuorumVote&lt;TYPES&gt;,
                         QuorumCertificate&lt;TYPES&gt;,
-                    &gt;(
-                        <span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()
-                    )
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
                     .<span class="kw">await</span>;
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, stream_id)) = <span class="self">self</span>.vote_collector {
-                    <span class="self">self</span>.event_stream
-                        .direct_message(stream_id, HotShotEvent::QuorumVoteRecv(vote.clone()))
-                        .<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return</span>;
+                    }
+                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
                 }
             }
             HotShotEvent::TimeoutVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
@@ -2038,34 +2041,35 @@
                     );
                     <span class="kw">return</span>;
                 }
-                <span class="kw">let </span>collection_view =
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>((collection_view, collection_task, <span class="kw">_</span>)) = <span class="kw-2">&amp;</span><span class="self">self</span>.vote_collector {
-                        <span class="kw">if </span>vote.get_view_number() &gt; <span class="kw-2">*</span>collection_view {
-                            <span class="comment">// ED I think we&#39;d want to let that task timeout to avoid a griefing vector
-                            </span><span class="self">self</span>.registry.shutdown_task(<span class="kw-2">*</span>collection_task).<span class="kw">await</span>;
-                        }
-                        <span class="kw-2">*</span>collection_view
-                    } <span class="kw">else </span>{
-                        TYPES::Time::new(<span class="number">0</span>)
-                    };
+                <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.timeout_vote_collector.write().<span class="kw">await</span>;
+                <span class="kw">let </span>maybe_task = collector.take();
 
-                <span class="kw">if </span>vote.get_view_number() &gt; collection_view {
+                <span class="kw">if </span>maybe_task.is_none()
+                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
-                        membership: <span class="self">self</span>.timeout_membership.clone(),
+                        membership: <span class="self">self</span>.quorum_membership.clone(),
                         view: vote.get_view_number(),
                         event_stream: <span class="self">self</span>.event_stream.clone(),
                         id: <span class="self">self</span>.id,
                         registry: <span class="self">self</span>.registry.clone(),
                     };
-                    <span class="kw">let </span>name = <span class="string">&quot;Timeout Vote Collection&quot;</span>;
-                    <span class="self">self</span>.vote_collector =
-                        spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, stream_id)) = <span class="self">self</span>.vote_collector {
-                    <span class="self">self</span>.event_stream
-                        .direct_message(stream_id, HotShotEvent::TimeoutVoteRecv(vote.clone()))
-                        .<span class="kw">await</span>;
+                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
+                        TYPES,
+                        TimeoutVote&lt;TYPES&gt;,
+                        TimeoutCertificate&lt;TYPES&gt;,
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
+                    .<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return</span>;
+                    }
+                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
                 }
             }
             HotShotEvent::QCFormed(cert) =&gt; {

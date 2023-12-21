@@ -336,9 +336,16 @@
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
-    vote::{spawn_vote_accumulator, AccumulatorInfo},
+    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_lock::RwLock;
 
@@ -352,6 +359,7 @@
     consensus::{Consensus, View},
     data::DAProposal,
     message::Proposal,
+    simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
     traits::{
         block_contents::vid_commitment,
@@ -367,9 +375,13 @@
 };
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
+<span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
+
+<span class="doccomment">/// Alias for Optional type for Vote Collectors
+</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
 
 <span class="attr">#[derive(Snafu, Debug)]
 </span><span class="doccomment">/// Error type for consensus tasks
@@ -403,8 +415,8 @@
     <span class="doccomment">/// Network for DA
     </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
 
-    <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
-    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
+    <span class="doccomment">/// The current vote collection task, if there is one.
+    </span><span class="kw">pub </span>vote_collector: RwLock&lt;VoteCollectorOption&lt;TYPES, DAVote&lt;TYPES&gt;, DACertificate&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Global events stream to publish events
     </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -520,18 +532,13 @@
                     <span class="macro">error!</span>(<span class="string">&quot;We are not the committee leader for view {} are we leader for next view? {}&quot;</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.get_leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="kw">let </span>collection_view =
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>((collection_view, collection_id, <span class="kw">_</span>)) = <span class="kw-2">&amp;</span><span class="self">self</span>.vote_collector {
-                        <span class="comment">// TODO: Is this correct for consecutive leaders?
-                        </span><span class="kw">if </span>view &gt; <span class="kw-2">*</span>collection_view {
-                            <span class="self">self</span>.registry.shutdown_task(<span class="kw-2">*</span>collection_id).<span class="kw">await</span>;
-                        }
-                        <span class="kw-2">*</span>collection_view
-                    } <span class="kw">else </span>{
-                        TYPES::Time::new(<span class="number">0</span>)
-                    };
+                <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">if </span>view &gt; collection_view {
+                <span class="kw">let </span>maybe_task = collector.take();
+
+                <span class="kw">if </span>maybe_task.is_none()
+                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
@@ -541,14 +548,21 @@
                         id: <span class="self">self</span>.id,
                         registry: <span class="self">self</span>.registry.clone(),
                     };
-                    <span class="kw">let </span>name = <span class="string">&quot;DA Vote Collection&quot;</span>;
-                    <span class="self">self</span>.vote_collector =
-                        spawn_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event, name.to_string()).<span class="kw">await</span>;
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>, stream_id)) = <span class="self">self</span>.vote_collector {
-                    <span class="self">self</span>.event_stream
-                        .direct_message(stream_id, HotShotEvent::DAVoteRecv(vote.clone()))
-                        .<span class="kw">await</span>;
-                };
+                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
+                        TYPES,
+                        DAVote&lt;TYPES&gt;,
+                        DACertificate&lt;TYPES&gt;,
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
+                    .<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+
+                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                        <span class="comment">// The protocol has finished
+                        </span><span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
+                }
             }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
