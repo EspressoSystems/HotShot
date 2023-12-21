@@ -112,6 +112,20 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 
@@ -149,7 +163,10 @@
 <span class="doccomment">/// Runs a test by building the task using `build_fn` and then passing it the `input` events
 /// and testing the make sure all of the `expected_output` events are seen
 ///
-/// `event_stream` - if given, will be used to register the task builder.
+/// # Arguments
+/// * `event_stream` - if given, will be used to register the task builder.
+/// * `allow_extra_output` - whether to allow an extra output after we&#39;ve seen all expected
+/// outputs. Should be `false` in most cases.
 ///
 /// # Panics
 /// Panics if any state the test expects is not set. Panicing causes a test failure
@@ -159,6 +176,7 @@
     expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
     event_stream: <span class="prelude-ty">Option</span>&lt;ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; Fut,
+    allow_extra_output: bool,
 ) <span class="kw">where
     </span>TYPES: NodeType,
     Fut: Future&lt;Output = TaskRunner&gt;,
@@ -168,7 +186,7 @@
     <span class="kw">let </span>event_stream = event_stream.unwrap_or_default();
     <span class="kw">let </span>state = TestHarnessState { expected_output };
     <span class="kw">let </span>handler = HandleEvent(Arc::new(<span class="kw">move </span>|event, state| {
-        <span class="kw">async move </span>{ handle_event(event, state) }.boxed()
+        <span class="kw">async move </span>{ handle_event(event, state, allow_extra_output) }.boxed()
     }));
     <span class="kw">let </span>filter = FilterEvent::default();
     <span class="kw">let </span>builder = TaskBuilder::&lt;TestHarnessTaskTypes&lt;TYPES&gt;&gt;::new(<span class="string">&quot;test_harness&quot;</span>.to_string())
@@ -198,20 +216,30 @@
 <span class="doccomment">/// Handles an event for the Test Harness Task.  If the event is expected, remove it from
 /// the `expected_output` in state.  If unexpected fail test.
 ///
+/// # Arguments
+/// * `allow_extra_output` - whether to allow an extra output after we&#39;ve seen all expected
+/// outputs. Should be `false` in most cases.
+///
 ///  # Panics
 /// Will panic to fail the test when it receives and unexpected event
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
 </span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType&gt;(
     event: HotShotEvent&lt;TYPES&gt;,
     <span class="kw-2">mut </span>state: TestHarnessState&lt;TYPES&gt;,
+    allow_extra_output: bool,
 ) -&gt; (
     std::option::Option&lt;HotShotTaskCompleted&gt;,
     TestHarnessState&lt;TYPES&gt;,
 ) {
-    <span class="macro">assert!</span>(
-        state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),
-        <span class="string">&quot;Got an unexpected event: {event:?}&quot;</span>,
-    );
+    <span class="comment">// Check the output in either case:
+    // * We allow outputs only in our expected output set.
+    // * We haven&#39;t received all expected outputs yet.
+    </span><span class="kw">if </span>!allow_extra_output || !state.expected_output.is_empty() {
+        <span class="macro">assert!</span>(
+            state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),
+            <span class="string">&quot;Got an unexpected event: {event:?}&quot;</span>,
+        );
+    }
 
     <span class="kw">let </span>num_expected = state.expected_output.get_mut(<span class="kw-2">&amp;</span>event).unwrap();
     <span class="kw">if </span><span class="kw-2">*</span>num_expected == <span class="number">1 </span>{
