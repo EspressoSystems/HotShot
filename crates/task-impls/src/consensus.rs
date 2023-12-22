@@ -54,7 +54,14 @@ use tracing::{debug, error, info, instrument};
 pub struct ConsensusTaskError {}
 
 /// Alias for the block payload commitment and the associated metadata.
-type CommitmentAndMetadata<PAYLOAD> = (VidCommitment, <PAYLOAD as BlockPayload>::Metadata);
+pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
+    /// Vid Commitment
+    pub commitment: VidCommitment,
+    /// Metadata for the block payload
+    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
+    /// Flag for if this data represents the genesis block
+    pub is_genesis: bool,
+}
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -225,7 +232,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     &self.private_key,
                 );
 
-                self.payload_commitment_and_metadata = None;
                 let message = GeneralConsensusMessage::<TYPES>::Vote(vote);
 
                 if let GeneralConsensusMessage::Vote(vote) = message {
@@ -236,6 +242,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.event_stream
                         .publish(HotShotEvent::QuorumVoteSend(vote))
                         .await;
+                    if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
+                        if commit_and_metadata.is_genesis {
+                            self.payload_commitment_and_metadata = None;
+                        }
+                    }
                     return true;
                 }
             }
@@ -1038,7 +1049,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
                 debug!("got commit and meta {:?}", payload_commitment);
-                self.payload_commitment_and_metadata = Some((payload_commitment, metadata));
+                self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
+                    commitment: payload_commitment,
+                    metadata,
+                    is_genesis: false,
+                });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() == view
                 {
@@ -1129,14 +1144,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
-        if let Some((payload_commitment, metadata)) = &self.payload_commitment_and_metadata {
+        if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
             let leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
                 block_header: TYPES::BlockHeader::new(
-                    *payload_commitment,
-                    metadata.clone(),
+                    commit_and_metadata.commitment,
+                    commit_and_metadata.metadata.clone(),
                     &parent_header,
                 ),
                 block_payload: None,
