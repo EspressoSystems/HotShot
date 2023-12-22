@@ -1228,6 +1228,21 @@
 <a href="#1228" id="1228">1228</a>
 <a href="#1229" id="1229">1229</a>
 <a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1284,7 +1299,14 @@
 </span><span class="kw">pub struct </span>ConsensusTaskError {}
 
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
-</span><span class="kw">type </span>CommitmentAndMetadata&lt;PAYLOAD&gt; = (VidCommitment, &lt;PAYLOAD <span class="kw">as </span>BlockPayload&gt;::Metadata);
+</span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {
+    <span class="doccomment">/// Vid Commitment
+    </span><span class="kw">pub </span>commitment: VidCommitment,
+    <span class="doccomment">/// Metadata for the block payload
+    </span><span class="kw">pub </span>metadata: &lt;PAYLOAD <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    <span class="doccomment">/// Flag for if this data represents the genesis block
+    </span><span class="kw">pub </span>is_genesis: bool,
+}
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
@@ -1455,7 +1477,6 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 );
 
-                <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote);
 
                 <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
@@ -1466,6 +1487,11 @@
                     <span class="self">self</span>.event_stream
                         .publish(HotShotEvent::QuorumVoteSend(vote))
                         .<span class="kw">await</span>;
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
+                        <span class="kw">if </span>commit_and_metadata.is_genesis {
+                            <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
+                        }
+                    }
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
             }
@@ -2268,7 +2294,11 @@
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;got commit and meta {:?}&quot;</span>, payload_commitment);
-                <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>((payload_commitment, metadata));
+                <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
+                    commitment: payload_commitment,
+                    metadata,
+                    is_genesis: <span class="bool-val">false</span>,
+                });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() == view
                 {
@@ -2359,14 +2389,14 @@
             <span class="comment">// TODO do some sort of sanity check on the view number that it matches decided
         </span>}
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((payload_commitment, metadata)) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
             <span class="kw">let </span>leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
                 block_header: TYPES::BlockHeader::new(
-                    <span class="kw-2">*</span>payload_commitment,
-                    metadata.clone(),
+                    commit_and_metadata.commitment,
+                    commit_and_metadata.metadata.clone(),
                     <span class="kw-2">&amp;</span>parent_header,
                 ),
                 block_payload: <span class="prelude-val">None</span>,

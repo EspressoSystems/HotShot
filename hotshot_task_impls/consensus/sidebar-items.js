@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["consensus_event_filter","sequencing_consensus_handle"],"struct":["ConsensusTaskError","ConsensusTaskSnafu","ConsensusTaskState"],"type":["CommitmentAndMetadata","ConsensusTaskTypes","VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"fn":["consensus_event_filter","sequencing_consensus_handle"],"struct":["CommitmentAndMetadata","ConsensusTaskError","ConsensusTaskSnafu","ConsensusTaskState"],"type":["ConsensusTaskTypes","VoteCollectorOption"]};
