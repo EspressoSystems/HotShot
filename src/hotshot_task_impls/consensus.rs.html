@@ -2300,7 +2300,7 @@
                     is_genesis: <span class="bool-val">false</span>,
                 });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
-                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() == view
+                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
                 {
                     <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
                 }
