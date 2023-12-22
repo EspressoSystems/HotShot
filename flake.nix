@@ -136,7 +136,7 @@
           src = ./.;
         }) {
           inherit pkgs;
-          rootFeatures = [ "demo" "docs" "blake3" ];
+          rootFeatures = [ "docs" "blake3" ];
           defaultCrateOverrides = pkgs.defaultCrateOverrides // {
             # Crate dependency overrides go here
             # pass in protobuf
