@@ -7,8 +7,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use async_trait::async_trait;
-use futures::Stream;
+use futures::{Future, Stream};
 
 use crate::task::{FilterEvent, PassType};
 
@@ -25,18 +24,17 @@ impl Stream for DummyStream {
     }
 }
 
-#[async_trait]
 impl EventStream for DummyStream {
     type EventType = ();
 
     type StreamType = DummyStream;
 
-    async fn publish(&self, _event: Self::EventType) {}
+    async fn publish(&self, _event: Self::EventType) { }
 
     async fn subscribe(
         &self,
         _filter: FilterEvent<Self::EventType>,
-    ) -> (Self::StreamType, StreamId) {
+    ) -> (Self::StreamType, StreamId){
         (DummyStream, 0)
     }
 
@@ -56,7 +54,6 @@ pub trait SendableStream: Stream + Sync + Send + 'static {}
 /// Async pub sub event stream
 /// NOTE: static bound indicates that if the type points to data, that data lives for the lifetime
 /// of the program
-#[async_trait]
 pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
@@ -64,20 +61,22 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     type StreamType: SendableStream<Item = Self::EventType>;
 
     /// publish an event to the event stream
-    async fn publish(&self, event: Self::EventType);
+    fn publish(&self, event: Self::EventType) -> impl Future<Output = ()> + Send;
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
     /// TODO (justin) rethink API, we might be able just to use `StreamExt::filter` and `Filter`
     /// That would certainly be cleaner
-    async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
-        -> (Self::StreamType, StreamId);
+    fn subscribe(
+        &self,
+        filter: FilterEvent<Self::EventType>,
+    ) -> impl Future<Output = (Self::StreamType, StreamId)> + Send;
 
     /// unsubscribe from the stream
-    async fn unsubscribe(&self, id: StreamId);
+    fn unsubscribe(&self, id: StreamId) -> impl Future<Output = ()> + Send;
 
     /// send direct message to node
-    async fn direct_message(&self, id: StreamId, event: Self::EventType);
+    fn direct_message(&self, id: StreamId, event: Self::EventType) -> impl Future<Output = ()> + Send;
 }
 
 /// Event stream implementation using channels as the underlying primitive.
@@ -118,7 +117,6 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
 
 impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {}
 
-#[async_trait]
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
     type StreamType = UnboundedStream<Self::EventType>;
