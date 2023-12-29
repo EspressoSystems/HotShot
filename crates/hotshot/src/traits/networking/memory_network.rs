@@ -9,7 +9,6 @@ use async_compatibility_layer::{
     channel::{bounded, Receiver, SendError, Sender},
 };
 use async_lock::{Mutex, RwLock};
-use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
@@ -270,7 +269,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 }
 
 // TODO instrument these functions
-#[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
@@ -494,7 +492,6 @@ where
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> CommunicationChannel<TYPES> for MemoryCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,

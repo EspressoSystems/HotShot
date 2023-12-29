@@ -26,7 +26,7 @@ webui = []
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-trait = { workspace = true }
+async-trait = "0.1.75"
 bincode = { workspace = true }
 blake3 = { workspace = true }
 color-eyre = "0.6.2"

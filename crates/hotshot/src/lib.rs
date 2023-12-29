@@ -40,7 +40,6 @@ use async_compatibility_layer::{
     channel::UnboundedSender,
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use async_trait::async_trait;
 use commit::Committable;
 use custom_debug::Debug;
 use hotshot_task::{
@@ -638,7 +637,6 @@ pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub inner: Arc<SystemContextInner<TYPES, I>>,
 }
 
-#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for HotShotConsensusApi<TYPES, I>
 {

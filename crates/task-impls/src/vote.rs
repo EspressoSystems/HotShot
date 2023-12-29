@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::events::HotShotEvent;
-use async_trait::async_trait;
 use bitvec::prelude::*;
 use either::Either::{self, Left, Right};
+use futures::Future;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -134,7 +134,6 @@ pub type VoteTaskStateTypes<TYPES, VOTE, CERT> = HSTWithEvent<
 >;
 
 /// Trait for types which will handle a vote event.
-#[async_trait]
 pub trait HandleVoteEvent<TYPES, VOTE, CERT>
 where
     TYPES: NodeType,
@@ -142,13 +141,15 @@ where
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
 {
     /// Handle a vote event
-    async fn handle_event(
+    fn handle_event(
         self,
         event: HotShotEvent<TYPES>,
-    ) -> (
-        Option<HotShotTaskCompleted>,
-        VoteCollectionTaskState<TYPES, VOTE, CERT>,
-    );
+    ) -> impl Future<
+        Output = (
+            Option<HotShotTaskCompleted>,
+            VoteCollectionTaskState<TYPES, VOTE, CERT>,
+        ),
+    > + Send;
 
     /// Event filter to use for this event
     fn filter(event: &HotShotEvent<TYPES>) -> bool;
@@ -339,7 +340,6 @@ impl<TYPES: NodeType>
 }
 
 // Handlers for all vote accumulators
-#[async_trait]
 impl<TYPES: NodeType> HandleVoteEvent<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>
     for QuorumVoteState<TYPES>
 {
@@ -357,7 +357,6 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, QuorumVote<TYPES>, QuorumCertificat
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> HandleVoteEvent<TYPES, DAVote<TYPES>, DACertificate<TYPES>>
     for DAVoteState<TYPES>
 {
@@ -375,7 +374,6 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, DAVote<TYPES>, DACertificate<TYPES>
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> HandleVoteEvent<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>
     for TimeoutVoteState<TYPES>
 {
@@ -393,7 +391,6 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, TimeoutVote<TYPES>, TimeoutCertific
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType>
     HandleVoteEvent<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
     for ViewSyncPreCommitState<TYPES>
@@ -412,7 +409,6 @@ impl<TYPES: NodeType>
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType>
     HandleVoteEvent<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
     for ViewSyncCommitVoteState<TYPES>
@@ -431,7 +427,6 @@ impl<TYPES: NodeType>
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType>
     HandleVoteEvent<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
     for ViewSyncFinalizeVoteState<TYPES>

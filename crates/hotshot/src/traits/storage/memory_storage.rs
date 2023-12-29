@@ -2,7 +2,6 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 use async_lock::RwLock;
-use async_trait::async_trait;
 use hotshot_types::traits::{
     node_implementation::NodeType,
     storage::{
@@ -43,7 +42,6 @@ impl<TYPES: NodeType> MemoryStorage<TYPES> {
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> TestableStorage<TYPES> for MemoryStorage<TYPES> {
     fn construct_tmp_storage() -> Result<Self> {
         Ok(Self::empty())
@@ -58,7 +56,6 @@ impl<TYPES: NodeType> TestableStorage<TYPES> for MemoryStorage<TYPES> {
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> Storage<TYPES> for MemoryStorage<TYPES> {
     async fn append(&self, views: Vec<ViewEntry<TYPES>>) -> Result {
         let mut inner = self.inner.write().await;

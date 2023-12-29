@@ -6,7 +6,6 @@ mod hash_map_store;
 use self::{dual_key_value_store::DualKeyValueStore, hash_map_store::HashMapStore};
 use crate::{data::Leaf, traits::StateContents};
 use async_std::sync::Mutex;
-use async_trait::async_trait;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
 use commit::Commitment;
 use hotshot_types::traits::storage::{
@@ -135,7 +134,6 @@ where
     }
 }
 
-#[async_trait]
 impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
     async fn get_block(
@@ -217,7 +215,6 @@ struct AtomicStorageUpdater<'a, S: StateContents> {
     inner: &'a AtomicStorageInner<S>,
 }
 
-#[async_trait]
 impl<'a, STATE: StateContents + 'static> StorageUpdater<'a, STATE>
     for AtomicStorageUpdater<'a, STATE>
 {

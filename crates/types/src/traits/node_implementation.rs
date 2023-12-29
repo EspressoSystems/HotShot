@@ -21,7 +21,7 @@ use crate::{
 };
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
-use async_trait::async_trait;
+use futures::Future;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -126,7 +126,6 @@ pub trait NodeImplementation<TYPES: NodeType>:
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]
-#[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
     /// Election config for the DA committee
     type CommitteeElectionConfig;
@@ -166,7 +165,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     fn construct_tmp_storage() -> Result<Self::Storage, StorageError>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES>;
+    fn get_full_state(storage: &Self::Storage) -> impl Future<Output = StorageState<TYPES>>;
 
     /// Generate the communication channels for testing
     fn gen_comm_channels(
@@ -176,7 +175,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::CommitteeNetwork)>;
 }
 
-#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES> for I
 where
     TYPES::StateType: TestableState,
@@ -224,6 +222,7 @@ where
         <I::Storage as TestableStorage<TYPES>>::construct_tmp_storage()
     }
 
+    // fn get_full_state(storage: &Self::Storage) -> impl Future<Output= StorageState<TYPES>>{
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES> {
         <I::Storage as TestableStorage<TYPES>>::get_full_state(storage).await
     }

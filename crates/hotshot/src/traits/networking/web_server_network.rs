@@ -10,7 +10,6 @@ use async_compatibility_layer::{
     channel::{oneshot, OneShotSender},
 };
 use async_lock::RwLock;
-use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
@@ -655,7 +654,6 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> CommunicationChannel<TYPES> for WebCommChannel<TYPES> {
     type NETWORK = WebServerNetwork<TYPES>;
     /// Blocks until node is successfully initialized
@@ -723,7 +721,7 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for WebCommChannel<TYPES> {
         self.0.direct_message(message, recipient).await
     }
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Moves out the entire queue of received messages of `transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
@@ -754,7 +752,6 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for WebCommChannel<TYPES> {
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for WebServerNetwork<TYPES>
 {
@@ -831,7 +828,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         }
     }
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Moves out the entire queue of received messages of `transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking

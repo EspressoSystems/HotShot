@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-trait = { workspace = true }
 bincode = { workspace = true }
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
 futures = { workspace = true }

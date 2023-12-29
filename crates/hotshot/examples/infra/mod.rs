@@ -1,9 +1,8 @@
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
-use async_trait::async_trait;
 use clap::Parser;
-use futures::StreamExt;
+use futures::{Future, StreamExt};
 use hotshot::traits::implementations::{CombinedCommChannel, CombinedNetworks};
 use hotshot::{
     traits::{
@@ -275,7 +274,6 @@ match node_type {
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
-#[async_trait]
 pub trait RunDA<
     TYPES: NodeType,
     DACHANNEL: CommunicationChannel<TYPES> + Debug,
@@ -296,170 +294,184 @@ pub trait RunDA<
     Self: Sync,
 {
     /// Initializes networking, returns self
-    async fn initialize_networking(
+    #[allow(opaque_hidden_inferred_bound)]
+    fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> Self;
+    ) -> impl Future<Output = Self> + Send;
 
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
-        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis()
-            .expect("Couldn't generate genesis block");
+    fn initialize_state_and_hotshot(
+        &self,
+    ) -> impl Future<Output = SystemContextHandle<TYPES, NODE>> + Send {
+        async {
+            let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis()
+                .expect("Couldn't generate genesis block");
 
-        let config = self.get_config();
+            let config = self.get_config();
 
-        // Get KeyPair for certificate Aggregation
-        let pk = config.config.my_own_validator_config.public_key.clone();
-        let sk = config.config.my_own_validator_config.private_key.clone();
-        let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
+            // Get KeyPair for certificate Aggregation
+            let pk = config.config.my_own_validator_config.public_key.clone();
+            let sk = config.config.my_own_validator_config.private_key.clone();
+            let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
-        let da_network = self.get_da_channel();
-        let quorum_network = self.get_quorum_channel();
+            let da_network = self.get_da_channel();
+            let quorum_network = self.get_quorum_channel();
 
-        // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
-        let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.config.total_nodes.get() as u64)
-        });
+            // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
+            let quorum_election_config =
+                config.config.election_config.clone().unwrap_or_else(|| {
+                    TYPES::Membership::default_election_config(
+                        config.config.total_nodes.get() as u64
+                    )
+                });
 
-        let committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap(),
-        );
-        let networks_bundle = Networks {
-            quorum_network: quorum_network.clone(),
-            da_network: da_network.clone(),
-            _pd: PhantomData,
-        };
+            let committee_election_config = TYPES::Membership::default_election_config(
+                config.config.da_committee_size.try_into().unwrap(),
+            );
+            let networks_bundle = Networks {
+                quorum_network: quorum_network.clone(),
+                da_network: da_network.clone(),
+                _pd: PhantomData,
+            };
 
-        let memberships = Memberships {
-            quorum_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            da_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                committee_election_config,
-            ),
-            vid_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            view_sync_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config,
-            ),
-        };
+            let memberships = Memberships {
+                quorum_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                da_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    committee_election_config,
+                ),
+                vid_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                view_sync_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config,
+                ),
+            };
 
-        SystemContext::init(
-            pk,
-            sk,
-            config.node_index,
-            config.config,
-            MemoryStorage::empty(),
-            memberships,
-            networks_bundle,
-            initializer,
-            ConsensusMetricsValue::default(),
-        )
-        .await
-        .expect("Could not init hotshot")
-        .0
+            SystemContext::init(
+                pk,
+                sk,
+                config.node_index,
+                config.config,
+                MemoryStorage::empty(),
+                memberships,
+                networks_bundle,
+                initializer,
+                ConsensusMetricsValue::default(),
+            )
+            .await
+            .expect("Could not init hotshot")
+            .0
+        }
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    async fn run_hotshot(
+    fn run_hotshot(
         &self,
         mut context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
-    ) {
-        let NetworkConfig {
-            rounds,
-            node_index,
-            start_delay_seconds,
-            ..
-        } = self.get_config();
+    ) -> impl Future<Output = ()> + Send {
+        async move {
+            let NetworkConfig {
+                rounds,
+                node_index,
+                start_delay_seconds,
+                ..
+            } = self.get_config();
 
-        let mut total_transactions_committed = 0;
-        let mut total_transactions_sent = 0;
+            let mut total_transactions_committed = 0;
+            let mut total_transactions_sent = 0;
 
-        error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
-        async_sleep(Duration::from_secs(start_delay_seconds)).await;
+            error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+            async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        error!("Starting HotShot example!");
-        let start = Instant::now();
+            error!("Starting HotShot example!");
+            let start = Instant::now();
 
-        let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
-        let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
-        let mut num_successful_commits = 0;
+            let (mut event_stream, _streamid) =
+                context.get_event_stream(FilterEvent::default()).await;
+            let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
+            let mut num_successful_commits = 0;
 
-        context.hotshot.start_consensus().await;
+            context.hotshot.start_consensus().await;
 
-        loop {
-            match event_stream.next().await {
-                None => {
-                    panic!("Error! Event stream completed before consensus ended.");
-                }
-                Some(Event { event, .. }) => {
-                    match event {
-                        EventType::Error { error } => {
-                            error!("Error in consensus: {:?}", error);
-                            // TODO what to do here
-                        }
-                        EventType::Decide {
-                            leaf_chain,
-                            qc: _,
-                            block_size,
-                        } => {
-                            // this might be a obob
-                            if let Some(leaf) = leaf_chain.get(0) {
-                                info!("Decide event for leaf: {}", *leaf.view_number);
+            loop {
+                match event_stream.next().await {
+                    None => {
+                        panic!("Error! Event stream completed before consensus ended.");
+                    }
+                    Some(Event { event, .. }) => {
+                        match event {
+                            EventType::Error { error } => {
+                                error!("Error in consensus: {:?}", error);
+                                // TODO what to do here
+                            }
+                            EventType::Decide {
+                                leaf_chain,
+                                qc: _,
+                                block_size,
+                            } => {
+                                // this might be a obob
+                                if let Some(leaf) = leaf_chain.first() {
+                                    info!("Decide event for leaf: {}", *leaf.view_number);
 
-                                let new_anchor = leaf.view_number;
-                                if new_anchor >= anchor_view {
-                                    anchor_view = leaf.view_number;
+                                    let new_anchor = leaf.view_number;
+                                    if new_anchor >= anchor_view {
+                                        anchor_view = leaf.view_number;
+                                    }
+
+                                    // send transactions
+                                    for _ in 0..transactions_to_send_per_round {
+                                        let tx = transactions.remove(0);
+
+                                        context.submit_transaction(tx).await.unwrap();
+                                        total_transactions_sent += 1;
+                                    }
                                 }
 
-                                // send transactions
-                                for _ in 0..transactions_to_send_per_round {
-                                    let tx = transactions.remove(0);
-
-                                    _ = context.submit_transaction(tx).await.unwrap();
-                                    total_transactions_sent += 1;
+                                if let Some(size) = block_size {
+                                    total_transactions_committed += size;
                                 }
-                            }
 
-                            if let Some(size) = block_size {
-                                total_transactions_committed += size;
-                            }
+                                num_successful_commits += leaf_chain.len();
+                                if num_successful_commits >= rounds {
+                                    break;
+                                }
 
-                            num_successful_commits += leaf_chain.len();
-                            if num_successful_commits >= rounds {
-                                break;
+                                if leaf_chain.len() > 1 {
+                                    warn!(
+                                        "Leaf chain is greater than 1 with len {}",
+                                        leaf_chain.len()
+                                    );
+                                }
+                                // when we make progress, submit new events
                             }
-
-                            if leaf_chain.len() > 1 {
-                                warn!("Leaf chain is greater than 1 with len {}", leaf_chain.len());
+                            EventType::ReplicaViewTimeout { view_number } => {
+                                warn!("Timed out as a replicas in view {:?}", view_number);
                             }
-                            // when we make progress, submit new events
+                            EventType::NextLeaderViewTimeout { view_number } => {
+                                warn!("Timed out as the next leader in view {:?}", view_number);
+                            }
+                            EventType::ViewFinished { view_number: _ } => {}
+                            _ => unimplemented!(),
                         }
-                        EventType::ReplicaViewTimeout { view_number } => {
-                            warn!("Timed out as a replicas in view {:?}", view_number);
-                        }
-                        EventType::NextLeaderViewTimeout { view_number } => {
-                            warn!("Timed out as the next leader in view {:?}", view_number);
-                        }
-                        EventType::ViewFinished { view_number: _ } => {}
-                        _ => unimplemented!(),
                     }
                 }
             }
-        }
 
-        // Output run results
-        let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+            // Output run results
+            let total_time_elapsed = start.elapsed();
+            error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        }
     }
 
     /// Returns the da network for this run
@@ -489,7 +501,6 @@ pub struct WebServerDARun<TYPES: NodeType> {
     vid_channel: WebCommChannel<TYPES>,
 }
 
-#[async_trait]
 impl<
         TYPES: NodeType<
             Transaction = TestTransaction,
@@ -591,7 +602,6 @@ pub struct Libp2pDARun<TYPES: NodeType> {
     vid_channel: Libp2pCommChannel<TYPES>,
 }
 
-#[async_trait]
 impl<
         TYPES: NodeType<
             Transaction = TestTransaction,
@@ -684,7 +694,6 @@ pub struct CombinedDARun<TYPES: NodeType> {
     vid_channel: CombinedCommChannel<TYPES>,
 }
 
-#[async_trait]
 impl<
         TYPES: NodeType<
             Transaction = TestTransaction,

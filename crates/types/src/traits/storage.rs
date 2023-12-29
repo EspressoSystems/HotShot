@@ -4,9 +4,9 @@ use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
 use crate::{
     data::Leaf, simple_certificate::QuorumCertificate, traits::BlockPayload, vote::HasViewNumber,
 };
-use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
+use futures::Future;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 /// Errors that can occur in the storage layer.
@@ -26,26 +26,28 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 /// underlying storage.
 ///
 /// This trait has been constructed for object saftey over convenience.
-#[async_trait]
 pub trait Storage<TYPES>: Clone + Send + Sync + Sized + 'static
 where
     TYPES: NodeType + 'static,
 {
     /// Append the list of views to this storage
-    async fn append(&self, views: Vec<ViewEntry<TYPES>>) -> Result;
+    fn append(&self, views: Vec<ViewEntry<TYPES>>) -> impl Future<Output = Result> + Send;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
-    async fn cleanup_storage_up_to_view(&self, view: TYPES::Time) -> Result<usize>;
+    fn cleanup_storage_up_to_view(
+        &self,
+        view: TYPES::Time,
+    ) -> impl Future<Output = Result<usize>> + Send;
     /// Get the latest anchored view
-    async fn get_anchored_view(&self) -> Result<StoredView<TYPES>>;
+    fn get_anchored_view(&self) -> impl Future<Output = Result<StoredView<TYPES>>> + Send;
     /// Commit this storage.
-    async fn commit(&self) -> Result;
+    fn commit(&self) -> impl Future<Output = Result> + Send;
 
     /// Insert a single view. Shorthand for
     /// ```rust,ignore
     /// storage.append(vec![ViewEntry::Success(view)]).await
     /// ```
-    async fn append_single_view(&self, view: StoredView<TYPES>) -> Result {
-        self.append(vec![ViewEntry::Success(view)]).await
+    fn append_single_view(&self, view: StoredView<TYPES>) -> impl Future<Output = Result> + Send {
+        async { self.append(vec![ViewEntry::Success(view)]).await }
     }
     // future improvement:
     // async fn get_future_views(&self) -> Vec<FutureView>;
@@ -56,7 +58,6 @@ where
 }
 
 /// Extra requirements on Storage implementations required for testing
-#[async_trait]
 pub trait TestableStorage<TYPES>: Clone + Send + Sync + Storage<TYPES>
 where
     TYPES: NodeType + 'static,
@@ -68,7 +69,7 @@ where
     fn construct_tmp_storage() -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(&self) -> StorageState<TYPES>;
+    fn get_full_state(&self) -> impl std::future::Future<Output = StorageState<TYPES>> + Send;
 }
 
 /// An internal representation of the data stored in a [`Storage`].

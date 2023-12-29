@@ -7,7 +7,6 @@ use async_compatibility_layer::{
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
-use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::LOOK_AHEAD;
@@ -553,7 +552,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     }
 }
 
-#[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
@@ -814,7 +812,6 @@ where
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
-#[async_trait]
 impl<TYPES: NodeType> CommunicationChannel<TYPES> for Libp2pCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,

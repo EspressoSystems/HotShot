@@ -29,12 +29,12 @@ impl EventStream for DummyStream {
 
     type StreamType = DummyStream;
 
-    async fn publish(&self, _event: Self::EventType) { }
+    async fn publish(&self, _event: Self::EventType) {}
 
     async fn subscribe(
         &self,
         _filter: FilterEvent<Self::EventType>,
-    ) -> (Self::StreamType, StreamId){
+    ) -> (Self::StreamType, StreamId) {
         (DummyStream, 0)
     }
 
@@ -76,7 +76,11 @@ pub trait EventStream: Clone + 'static + Sync + Send {
     fn unsubscribe(&self, id: StreamId) -> impl Future<Output = ()> + Send;
 
     /// send direct message to node
-    fn direct_message(&self, id: StreamId, event: Self::EventType) -> impl Future<Output = ()> + Send;
+    fn direct_message(
+        &self,
+        id: StreamId,
+        event: Self::EventType,
+    ) -> impl Future<Output = ()> + Send;
 }
 
 /// Event stream implementation using channels as the underlying primitive.

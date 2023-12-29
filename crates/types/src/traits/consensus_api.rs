@@ -9,12 +9,11 @@ use crate::{
         storage::StorageError,
     },
 };
-use async_trait::async_trait;
+use futures::Future;
 
 use std::{num::NonZeroUsize, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system
-#[async_trait]
 pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
@@ -39,12 +38,12 @@ pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sy
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<TYPES>);
+    fn send_event(&self, event: Event<TYPES>) -> impl Future<Output = ()> + Send;
 
     /// Store a leaf in the storage
-    async fn store_leaf(
+    fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
         leaf: Leaf<TYPES>,
-    ) -> Result<(), StorageError>;
+    ) -> impl std::future::Future<Output = Result<(), StorageError>> + Send;
 }

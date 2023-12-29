@@ -80,7 +80,6 @@ path = "examples/combined/orchestrator.rs"
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-trait = { workspace = true }
 bimap = "0.6.3"
 bincode = { workspace = true }
 bitvec = { workspace = true }

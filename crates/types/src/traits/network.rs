@@ -5,6 +5,7 @@
 use async_compatibility_layer::art::async_sleep;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
+use futures::Future;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
@@ -17,7 +18,6 @@ use crate::{
     message::{Message, MessagePurpose},
 };
 use async_compatibility_layer::channel::UnboundedSendError;
-use async_trait::async_trait;
 use rand::{
     distributions::{Bernoulli, Uniform},
     prelude::Distribution,
@@ -222,13 +222,12 @@ pub trait ViewMessage<TYPES: NodeType> {
 
 /// API for interacting directly with a consensus committee
 /// intended to be implemented for both DA and for validating consensus committees
-#[async_trait]
 pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + 'static {
     /// Underlying Network implementation's type
     type NETWORK;
     /// Blocks until node is successfully initialized
     /// into the network
-    async fn wait_for_ready(&self);
+    fn wait_for_ready(&self) -> impl Future<Output = ()> + Send;
 
     /// Pauses the underlying network
     fn pause(&self);
@@ -238,7 +237,7 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
 
     /// checks if the network is ready
     /// nonblocking
-    async fn is_ready(&self) -> bool;
+    fn is_ready(&self) -> impl Future<Output = bool> + Send;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
@@ -250,21 +249,21 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
 
     /// broadcast message to those listening on the communication channel
     /// blocking
-    async fn broadcast_message(
+    fn broadcast_message(
         &self,
         message: Message<TYPES>,
         election: &TYPES::Membership,
-    ) -> Result<(), NetworkError>;
+    ) -> impl Future<Output = Result<(), NetworkError>> + Send;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(
+    fn direct_message(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<(), NetworkError>;
+    ) -> impl Future<Output = Result<(), NetworkError>> + Send;
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Moves out the entire queue of received messages of `transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
@@ -277,33 +276,39 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
         Self: 'b;
 
     /// queues looking up a node
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        Ok(())
+    ) -> impl Future<
+        Output = Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>>,
+    > + Send {
+        async { Ok(()) }
     }
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
+    fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent<TYPES::SignatureKey>,
+    ) -> impl Future<Output = ()> + Send {
+        async {}
+    }
 }
 
 /// represents a networking implmentration
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
-#[async_trait]
 pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
-    async fn wait_for_ready(&self);
+    fn wait_for_ready(&self) -> impl Future<Output = ()> + Send;
 
     /// checks if the network is ready
     /// nonblocking
-    async fn is_ready(&self) -> bool;
+    fn is_ready(&self) -> impl Future<Output = bool> + Send;
 
     /// Blocks until the network is shut down
     /// then returns true
@@ -314,17 +319,21 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
+    fn broadcast_message(
         &self,
         message: M,
         recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError>;
+    ) -> impl Future<Output = Result<(), NetworkError>> + Send;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
+    fn direct_message(
+        &self,
+        message: M,
+        recipient: K,
+    ) -> impl Future<Output = Result<(), NetworkError>> + Send;
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Moves out the entire queue of received messages of `transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
@@ -337,18 +346,23 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         Self: 'b;
 
     /// queues lookup of a node
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
         _pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
-        Ok(())
+    ) -> impl Future<Output = Result<(), UnboundedSendError<Option<(ViewNumber, K)>>>> + Send {
+        async { Ok(()) }
     }
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {}
+    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over `NodeType`
+    fn inject_consensus_info(
+        &self,
+        _event: ConsensusIntentEvent<K>,
+    ) -> impl Future<Output = ()> + Send {
+        async {}
+    }
 }
 
 /// Describes additional functionality needed by the test network implementation
@@ -386,7 +400,6 @@ pub enum NetworkChange<P: SignatureKey> {
 }
 
 /// interface describing how reliable the network is
-#[async_trait]
 pub trait NetworkReliability: Debug + Sync + std::marker::Send {
     /// Sample from bernoulli distribution to decide whether
     /// or not to keep a packet

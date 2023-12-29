@@ -17,7 +17,6 @@ ark-serialize = { version = "0.3", features = [
 ] } # TODO upgrade to 0.4 and inherit this dep from workspace https://github.com/EspressoSystems/HotShot/issues/1700
 espresso-systems-common = { workspace = true }
 async-compatibility-layer = { workspace = true }
-async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
 blake3 = { workspace = true, features = ["traits-preview"] }

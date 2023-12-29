@@ -14,8 +14,6 @@ use std::{
 };
 use tracing::warn;
 
-use async_trait::async_trait;
-
 use futures::join;
 
 use async_compatibility_layer::channel::UnboundedSendError;
@@ -211,7 +209,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedCommCh
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType> CommunicationChannel<TYPES> for CombinedCommChannel<TYPES> {
     type NETWORK = CombinedNetworks<TYPES>;
 

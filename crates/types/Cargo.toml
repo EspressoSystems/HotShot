@@ -17,7 +17,6 @@ ark-serialize = { workspace = true, features = ["derive"] }
 ark-std = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
-async-trait = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 blake3 = { workspace = true }
