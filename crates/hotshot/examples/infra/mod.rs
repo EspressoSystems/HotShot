@@ -451,7 +451,7 @@ pub trait RunDA<
                                     warn!(
                                         "Leaf chain is greater than 1 with len {}",
                                         leaf_chain.len()
-                                    );
+                                        );
                                 }
                                 // when we make progress, submit new events
                             }
