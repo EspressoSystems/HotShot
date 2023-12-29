@@ -491,7 +491,7 @@
     <span class="doccomment">/// The maximum number of items to store in the cache
     </span>capacity: usize,
     <span class="doccomment">/// The cache itself
-    </span>cache: HashSet&lt;u64&gt;,
+    </span>inner: HashSet&lt;u64&gt;,
     <span class="doccomment">/// The hashes of the messages in the cache, in order of insertion
     </span>hashes: Vec&lt;u64&gt;,
 }
@@ -501,14 +501,14 @@
     </span><span class="kw">fn </span>new(capacity: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             capacity,
-            cache: HashSet::with_capacity(capacity),
+            inner: HashSet::with_capacity(capacity),
             hashes: Vec::with_capacity(capacity),
         }
     }
 
     <span class="doccomment">/// Insert a hash into the cache
     </span><span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: u64) {
-        <span class="kw">if </span><span class="self">self</span>.cache.contains(<span class="kw-2">&amp;</span>hash) {
+        <span class="kw">if </span><span class="self">self</span>.inner.contains(<span class="kw-2">&amp;</span>hash) {
             <span class="kw">return</span>;
         }
 
@@ -517,23 +517,23 @@
         <span class="kw">if </span>over &gt; <span class="number">0 </span>{
             <span class="kw">for _ in </span><span class="number">0</span>..over {
                 <span class="kw">let </span>hash = <span class="self">self</span>.hashes.remove(<span class="number">0</span>);
-                <span class="self">self</span>.cache.remove(<span class="kw-2">&amp;</span>hash);
+                <span class="self">self</span>.inner.remove(<span class="kw-2">&amp;</span>hash);
             }
         }
 
-        <span class="self">self</span>.cache.insert(hash);
+        <span class="self">self</span>.inner.insert(hash);
         <span class="self">self</span>.hashes.push(hash);
     }
 
     <span class="doccomment">/// Check if the cache contains a hash
     </span><span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: u64) -&gt; bool {
-        <span class="self">self</span>.cache.contains(<span class="kw-2">&amp;</span>hash)
+        <span class="self">self</span>.inner.contains(<span class="kw-2">&amp;</span>hash)
     }
 
     <span class="doccomment">/// Get the number of items in the cache
     </span><span class="attr">#[cfg(test)]
     </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.cache.len()
+        <span class="self">self</span>.inner.len()
     }
 }
 
@@ -840,12 +840,12 @@
         cache.insert(<span class="number">2</span>);
         cache.insert(<span class="number">3</span>);
         cache.insert(<span class="number">4</span>);
-        <span class="macro">assert_eq!</span>(cache.cache.len(), <span class="number">3</span>);
+        <span class="macro">assert_eq!</span>(cache.inner.len(), <span class="number">3</span>);
         <span class="macro">assert_eq!</span>(cache.hashes.len(), <span class="number">3</span>);
-        <span class="macro">assert!</span>(!cache.cache.contains(<span class="kw-2">&amp;</span><span class="number">1</span>));
-        <span class="macro">assert!</span>(cache.cache.contains(<span class="kw-2">&amp;</span><span class="number">2</span>));
-        <span class="macro">assert!</span>(cache.cache.contains(<span class="kw-2">&amp;</span><span class="number">3</span>));
-        <span class="macro">assert!</span>(cache.cache.contains(<span class="kw-2">&amp;</span><span class="number">4</span>));
+        <span class="macro">assert!</span>(!cache.inner.contains(<span class="kw-2">&amp;</span><span class="number">1</span>));
+        <span class="macro">assert!</span>(cache.inner.contains(<span class="kw-2">&amp;</span><span class="number">2</span>));
+        <span class="macro">assert!</span>(cache.inner.contains(<span class="kw-2">&amp;</span><span class="number">3</span>));
+        <span class="macro">assert!</span>(cache.inner.contains(<span class="kw-2">&amp;</span><span class="number">4</span>));
         <span class="macro">assert!</span>(!cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">1</span>));
         <span class="macro">assert!</span>(cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">2</span>));
         <span class="macro">assert!</span>(cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">3</span>));

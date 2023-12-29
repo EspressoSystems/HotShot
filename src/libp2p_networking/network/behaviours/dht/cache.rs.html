@@ -390,7 +390,7 @@
     </span>config: Config,
 
     <span class="doccomment">/// the cache for records (key -&gt; value)
-    </span>cache: Arc&lt;DashMap&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt;,
+    </span>inner: Arc&lt;DashMap&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt;,
     <span class="doccomment">/// the expiries for the dht cache, in order (expiry time -&gt; key)
     </span>expiries: Arc&lt;RwLock&lt;BTreeMap&lt;SystemTime, Vec&lt;u8&gt;&gt;&gt;&gt;,
 
@@ -401,7 +401,7 @@
 <span class="kw">impl </span>Cache {
     <span class="kw">pub async fn </span>new(config: Config) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>cache = <span class="self">Self </span>{
-            cache: Arc::new(DashMap::new()),
+            inner: Arc::new(DashMap::new()),
             expiries: Arc::new(RwLock::new(BTreeMap::new())),
             config,
             disk_parity_delta: Arc::new(AtomicU32::new(<span class="number">0</span>)),
@@ -427,7 +427,7 @@
             </span><span class="kw">let </span>now = SystemTime::now();
             <span class="kw">for </span>(expiry, (key, value)) <span class="kw">in </span>cache {
                 <span class="kw">if </span>now &lt; expiry {
-                    <span class="self">self</span>.cache.insert(key.clone(), value);
+                    <span class="self">self</span>.inner.insert(key.clone(), value);
                     <span class="self">self</span>.expiries.write().<span class="kw">await</span>.insert(expiry, key);
                 }
             }
@@ -445,7 +445,7 @@
             </span><span class="kw">let </span><span class="kw-2">mut </span>cache_to_write = HashMap::new();
             <span class="kw">let </span>expiries = <span class="self">self</span>.expiries.read().<span class="kw">await</span>;
             <span class="kw">for </span>(expiry, key) <span class="kw">in </span><span class="kw-2">&amp;*</span>expiries {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.cache.get(key) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.inner.get(key) {
                     cache_to_write.insert(expiry, (key, entry.value().clone()));
                 } <span class="kw">else </span>{
                     <span class="macro">tracing::warn!</span>(<span class="string">&quot;key not found in cache: {:?}&quot;</span>, key);
@@ -474,7 +474,7 @@
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>((expires, key)) = expiries.pop_first() {
             <span class="kw">if </span>now &gt; expires {
-                <span class="self">self</span>.cache.remove(<span class="kw-2">&amp;</span>key);
+                <span class="self">self</span>.inner.remove(<span class="kw-2">&amp;</span>key);
                 removed += <span class="number">1</span>;
             } <span class="kw">else </span>{
                 expiries.insert(expires, key);
@@ -493,12 +493,12 @@
         <span class="self">self</span>.save_if_necessary().<span class="kw">await</span>;
 
         <span class="comment">// get
-        </span><span class="self">self</span>.cache.get(key)
+        </span><span class="self">self</span>.inner.get(key)
     }
 
     <span class="kw">pub async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;) {
         <span class="comment">// insert into cache and expiries
-        </span><span class="self">self</span>.cache.insert(key.clone(), value);
+        </span><span class="self">self</span>.inner.insert(key.clone(), value);
         <span class="self">self</span>.expiries
             .write()
             .<span class="kw">await
@@ -566,7 +566,7 @@
 
         <span class="comment">// check that the cache and expiries are empty
         </span><span class="macro">assert!</span>(cache.expiries.read().<span class="kw">await</span>.is_empty());
-        <span class="macro">assert!</span>(cache.cache.is_empty());
+        <span class="macro">assert!</span>(cache.inner.is_empty());
     }
 
     <span class="doccomment">/// cache add test
