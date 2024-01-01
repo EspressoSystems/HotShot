@@ -160,3 +160,19 @@ debug = 1
 inherits = "release"
 lto = "off"
 incremental = true
+
+[workspace.lints.clippy]
+# warns
+all = "warn"
+pedantic = "warn"
+missing_docs_in_private_items = "warn"
+panic = "warn"
+# allows
+module_name_repetitions = "allow"
+
+[workspace.lints.rust]
+# warns
+rust_2018_idioms = "warn"
+# TODO cahnge to deny
+missing_docs = "warn"
+warnings = "warn"
