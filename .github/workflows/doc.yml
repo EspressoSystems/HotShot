@@ -33,6 +33,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
 
+      - name: Test Docs
+        run: |
+          just async_std doc_test
+
       - name: Build Docs
         run: |
           just async_std doc
