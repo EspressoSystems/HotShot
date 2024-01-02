@@ -1326,6 +1326,7 @@
 <a href="#1326" id="1326">1326</a>
 <a href="#1327" id="1327">1327</a>
 <a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1442,7 +1443,7 @@
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let (tx, _rx): (TaskChannel&lt;MyKey&gt;, _) = tokio::sync::mpsc::unbounded_channel();
 /// ```
 ///
@@ -1458,9 +1459,9 @@
 ///
 /// # Examples
 ///
-/// ```
-/// use your_crate::TaskMap;
-/// let mut map: TaskMap&lt;MyKey&gt; = TaskMap::default();
+/// ```ignore
+/// # use crate::TaskMap;
+/// let mut map: TaskMap&lt;u64&gt; = TaskMap::default();
 /// ```
 ///
 /// # Note
@@ -1488,9 +1489,10 @@
     ///
     /// # Examples
     ///
-    /// ```
-    /// let mut map: TaskMap&lt;MyKey&gt; = TaskMap::default();
-    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal).await;
+    /// ```ignore
+    /// # use crate::TaskMap;
+    /// let mut map: TaskMap&lt;u64&gt; = TaskMap::default();
+    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal(5)).await;
     /// ```
     </span><span class="kw">async fn </span>prune_tasks(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,

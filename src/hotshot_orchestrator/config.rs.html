@@ -507,6 +507,16 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
@@ -634,11 +644,13 @@
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
+    /// # use hotshot_orchestrator::config::NetworkConfig;
+    /// # use hotshot_orchestrator::client::OrchestratorClient;
     /// let client = OrchestratorClient::new();
     /// let identity = &quot;my_identity&quot;.to_string();
     /// let file = Some(&quot;/path/to/my/config&quot;.to_string());
-    /// let (config, source) = NetworkConfig::from_file_or_orchestrator(client, file).await;
+    /// let (config, source) = NetworkConfig::from_file_or_orchestrator(client, file);
     /// ```
     </span><span class="kw">pub async fn </span>from_file_or_orchestrator(
         client: <span class="kw-2">&amp;</span>OrchestratorClient,
@@ -691,9 +703,16 @@
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
+    /// # use hotshot_orchestrator::config::NetworkConfig;
+    /// # use hotshot_signature_key::bn254::BLSPubKey;
+    /// // # use hotshot::traits::election::static_committee::StaticElectionConfig;
     /// let file = &quot;/path/to/my/config&quot;.to_string();
-    /// let config = NetworkConfig::from_file(file).unwrap();
+    /// // NOTE: broken due to staticelectionconfig not being importable
+    /// // cannot import staticelectionconfig from hotshot without creating circular dependency
+    /// // making this work probably involves the `types` crate implementing a dummy
+    /// // electionconfigtype just ot make this example work
+    /// let config = NetworkConfig::&lt;BLSPubKey, StaticElectionConfig&gt;::from_file(file).unwrap();
     /// ```
     </span><span class="kw">pub fn </span>from_file(file: String) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkConfigError&gt; {
         <span class="comment">// read from file
@@ -729,7 +748,8 @@
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
+    /// # use hotshot_orchestrator::config::NetworkConfig;
     /// let file = &quot;/path/to/my/config&quot;.to_string();
     /// let config = NetworkConfig::from_file(file);
     /// config.to_file(file).unwrap();

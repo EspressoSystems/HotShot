@@ -302,7 +302,6 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -334,9 +333,8 @@
     hash::Hash,
     sync::{atomic::AtomicBool, Arc},
 };
-<span class="doccomment">/// Alias for the [`ProcessedConsensusMessage`] type of a [`NodeImplementation`].
 
-/// struct containing messages for a view to send to a replica or DA committee member.
+<span class="doccomment">/// struct containing messages for a view to send to a replica or DA committee member.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ViewQueue&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// to send networking events to a replica or DA committee member.

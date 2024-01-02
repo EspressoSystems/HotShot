@@ -219,11 +219,11 @@
     </span>LeafDecided(Vec&lt;Leaf&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
-    /// Like [`DAProposalSend`].
+    /// Like [`HotShotEvent::DAProposalSend`].
     </span>VidDisperseSend(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Vid disperse data has been received from the network; handled by the DA task
     ///
-    /// Like [`DAProposalRecv`].
+    /// Like [`HotShotEvent::DAProposalRecv`].
     </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
 }
 </code></pre></div></section></main></body></html>

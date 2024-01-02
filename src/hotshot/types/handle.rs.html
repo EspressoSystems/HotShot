@@ -277,10 +277,7 @@
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
+</pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
@@ -315,17 +312,14 @@
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
 </span><span class="kw">pub struct </span>SystemContextHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The [sender](BroadcastSender) for the output stream from the background process
-    ///
-    /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
-    /// method is needed to generate new receivers to expose to the user
+    <span class="doccomment">/// The [sender](ChannelStream) for the output stream from the background process
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: ChannelStream&lt;Event&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// access to the internal ev ent stream, in case we need to, say, shut something down
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// registry for controlling tasks
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: GlobalRegistry,
 
-    <span class="doccomment">/// Internal reference to the underlying [`HotShot`]
+    <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
     </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES, I&gt;,
 
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
@@ -378,7 +372,7 @@
         <span class="self">self</span>.internal_event_stream.subscribe(filter).<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Gets the current committed state of the [`HotShot`] instance
+    <span class="doccomment">/// Gets the current committed state of the [`SystemContext`] instance
     ///
     /// # Errors
     ///
@@ -395,7 +389,7 @@
         <span class="self">self</span>.hotshot.get_decided_leaf().<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Submits a transaction to the backing [`HotShot`] instance.
+    <span class="doccomment">/// Submits a transaction to the backing [`SystemContext`] instance.
     ///
     /// The current node broadcasts the transaction to all nodes on the network.
     ///

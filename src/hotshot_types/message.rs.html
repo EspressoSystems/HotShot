@@ -536,7 +536,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; MessageKind&lt;TYPES&gt; {
     <span class="comment">// Can&#39;t implement `From&lt;I::ConsensusMessage&gt;` directly due to potential conflict with
     // `From&lt;DataMessage&gt;`.
-    </span><span class="doccomment">/// Construct a [`MessageKind`] from [`I::ConsensusMessage`].
+    </span><span class="doccomment">/// Construct a [`MessageKind`] from [`SequencingMessage`].
     </span><span class="kw">pub fn </span>from_consensus_message(m: SequencingMessage&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Consensus(m)
     }

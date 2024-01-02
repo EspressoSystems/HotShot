@@ -737,7 +737,7 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
-<span class="doccomment">/// Contains traits consumed by [`HotShot`]
+<span class="doccomment">/// Contains traits consumed by [`SystemContext`]
 </span><span class="kw">pub mod </span>traits;
 <span class="doccomment">/// Contains types used by the crate
 </span><span class="kw">pub mod </span>types;
@@ -1248,13 +1248,13 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Get the [`hotstuff`] field of [`HotShot`].
+    <span class="doccomment">/// Get access to [`Consensus`]
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
     }
 
-    <span class="doccomment">/// Spawn all tasks that operate on [`HotShot`].
+    <span class="doccomment">/// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module&#39;s documentation.
     </span><span class="attr">#[allow(clippy::too_many_lines)]
@@ -1349,7 +1349,7 @@
     }
 }
 
-<span class="doccomment">/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
+<span class="doccomment">/// A handle that exposes the interface that hotstuff needs to interact with a [`SystemContextInner`]
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>HotShotConsensusApi&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Reference to the [`SystemContextInner`]
