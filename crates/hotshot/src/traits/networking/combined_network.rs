@@ -1,7 +1,7 @@
 //! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
-use crate::traits::implementations::{Libp2pNetwork, WebServerNetwork};
+use crate::traits::implementations::{Libp2pNetworkRegular, WebServerNetwork};
 use async_lock::RwLock;
 use hotshot_constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
@@ -130,18 +130,18 @@ impl<TYPES: NodeType> CombinedCommChannel<TYPES> {
 
     /// Get a ref to the backup network
     #[must_use]
-    pub fn secondary(&self) -> &Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    pub fn secondary(&self) -> &Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey> {
         &self.networks.1
     }
 }
 
-/// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
+/// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetworkRegular`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 #[derive(Debug, Clone)]
 pub struct CombinedNetworks<TYPES: NodeType>(
     pub WebServerNetwork<TYPES>,
-    pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    pub Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>,
 );
 
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES> {
@@ -162,7 +162,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 da_committee_size,
                 is_da
             ),
-            <Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> as TestableNetworkingImplementation<_>>::generator(
+            <Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -362,7 +362,7 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for CombinedCommChannel<TYPES>
         <WebServerNetwork<_> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.primary(), event.clone()).await;
 
-        <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
+        <Libp2pNetworkRegular<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.secondary(), event).await;
     }
 }

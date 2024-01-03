@@ -9,8 +9,8 @@ use hotshot::{
     traits::{
         election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{
-            CombinedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
-            WebCommChannel,
+            CombinedCommChannel, Libp2pAllToAllCommChannel, Libp2pRegularCommChannel,
+            MemoryCommChannel, MemoryStorage, WebCommChannel,
         },
         NodeImplementation,
     },
@@ -54,6 +54,9 @@ pub struct MemoryImpl;
 pub struct Libp2pImpl;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub struct Libp2pAllToAllImpl;
+
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct WebImpl;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
@@ -63,7 +66,7 @@ pub type StaticMembership = StaticCommittee<TestTypes>;
 
 pub type StaticMemoryDAComm = MemoryCommChannel<TestTypes>;
 
-type StaticLibp2pDAComm = Libp2pCommChannel<TestTypes>;
+type StaticLibp2pDAComm = Libp2pRegularCommChannel<TestTypes>;
 
 type StaticWebDAComm = WebCommChannel<TestTypes>;
 
@@ -71,7 +74,7 @@ type StaticCombinedDAComm = CombinedCommChannel<TestTypes>;
 
 pub type StaticMemoryQuorumComm = MemoryCommChannel<TestTypes>;
 
-type StaticLibp2pQuorumComm = Libp2pCommChannel<TestTypes>;
+type StaticLibp2pQuorumComm = Libp2pRegularCommChannel<TestTypes>;
 
 type StaticWebQuorumComm = WebCommChannel<TestTypes>;
 
@@ -85,6 +88,21 @@ impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticLibp2pQuorumComm;
     type CommitteeNetwork = StaticLibp2pDAComm;
+
+    fn new_channel_maps(
+        start_view: <TestTypes as NodeType>::Time,
+    ) -> (ChannelMaps<TestTypes>, Option<ChannelMaps<TestTypes>>) {
+        (
+            ChannelMaps::new(start_view),
+            Some(ChannelMaps::new(start_view)),
+        )
+    }
+}
+
+impl NodeImplementation<TestTypes> for Libp2pAllToAllImpl {
+    type Storage = MemoryStorage<TestTypes>;
+    type QuorumNetwork = Libp2pAllToAllCommChannel<TestTypes>;
+    type CommitteeNetwork = Libp2pAllToAllCommChannel<TestTypes>;
 
     fn new_channel_maps(
         start_view: <TestTypes as NodeType>::Time,

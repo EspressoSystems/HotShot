@@ -14,7 +14,10 @@ pub mod implementations {
     pub use super::{
         networking::{
             combined_network::{CombinedCommChannel, CombinedNetworks},
-            libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
+            libp2p_network::{
+                Libp2pAllToAllCommChannel, Libp2pNetworkRegular, Libp2pRegularCommChannel,
+                PeerInfoVec,
+            },
             memory_network::{MasterMap, MemoryCommChannel, MemoryNetwork},
             web_server_network::{WebCommChannel, WebServerNetwork},
             NetworkingMetricsValue,

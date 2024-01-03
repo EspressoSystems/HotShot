@@ -114,6 +114,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     latest_seen_view: Arc<AtomicU64>,
     /// if we're a member of the DA committee or not
     is_da: bool,
+    /// whether or not to use all-to-all mode when communicating
+    _all_to_all: bool,
 }
 
 /// Networking implementation that uses libp2p
@@ -124,8 +126,16 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
     inner: Arc<Libp2pNetworkInner<M, K>>,
 }
 
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
-    for Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>
+/// a regular libp2p network
+#[derive(Clone, Debug)]
+pub struct Libp2pNetworkRegular<M: NetworkMsg, K: SignatureKey + 'static>(Libp2pNetwork<M, K>);
+
+/// a libp2p network which does not use gossip. Instead, uses a direct message to all nodes for
+/// broadcast
+#[derive(Clone, Debug)]
+pub struct Libp2pNetworkAllToAll<M: NetworkMsg, K: SignatureKey + 'static>(Libp2pNetwork<M, K>);
+
+impl<TYPES: NodeType> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
 {
@@ -145,6 +155,7 @@ where
         _network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
+        all_to_all: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -241,6 +252,7 @@ where
                         keys,
                         da.clone(),
                         da.contains(&pubkey),
+                        all_to_all,
                     )
                     .await
                     {
@@ -253,9 +265,130 @@ where
             }
         })
     }
+}
+
+impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
+    for Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>
+where
+    MessageKind<TYPES>: ViewMessage<TYPES>,
+{
+    #[allow(clippy::panic)]
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+        is_da: bool,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let gen = Libp2pNetwork::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+            is_da,
+            false,
+        );
+        Box::new(move |node_id| Libp2pNetworkRegular(gen(node_id)))
+    }
 
     fn in_flight_message_count(&self) -> Option<usize> {
         None
+    }
+}
+
+impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
+    for Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>
+where
+    MessageKind<TYPES>: ViewMessage<TYPES>,
+{
+    #[allow(clippy::panic)]
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+        is_da: bool,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let gen = Libp2pNetwork::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+            is_da,
+            false,
+        );
+        Box::new(move |node_id| Libp2pNetworkAllToAll(gen(node_id)))
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkRegular<M, K> {
+    /// Create a new [`Libp2pNetworkRegular`]
+    /// # Errors
+    /// if unable to create network
+    #[allow(clippy::too_many_arguments)]
+    pub async fn new(
+        metrics: NetworkingMetricsValue,
+        config: NetworkNodeConfig,
+        pk: K,
+        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs_len: usize,
+        id: usize,
+        // HACK
+        committee_pks: BTreeSet<K>,
+        da_pks: BTreeSet<K>,
+        is_da: bool,
+    ) -> Result<Libp2pNetworkRegular<M, K>, NetworkError> {
+        Libp2pNetwork::new(
+            metrics,
+            config,
+            pk,
+            bootstrap_addrs,
+            bootstrap_addrs_len,
+            id,
+            committee_pks,
+            da_pks,
+            is_da,
+            false,
+        )
+        .await
+        .map(|net| Libp2pNetworkRegular(net))
+    }
+}
+
+impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkAllToAll<M, K> {
+    /// Create a new [`Libp2pNetworkAllToAll`] network
+    /// if unable to create network
+    #[allow(clippy::too_many_arguments)]
+    pub async fn new(
+        metrics: NetworkingMetricsValue,
+        config: NetworkNodeConfig,
+        pk: K,
+        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs_len: usize,
+        id: usize,
+        // HACK
+        committee_pks: BTreeSet<K>,
+        da_pks: BTreeSet<K>,
+        is_da: bool,
+    ) -> Result<Libp2pNetworkAllToAll<M, K>, NetworkError> {
+        Libp2pNetwork::new(
+            metrics,
+            config,
+            pk,
+            bootstrap_addrs,
+            bootstrap_addrs_len,
+            id,
+            committee_pks,
+            da_pks,
+            is_da,
+            true,
+        )
+        .await
+        .map(|net| Libp2pNetworkAllToAll(net))
     }
 }
 
@@ -295,6 +428,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         committee_pks: BTreeSet<K>,
         da_pks: BTreeSet<K>,
         is_da: bool,
+        all_to_all: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
@@ -353,6 +487,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // network already. In the worst case, we send a few lookups we don't need.
                 latest_seen_view: Arc::new(AtomicU64::new(0)),
                 is_da,
+                _all_to_all: all_to_all,
             }),
         };
 
@@ -550,6 +685,124 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             warn!("Network receiever shut down!");
             Ok::<(), NetworkError>(())
         });
+    }
+}
+
+#[async_trait]
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
+    for Libp2pNetworkRegular<M, K>
+{
+    async fn wait_for_ready(&self) {
+        self.0.wait_for_ready().await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        self.0.is_ready().await
+    }
+
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        self.0.shut_down()
+    }
+
+    #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
+    async fn broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        self.0.broadcast_message(message, recipients).await
+    }
+
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+        self.0.direct_message(message, recipient).await
+    }
+
+    #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        self.recv_msgs(transmit_type)
+    }
+
+    #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
+    async fn queue_node_lookup(
+        &self,
+        view_number: ViewNumber,
+        pk: K,
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
+        self.0.queue_node_lookup(view_number, pk).await
+    }
+
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
+        self.inject_consensus_info(event).await;
+    }
+}
+
+#[async_trait]
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
+    for Libp2pNetworkAllToAll<M, K>
+{
+    async fn wait_for_ready(&self) {
+        self.0.wait_for_ready().await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        self.0.is_ready().await
+    }
+
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        self.0.shut_down()
+    }
+
+    #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
+    async fn broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        self.0.broadcast_message(message, recipients).await
+    }
+
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+        self.0.direct_message(message, recipient).await
+    }
+
+    #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        self.recv_msgs(transmit_type)
+    }
+
+    #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
+    async fn queue_node_lookup(
+        &self,
+        view_number: ViewNumber,
+        pk: K,
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
+        self.0.queue_node_lookup(view_number, pk).await
+    }
+
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
+        self.inject_consensus_info(event).await;
     }
 }
 
@@ -758,22 +1011,37 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 }
 
-/// libp2p identity communication channel
+/// libp2p all to all communication channel
 #[derive(Clone, Debug)]
-pub struct Libp2pCommChannel<TYPES: NodeType>(
-    Arc<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>,
+pub struct Libp2pRegularCommChannel<TYPES: NodeType>(
+    Arc<Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>>,
     PhantomData<TYPES>,
 );
 
-impl<TYPES: NodeType> Libp2pCommChannel<TYPES> {
+/// libp2p identity communication channel
+#[derive(Clone, Debug)]
+pub struct Libp2pAllToAllCommChannel<TYPES: NodeType>(
+    Arc<Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>>,
+    PhantomData<TYPES>,
+);
+
+impl<TYPES: NodeType> Libp2pRegularCommChannel<TYPES> {
     /// create a new libp2p communication channel
     #[must_use]
-    pub fn new(network: Arc<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>) -> Self {
+    pub fn new(network: Arc<Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>>) -> Self {
         Self(network, PhantomData)
     }
 }
 
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pCommChannel<TYPES>
+impl<TYPES: NodeType> Libp2pAllToAllCommChannel<TYPES> {
+    /// create a new libp2p communication channel
+    #[must_use]
+    pub fn new(network: Arc<Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>>) -> Self {
+        Self(network, PhantomData)
+    }
+}
+
+impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pRegularCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
 {
@@ -793,7 +1061,45 @@ where
         da_committee_size: usize,
         is_da: bool,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let generator = <Libp2pNetwork<
+        let generator = <Libp2pNetworkRegular<
+            Message<TYPES>,
+            TYPES::SignatureKey,
+        > as TestableNetworkingImplementation<_>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+            is_da
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pAllToAllCommChannel<TYPES>
+where
+    MessageKind<TYPES>: ViewMessage<TYPES>,
+{
+    /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
+    /// with the purpose of generating libp2p networks.
+    /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
+    /// nodes with sane defaults.
+    /// # Panics
+    /// Returned function may panic either:
+    /// - An invalid configuration
+    ///   (probably an issue with the defaults of this function)
+    /// - An inability to spin up the replica's network
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
+        is_da: bool,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator = <Libp2pNetworkAllToAll<
             Message<TYPES>,
             TYPES::SignatureKey,
         > as TestableNetworkingImplementation<_>>::generator(
@@ -815,11 +1121,11 @@ where
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
 #[async_trait]
-impl<TYPES: NodeType> CommunicationChannel<TYPES> for Libp2pCommChannel<TYPES>
+impl<TYPES: NodeType> CommunicationChannel<TYPES> for Libp2pRegularCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
 {
-    type NETWORK = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>;
+    type NETWORK = Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>;
 
     fn pause(&self) {
         unimplemented!("Pausing not implemented for the Libp2p network");
@@ -830,11 +1136,11 @@ where
     }
 
     async fn wait_for_ready(&self) {
-        self.0.wait_for_ready().await;
+        self.0 .0.wait_for_ready().await;
     }
 
     async fn is_ready(&self) -> bool {
-        self.0.is_ready().await
+        self.0 .0.is_ready().await
     }
 
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
@@ -843,7 +1149,7 @@ where
         Self: 'b,
     {
         let closure = async move {
-            self.0.shut_down().await;
+            self.0 .0.shut_down().await;
         };
         boxed_sync(closure)
     }
@@ -857,7 +1163,7 @@ where
             membership,
             message.kind.get_view_number(),
         );
-        self.0.broadcast_message(message, recipients).await
+        self.0 .0.broadcast_message(message, recipients).await
     }
 
     async fn direct_message(
@@ -865,7 +1171,7 @@ where
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        self.0.direct_message(message, recipient).await
+        self.0 .0.direct_message(message, recipient).await
     }
 
     fn recv_msgs<'a, 'b>(
@@ -876,7 +1182,7 @@ where
         'a: 'b,
         Self: 'b,
     {
-        let closure = async move { self.0.recv_msgs(transmit_type).await };
+        let closure = async move { self.0 .0.recv_msgs(transmit_type).await };
         boxed_sync(closure)
     }
 
@@ -885,22 +1191,113 @@ where
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
     ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        self.0.queue_node_lookup(view_number, pk).await
+        self.0 .0.queue_node_lookup(view_number, pk).await
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
         <Libp2pNetwork<_, _> as ConnectedNetwork<
             Message<TYPES>,
             TYPES::SignatureKey,
-        >>::inject_consensus_info(&self.0, event)
+        >>::inject_consensus_info(&self.0.0, event)
         .await;
     }
 }
 
-impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for Libp2pCommChannel<TYPES> {
+impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for Libp2pRegularCommChannel<TYPES> {
     fn generate_network(
-    ) -> Box<dyn Fn(Arc<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>) -> Self + 'static>
+    ) -> Box<dyn Fn(Arc<Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>>) -> Self + 'static>
     {
-        Box::new(move |network| Libp2pCommChannel::new(network))
+        Box::new(move |network| Libp2pRegularCommChannel::new(network))
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType> CommunicationChannel<TYPES> for Libp2pAllToAllCommChannel<TYPES>
+where
+    MessageKind<TYPES>: ViewMessage<TYPES>,
+{
+    type NETWORK = Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>;
+
+    fn pause(&self) {
+        unimplemented!("Pausing not implemented for the Libp2p network");
+    }
+
+    fn resume(&self) {
+        unimplemented!("Resuming not implemented for the Libp2p network");
+    }
+
+    async fn wait_for_ready(&self) {
+        self.0 .0.wait_for_ready().await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        self.0 .0.is_ready().await
+    }
+
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            self.0 .0.shut_down().await;
+        };
+        boxed_sync(closure)
+    }
+
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES>,
+        membership: &TYPES::Membership,
+    ) -> Result<(), NetworkError> {
+        let recipients = <TYPES as NodeType>::Membership::get_committee(
+            membership,
+            message.kind.get_view_number(),
+        );
+        self.0 .0.broadcast_message(message, recipients).await
+    }
+
+    async fn direct_message(
+        &self,
+        message: Message<TYPES>,
+        recipient: TYPES::SignatureKey,
+    ) -> Result<(), NetworkError> {
+        self.0 .0.direct_message(message, recipient).await
+    }
+
+    fn recv_msgs<'a, 'b>(
+        &'a self,
+        transmit_type: TransmitType,
+    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move { self.0 .0.recv_msgs(transmit_type).await };
+        boxed_sync(closure)
+    }
+
+    async fn queue_node_lookup(
+        &self,
+        view_number: ViewNumber,
+        pk: TYPES::SignatureKey,
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+        self.0 .0.queue_node_lookup(view_number, pk).await
+    }
+
+    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
+        <Libp2pNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(&self.0.0, event)
+        .await;
+    }
+}
+
+impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for Libp2pAllToAllCommChannel<TYPES> {
+    fn generate_network() -> Box<
+        dyn Fn(Arc<Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>>) -> Self + 'static,
+    > {
+        Box::new(move |network| Libp2pAllToAllCommChannel::new(network))
     }
 }

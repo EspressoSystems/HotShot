@@ -8,7 +8,7 @@ use hotshot::traits::implementations::{CombinedCommChannel, CombinedNetworks};
 use hotshot::{
     traits::{
         implementations::{
-            Libp2pCommChannel, Libp2pNetwork, MemoryStorage, NetworkingMetricsValue,
+            Libp2pNetworkRegular, Libp2pRegularCommChannel, MemoryStorage, NetworkingMetricsValue,
             WebCommChannel, WebServerNetwork,
         },
         NodeImplementation,
@@ -162,7 +162,7 @@ async fn webserver_network_from_config<TYPES: NodeType>(
 async fn libp2p_network_from_config<TYPES: NodeType>(
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     pub_key: TYPES::SignatureKey,
-) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+) -> Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey> {
     let mut config = config;
     let libp2p_config = config
         .libp2p_config
@@ -252,7 +252,7 @@ match node_type {
     }
     let node_config = config_builder.build().unwrap();
 
-    Libp2pNetwork::new(
+    Libp2pNetworkRegular::new(
         NetworkingMetricsValue::default(),
         node_config,
         pub_key.clone(),
@@ -585,10 +585,10 @@ where
 /// Represents a libp2p-based run
 pub struct Libp2pDARun<TYPES: NodeType> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    quorum_channel: Libp2pCommChannel<TYPES>,
-    da_channel: Libp2pCommChannel<TYPES>,
-    view_sync_channel: Libp2pCommChannel<TYPES>,
-    vid_channel: Libp2pCommChannel<TYPES>,
+    quorum_channel: Libp2pRegularCommChannel<TYPES>,
+    da_channel: Libp2pRegularCommChannel<TYPES>,
+    view_sync_channel: Libp2pRegularCommChannel<TYPES>,
+    vid_channel: Libp2pRegularCommChannel<TYPES>,
 }
 
 #[async_trait]
@@ -600,17 +600,17 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = Libp2pCommChannel<TYPES>,
-            CommitteeNetwork = Libp2pCommChannel<TYPES>,
+            QuorumNetwork = Libp2pRegularCommChannel<TYPES>,
+            CommitteeNetwork = Libp2pRegularCommChannel<TYPES>,
             Storage = MemoryStorage<TYPES>,
         >,
     >
     RunDA<
         TYPES,
-        Libp2pCommChannel<TYPES>,
-        Libp2pCommChannel<TYPES>,
-        Libp2pCommChannel<TYPES>,
-        Libp2pCommChannel<TYPES>,
+        Libp2pRegularCommChannel<TYPES>,
+        Libp2pRegularCommChannel<TYPES>,
+        Libp2pRegularCommChannel<TYPES>,
+        Libp2pRegularCommChannel<TYPES>,
         NODE,
     > for Libp2pDARun<TYPES>
 where
@@ -631,17 +631,17 @@ where
         underlying_quorum_network.wait_for_ready().await;
 
         // create communication channels
-        let quorum_channel: Libp2pCommChannel<TYPES> =
-            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let quorum_channel: Libp2pRegularCommChannel<TYPES> =
+            Libp2pRegularCommChannel::new(underlying_quorum_network.clone().into());
 
-        let view_sync_channel: Libp2pCommChannel<TYPES> =
-            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let view_sync_channel: Libp2pRegularCommChannel<TYPES> =
+            Libp2pRegularCommChannel::new(underlying_quorum_network.clone().into());
 
-        let da_channel: Libp2pCommChannel<TYPES> =
-            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let da_channel: Libp2pRegularCommChannel<TYPES> =
+            Libp2pRegularCommChannel::new(underlying_quorum_network.clone().into());
 
-        let vid_channel: Libp2pCommChannel<TYPES> =
-            Libp2pCommChannel::new(underlying_quorum_network.clone().into());
+        let vid_channel: Libp2pRegularCommChannel<TYPES> =
+            Libp2pRegularCommChannel::new(underlying_quorum_network.clone().into());
 
         Libp2pDARun {
             config,
@@ -652,19 +652,19 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> Libp2pCommChannel<TYPES> {
+    fn get_da_channel(&self) -> Libp2pRegularCommChannel<TYPES> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> Libp2pCommChannel<TYPES> {
+    fn get_quorum_channel(&self) -> Libp2pRegularCommChannel<TYPES> {
         self.quorum_channel.clone()
     }
 
-    fn get_view_sync_channel(&self) -> Libp2pCommChannel<TYPES> {
+    fn get_view_sync_channel(&self) -> Libp2pRegularCommChannel<TYPES> {
         self.view_sync_channel.clone()
     }
 
-    fn get_vid_channel(&self) -> Libp2pCommChannel<TYPES> {
+    fn get_vid_channel(&self) -> Libp2pRegularCommChannel<TYPES> {
         self.vid_channel.clone()
     }
 
