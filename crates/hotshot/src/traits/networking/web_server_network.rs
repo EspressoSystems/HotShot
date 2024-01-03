@@ -114,7 +114,7 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let (tx, _rx): (TaskChannel<MyKey>, _) = tokio::sync::mpsc::unbounded_channel();
 /// ```
 ///
@@ -130,9 +130,9 @@ type TaskChannel<K> = UnboundedSender<ConsensusIntentEvent<K>>;
 ///
 /// # Examples
 ///
-/// ```
-/// use your_crate::TaskMap;
-/// let mut map: TaskMap<MyKey> = TaskMap::default();
+/// ```ignore
+/// # use crate::TaskMap;
+/// let mut map: TaskMap<u64> = TaskMap::default();
 /// ```
 ///
 /// # Note
@@ -160,9 +160,10 @@ impl<K: SignatureKey> TaskMap<K> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// let mut map: TaskMap<MyKey> = TaskMap::default();
-    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal).await;
+    /// ```ignore
+    /// # use crate::TaskMap;
+    /// let mut map: TaskMap<u64> = TaskMap::default();
+    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal(5)).await;
     /// ```
     async fn prune_tasks(
         &mut self,
@@ -1257,10 +1258,17 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
         info!("Launching web server on port {port}");
         // Start web server
-        async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown),
-            url,
-        ));
+        async_spawn(async {
+            match hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+                Some(server_shutdown),
+                url,
+            )
+            .await
+            {
+                Ok(()) => error!("Web server future finished unexpectedly"),
+                Err(e) => error!("Web server task failed: {e}"),
+            }
+        });
 
         // We assign known_nodes' public key and stake value rather than read from config file since it's a test
         let known_nodes = (0..expected_node_count as u64)

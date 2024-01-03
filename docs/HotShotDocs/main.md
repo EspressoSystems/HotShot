@@ -190,7 +190,7 @@ Thus, our implementation of cryptographic sortition slightly differs from the Al
 
 ### Quorum Certificate
 
-A Quorum Certificate is a threshold signature of a [`ValidatingLeaf`](hotshot_types::data::ValidatingLeaf), composed of
+A Quorum Certificate is a threshold signature of a [`Leaf`](hotshot_types::data::Leaf), composed of
 signatures from at least `2f + 1` nodes.
 
 In the case of sequential HotShot, or pipelined HotShot without committee election, `f` is
