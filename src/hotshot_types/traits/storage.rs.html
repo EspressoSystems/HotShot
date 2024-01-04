@@ -170,7 +170,7 @@
 <a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over on-disk storage of node state
 
-</span><span class="kw">use super</span>::{node_implementation::NodeType, signature_key::EncodedPublicKey};
+</span><span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 <span class="kw">use crate</span>::{
     data::Leaf, simple_certificate::QuorumCertificate, traits::BlockPayload, vote::HasViewNumber,
 };
@@ -307,7 +307,7 @@
     </span><span class="kw">pub </span>timestamp: i128,
     <span class="doccomment">/// the proposer id
     </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
+    </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
 }
 
 <span class="kw">impl</span>&lt;TYPES&gt; StoredView&lt;TYPES&gt;
@@ -324,7 +324,7 @@
         block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
         parent_commitment: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
         rejected: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
-        proposer_id: EncodedPublicKey,
+        proposer_id: TYPES::SignatureKey,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             view_number: qc.get_view_number(),

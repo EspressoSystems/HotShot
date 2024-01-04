@@ -559,13 +559,6 @@
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
 <a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -578,7 +571,7 @@
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, SignatureKey},
+        signature_key::SignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         BlockPayload, State,
@@ -590,7 +583,6 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>hotshot_constants::GENESIS_PROPOSER_ID;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>jf_primitives::{
     pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
@@ -672,12 +664,6 @@
     <span class="kw">fn </span>sub(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
         <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>- rhs)
     }
-}
-
-<span class="doccomment">/// Generate the genesis block proposer ID from the defined constant
-</span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>genesis_proposer_id() -&gt; EncodedPublicKey {
-    EncodedPublicKey(GENESIS_PROPOSER_ID.to_vec())
 }
 
 <span class="doccomment">/// The `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -777,7 +763,7 @@
     </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// the propser id
-    </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
+    </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DAProposal&lt;TYPES&gt; {
@@ -889,7 +875,7 @@
     </span><span class="kw">pub </span>timestamp: i128,
 
     <span class="doccomment">/// the proposer id of the leaf
-    </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
+    </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>Leaf&lt;TYPES&gt; {
@@ -937,7 +923,7 @@
             block_payload: <span class="prelude-val">Some</span>(block_payload),
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id: genesis_proposer_id(),
+            proposer_id: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
         }
     }
 
@@ -1015,7 +1001,7 @@
         <span class="self">self</span>.timestamp
     }
     <span class="doccomment">/// Identity of the network participant who proposed this leaf.
-    </span><span class="kw">pub fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey {
+    </span><span class="kw">pub fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.proposer_id.clone()
     }
     <span class="doccomment">/// Create a leaf from information stored about a view.

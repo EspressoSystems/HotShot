@@ -176,6 +176,8 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -293,9 +295,11 @@
         node_types::TestTypes,
     };
     <span class="kw">use </span>hotshot_types::{
-        data::{fake_commitment, genesis_proposer_id, Leaf},
+        data::{fake_commitment, Leaf},
         simple_certificate::QuorumCertificate,
-        traits::{node_implementation::NodeType, state::ConsensusTime},
+        traits::{
+            node_implementation::NodeType, signature_key::SignatureKey, state::ConsensusTime,
+        },
     };
     <span class="kw">use </span>std::marker::PhantomData;
     <span class="kw">use </span>tracing::instrument;
@@ -324,7 +328,7 @@
             <span class="prelude-val">Some</span>(payload),
             dummy_leaf_commit,
             Vec::new(),
-            genesis_proposer_id(),
+            &lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
         )
     }
 

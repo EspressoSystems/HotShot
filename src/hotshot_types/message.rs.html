@@ -452,6 +452,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::simple_vote::{
     DAVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitVote,
 };
+<span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
 <span class="kw">use </span><span class="kw">crate</span>::vote::HasViewNumber;
 <span class="kw">use crate</span>::{
     data::{DAProposal, VidDisperse},
@@ -459,7 +460,6 @@
     traits::{
         network::{NetworkMsg, ViewMessage},
         node_implementation::NodeType,
-        signature_key::EncodedSignature,
     },
 };
 
@@ -876,7 +876,7 @@
     </span><span class="doccomment">/// The data being proposed.
     </span><span class="kw">pub </span>data: PROPOSAL,
     <span class="doccomment">/// The proposal must be signed by the view leader
-    </span><span class="kw">pub </span>signature: EncodedSignature,
+    </span><span class="kw">pub </span>signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     <span class="doccomment">/// Phantom for TYPES
     </span><span class="kw">pub </span>_pd: PhantomData&lt;TYPES&gt;,
 }

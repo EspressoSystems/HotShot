@@ -172,21 +172,6 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote, Accumulator, and Certificate Types
 
 </span><span class="kw">use </span>std::{
@@ -194,12 +179,10 @@
     marker::PhantomData,
 };
 
-<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>bitvec::vec::BitVec;
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use crate</span>::{
@@ -208,7 +191,7 @@
     traits::{
         election::Membership,
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, StakeTableEntryType},
+        signature_key::{SignatureKey, StakeTableEntryType},
     },
 };
 
@@ -218,7 +201,7 @@
     </span><span class="kw">type </span>Commitment: Voteable;
 
     <span class="doccomment">/// Get the signature of the vote sender
-    </span><span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature;
+    </span><span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType;
     <span class="doccomment">/// Gets the data which was voted on by this vote
     </span><span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Commitment;
     <span class="doccomment">/// Gets the Data commitment of the vote
@@ -272,7 +255,11 @@ The votes all must be over the `Commitment` associated type.
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
 &gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
-    </span><span class="kw">pub </span>vote_outcomes: VoteMap2&lt;Commitment&lt;VOTE::Commitment&gt;&gt;,
+    </span><span class="kw">pub </span>vote_outcomes: VoteMap2&lt;
+        Commitment&lt;VOTE::Commitment&gt;,
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    &gt;,
     <span class="doccomment">/// A list of valid signatures for certificate aggregation
     </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
@@ -307,14 +294,8 @@ The votes all must be over the `Commitment` associated type.
             .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
             .unwrap();
 
-        <span class="kw">let </span>encoded_key = key.to_bytes();
-
-        <span class="comment">// Deserialize the signature so that it can be assembeld into a QC
-        // TODO ED Update this once we&#39;ve gotten rid of EncodedSignature
-        </span><span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
-            bincode_opts()
-                .deserialize(<span class="kw-2">&amp;</span>vote.get_signature().<span class="number">0</span>)
-                .expect(<span class="string">&quot;Deserialization on the signature shouldn&#39;t be able to fail.&quot;</span>);
+        <span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
+            vote.get_signature();
 
         <span class="kw">let </span>(total_stake_casted, total_vote_map) = <span class="self">self
             </span>.vote_outcomes
@@ -322,9 +303,7 @@ The votes all must be over the `Commitment` associated type.
             .or_insert_with(|| (U256::from(<span class="number">0</span>), BTreeMap::new()));
 
         <span class="comment">// Check for duplicate vote
-        // TODO ED Re-encoding signature key to bytes until we get rid of EncodedKey
-        // Have to do this because SignatureKey is not hashable
-        </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>encoded_key) {
+        </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>key) {
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
 
@@ -337,10 +316,7 @@ The votes all must be over the `Commitment` associated type.
 
         <span class="comment">// TODO: Get the stake from the stake table entry.
         </span><span class="kw-2">*</span>total_stake_casted += stake_table_entry.get_stake();
-        total_vote_map.insert(
-            encoded_key,
-            (vote.get_signature(), vote.get_data_commitment()),
-        );
+        total_vote_map.insert(key, (vote.get_signature(), vote.get_data_commitment()));
 
         <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership).into() {
             <span class="comment">// Assemble QC
@@ -369,11 +345,5 @@ The votes all must be over the `Commitment` associated type.
 }
 
 <span class="doccomment">/// Mapping of commitments to vote tokens by key.
-</span><span class="kw">type </span>VoteMap2&lt;COMMITMENT&gt; = HashMap&lt;
-    COMMITMENT,
-    (
-        U256,
-        BTreeMap&lt;EncodedPublicKey, (EncodedSignature, COMMITMENT)&gt;,
-    ),
-&gt;;
+</span><span class="kw">type </span>VoteMap2&lt;COMMITMENT, PK, SIG&gt; = HashMap&lt;COMMITMENT, (U256, BTreeMap&lt;PK, (SIG, COMMITMENT)&gt;)&gt;;
 </code></pre></div></section></main></body></html>

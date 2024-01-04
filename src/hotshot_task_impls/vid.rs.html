@@ -189,6 +189,9 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::{
@@ -303,14 +306,17 @@
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) =&gt; {
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+                    TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>vid_disperse.payload_commitment)
+                <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;VID: failed to sign dispersal payload&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                };
                 <span class="macro">debug!</span>(<span class="string">&quot;publishing VID disperse for view {}&quot;</span>, <span class="kw-2">*</span>view_number);
                 <span class="self">self</span>.event_stream
                     .publish(HotShotEvent::VidDisperseSend(
                         Proposal {
-                            signature: TYPES::SignatureKey::sign(
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                                <span class="kw-2">&amp;</span>vid_disperse.payload_commitment,
-                            ),
+                            signature,
                             data: vid_disperse,
                             _pd: PhantomData,
                         },

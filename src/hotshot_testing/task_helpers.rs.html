@@ -195,6 +195,9 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
@@ -220,7 +223,6 @@
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::EncodedSignature,
         state::{ConsensusTime, TestableBlock},
         BlockPayload,
     },
@@ -303,7 +305,10 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     view: u64,
-) -&gt; (QuorumProposal&lt;TestTypes&gt;, EncodedSignature) {
+) -&gt; (
+    QuorumProposal&lt;TestTypes&gt;,
+    &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+) {
     <span class="kw">let </span>consensus_lock = handle.get_consensus();
     <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
     <span class="kw">let </span>api: HotShotConsensusApi&lt;TestTypes, MemoryImpl&gt; = HotShotConsensusApi {
@@ -341,9 +346,10 @@
         block_payload: <span class="prelude-val">None</span>,
         rejected: <span class="macro">vec!</span>[],
         timestamp: <span class="number">0</span>,
-        proposer_id: api.public_key().to_bytes(),
+        proposer_id: <span class="kw-2">*</span>api.public_key(),
     };
-    <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref());
+    <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref())
+        .expect(<span class="string">&quot;Failed to sign leaf commitment!&quot;</span>);
     <span class="kw">let </span>proposal = QuorumProposal::&lt;TestTypes&gt; {
         block_header,
         view_number: ViewNumber::new(view),

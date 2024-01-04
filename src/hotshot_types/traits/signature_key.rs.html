@@ -141,6 +141,8 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
@@ -165,17 +167,6 @@
 )]
 </span><span class="kw">pub struct </span>EncodedPublicKey(<span class="attr">#[debug(with = <span class="string">&quot;custom_debug::hexbuf&quot;</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
 
-<span class="doccomment">/// Type saftey wrapper for byte encoded signature
-</span><span class="attr">#[derive(
-    Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
-)]
-</span><span class="kw">pub struct </span>EncodedSignature(<span class="attr">#[debug(with = <span class="string">&quot;custom_debug::hexbuf&quot;</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
-
-<span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>EncodedSignature {
-    <span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-        <span class="self">self</span>.<span class="number">0</span>.as_slice()
-    }
-}
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`
 </span><span class="kw">pub trait </span>StakeTableEntryType {
     <span class="doccomment">/// Get the stake value
@@ -183,6 +174,7 @@
 }
 
 <span class="doccomment">/// Trait for abstracting public key signatures
+/// Self is the public key type
 </span><span class="kw">pub trait </span>SignatureKey:
     Send
     + Sync
@@ -243,12 +235,20 @@
         + Serialize
         + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;;
 
+    <span class="doccomment">/// Type of error that can occur when signing data
+    </span><span class="kw">type </span>SignError: std::error::Error + Send + Sync;
+
     <span class="comment">// Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     </span><span class="doccomment">/// Validate a signature
-    </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>EncodedSignature, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool;
+    </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::PureAssembledSignatureType, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool;
     <span class="doccomment">/// Produce a signature
-    </span><span class="kw">fn </span>sign(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey, data: <span class="kw-2">&amp;</span>[u8]) -&gt; EncodedSignature;
+    /// # Errors
+    /// If unable to sign the data with the key
+    </span><span class="kw">fn </span>sign(
+        private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey,
+        data: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::PureAssembledSignatureType, <span class="self">Self</span>::SignError&gt;;
     <span class="doccomment">/// Produce a public key from a private key
     </span><span class="kw">fn </span>from_private(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey) -&gt; <span class="self">Self</span>;
     <span class="doccomment">/// Serialize a public key to bytes
@@ -283,5 +283,9 @@
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::PureAssembledSignatureType],
     ) -&gt; <span class="self">Self</span>::QCType;
+
+    <span class="doccomment">/// generates the genesis public key. Meant to be dummy/filler
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">fn </span>genesis_proposer_pk() -&gt; <span class="self">Self</span>;
 }
 </code></pre></div></section></main></body></html>

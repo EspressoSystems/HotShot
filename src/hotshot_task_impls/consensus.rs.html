@@ -1243,6 +1243,21 @@
 <a href="#1243" id="1243">1243</a>
 <a href="#1244" id="1244">1244</a>
 <a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1466,16 +1481,19 @@
                     block_payload: <span class="prelude-val">None</span>,
                     rejected: Vec::new(),
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                    proposer_id: <span class="self">self</span>.quorum_membership.get_leader(view).to_bytes(),
+                    proposer_id: <span class="self">self</span>.quorum_membership.get_leader(view),
                 };
-                <span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
                     QuorumData {
                         leaf_commit: leaf.commit(),
                     },
                     view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                );
+                ) <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;Failed to sign QuorumData!&quot;</span>);
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                };
 
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote);
 
@@ -1550,7 +1568,7 @@
                     block_payload: <span class="prelude-val">None</span>,
                     rejected: Vec::new(),
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                    proposer_id: <span class="self">self</span>.quorum_membership.get_leader(view).to_bytes(),
+                    proposer_id: <span class="self">self</span>.quorum_membership.get_leader(view),
                 };
 
                 <span class="comment">// Validate the DAC.
@@ -1563,15 +1581,19 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Block payload commitment does not equal da cert payload commitment. View = {}&quot;</span>, <span class="kw-2">*</span>view);
                         <span class="kw">return </span><span class="bool-val">false</span>;
                     }
-                    <span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
+                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(vote) = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
                         QuorumData {
                             leaf_commit: leaf.commit(),
                         },
                         view,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                    );
-                    GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote)
+                    ) {
+                        GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote)
+                    } <span class="kw">else </span>{
+                        <span class="macro">error!</span>(<span class="string">&quot;Unable to sign quorum vote!&quot;</span>);
+                        <span class="kw">return </span><span class="bool-val">false</span>;
+                    }
                 } <span class="kw">else </span>{
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}&quot;</span>,
@@ -1770,7 +1792,7 @@
                         block_payload: <span class="prelude-val">None</span>,
                         rejected: Vec::new(),
                         timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                        proposer_id: sender.to_bytes(),
+                        proposer_id: sender,
                     };
 
                     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
@@ -1795,7 +1817,7 @@
                     block_payload: <span class="prelude-val">None</span>,
                     rejected: Vec::new(),
                     timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                    proposer_id: sender.to_bytes(),
+                    proposer_id: sender,
                 };
                 <span class="kw">let </span>leaf_commitment = leaf.commit();
 
@@ -2269,12 +2291,15 @@
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
 
-                <span class="kw">let </span>vote = TimeoutVote::create_signed_vote(
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
                     view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                );
+                ) <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;Failed to sign TimeoutData!&quot;</span>);
+                    <span class="kw">return</span>;
+                };
 
                 <span class="self">self</span>.event_stream
                     .publish(HotShotEvent::TimeoutVoteSend(vote))
@@ -2402,10 +2427,15 @@
                 block_payload: <span class="prelude-val">None</span>,
                 rejected: <span class="macro">vec!</span>[],
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: <span class="self">self</span>.api.public_key().to_bytes(),
+                proposer_id: <span class="self">self</span>.api.public_key().clone(),
             };
 
-            <span class="kw">let </span>signature = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, leaf.commit().as_ref());
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+                TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, leaf.commit().as_ref())
+            <span class="kw">else </span>{
+                <span class="macro">error!</span>(<span class="string">&quot;Failed to sign leaf.commit()!&quot;</span>);
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            };
             <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don&#39;t have to wait for it.
             </span><span class="kw">let </span>proposal = QuorumProposal {
                 block_header: leaf.block_header.clone(),

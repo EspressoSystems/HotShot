@@ -217,6 +217,10 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple vote types.
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
@@ -226,10 +230,7 @@
 
 <span class="kw">use crate</span>::{
     data::{Leaf, VidCommitment},
-    traits::{
-        node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-    },
+    traits::{node_implementation::NodeType, signature_key::SignatureKey},
     vote::{HasViewNumber, Vote},
 };
 
@@ -304,11 +305,14 @@
     </span><span class="kw">impl</span>&lt;C: Committable&gt; Sealed <span class="kw">for </span>C {}
 }
 
-<span class="doccomment">/// A simple yes vote over some votable type.  
+<span class="doccomment">/// A simple yes vote over some votable type.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="kw">pub struct </span>SimpleVote&lt;TYPES: NodeType, DATA: Voteable&gt; {
     <span class="doccomment">/// The signature share associated with this vote
-    </span><span class="kw">pub </span>signature: (EncodedPublicKey, EncodedSignature),
+    </span><span class="kw">pub </span>signature: (
+        TYPES::SignatureKey,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ),
     <span class="doccomment">/// The leaf commitment being voted on.
     </span><span class="kw">pub </span>data: DATA,
     <span class="doccomment">/// The view this vote was cast for
@@ -325,10 +329,10 @@
     <span class="kw">type </span>Commitment = DATA;
 
     <span class="kw">fn </span>get_signing_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey {
-        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.signature.<span class="number">0</span>).unwrap()
+        <span class="self">self</span>.signature.<span class="number">0</span>.clone()
     }
 
-    <span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedSignature {
+    <span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType {
         <span class="self">self</span>.signature.<span class="number">1</span>.clone()
     }
 
@@ -343,17 +347,21 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable + <span class="lifetime">&#39;static</span>&gt; SimpleVote&lt;TYPES, DATA&gt; {
     <span class="doccomment">/// Creates and signs a simple vote
+    /// # Errors
+    /// If we are unable to sign the data
     </span><span class="kw">pub fn </span>create_signed_vote(
         data: DATA,
         view: TYPES::Time,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(private_key, data.commit().as_ref());
-        <span class="self">Self </span>{
-            signature: (pub_key.to_bytes(), signature),
-            data,
-            view_number: view,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::SignError&gt; {
+        <span class="kw">match </span>TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
+            <span class="prelude-val">Ok</span>(signature) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                signature: (pub_key.clone(), signature),
+                data,
+                view_number: view,
+            }),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
         }
     }
 }
