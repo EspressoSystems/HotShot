@@ -220,7 +220,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.block_header.clone(),
                     block_payload: None,
                     rejected: Vec::new(),
-                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.quorum_membership.get_leader(view).to_bytes(),
                 };
                 let vote = QuorumVote::<TYPES>::create_signed_vote(
@@ -304,7 +303,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.block_header.clone(),
                     block_payload: None,
                     rejected: Vec::new(),
-                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: self.quorum_membership.get_leader(view).to_bytes(),
                 };
 
@@ -524,7 +522,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         block_header: proposal.data.block_header,
                         block_payload: None,
                         rejected: Vec::new(),
-                        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                         proposer_id: sender.to_bytes(),
                     };
 
@@ -549,7 +546,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.data.block_header,
                     block_payload: None,
                     rejected: Vec::new(),
-                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                     proposer_id: sender.to_bytes(),
                 };
                 let leaf_commitment = leaf.commit();
@@ -1156,7 +1152,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 ),
                 block_payload: None,
                 rejected: vec![],
-                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: self.api.public_key().to_bytes(),
             };
 
