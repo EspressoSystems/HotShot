@@ -40,7 +40,7 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
         "logging-utils",
 ] }
 async-lock = "2.8"
-async-trait = "0.1.75"
+async-trait = "0.1.77"
 bincode = "1.3.3"
 bitvec = { version = "1.0.1", default-features = false, features = [
         "alloc",
@@ -54,7 +54,7 @@ digest = "0.10"
 either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
-futures = "0.3.29"
+futures = "0.3.30"
 
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
