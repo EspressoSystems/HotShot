@@ -40,7 +40,7 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
         "logging-utils",
 ] }
 async-lock = "2.8"
-async-trait = "0.1.75"
+async-trait = "0.1.77"
 bincode = "1.3.3"
 bitvec = { version = "1.0.1", default-features = false, features = [
         "alloc",
@@ -54,7 +54,7 @@ digest = "0.10"
 either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
-futures = "0.3.29"
+futures = "0.3.30"
 
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
@@ -72,9 +72,9 @@ rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.193", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.5" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
-tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.5" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
 time = "0.3.31"
 toml = "0.8.8"
 tracing = "0.1.40"
