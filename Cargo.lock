@@ -2722,7 +2722,7 @@ name = "hotshot"
 version = "0.3.3"
 dependencies = [
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bimap",
@@ -2779,7 +2779,7 @@ name = "hotshot-orchestrator"
 version = "0.1.1"
 dependencies = [
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bincode",
@@ -2906,7 +2906,7 @@ name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "atomic_enum",
@@ -2924,7 +2924,7 @@ name = "hotshot-task-impls"
 version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "atomic_enum",
@@ -2955,7 +2955,7 @@ dependencies = [
  "ark-bls12-381",
  "ark-serialize 0.3.0",
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bincode",
@@ -2997,7 +2997,7 @@ dependencies = [
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bincode",
@@ -3048,7 +3048,7 @@ version = "0.1.1"
 dependencies = [
  "ark-bls12-381",
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bincode",
@@ -4019,7 +4019,7 @@ name = "libp2p-networking"
 version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.2.0",
  "async-std",
  "async-trait",
  "bincode",
