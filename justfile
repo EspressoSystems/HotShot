@@ -136,4 +136,4 @@ lint_imports:
 
 gen_key_pair:
   echo Generating key pair from config file in config/
-  cargo test --package hotshot-testing --test gen_key_pair socapture
+  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture
