@@ -124,6 +124,20 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>hotshot_signature_key::bn254::BLSPubKey;
 <span class="kw">use </span>hotshot_types::traits::{
@@ -135,6 +149,9 @@
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
 <span class="kw">use </span>tracing::debug;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;randomized-leader-election&quot;</span>)]
+</span><span class="kw">use </span>rand::{Rng, rngs::StdRng};
 
 <span class="doccomment">/// Dummy implementation of [`Membership`]
 
@@ -182,9 +199,20 @@
         <span class="self">self</span>.committee_nodes_with_stake.clone()
     }
 
-    <span class="doccomment">/// Index the vector of public keys with the current view number
+    <span class="attr">#[cfg(not(feature = <span class="string">&quot;randomized-leader-election&quot;</span>))]
+    </span><span class="doccomment">/// Index the vector of public keys with the current view number
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
         <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes_with_stake.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
+        <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
+        TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;randomized-leader-election&quot;</span>)]
+    </span><span class="doccomment">/// Index the vector of public keys with a random number generated using the current view number as a seed
+    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
+        <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number <span class="kw">as </span>u64);
+        <span class="kw">let </span>randomized_view_number: u64 = rng.gen();
+        <span class="kw">let </span>index = (randomized_view_number % <span class="self">self</span>.nodes_with_stake.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
         <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
     }
