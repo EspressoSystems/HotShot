@@ -1,6 +1,6 @@
 //! Abstraction over on-disk storage of node state
 
-use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
+use super::node_implementation::NodeType;
 use crate::{
     data::Leaf, simple_certificate::QuorumCertificate, traits::BlockPayload, vote::HasViewNumber,
 };
@@ -134,7 +134,7 @@ pub struct StoredView<TYPES: NodeType> {
     pub rejected: Vec<TYPES::Transaction>,
     /// the proposer id
     #[derivative(PartialEq = "ignore")]
-    pub proposer_id: EncodedPublicKey,
+    pub proposer_id: TYPES::SignatureKey,
 }
 
 impl<TYPES> StoredView<TYPES>
@@ -151,7 +151,7 @@ where
         block_payload: Option<TYPES::BlockPayload>,
         parent_commitment: Commitment<Leaf<TYPES>>,
         rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
-        proposer_id: EncodedPublicKey,
+        proposer_id: TYPES::SignatureKey,
     ) -> Self {
         Self {
             view_number: qc.get_view_number(),
