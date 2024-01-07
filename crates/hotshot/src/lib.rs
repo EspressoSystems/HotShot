@@ -1,12 +1,3 @@
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    rust_2018_idioms,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
 // Temporary, should be disabled after the completion of the NodeImplementation refactor
