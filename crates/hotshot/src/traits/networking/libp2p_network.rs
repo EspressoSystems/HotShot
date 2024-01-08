@@ -78,6 +78,7 @@ pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 #[derive(Debug)]
 struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// this node's public key
+    /// NOTE: *not* threadsafe. Do not write to this.
     pk: K,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<()>>,
@@ -93,12 +94,15 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     node_lookup_send: UnboundedSender<Option<(ViewNumber, K)>>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
+    /// NOTE: *not* threadsafe. Do not write to this.
     bootstrap_addrs: PeerInfoVec,
     /// bootstrap
+    /// NOTE: *not* threadsafe. Do not write to this.
     bootstrap_addrs_len: usize,
     /// whether or not the network is ready to send
     is_ready: Arc<AtomicBool>,
     /// max time before dropping message due to DHT error
+    /// NOTE: *not* threadsafe. Do not write to this.
     dht_timeout: Duration,
     /// whether or not we've bootstrapped into the DHT yet
     is_bootstrapped: Arc<AtomicBool>,
@@ -113,9 +117,11 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// haven't made that atomic yet and we prefer lock-free
     latest_seen_view: Arc<AtomicU64>,
     /// if we're a member of the DA committee or not
+    /// NOTE: *not* threadsafe. Do not write to this.
     is_da: bool,
     /// whether or not to use all-to-all mode when communicating
-    _all_to_all: bool,
+    /// NOTE: *not* threadsafe. Do not write to this.
+    all_to_all: bool,
 }
 
 /// Networking implementation that uses libp2p
@@ -487,7 +493,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // network already. In the worst case, we send a few lookups we don't need.
                 latest_seen_view: Arc::new(AtomicU64::new(0)),
                 is_da,
-                _all_to_all: all_to_all,
+                all_to_all,
             }),
         };
 
@@ -852,33 +858,40 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             self.inner.handle.connected_pids().await
         );
 
-        let topic_map = self.inner.topic_map.read().await;
-        let topic = topic_map
-            .get_by_left(&recipients)
-            .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
-            })?
-            .clone();
-        info!("broadcasting to topic: {}", topic);
-
-        // gossip doesn't broadcast from itself, so special case
-        if recipients.contains(&self.inner.pk) {
-            // send to self
-            self.inner
-                .broadcast_send
-                .send(message.clone())
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-        }
-
-        match self.inner.handle.gossip(topic, &message).await {
-            Ok(()) => {
-                self.inner.metrics.outgoing_broadcast_message_count.add(1);
-                Ok(())
+        if self.inner.all_to_all {
+            for recipient in recipients {
+                self.direct_message(message.clone(), recipient).await?;
             }
-            Err(e) => {
-                self.inner.metrics.message_failed_to_send.add(1);
-                Err(e.into())
+            Ok(())
+        } else {
+            let topic_map = self.inner.topic_map.read().await;
+            let topic = topic_map
+                .get_by_left(&recipients)
+                .ok_or(NetworkError::Libp2p {
+                    source: NetworkNodeHandleError::NoSuchTopic,
+                })?
+                .clone();
+            info!("broadcasting to topic: {}", topic);
+
+            // gossip doesn't broadcast from itself, so special case
+            if recipients.contains(&self.inner.pk) {
+                // send to self
+                self.inner
+                    .broadcast_send
+                    .send(message.clone())
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?;
+            }
+
+            match self.inner.handle.gossip(topic, &message).await {
+                Ok(()) => {
+                    self.inner.metrics.outgoing_broadcast_message_count.add(1);
+                    Ok(())
+                }
+                Err(e) => {
+                    self.inner.metrics.message_failed_to_send.add(1);
+                    Err(e.into())
+                }
             }
         }
     }

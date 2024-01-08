@@ -28,8 +28,12 @@ test:
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
 test_catchup:
-  echo Testing with async std executor
+  echo Testing catchup
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+
+test_a2a:
+  echo Testing a2a network on libp2p
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast libp2p_network_all_to_all -- --test-threads=1 --nocapture
 
 test_crypto:
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture

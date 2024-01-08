@@ -67,7 +67,6 @@ async fn test_stress_libp2p_network() {
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-#[ignore]
 #[instrument]
 async fn libp2p_network_all_to_all() {
     async_compatibility_layer::logging::setup_logging();
