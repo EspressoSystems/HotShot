@@ -147,7 +147,7 @@ it, tagged with the nodes current prepareQC.
 ## Pipelined
 
 <p align="center">
-<img src="main.md/img/chained_hotstuff.svg" />
+<img src="./img/chained_hotstuff.svg" />
 </p>
 <p align="center"><i>Figure 2: Pipelined HotShot. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.</i></p>
 <br /><br />
