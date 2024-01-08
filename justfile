@@ -2,8 +2,8 @@ default: run_ci
 
 set export
 
-original_rustflags := env_var_or_default('RUSTFLAGS', '--cfg hotshot_example')
-original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_example')
+original_rustflags := env_var_or_default('RUSTFLAGS', '--cfg feature="hotshot_example"')
+original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg feature="hotshot_example"')
 
 run_ci: lint build test
 

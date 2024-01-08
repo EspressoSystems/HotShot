@@ -1,6 +1,6 @@
 #![cfg_attr(
     // hotshot_example option is set manually in justfile when running examples
-    not(any(test, debug_assertions, hotshot_example)),
+    not(any(test, debug_assertions, feature="hotshot_example")),
     deprecated = "suspicious usage of testing/demo implementations in non-test/non-debug build"
 )]
 
