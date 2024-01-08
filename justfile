@@ -133,4 +133,8 @@ gen_key_pair:
 
 test_randomized_leader_election:
   echo Testing
-  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test 
+  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+
+code_coverage:
+  echo "Running code coverage"
+  cargo-llvm-cov llvm-cov --lib --bins --tests --benches --release --workspace --lcov --output-path lcov.info -- --test-threads=1
