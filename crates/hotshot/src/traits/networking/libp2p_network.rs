@@ -730,7 +730,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
         'a: 'b,
         Self: 'b,
     {
-        self.recv_msgs(transmit_type)
+        self.0.recv_msgs(transmit_type)
     }
 
     #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
@@ -743,7 +743,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        self.inject_consensus_info(event).await;
+        self.0.inject_consensus_info(event).await;
     }
 }
 
@@ -789,7 +789,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
         'a: 'b,
         Self: 'b,
     {
-        self.recv_msgs(transmit_type)
+        self.0.recv_msgs(transmit_type)
     }
 
     #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
@@ -802,7 +802,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K>
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        self.inject_consensus_info(event).await;
+        self.0.inject_consensus_info(event).await;
     }
 }
 
