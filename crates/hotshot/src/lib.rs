@@ -19,7 +19,7 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
-/// Contains traits consumed by [`HotShot`]
+/// Contains traits consumed by [`SystemContext`]
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
@@ -245,6 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
+            saved_da_certs: HashMap::new(),
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
@@ -529,13 +530,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Get the [`hotstuff`] field of [`HotShot`].
+    /// Get access to [`Consensus`]
     #[must_use]
     pub fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES>>> {
         &self.inner.consensus
     }
 
-    /// Spawn all tasks that operate on [`HotShot`].
+    /// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
@@ -630,7 +631,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     }
 }
 
-/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
+/// A handle that exposes the interface that hotstuff needs to interact with a [`SystemContextInner`]
 #[derive(Clone, Debug)]
 pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]

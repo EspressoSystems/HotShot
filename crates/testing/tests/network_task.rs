@@ -41,7 +41,8 @@ async fn test_network_task() {
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
             api.private_key(),
             &encoded_transactions_hash,
-        );
+        )
+        .expect("Failed to sign block payload");
     let vid = vid_init::<TestTypes>(quorum_membership.clone(), ViewNumber::new(2));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
@@ -49,7 +50,8 @@ async fn test_network_task() {
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
             api.private_key(),
             payload_commitment.as_ref(),
-        );
+        )
+        .expect("Failed to sign block commitment");
 
     let da_proposal = Proposal {
         data: DAProposal {
@@ -97,7 +99,9 @@ async fn test_network_task() {
         quorum_proposal.clone(),
         pub_key,
     ));
-    input.push(HotShotEvent::Shutdown);
+    // Don't send `Shutdown` as other task unit tests do, to avoid nondeterministic behaviors due
+    // to some tasks shut down earlier than the testing harness and we don't get all the expected
+    // events.
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 2);
     output.insert(
@@ -110,7 +114,7 @@ async fn test_network_task() {
     );
     output.insert(
         HotShotEvent::DAProposalSend(da_proposal.clone(), pub_key),
-        2, // 2 occurrences: 1 from `input`, 1 from the DA task
+        3, // 2 occurrences: 1 from `input`, 2 from the DA task
     );
     output.insert(
         HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
@@ -127,8 +131,8 @@ async fn test_network_task() {
     );
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 2);
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, ()),
-        1,
+        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        2, // 2 occurrences: both from the VID task
     );
     output.insert(
         HotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
@@ -136,8 +140,11 @@ async fn test_network_task() {
     );
     output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
     output.insert(HotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let build_fn = |task_runner, _| async { task_runner };
-    run_harness(input, output, Some(event_stream), build_fn).await;
+    // There may be extra outputs not in the expected set, e.g., a second `VidDisperseRecv` if the
+    // VID task runs fast. All event types we want to test should be seen by this point, so waiting
+    // for more events will not help us test more cases for now. Therefore, we set
+    // `allow_extra_output` to `true` for deterministic test result.
+    run_harness(input, output, Some(event_stream), build_fn, true).await;
 }

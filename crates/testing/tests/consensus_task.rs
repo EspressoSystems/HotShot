@@ -1,9 +1,5 @@
 use commit::Committable;
-use hotshot::{
-    tasks::add_consensus_task,
-    types::{SignatureKey, SystemContextHandle},
-    HotShotConsensusApi,
-};
+use hotshot::{tasks::add_consensus_task, types::SystemContextHandle, HotShotConsensusApi};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
@@ -66,7 +62,7 @@ async fn build_vote(
         block_payload: None,
         rejected: Vec::new(),
         timestamp: 0,
-        proposer_id: membership.get_leader(view).to_bytes(),
+        proposer_id: membership.get_leader(view),
     };
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
         QuorumData {
@@ -75,7 +71,8 @@ async fn build_vote(
         view,
         api.public_key(),
         api.private_key(),
-    );
+    )
+    .expect("Failed to create quorum vote");
     GeneralConsensusMessage::<TestTypes>::Vote(vote)
 }
 
@@ -127,7 +124,7 @@ async fn test_consensus_task() {
         add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
     };
 
-    run_harness(input, output, None, build_fn).await;
+    run_harness(input, output, None, build_fn, false).await;
 }
 
 #[cfg(test)]
@@ -177,5 +174,5 @@ async fn test_consensus_vote() {
         add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
     };
 
-    run_harness(input, output, None, build_fn).await;
+    run_harness(input, output, None, build_fn, false).await;
 }
