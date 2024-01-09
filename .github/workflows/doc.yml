@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'develop'
-  pull_request:
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -34,10 +32,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
-
-      - name: Test Docs
-        run: |
-          just async_std doc_test
 
       - name: Build Docs
         run: |

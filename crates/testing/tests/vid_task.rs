@@ -43,8 +43,7 @@ async fn test_vid_task() {
     let payload_commitment = vid_disperse.commit;
 
     let signature =
-        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), payload_commitment.as_ref())
-            .expect("Failed to sign block payload!");
+        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), payload_commitment.as_ref());
     let proposal: DAProposal<TestTypes> = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: (),

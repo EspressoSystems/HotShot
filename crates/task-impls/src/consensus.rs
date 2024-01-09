@@ -133,8 +133,8 @@ pub struct ConsensusTaskState<
     /// All the VID shares we've received for current and future views.
     /// In the future we will need a different struct similar to VidDisperse except
     /// it stores only one share.
-    /// TODO <https://github.com/EspressoSystems/HotShot/issues/2146>
-    /// TODO <https://github.com/EspressoSystems/HotShot/issues/1732>
+    /// TODO https://github.com/EspressoSystems/HotShot/issues/2146
+    /// TODO https://github.com/EspressoSystems/HotShot/issues/1732
     pub vid_shares: HashMap<TYPES::Time, Proposal<TYPES, VidDisperse<TYPES>>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
@@ -220,19 +220,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.block_header.clone(),
                     block_payload: None,
                     rejected: Vec::new(),
-                    proposer_id: self.quorum_membership.get_leader(view),
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: self.quorum_membership.get_leader(view).to_bytes(),
                 };
-                let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
+                let vote = QuorumVote::<TYPES>::create_signed_vote(
                     QuorumData {
                         leaf_commit: leaf.commit(),
                     },
                     view,
                     &self.public_key,
                     &self.private_key,
-                ) else {
-                    error!("Failed to sign QuorumData!");
-                    return false;
-                };
+                );
 
                 let message = GeneralConsensusMessage::<TYPES>::Vote(vote);
 
@@ -306,7 +304,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.block_header.clone(),
                     block_payload: None,
                     rejected: Vec::new(),
-                    proposer_id: self.quorum_membership.get_leader(view),
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: self.quorum_membership.get_leader(view).to_bytes(),
                 };
 
                 // Validate the DAC.
@@ -319,19 +318,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         error!("Block payload commitment does not equal da cert payload commitment. View = {}", *view);
                         return false;
                     }
-                    if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
+                    let vote = QuorumVote::<TYPES>::create_signed_vote(
                         QuorumData {
                             leaf_commit: leaf.commit(),
                         },
                         view,
                         &self.public_key,
                         &self.private_key,
-                    ) {
-                        GeneralConsensusMessage::<TYPES>::Vote(vote)
-                    } else {
-                        error!("Unable to sign quorum vote!");
-                        return false;
-                    }
+                    );
+                    GeneralConsensusMessage::<TYPES>::Vote(vote)
                 } else {
                     error!(
                         "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
@@ -373,13 +368,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 "Updating view from {} to {} in consensus task",
                 *self.cur_view, *new_view
             );
-
-            if *self.cur_view / 100 != *new_view / 100 {
-                // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
-                // switch to info! when INFO logs become less cluttered
-                error!("Progress: entered view {:>6}", *new_view);
-            }
-
             // cancel the old timeout task
             if let Some(timeout_task) = self.timeout_task.take() {
                 cancel_task(timeout_task).await;
@@ -536,7 +524,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         block_header: proposal.data.block_header,
                         block_payload: None,
                         rejected: Vec::new(),
-                        proposer_id: sender,
+                        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                        proposer_id: sender.to_bytes(),
                     };
 
                     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
@@ -560,7 +549,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     block_header: proposal.data.block_header,
                     block_payload: None,
                     rejected: Vec::new(),
-                    proposer_id: sender,
+                    timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    proposer_id: sender.to_bytes(),
                 };
                 let leaf_commitment = leaf.commit();
 
@@ -1034,15 +1024,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
                     .await;
 
-                let Ok(vote) = TimeoutVote::create_signed_vote(
+                let vote = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
                     view,
                     &self.public_key,
                     &self.private_key,
-                ) else {
-                    error!("Failed to sign TimeoutData!");
-                    return;
-                };
+                );
 
                 self.event_stream
                     .publish(HotShotEvent::TimeoutVoteSend(vote))
@@ -1169,15 +1156,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 ),
                 block_payload: None,
                 rejected: vec![],
-                proposer_id: self.api.public_key().clone(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: self.api.public_key().to_bytes(),
             };
 
-            let Ok(signature) =
-                TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref())
-            else {
-                error!("Failed to sign leaf.commit()!");
-                return false;
-            };
+            let signature = TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref());
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
                 block_header: leaf.block_header.clone(),

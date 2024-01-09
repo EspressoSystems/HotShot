@@ -13,8 +13,7 @@ use async_trait::async_trait;
 
 use std::{num::NonZeroUsize, time::Duration};
 
-/// The API that tasks use to talk to the system
-/// TODO we plan to drop this <https://github.com/EspressoSystems/HotShot/issues/2294>
+/// The API that [`HotStuff`] needs to talk to the system
 #[async_trait]
 pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.

@@ -5,7 +5,9 @@ pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
     },
-    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
+    handle::{
+        network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+    },
 };
 
 use super::{

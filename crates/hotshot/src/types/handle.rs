@@ -1,4 +1,4 @@
-//! Provides an event-streaming handle for a [`SystemContext`] running in the background
+//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
@@ -33,14 +33,17 @@ use tracing::error;
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// The [sender](ChannelStream) for the output stream from the background process
+    /// The [sender](BroadcastSender) for the output stream from the background process
+    ///
+    /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
+    /// method is needed to generate new receivers to expose to the user
     pub(crate) output_event_stream: ChannelStream<Event<TYPES>>,
     /// access to the internal ev ent stream, in case we need to, say, shut something down
     pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
     /// registry for controlling tasks
     pub(crate) registry: GlobalRegistry,
 
-    /// Internal reference to the underlying [`SystemContext`]
+    /// Internal reference to the underlying [`HotShot`]
     pub hotshot: SystemContext<TYPES, I>,
 
     /// Our copy of the `Storage` view for a hotshot
@@ -93,7 +96,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.internal_event_stream.subscribe(filter).await
     }
 
-    /// Gets the current committed state of the [`SystemContext`] instance
+    /// Gets the current committed state of the [`HotShot`] instance
     ///
     /// # Errors
     ///
@@ -110,7 +113,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.get_decided_leaf().await
     }
 
-    /// Submits a transaction to the backing [`SystemContext`] instance.
+    /// Submits a transaction to the backing [`HotShot`] instance.
     ///
     /// The current node broadcasts the transaction to all nodes on the network.
     ///

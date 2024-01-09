@@ -114,7 +114,7 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// let (tx, _rx): (TaskChannel<MyKey>, _) = tokio::sync::mpsc::unbounded_channel();
 /// ```
 ///
@@ -130,9 +130,9 @@ type TaskChannel<K> = UnboundedSender<ConsensusIntentEvent<K>>;
 ///
 /// # Examples
 ///
-/// ```ignore
-/// # use crate::TaskMap;
-/// let mut map: TaskMap<u64> = TaskMap::default();
+/// ```
+/// use your_crate::TaskMap;
+/// let mut map: TaskMap<MyKey> = TaskMap::default();
 /// ```
 ///
 /// # Note
@@ -160,10 +160,9 @@ impl<K: SignatureKey> TaskMap<K> {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// # use crate::TaskMap;
-    /// let mut map: TaskMap<u64> = TaskMap::default();
-    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal(5)).await;
+    /// ```
+    /// let mut map: TaskMap<MyKey> = TaskMap::default();
+    /// map.prune_tasks(10, ConsensusIntentEvent::CancelPollForProposal).await;
     /// ```
     async fn prune_tasks(
         &mut self,

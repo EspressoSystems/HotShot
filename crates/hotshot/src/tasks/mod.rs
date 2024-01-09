@@ -1,4 +1,4 @@
-//! Provides a number of tasks that run continuously
+//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{types::SystemContextHandle, HotShotConsensusApi};
 use async_compatibility_layer::art::async_sleep;

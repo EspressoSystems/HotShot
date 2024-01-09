@@ -19,7 +19,7 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
-/// Contains traits consumed by [`SystemContext`]
+/// Contains traits consumed by [`HotShot`]
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
@@ -530,13 +530,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Get access to [`Consensus`]
+    /// Get the [`hotstuff`] field of [`HotShot`].
     #[must_use]
     pub fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES>>> {
         &self.inner.consensus
     }
 
-    /// Spawn all tasks that operate on [`SystemContextHandle`].
+    /// Spawn all tasks that operate on [`HotShot`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
@@ -631,7 +631,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     }
 }
 
-/// A handle that exposes the interface that hotstuff needs to interact with a [`SystemContextInner`]
+/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone, Debug)]
 pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`SystemContextInner`]

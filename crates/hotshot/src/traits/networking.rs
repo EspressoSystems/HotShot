@@ -17,7 +17,8 @@ use std::{
 use custom_debug::Debug;
 use hotshot_types::traits::metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics};
 pub use hotshot_types::traits::network::{
-    FailedToSerializeSnafu, NetworkError, NetworkReliability,
+    ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+    NetworkError, NetworkReliability, NoSuchNodeSnafu, ShutDownSnafu,
 };
 
 /// Contains several `NetworkingMetrics` that we're interested in from the networking interfaces

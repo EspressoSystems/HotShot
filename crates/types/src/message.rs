@@ -11,7 +11,6 @@ use crate::simple_certificate::{
 use crate::simple_vote::{
     DAVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitVote,
 };
-use crate::traits::signature_key::SignatureKey;
 use crate::vote::HasViewNumber;
 use crate::{
     data::{DAProposal, VidDisperse},
@@ -19,6 +18,7 @@ use crate::{
     traits::{
         network::{NetworkMsg, ViewMessage},
         node_implementation::NodeType,
+        signature_key::EncodedSignature,
     },
 };
 
@@ -95,7 +95,7 @@ pub enum MessageKind<TYPES: NodeType> {
 impl<TYPES: NodeType> MessageKind<TYPES> {
     // Can't implement `From<I::ConsensusMessage>` directly due to potential conflict with
     // `From<DataMessage>`.
-    /// Construct a [`MessageKind`] from [`SequencingMessage`].
+    /// Construct a [`MessageKind`] from [`I::ConsensusMessage`].
     pub fn from_consensus_message(m: SequencingMessage<TYPES>) -> Self {
         Self::Consensus(m)
     }
@@ -435,7 +435,7 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     /// The data being proposed.
     pub data: PROPOSAL,
     /// The proposal must be signed by the view leader
-    pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    pub signature: EncodedSignature,
     /// Phantom for TYPES
     pub _pd: PhantomData<TYPES>,
 }

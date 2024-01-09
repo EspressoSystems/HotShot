@@ -413,7 +413,7 @@ pub trait RunDA<
                             block_size,
                         } => {
                             // this might be a obob
-                            if let Some(leaf) = leaf_chain.first() {
+                            if let Some(leaf) = leaf_chain.get(0) {
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;

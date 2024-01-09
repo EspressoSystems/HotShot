@@ -143,7 +143,7 @@ impl<T: Stream> Stream for MergeN<T> {
 // for usage with `MessageStream`
 // TODO move this to async-compatibility-layer
 #[pin_project]
-/// Stream type that merges two underlying streams
+/// Stream returned by the [`merge`](super::StreamExt::merge) method.
 pub struct Merge<T, U> {
     /// first stream to merge
     #[pin]

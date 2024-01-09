@@ -1,5 +1,9 @@
 use commit::Committable;
-use hotshot::{tasks::add_consensus_task, types::SystemContextHandle, HotShotConsensusApi};
+use hotshot::{
+    tasks::add_consensus_task,
+    types::{SignatureKey, SystemContextHandle},
+    HotShotConsensusApi,
+};
 use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
@@ -61,7 +65,8 @@ async fn build_vote(
         block_header: proposal.block_header,
         block_payload: None,
         rejected: Vec::new(),
-        proposer_id: membership.get_leader(view),
+        timestamp: 0,
+        proposer_id: membership.get_leader(view).to_bytes(),
     };
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
         QuorumData {
@@ -70,8 +75,7 @@ async fn build_vote(
         view,
         api.public_key(),
         api.private_key(),
-    )
-    .expect("Failed to create quorum vote");
+    );
     GeneralConsensusMessage::<TestTypes>::Vote(vote)
 }
 

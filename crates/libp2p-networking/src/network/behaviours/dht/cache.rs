@@ -65,7 +65,7 @@ pub struct Cache {
     config: Config,
 
     /// the cache for records (key -> value)
-    inner: Arc<DashMap<Vec<u8>, Vec<u8>>>,
+    cache: Arc<DashMap<Vec<u8>, Vec<u8>>>,
     /// the expiries for the dht cache, in order (expiry time -> key)
     expiries: Arc<RwLock<BTreeMap<SystemTime, Vec<u8>>>>,
 
@@ -76,7 +76,7 @@ pub struct Cache {
 impl Cache {
     pub async fn new(config: Config) -> Self {
         let cache = Self {
-            inner: Arc::new(DashMap::new()),
+            cache: Arc::new(DashMap::new()),
             expiries: Arc::new(RwLock::new(BTreeMap::new())),
             config,
             disk_parity_delta: Arc::new(AtomicU32::new(0)),
@@ -102,7 +102,7 @@ impl Cache {
             let now = SystemTime::now();
             for (expiry, (key, value)) in cache {
                 if now < expiry {
-                    self.inner.insert(key.clone(), value);
+                    self.cache.insert(key.clone(), value);
                     self.expiries.write().await.insert(expiry, key);
                 }
             }
@@ -120,7 +120,7 @@ impl Cache {
             let mut cache_to_write = HashMap::new();
             let expiries = self.expiries.read().await;
             for (expiry, key) in &*expiries {
-                if let Some(entry) = self.inner.get(key) {
+                if let Some(entry) = self.cache.get(key) {
                     cache_to_write.insert(expiry, (key, entry.value().clone()));
                 } else {
                     tracing::warn!("key not found in cache: {:?}", key);
@@ -149,7 +149,7 @@ impl Cache {
 
         while let Some((expires, key)) = expiries.pop_first() {
             if now > expires {
-                self.inner.remove(&key);
+                self.cache.remove(&key);
                 removed += 1;
             } else {
                 expiries.insert(expires, key);
@@ -168,12 +168,12 @@ impl Cache {
         self.save_if_necessary().await;
 
         // get
-        self.inner.get(key)
+        self.cache.get(key)
     }
 
     pub async fn insert(&self, key: Vec<u8>, value: Vec<u8>) {
         // insert into cache and expiries
-        self.inner.insert(key.clone(), value);
+        self.cache.insert(key.clone(), value);
         self.expiries
             .write()
             .await
@@ -241,7 +241,7 @@ mod test {
 
         // check that the cache and expiries are empty
         assert!(cache.expiries.read().await.is_empty());
-        assert!(cache.inner.is_empty());
+        assert!(cache.cache.is_empty());
     }
 
     /// cache add test

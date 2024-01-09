@@ -105,10 +105,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     LeafDecided(Vec<Leaf<TYPES>>),
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
-    /// Like [`HotShotEvent::DAProposalSend`].
+    /// Like [`DAProposalSend`].
     VidDisperseSend(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
-    /// Like [`HotShotEvent::DAProposalRecv`].
+    /// Like [`DAProposalRecv`].
     VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
 }

@@ -22,7 +22,7 @@ struct MemoryStorageInternal<TYPES: NodeType> {
     failed: BTreeSet<TYPES::Time>,
 }
 
-/// In memory, ephemeral, storage for a [`SystemContext`](crate::SystemContext) instance
+/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 #[derive(Clone)]
 pub struct MemoryStorage<TYPES: NodeType> {
     /// The inner state of this [`MemoryStorage`]
@@ -115,11 +115,9 @@ mod test {
         node_types::TestTypes,
     };
     use hotshot_types::{
-        data::{fake_commitment, Leaf},
+        data::{fake_commitment, genesis_proposer_id, Leaf},
         simple_certificate::QuorumCertificate,
-        traits::{
-            node_implementation::NodeType, signature_key::SignatureKey, state::ConsensusTime,
-        },
+        traits::{node_implementation::NodeType, state::ConsensusTime},
     };
     use std::marker::PhantomData;
     use tracing::instrument;
@@ -148,7 +146,7 @@ mod test {
             Some(payload),
             dummy_leaf_commit,
             Vec::new(),
-            <<TestTypes as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
+            genesis_proposer_id(),
         )
     }
 

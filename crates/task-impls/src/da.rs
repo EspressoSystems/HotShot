@@ -149,17 +149,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
                 // Generate and send vote
-                let Ok(vote) = DAVote::create_signed_vote(
+                let vote = DAVote::create_signed_vote(
                     DAData {
                         payload_commit: payload_commitment,
                     },
                     view,
                     &self.public_key,
                     &self.private_key,
-                ) else {
-                    error!("Failed to sign DA Vote!");
-                    return None;
-                };
+                );
 
                 // ED Don't think this is necessary?
                 // self.cur_view = view;
@@ -278,13 +275,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
                 // sign the encoded transactions as opposed to the VID commitment
-                let Ok(signature) =
-                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
-                else {
-                    error!("Failed to sign block payload!");
-                    return None;
-                };
-
+                let signature =
+                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash);
                 let data: DAProposal<TYPES> = DAProposal {
                     encoded_transactions,
                     metadata: metadata.clone(),
