@@ -9,11 +9,11 @@ run_ci: lint build test
 
 @tokio target *ARGS:
   echo setting executor to tokio
-  export RUSTDOCFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustflags}}' && just {{target}} {{ARGS}}
+  export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 @async_std target *ARGS:
   echo setting executor to async-std
-  export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
+  export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
@@ -33,14 +33,14 @@ test_catchup:
 
 test_crypto:
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
-  
+
 test_success:
   echo Testing success test
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_timeout:
   echo Testing timeout test
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture 
+  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
 
 test_combined_network:
   echo Testing combined network
@@ -129,4 +129,8 @@ lint_imports:
 
 gen_key_pair:
   echo Generating key pair from config file in config/
-  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture 
+  cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture
+
+test_randomized_leader_election:
+  echo Testing
+  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test 
