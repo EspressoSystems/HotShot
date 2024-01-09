@@ -137,3 +137,7 @@ lint_imports:
 gen_key_pair:
   echo Generating key pair from config file in config/
   cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture
+
+test_randomized_leader_election:
+  echo Testing
+  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
