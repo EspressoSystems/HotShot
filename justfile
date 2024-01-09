@@ -24,9 +24,9 @@ build_release:
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
-test:
-  echo Testing
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+test *ARGS:
+  echo Testing {{ARGS}}
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
