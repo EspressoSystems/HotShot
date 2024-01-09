@@ -123,9 +123,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// [`SystemContext`] instance.
     pub async fn submit_transaction(
         &self,
-        tx: TYPES::Transaction,
+        _tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
-        self.hotshot.publish_transaction_async(tx).await
+        Err(HotShotError::InvalidState {
+            context: "Oh no".to_owned(),
+        })
     }
 
     /// performs the genesis initializaiton
