@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hotshot_testing":[["impl <a class=\"trait\" href=\"hotshot_types/traits/node_implementation/trait.NodeType.html\" title=\"trait hotshot_types::traits::node_implementation::NodeType\">NodeType</a> for <a class=\"struct\" href=\"hotshot_testing/node_types/struct.TestTypes.html\" title=\"struct hotshot_testing::node_types::TestTypes\">TestTypes</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
