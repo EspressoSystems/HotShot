@@ -45,7 +45,7 @@
 
 # Owner of updating dependencies
 # This owner is updated on a monthly basis
-*.lock @rob-maron
-**/Cargo.toml @rob-maron
-Cargo.toml @rob-maron
-flake.nix @rob-maron
+*.lock @shenkeyao
+**/Cargo.toml @shenkeyao
+Cargo.toml @shenkeyao
+flake.nix @shenkeyao
