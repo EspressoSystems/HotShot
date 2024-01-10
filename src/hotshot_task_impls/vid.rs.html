@@ -192,8 +192,20 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+</span><span class="kw">use </span>async_std::task::spawn_blocking;
 <span class="kw">use </span>hotshot_task::{
     event_stream::ChannelStream,
     global_registry::GlobalRegistry,
@@ -216,6 +228,8 @@
     data::{test_srs, VidScheme, VidSchemeTrait},
     traits::network::ConsensusIntentEvent,
 };
+<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+</span><span class="kw">use </span>tokio::task::spawn_blocking;
 
 <span class="kw">use </span>hotshot_task::event_stream::EventStream;
 <span class="kw">use </span>snafu::Snafu;
@@ -284,9 +298,15 @@
                 </span><span class="kw">let </span>chunk_size = <span class="number">1 </span>&lt;&lt; num_quorum_committee.ilog2();
 
                 <span class="comment">// calculate vid shares
-                </span><span class="kw">let </span>vid = VidScheme::new(chunk_size, num_quorum_committee, <span class="kw-2">&amp;</span>srs).unwrap();
-                <span class="kw">let </span>vid_disperse = vid.disperse(encoded_transactions.clone()).unwrap();
+                </span><span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
+                    <span class="kw">let </span>vid = VidScheme::new(chunk_size, num_quorum_committee, <span class="kw-2">&amp;</span>srs).unwrap();
+                    vid.disperse(encoded_transactions.clone()).unwrap()
+                })
+                .<span class="kw">await</span>;
 
+                <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+                </span><span class="comment">// Unwrap here will just propogate any panic from the spawned task, it&#39;s not a new place we can panic.
+                </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span><span class="self">self</span>.event_stream
                     .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
