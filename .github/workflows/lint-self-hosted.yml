@@ -1,4 +1,4 @@
-name: Build, Lint, and Test (self-hosted)
+name: Lint (self-hosted)
 
 on:
   push:
@@ -31,12 +31,6 @@ jobs:
         with:
           prefix-key: ${{ matrix.just_variants }}
 
-      - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build
-
-      - name: Unit and integration tests for all crates in workspace
+      - name: Run linting
         run: |
-          just ${{ matrix.just_variants }} test
-        timeout-minutes: 60
-        env:
-          RUST_BACKTRACE: full
+          just ${{ matrix.just_variants }} lint

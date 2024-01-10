@@ -1,7 +1,7 @@
 name: Internal - Basic Issue
 description: Create an internal HotShot issue
 title: "[<MACRO_TASK_SHORT_NAME>] - Short Task Description "
-labels: ["sprint6"]
+labels: ["cappuccino", "cappuccino-sprint1"]
 projects: ["EspressoSystems/20", "EspressoSystems/32"]
 body:
   - type: markdown
