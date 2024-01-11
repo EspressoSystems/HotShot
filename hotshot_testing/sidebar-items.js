@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GlobalTestEvent","ShutDownReason"],"mod":["block_types","completion_task","node_types","overall_safety_task","spinning_task","state_types","task_helpers","test_builder","test_launcher","test_runner","txn_task"],"type":["TestTask"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalTestEvent","ShutDownReason"],"mod":["block_types","completion_task","node_types","overall_safety_task","spinning_task","state_types","task_helpers","test_builder","test_launcher","test_runner","txn_task","view_sync_task"],"type":["TestTask"]};

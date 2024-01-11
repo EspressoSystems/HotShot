@@ -149,11 +149,11 @@
 
 <span class="doccomment">/// the idea here is to run as long as we want
 
-/// Data Availability task error
+/// Completion Task error
 </span><span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>CompletionTaskErr {}
 
-<span class="doccomment">/// Data availability task state
+<span class="doccomment">/// Completion task state
 </span><span class="kw">pub struct </span>CompletionTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) test_event_stream: ChannelStream&lt;GlobalTestEvent&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,

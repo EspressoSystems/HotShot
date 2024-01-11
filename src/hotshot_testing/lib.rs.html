@@ -53,6 +53,9 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(
     <span class="comment">// hotshot_example option is set manually in justfile when running examples
     </span>not(any(test, debug_assertions, hotshot_example)),
@@ -84,6 +87,9 @@
 
 <span class="doccomment">/// task to spin nodes up and down
 </span><span class="kw">pub mod </span>spinning_task;
+
+<span class="doccomment">/// task for checking if view sync got activated
+</span><span class="kw">pub mod </span>view_sync_task;
 
 <span class="doccomment">/// block types
 </span><span class="kw">pub mod </span>block_types;

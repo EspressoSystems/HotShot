@@ -273,6 +273,21 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
@@ -281,6 +296,7 @@
 <span class="kw">use crate</span>::{
     spinning_task::{ChangeNode, UpDown},
     test_launcher::{Networks, TestLauncher},
+    view_sync_task::ViewSyncTask,
 };
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
 
@@ -420,6 +436,20 @@
         )
         .<span class="kw">await</span>;
         task_runner = task_runner.add_task(id, <span class="string">&quot;Test Overall Safety Task&quot;</span>.to_string(), task);
+
+        <span class="comment">// add view sync task
+        </span><span class="kw">let </span>view_sync_task_state = ViewSyncTask {
+            handles: nodes.clone(),
+            hit_view_sync: HashSet::new(),
+        };
+
+        <span class="kw">let </span>(id, task) = (launcher.view_sync_task_generator)(
+            view_sync_task_state,
+            registry.clone(),
+            test_event_stream.clone(),
+        )
+        .<span class="kw">await</span>;
+        task_runner = task_runner.add_task(id, <span class="string">&quot;View Sync Task&quot;</span>.to_string(), task);
 
         <span class="comment">// wait for networks to be ready
         </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>nodes {

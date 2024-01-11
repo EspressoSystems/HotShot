@@ -283,6 +283,20 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -298,6 +312,7 @@
 <span class="kw">use crate</span>::{
     spinning_task::SpinningTaskDescription,
     test_launcher::{ResourceGenerators, TestLauncher},
+    view_sync_task::ViewSyncTaskDescription,
 };
 
 <span class="kw">use super</span>::{
@@ -343,6 +358,8 @@
     </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// timing data
     </span><span class="kw">pub </span>timing_data: TimingData,
+    <span class="doccomment">/// view sync check task
+    </span><span class="kw">pub </span>view_sync_properties: ViewSyncTaskDescription,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
@@ -360,10 +377,11 @@
 
 <span class="kw">impl </span>TestMetadata {
     <span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>num_nodes = <span class="number">100</span>;
         TestMetadata {
             num_bootstrap_nodes: <span class="number">15</span>,
-            total_nodes: <span class="number">100</span>,
-            start_nodes: <span class="number">100</span>,
+            total_nodes: num_nodes,
+            start_nodes: num_nodes,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">50</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -380,14 +398,16 @@
                 round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
             ..TestMetadata::default()
         }
     }
 
     <span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
+        <span class="kw">let </span>num_nodes = <span class="number">10</span>;
         TestMetadata {
-            total_nodes: <span class="number">10</span>,
-            start_nodes: <span class="number">10</span>,
+            total_nodes: num_nodes,
+            start_nodes: num_nodes,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">20</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -402,15 +422,17 @@
                 round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
             ..TestMetadata::default()
         }
     }
 
     <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
     </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestMetadata {
+        <span class="kw">let </span>num_nodes = <span class="number">20</span>;
         TestMetadata {
-            total_nodes: <span class="number">20</span>,
-            start_nodes: <span class="number">20</span>,
+            total_nodes: num_nodes,
+            start_nodes: num_nodes,
             num_bootstrap_nodes: <span class="number">20</span>,
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
@@ -431,6 +453,7 @@
                 next_view_timeout: <span class="number">5000</span>,
                 ..TimingData::default()
             },
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
             ..TestMetadata::default()
         }
     }
@@ -439,11 +462,12 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>TestMetadata {
     <span class="doccomment">/// by default, just a single round
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>num_nodes = <span class="number">5</span>;
         <span class="self">Self </span>{
             timing_data: TimingData::default(),
             min_transactions: <span class="number">0</span>,
-            total_nodes: <span class="number">5</span>,
-            start_nodes: <span class="number">5</span>,
+            total_nodes: num_nodes,
+            start_nodes: num_nodes,
             num_bootstrap_nodes: <span class="number">5</span>,
             da_committee_size: <span class="number">5</span>,
             spinning_properties: SpinningTaskDescription {
@@ -458,6 +482,7 @@
                     </span>duration: Duration::from_millis(<span class="number">10000</span>),
                 },
             ),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
         }
     }
 }
@@ -480,6 +505,7 @@
             completion_task_description,
             overall_safety_properties,
             spinning_properties,
+            view_sync_properties,
             ..
         } = <span class="self">self</span>.clone();
 
@@ -548,6 +574,7 @@
         <span class="kw">let </span>completion_task_generator = completion_task_description.build_and_launch();
         <span class="kw">let </span>overall_safety_task_generator = overall_safety_properties.build();
         <span class="kw">let </span>spinning_task_generator = spinning_properties.build();
+        <span class="kw">let </span>view_sync_task_generator = view_sync_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: &lt;I <span class="kw">as </span>TestableNodeImplementation&lt;TYPES&gt;&gt;::gen_comm_channels(
@@ -563,6 +590,7 @@
             overall_safety_task_generator,
             completion_task_generator,
             spinning_task_generator,
+            view_sync_task_generator,
             hooks: <span class="macro">vec!</span>[],
         }
         .modify_default_config(mod_config)

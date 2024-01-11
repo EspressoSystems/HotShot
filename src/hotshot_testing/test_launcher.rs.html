@@ -161,6 +161,19 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
@@ -173,7 +186,7 @@
 };
 <span class="kw">use </span>hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
 
-<span class="kw">use </span><span class="kw">crate</span>::spinning_task::SpinningTask;
+<span class="kw">use crate</span>::{spinning_task::SpinningTask, view_sync_task::ViewSyncTask};
 
 <span class="kw">use super</span>::{
     completion_task::CompletionTask, overall_safety_task::OverallSafetyTask,
@@ -234,10 +247,12 @@
     </span><span class="kw">pub </span>completion_task_generator: TaskGenerator&lt;CompletionTask&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// overall safety task generator
     </span><span class="kw">pub </span>overall_safety_task_generator: TaskGenerator&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt;,
-
-    <span class="kw">pub </span>spinning_task_generator: TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;,
-
-    <span class="kw">pub </span>hooks: Vec&lt;Hook&gt;,
+    <span class="doccomment">/// task for spinning nodes up/down
+    </span><span class="kw">pub </span>spinning_task_generator: TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// task for view sync
+    </span><span class="kw">pub </span>view_sync_task_generator: TaskGenerator&lt;ViewSyncTask&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// extra hooks in case we want to check additional things
+    </span><span class="kw">pub </span>hooks: Vec&lt;Hook&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
@@ -292,6 +307,17 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             txn_task_generator,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// override the view sync task generator
+    </span><span class="kw">pub fn </span>with_view_sync_task_generator(
+        <span class="self">self</span>,
+        view_sync_task_generator: TaskGenerator&lt;ViewSyncTask&lt;TYPES, I&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            view_sync_task_generator,
             ..<span class="self">self
         </span>}
     }
