@@ -141,9 +141,9 @@ dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.16" }
 derive_more = "0.99.17"
 portpicker = "0.1.1"
 lru = "0.12.1"
-client = { path = "../../../cdn2/client" }
-common = { path = "../../../cdn2/common" }
-server = { path = "../../../cdn2/server" }
+client = { path = "../../../cdn/client" }
+common = { path = "../../../cdn/common" }
+server = { path = "../../../cdn/server" }
 ark-serialize = "0.4.2"
 
 tracing = { workspace = true }
