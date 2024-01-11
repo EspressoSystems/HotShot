@@ -19,7 +19,7 @@ build:
   cargo build --workspace --bins --tests --lib --benches --release
 
 build_release:
-  cargo build --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="demo, docs, doc-images"
+  cargo build --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
