@@ -29,54 +29,54 @@ test_basic: test_success test_with_failures test_network_task test_consensus_tas
 
 test_catchup:
   echo Testing with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
 
 test_crypto:
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
 
 test_success:
   echo Testing success test
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_timeout:
   echo Testing timeout test
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
 
 test_combined_network:
   echo Testing combined network
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing web server
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
 
 test_memory_network:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
 
 test_consensus_task:
   echo Testing with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_vid_task:
   echo Testing the VID task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
 
 test_view_sync_task:
   echo Testing the view sync task with async std executor
-  ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
+  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
@@ -130,3 +130,7 @@ lint_imports:
 gen_key_pair:
   echo Generating key pair from config file in config/
   cargo test --package hotshot-testing --test gen_key_pair -- tests --nocapture
+
+test_randomized_leader_election:
+  echo Testing
+  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test 
