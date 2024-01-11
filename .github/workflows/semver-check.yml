@@ -1,0 +1,63 @@
+name: Run semver check
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Baseline git revision to check against"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-sequencer:
+    runs-on: ubuntu-latest
+    name: semver
+    strategy:
+      matrix:
+        async_runtimes:
+          - async-std
+          - tokio
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+        with:
+          path: current
+
+      - uses: actions/checkout@v4
+        name: Checkout Baseline
+        with:
+          path: baseline
+          ref: ${{ inputs.baseline }}
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: semver
+          workspaces: "current -> target"
+
+      - name: Install cargo-semver-checks and cargo-workspaces
+        run: |
+          cargo install cargo-semver-checks --locked
+          cargo install cargo-workspaces
+
+      - name: Run cargo-semver-checks
+        run: |
+          cd current
+          export RUSTFLAGS='--cfg async_executor_impl="${{matrix.async_runtimes}}" --cfg async_channel_impl="${{matrix.async_runtimes}}"'
+          export RUSTDOCFLAGS="${RUSTFLAGS}"
+          # Checking each crate manually, because cargo-semver-checks
+          # exits early if it fails to check one of the crates
+          while IFS= read -r crate; do
+            cargo semver-checks \
+              --package "${crate}" \
+              --baseline-root ../baseline || true
+          done < <(cargo workspaces list)
+
