@@ -16,7 +16,6 @@ use hotshot_types::{
     data::ViewNumber,
     message::{Message, MessageKind},
     traits::{
-        election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
             NetworkError, NetworkMsg, TestableChannelImplementation,
@@ -33,8 +32,7 @@ use libp2p_networking::{
     network::{
         MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
     },
     reexport::Multiaddr,
 };
@@ -84,7 +82,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// map of known replica peer ids to public keys
     broadcast_recv: UnboundedReceiver<M>,
     /// Sender for broadcast messages
-    broadcast_send: UnboundedSender<M>,
+    _broadcast_send: UnboundedSender<M>,
     /// Sender for direct messages (only used for sending messages back to oneself)
     direct_send: UnboundedSender<M>,
     /// Receiver for direct messages
@@ -107,7 +105,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// topic map
     /// hash(hashset) -> topic
     /// btreemap ordered so is hashable
-    topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
+    _topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
     /// the latest view number (for node lookup purposes)
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
@@ -337,7 +335,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 direct_send: direct_send.clone(),
                 direct_recv,
                 pk,
-                broadcast_send: broadcast_send.clone(),
+                _broadcast_send: broadcast_send.clone(),
                 bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(false)),
@@ -346,7 +344,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 dht_timeout: Duration::from_secs(1),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
-                topic_map,
+                _topic_map: topic_map,
                 node_lookup_send,
                 // Start the latest view from 0. "Latest" refers to "most recent view we are polling for
                 // proposals on". We need this because to have consensus info injected we need a working
@@ -583,11 +581,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
-    async fn broadcast_message(
-        &self,
-        message: M,
-        recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
@@ -599,26 +593,21 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             self.inner.handle.connected_pids().await
         );
 
-        let topic_map = self.inner.topic_map.read().await;
-        let topic = topic_map
-            .get_by_left(&recipients)
-            .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
-            })?
-            .clone();
-        info!("broadcasting to topic: {}", topic);
-
-        // gossip doesn't broadcast from itself, so special case
-        if recipients.contains(&self.inner.pk) {
-            // send to self
-            self.inner
-                .broadcast_send
-                .send(message.clone())
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-        }
-
-        match self.inner.handle.gossip(topic, &message).await {
+        match self
+            .inner
+            .handle
+            .gossip(
+                {
+                    if self.inner.is_da {
+                        "DA".to_string()
+                    } else {
+                        "global".to_string()
+                    }
+                },
+                &message,
+            )
+            .await
+        {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
                 Ok(())
@@ -848,16 +837,8 @@ where
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        membership: &TYPES::Membership,
-    ) -> Result<(), NetworkError> {
-        let recipients = <TYPES as NodeType>::Membership::get_committee(
-            membership,
-            message.kind.get_view_number(),
-        );
-        self.0.broadcast_message(message, recipients).await
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+        self.0.broadcast_message(message).await
     }
 
     async fn direct_message(

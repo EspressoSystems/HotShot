@@ -7,7 +7,7 @@
 async fn test_success() {
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         test_builder::TestMetadata,
     };
     use std::time::Duration;
@@ -24,7 +24,7 @@ async fn test_success() {
         ..TestMetadata::default()
     };
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -39,7 +39,7 @@ async fn test_success() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_with_failures_one() {
     use hotshot_testing::{
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::TestMetadata,
     };
@@ -63,7 +63,7 @@ async fn test_with_failures_one() {
     metadata.overall_safety_properties.num_failed_views = 3;
     metadata.overall_safety_properties.num_successful_views = 25;
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -78,7 +78,7 @@ async fn test_with_failures_one() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_with_failures_half_f() {
     use hotshot_testing::{
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::TestMetadata,
     };
@@ -114,7 +114,7 @@ async fn test_with_failures_half_f() {
     // Make sure we keep commiting rounds after the bad leaders, but not the full 50 because of the numerous timeouts
     metadata.overall_safety_properties.num_successful_views = 22;
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -129,7 +129,7 @@ async fn test_with_failures_half_f() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_with_failures_f() {
     use hotshot_testing::{
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::TestMetadata,
     };
@@ -176,7 +176,7 @@ async fn test_with_failures_f() {
         node_changes: vec![(5, dead_nodes)],
     };
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -191,7 +191,7 @@ async fn test_with_failures_f() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_with_failures_2() {
     use hotshot_testing::{
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::TestMetadata,
     };
@@ -227,7 +227,7 @@ async fn test_with_failures_2() {
     // Make sure we keep commiting rounds after the bad leaders, but not the full 50 because of the numerous timeouts
     metadata.overall_safety_properties.num_successful_views = 15;
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;

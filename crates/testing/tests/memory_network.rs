@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
@@ -250,10 +249,7 @@ async fn memory_network_broadcast_queue() {
     // Send messages
     for sent_message in first_messages {
         network1
-            .broadcast_message(
-                sent_message.clone(),
-                vec![pub_key_2].into_iter().collect::<BTreeSet<_>>(),
-            )
+            .broadcast_message(sent_message.clone())
             .await
             .expect("Failed to message node");
         let mut recv_messages = network2
@@ -271,10 +267,7 @@ async fn memory_network_broadcast_queue() {
     // Send messages
     for sent_message in second_messages {
         network2
-            .broadcast_message(
-                sent_message.clone(),
-                vec![pub_key_1].into_iter().collect::<BTreeSet<_>>(),
-            )
+            .broadcast_message(sent_message.clone())
             .await
             .expect("Failed to message node");
         let mut recv_messages = network1
@@ -316,7 +309,6 @@ async fn memory_network_test_in_flight_message_count() {
 
     // Create some dummy messages
     let messages: Vec<Message<Test>> = gen_messages(5, 100, pub_key_1);
-    let broadcast_recipients = BTreeSet::from([pub_key_1, pub_key_2]);
 
     assert_eq!(network1.in_flight_message_count(), Some(0));
     assert_eq!(network2.in_flight_message_count(), Some(0));
@@ -329,10 +321,7 @@ async fn memory_network_test_in_flight_message_count() {
         // network 2 has received `count` broadcast messages and `count + 1` direct messages
         assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
 
-        network2
-            .broadcast_message(message.clone(), broadcast_recipients.clone())
-            .await
-            .unwrap();
+        network2.broadcast_message(message.clone()).await.unwrap();
         // network 1 has received `count` broadcast messages
         assert_eq!(network1.in_flight_message_count(), Some(count + 1));
 

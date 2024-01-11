@@ -338,13 +338,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 .inner
                 .networks
                 .da_network
-                .broadcast_message(
-                    Message {
-                        sender: api.inner.public_key.clone(),
-                        kind: MessageKind::from(message),
-                    },
-                    &api.inner.memberships.da_membership.clone(),
-                )
+                .broadcast_message(Message {
+                    sender: api.inner.public_key.clone(),
+                    kind: MessageKind::from(message),
+                })
                 .await;
         });
         Ok(())
@@ -447,11 +444,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             if inner
                 .networks
                 .quorum_network
-                .broadcast_message(
-                    Message { sender: pk, kind },
-                    // TODO this is morally wrong
-                    &inner.memberships.quorum_membership.clone(),
-                )
+                .broadcast_message(Message { sender: pk, kind })
                 .await
                 .is_err()
             {

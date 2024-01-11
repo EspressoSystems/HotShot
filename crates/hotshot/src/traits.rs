@@ -16,6 +16,7 @@ pub mod implementations {
             combined_network::{CombinedCommChannel, CombinedNetworks},
             libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
             memory_network::{MasterMap, MemoryCommChannel, MemoryNetwork},
+            push_cdn_network::{PushCdnCommChannel, PushCdnNetwork},
             web_server_network::{WebCommChannel, WebServerNetwork},
             NetworkingMetricsValue,
         },

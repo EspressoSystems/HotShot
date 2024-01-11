@@ -17,7 +17,6 @@ use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     message::{Message, MessageKind},
     traits::{
-        election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
             TestableNetworkingImplementation, TransmitType, ViewMessage,
@@ -30,7 +29,6 @@ use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{
-    collections::BTreeSet,
     fmt::Debug,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -294,11 +292,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_message")]
-    async fn broadcast_message(
-        &self,
-        message: M,
-        recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()
@@ -308,9 +302,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         for node in &self.inner.master_map.map {
             // TODO delay/drop etc here
             let (key, node) = node.pair();
-            if !recipients.contains(key) {
-                continue;
-            }
+
             trace!(?key, "Sending message to node");
             if let Some(r) = &self.inner.reliability_config {
                 let config = r.read().await;
@@ -528,16 +520,8 @@ where
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        election: &TYPES::Membership,
-    ) -> Result<(), NetworkError> {
-        let recipients = <TYPES as NodeType>::Membership::get_committee(
-            election,
-            message.kind.get_view_number(),
-        );
-        self.0.broadcast_message(message, recipients).await
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+        self.0.broadcast_message(message).await
     }
 
     async fn direct_message(

@@ -24,7 +24,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -89,6 +89,11 @@ pub enum NetworkError {
     Libp2p {
         /// source of error
         source: NetworkNodeHandleError,
+    },
+    /// Bincode specific errors
+    SerializationError {
+        /// source of error
+        source: bincode::Error,
     },
     /// memory network specific errors
     MemoryNetwork {
@@ -250,11 +255,7 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
 
     /// broadcast message to those listening on the communication channel
     /// blocking
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        election: &TYPES::Membership,
-    ) -> Result<(), NetworkError>;
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
@@ -314,11 +315,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
-        &self,
-        message: M,
-        recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError>;
+    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking

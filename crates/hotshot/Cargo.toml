@@ -78,6 +78,29 @@ path = "examples/combined/validator.rs"
 name = "orchestrator-combined"
 path = "examples/combined/orchestrator.rs"
 
+# push cdn
+[[example]]
+name = "all-pushcdn"
+path = "examples/pushcdn/all.rs"
+
+[[example]]
+name = "multi-validator-pushcdn"
+path = "examples/pushcdn/multi-validator.rs"
+
+[[example]]
+name = "validator-pushcdn"
+path = "examples/pushcdn/validator.rs"
+
+[[example]]
+name = "orchestrator-pushcdn"
+path = "examples/pushcdn/orchestrator.rs"
+
+[[example]]
+name = "pushcdn"
+path = "examples/pushcdn/pushcdn.rs"
+
+
+
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
@@ -118,6 +141,10 @@ dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.16" }
 derive_more = "0.99.17"
 portpicker = "0.1.1"
 lru = "0.12.1"
+client = { path = "../../../cdn2/client" }
+common = { path = "../../../cdn2/common" }
+server = { path = "../../../cdn2/server" }
+ark-serialize = "0.4.2"
 
 tracing = { workspace = true }
 typenum = { workspace = true }

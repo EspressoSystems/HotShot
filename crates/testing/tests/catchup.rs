@@ -9,7 +9,7 @@ async fn test_catchup() {
 
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestMetadata, TimingData},
@@ -57,7 +57,7 @@ async fn test_catchup() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -131,7 +131,7 @@ async fn test_catchup_one_node() {
 
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestMetadata, TimingData},
@@ -173,7 +173,7 @@ async fn test_catchup_one_node() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;
@@ -191,7 +191,7 @@ async fn test_catchup_in_view_sync() {
 
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-        node_types::{MemoryImpl, TestTypes},
+        node_types::{PushCdnImpl, TestTypes},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestMetadata, TimingData},
@@ -236,7 +236,7 @@ async fn test_catchup_in_view_sync() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
+        .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
         .run_test()
         .await;

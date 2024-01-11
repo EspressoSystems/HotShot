@@ -3,8 +3,12 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
+use client::{Client, Config};
+use common::topic::Topic;
 use futures::StreamExt;
-use hotshot::traits::implementations::{CombinedCommChannel, CombinedNetworks};
+use hotshot::traits::implementations::{
+    CombinedCommChannel, CombinedNetworks, PushCdnCommChannel, PushCdnNetwork,
+};
 use hotshot::{
     traits::{
         implementations::{
@@ -22,6 +26,7 @@ use hotshot_orchestrator::{
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
+use hotshot_signature_key::bn254::{BLSPrivKey, BLSPubKey};
 use hotshot_task::task::FilterEvent;
 use hotshot_testing::block_types::{TestBlockHeader, TestBlockPayload, TestTransaction};
 use hotshot_types::message::Message;
@@ -272,6 +277,48 @@ match node_type {
     )
     .await
     .unwrap()
+}
+
+async fn pushcdn_network_from_config<TYPES: NodeType>(
+    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pubkey: TYPES::SignatureKey,
+    privkey: <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
+) -> PushCdnNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    let mut all_keys = BTreeSet::new();
+    let mut da_keys = BTreeSet::new();
+    for i in 0..config.config.total_nodes.get() as u64 {
+        let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
+        let pub_key = TYPES::SignatureKey::from_private(&privkey);
+        if i < config.config.da_committee_size as u64 {
+            da_keys.insert(pub_key.clone());
+        }
+        all_keys.insert(pub_key);
+    }
+
+    let topics = {
+        if da_keys.contains(&pubkey) {
+            vec![Topic::DA, Topic::Global]
+        } else {
+            vec![Topic::Global]
+        }
+    };
+
+    let privkey: BLSPrivKey = unsafe { std::mem::transmute_copy(&privkey) };
+    let pubkey: BLSPubKey = unsafe { std::mem::transmute_copy(&pubkey) };
+
+    let client = Client::new(Config {
+        broker_address: config.push_cdn_address.unwrap(),
+        initial_topics: topics.clone(),
+        signing_key: privkey.priv_key,
+        verify_key: pubkey.pub_key,
+    })
+    .unwrap();
+
+    PushCdnNetwork {
+        client,
+        topics,
+        _pd: PhantomData,
+    }
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -665,6 +712,97 @@ where
     }
 
     fn get_vid_channel(&self) -> Libp2pCommChannel<TYPES> {
+        self.vid_channel.clone()
+    }
+
+    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        self.config.clone()
+    }
+}
+
+pub struct PushCdnDARun<TYPES: NodeType> {
+    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    quorum_channel: PushCdnCommChannel<TYPES>,
+    da_channel: PushCdnCommChannel<TYPES>,
+    view_sync_channel: PushCdnCommChannel<TYPES>,
+    vid_channel: PushCdnCommChannel<TYPES>,
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType<
+            Transaction = TestTransaction,
+            BlockPayload = TestBlockPayload,
+            BlockHeader = TestBlockHeader,
+        >,
+        NODE: NodeImplementation<
+            TYPES,
+            QuorumNetwork = PushCdnCommChannel<TYPES>,
+            CommitteeNetwork = PushCdnCommChannel<TYPES>,
+            Storage = MemoryStorage<TYPES>,
+        >,
+    >
+    RunDA<
+        TYPES,
+        PushCdnCommChannel<TYPES>,
+        PushCdnCommChannel<TYPES>,
+        PushCdnCommChannel<TYPES>,
+        PushCdnCommChannel<TYPES>,
+        NODE,
+    > for PushCdnDARun<TYPES>
+where
+    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    Leaf<TYPES>: TestableLeaf,
+    Self: Sync,
+{
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> PushCdnDARun<TYPES> {
+        let pub_key = config.config.my_own_validator_config.public_key.clone();
+        let priv_key = config.config.my_own_validator_config.private_key.clone();
+
+        // create and wait for underlying network
+        let underlying_quorum_network =
+            pushcdn_network_from_config::<TYPES>(config.clone(), pub_key, priv_key).await;
+
+        underlying_quorum_network.wait_for_ready().await;
+
+        // create communication channels
+        let quorum_channel: PushCdnCommChannel<TYPES> =
+            PushCdnCommChannel::new(underlying_quorum_network.clone().into());
+
+        let view_sync_channel: PushCdnCommChannel<TYPES> =
+            PushCdnCommChannel::new(underlying_quorum_network.clone().into());
+
+        let da_channel: PushCdnCommChannel<TYPES> =
+            PushCdnCommChannel::new(underlying_quorum_network.clone().into());
+
+        let vid_channel: PushCdnCommChannel<TYPES> =
+            PushCdnCommChannel::new(underlying_quorum_network.clone().into());
+
+        PushCdnDARun {
+            config,
+            quorum_channel,
+            da_channel,
+            view_sync_channel,
+            vid_channel,
+        }
+    }
+
+    fn get_da_channel(&self) -> PushCdnCommChannel<TYPES> {
+        self.da_channel.clone()
+    }
+
+    fn get_quorum_channel(&self) -> PushCdnCommChannel<TYPES> {
+        self.quorum_channel.clone()
+    }
+
+    fn get_view_sync_channel(&self) -> PushCdnCommChannel<TYPES> {
+        self.view_sync_channel.clone()
+    }
+
+    fn get_vid_channel(&self) -> PushCdnCommChannel<TYPES> {
         self.vid_channel.clone()
     }
 

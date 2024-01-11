@@ -290,7 +290,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                     .direct_message(message, recipient.unwrap())
                     .await
             }
-            TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,
+            TransmitType::Broadcast => self.channel.broadcast_message(message).await,
         };
 
         match transmit_result {

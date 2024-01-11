@@ -25,7 +25,7 @@ use typenum::U32;
 
 pub struct BLSPubKey {
     /// The public key for this keypair
-    pub_key: VerKey,
+    pub pub_key: VerKey,
 }
 
 impl PartialOrd for BLSPubKey {

@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Debug, Hash)]
 pub struct BLSPrivKey {
     /// The private key for  this keypair
-    pub(super) priv_key: QCSignKey,
+    pub priv_key: QCSignKey,
 }
 
 impl BLSPrivKey {

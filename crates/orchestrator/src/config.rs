@@ -93,6 +93,7 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
     pub web_server_config: Option<WebServerConfig>,
+    pub push_cdn_address: Option<String>,
     pub da_web_server_config: Option<WebServerConfig>,
 }
 
@@ -276,6 +277,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             da_web_server_config: None,
             next_view_timeout: 10,
             num_bootrap: 5,
+            push_cdn_address: None,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
         }
@@ -305,9 +307,15 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub web_server_config: Option<WebServerConfig>,
     #[serde(default = "default_web_server_config")]
     pub da_web_server_config: Option<WebServerConfig>,
+    #[serde(default = "default_push_cdn_address")]
+    pub push_cdn_address: Option<String>,
 }
 
 fn default_web_server_config() -> Option<WebServerConfig> {
+    None
+}
+
+fn default_push_cdn_address() -> Option<String> {
     None
 }
 
@@ -321,6 +329,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             next_view_timeout: val.config.next_view_timeout,
             propose_max_round_time: val.config.propose_max_round_time,
             propose_min_round_time: val.config.propose_min_round_time,
+            push_cdn_address: val.push_cdn_address,
             seed: val.seed,
             transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {

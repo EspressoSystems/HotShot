@@ -24,11 +24,9 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
             TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
-            ViewMessage,
         },
         node_implementation::NodeType,
     },
@@ -245,25 +243,14 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for CombinedCommChannel<TYPES>
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        election: &TYPES::Membership,
-    ) -> Result<(), NetworkError> {
-        let recipients =
-            <TYPES as NodeType>::Membership::get_committee(election, message.get_view_number());
-
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
         if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
         {
             // broadcast on the primary network as it is not down, or we are checking if it is back up
-            match self
-                .primary()
-                .broadcast_message(message.clone(), recipients.clone())
-                .await
-            {
+            match self.primary().broadcast_message(message.clone()).await {
                 Ok(()) => {
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
@@ -274,9 +261,7 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for CombinedCommChannel<TYPES>
             };
         }
 
-        self.secondary()
-            .broadcast_message(message, recipients)
-            .await
+        self.secondary().broadcast_message(message).await
     }
 
     async fn direct_message(

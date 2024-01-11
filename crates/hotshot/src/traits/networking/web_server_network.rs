@@ -36,7 +36,7 @@ use surf_disco::Url;
 use hotshot_types::traits::network::ViewMessage;
 use std::collections::BTreeMap;
 use std::{
-    collections::{btree_map::Entry, BTreeSet},
+    collections::btree_map::Entry,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -706,12 +706,8 @@ impl<TYPES: NodeType> CommunicationChannel<TYPES> for WebCommChannel<TYPES> {
 
     /// broadcast message to those listening on the communication channel
     /// blocking
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        _election: &TYPES::Membership,
-    ) -> Result<(), NetworkError> {
-        self.0.broadcast_message(message, BTreeSet::new()).await
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+        self.0.broadcast_message(message).await
     }
 
     /// Sends a direct message to a specific node
@@ -787,11 +783,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        _recipients: BTreeSet<TYPES::SignatureKey>,
-    ) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
         if !self.inner.running.load(Ordering::Relaxed) {
