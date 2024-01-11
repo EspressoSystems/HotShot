@@ -18,7 +18,7 @@ async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
-blake3 = { workspace = true, features = ["traits-preview"] }
+blake3 = { workspace = true }
 sha3 = "^0.10"
 commit = { workspace = true }
 derivative = "2.2.0"
