@@ -107,6 +107,9 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="attr">#![warn(
     clippy::all,
@@ -127,8 +130,11 @@
 <span class="kw">pub mod </span>event;
 <span class="kw">pub mod </span>light_client;
 <span class="kw">pub mod </span>message;
+<span class="kw">pub mod </span>qc;
+<span class="kw">pub mod </span>signature_key;
 <span class="kw">pub mod </span>simple_certificate;
 <span class="kw">pub mod </span>simple_vote;
+<span class="kw">pub mod </span>stake_table;
 <span class="kw">pub mod </span>traits;
 <span class="kw">pub mod </span>utils;
 <span class="kw">pub mod </span>vote;

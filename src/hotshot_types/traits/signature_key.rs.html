@@ -136,36 +136,16 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
-</span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>espresso_systems_common::hotshot::tag;
+</span><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
+<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{fmt::Debug, hash::Hash};
-<span class="kw">use </span>tagged_base64::tagged;
-
-<span class="doccomment">/// Type saftey wrapper for byte encoded keys
-</span><span class="attr">#[tagged(tag::ENCODED_PUB_KEY)]
-#[derive(
-    Clone,
-    custom_debug::Debug,
-    Hash,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-)]
-</span><span class="kw">pub struct </span>EncodedPublicKey(<span class="attr">#[debug(with = <span class="string">&quot;custom_debug::hexbuf&quot;</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
+<span class="kw">use </span>std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
+<span class="kw">use </span>tagged_base64::TaggedBase64;
 
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`
 </span><span class="kw">pub trait </span>StakeTableEntryType {
@@ -188,6 +168,9 @@
     + Eq
     + PartialOrd
     + Ord
+    + Display
+    + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TaggedBase64&gt;
+    + Into&lt;TaggedBase64&gt;
 {
     <span class="doccomment">/// The private key type for this signature algorithm
     </span><span class="kw">type </span>PrivateKey: Send
@@ -252,9 +235,12 @@
     <span class="doccomment">/// Produce a public key from a private key
     </span><span class="kw">fn </span>from_private(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey) -&gt; <span class="self">Self</span>;
     <span class="doccomment">/// Serialize a public key to bytes
-    </span><span class="kw">fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey;
+    </span><span class="kw">fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt;;
     <span class="doccomment">/// Deserialize a public key from bytes
-    </span><span class="kw">fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>EncodedPublicKey) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
+    /// # Errors
+    ///
+    /// Will return `Err` if deserialization fails
+    </span><span class="kw">fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrimitivesError&gt;;
 
     <span class="doccomment">/// Generate a new key pair
     </span><span class="kw">fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::PrivateKey);

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["bn254_priv","bn254_pub"],"struct":["BLSPrivKey","BLSPubKey"]};

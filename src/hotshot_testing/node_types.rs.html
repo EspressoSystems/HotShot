@@ -137,9 +137,6 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 
 <span class="kw">use crate</span>::{
@@ -147,19 +144,16 @@
     state_types::TestState,
 };
 
-<span class="kw">use </span>hotshot::{
-    traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
-        implementations::{
-            CombinedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
-            WebCommChannel,
-        },
-        NodeImplementation,
+<span class="kw">use </span>hotshot::traits::{
+    election::static_committee::{StaticCommittee, StaticElectionConfig},
+    implementations::{
+        CombinedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage, WebCommChannel,
     },
-    types::bn254::BLSPubKey,
+    NodeImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber,
+    signature_key::BLSPubKey,
     traits::node_implementation::{ChannelMaps, NodeType},
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};

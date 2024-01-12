@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["QuorumCertificate"]};
+window.SIDEBAR_ITEMS = {"trait":["QuorumCertificateScheme"]};
