@@ -14,8 +14,6 @@ repository = "https://github.com/EspressoSystems/HotShot"
 members = [
         "crates/constants",
         "crates/hotshot",
-        "crates/hotshot-qc",
-        "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
         "crates/hotshot-state-prover",
         "crates/libp2p-networking",
