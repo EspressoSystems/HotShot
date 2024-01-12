@@ -2740,48 +2740,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-qc"
-version = "0.3.3"
-dependencies = [
- "ark-bls12-377",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-std",
- "bincode",
- "bitvec",
- "ethereum-types",
- "generic-array",
- "hotshot-stake-table",
- "hotshot-types",
- "jf-primitives",
- "jf-relation",
- "jf-utils",
- "serde",
- "typenum",
-]
-
-[[package]]
-name = "hotshot-signature-key"
-version = "0.3.3"
-dependencies = [
- "bincode",
- "bitvec",
- "blake3",
- "custom_debug",
- "ethereum-types",
- "hotshot-qc",
- "hotshot-types",
- "hotshot-utils",
- "jf-primitives",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "tracing",
- "typenum",
-]
-
-[[package]]
 name = "hotshot-stake-table"
 version = "0.3.3"
 dependencies = [
@@ -2918,12 +2876,14 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
+ "serde_json",
  "sha2 0.10.8",
  "snafu",
  "tagged-base64",
  "time 0.3.31",
  "tokio",
  "tracing",
+ "typenum",
 ]
 
 [[package]]
