@@ -36,8 +36,10 @@ async fn main() {
         // create the server
         let server = Server::new(Config {
             bind_address: config.push_cdn_address.clone().unwrap(),
-            advertise_address: config.push_cdn_address.unwrap(),
+            public_advertise_address: config.push_cdn_address.clone().unwrap(),
+            private_advertise_address: config.push_cdn_address.unwrap(),
             redis_url: "redis://127.0.0.1:6379".to_string(),
+            redis_password: "".to_string(),
             cert_path: None,
             key_path: None,
         })

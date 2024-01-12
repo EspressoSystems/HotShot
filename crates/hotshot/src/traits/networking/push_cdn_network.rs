@@ -87,8 +87,10 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         async_spawn(async move {
             let server = Server::new(ServerConfig {
                 bind_address: format!("127.0.0.1:{port}"),
-                advertise_address: "127.0.0.1:8080".to_string(),
+                public_advertise_address: "127.0.0.1:8080".to_string(),
+                private_advertise_address: "127.0.0.1:8080".to_string(),
                 redis_url: "redis://127.0.0.1:8080".to_string(),
+                redis_password: "".to_string(),
 
                 cert_path: None,
                 key_path: None,

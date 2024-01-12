@@ -20,8 +20,10 @@ async fn main() {
     // create the server
     let server = Server::new(Config {
         bind_address: url.clone(),
-        advertise_address: url,
+        public_advertise_address: url.clone(),
+        private_advertise_address: url,
         redis_url: "redis://127.0.0.1:6379".to_string(),
+        redis_password: "".to_string(),
         cert_path: None,
         key_path: None,
     })

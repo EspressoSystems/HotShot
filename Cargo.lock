@@ -1432,7 +1432,9 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "ark-serialize 0.4.2",
  "derive_more",
+ "jf-primitives",
  "quinn",
  "rand 0.8.5",
  "rkyv",
