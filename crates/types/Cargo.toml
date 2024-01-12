@@ -23,7 +23,7 @@ bitvec = { workspace = true }
 blake3 = { workspace = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
-derivative = "2.2.0"
+derivative = { workspace = true }
 digest = { workspace = true }
 displaydoc = { version = "0.2.3", default-features = false }
 dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.16" }

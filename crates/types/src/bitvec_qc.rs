@@ -1,6 +1,7 @@
 //! Implementation for BitVectorQC that uses BLS signature + Bit vector.
 //! See more details in HotShot paper.
 
+use crate::{stake_table::StakeTableEntry, traits::qc::QuorumCertificate};
 use ark_std::{
     fmt::Debug,
     format,
@@ -12,10 +13,9 @@ use ark_std::{
 use bitvec::prelude::*;
 use ethereum_types::U256;
 use generic_array::GenericArray;
-use hotshot_types::{stake_table::StakeTableEntry, traits::qc::QuorumCertificateScheme};
 use jf_primitives::{
     errors::{PrimitivesError, PrimitivesError::ParameterError},
-    signatures::{AggregateableSignatureSchemes, SignatureScheme},
+    signatures::AggregateableSignatureSchemes,
 };
 use serde::{Deserialize, Serialize};
 use typenum::U32;
@@ -28,21 +28,18 @@ pub struct BitVectorQC<A: AggregateableSignatureSchemes + Serialize + for<'a> De
 
 /// Public parameters of [`BitVectorQC`]
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash)]
-pub struct QCParams<K: Clone, P> {
+pub struct QCParams<V, P> {
     /// the stake table (snapshot) this QC is verified against
-    pub stake_entries: Vec<StakeTableEntry<K>>,
+    pub stake_entries: Vec<StakeTableEntry<V>>,
     /// threshold for the accumulated "weight" of votes to form a QC
     pub threshold: U256,
     /// public parameter for the aggregated signature scheme
     pub agg_sig_pp: P,
 }
 
-use std::hash::Hash;
-
-impl<A> QuorumCertificateScheme<A> for BitVectorQC<A>
+impl<A> QuorumCertificate<A> for BitVectorQC<A>
 where
     A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a>,
-    A::Signature: Hash, // TODO: Move to jellyfish
 {
     type QCProverParams = QCParams<A::VerificationKey, A::PublicParameter>;
 
@@ -52,20 +49,6 @@ where
     type QC = (A::Signature, BitVec);
     type MessageLength = U32;
     type QuorumSize = U256;
-
-    fn setup<R: CryptoRng + RngCore>(
-        stake_entries: Vec<StakeTableEntry<A::VerificationKey>>,
-        threshold: Self::QuorumSize,
-        prng: Option<&mut R>,
-    ) -> Result<(Self::QCProverParams, Self::QCVerifierParams), PrimitivesError> {
-        let agg_sig_pp = <A as SignatureScheme>::param_gen(prng)?;
-        let prover_param = QCParams {
-            stake_entries,
-            threshold,
-            agg_sig_pp,
-        };
-        Ok((prover_param.clone(), prover_param))
-    }
 
     fn sign<R: CryptoRng + RngCore>(
         agg_sig_pp: &A::PublicParameter,

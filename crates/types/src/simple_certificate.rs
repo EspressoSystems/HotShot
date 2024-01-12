@@ -8,6 +8,8 @@ use std::{
 
 use commit::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
+use generic_array::GenericArray;
+use rand_chacha::ChaCha20Rng;
 
 use crate::{
     data::Leaf,
@@ -16,7 +18,7 @@ use crate::{
         ViewSyncPreCommitData, Voteable,
     },
     traits::{
-        election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
+        election::Membership, node_implementation::NodeType, qc::QuorumCertificateScheme,
         state::ConsensusTime,
     },
     vote::{Certificate, HasViewNumber},
@@ -60,7 +62,7 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
-    pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QCType>,
+    pub signatures: Option<TYPES::QC>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
     /// phantom data for `THRESHOLD` and `TYPES`
@@ -76,7 +78,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     fn create_signed_certificate(
         vote_commitment: Commitment<VOTEABLE>,
         data: Self::Voteable,
-        sig: <TYPES::SignatureKey as SignatureKey>::QCType,
+        sig: TYPES::QC,
         view: TYPES::Time,
     ) -> Self {
         SimpleCertificate {
@@ -92,15 +94,24 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         if self.is_genesis && self.view_number == TYPES::Time::genesis() {
             return true;
         }
-        let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
-            membership.get_committee_qc_stake_table(),
-            U256::from(Self::threshold(membership)),
-        );
-        <TYPES::SignatureKey as SignatureKey>::check(
+        let real_qc_pp =
+            <TYPES::QCScheme as QuorumCertificateScheme<TYPES::QCSignatureScheme>>::setup::<
+                ChaCha20Rng,
+            >(
+                membership.get_committee_qc_stake_table(),
+                U256::from(Self::threshold(membership)),
+                None,
+            )
+            .expect("Parameter generation shouldn't fail")
+            .1;
+
+        let msg: &[u8] = self.vote_commitment.as_ref();
+        <TYPES::QCScheme as QuorumCertificateScheme<TYPES::QCSignatureScheme>>::check(
             &real_qc_pp,
-            self.vote_commitment.as_ref(),
+            GenericArray::from_slice(msg),
             self.signatures.as_ref().unwrap(),
         )
+        .is_ok()
     }
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
         THRESHOLD::threshold(membership)

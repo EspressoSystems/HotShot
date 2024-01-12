@@ -9,16 +9,14 @@ use bitvec::vec::BitVec;
 use commit::Commitment;
 use either::Either;
 use ethereum_types::U256;
+use jf_primitives::signatures::SignatureScheme;
+use rand_chacha::ChaCha20Rng;
 use tracing::error;
 
 use crate::{
     simple_certificate::Threshold,
     simple_vote::Voteable,
-    traits::{
-        election::Membership,
-        node_implementation::NodeType,
-        signature_key::{SignatureKey, StakeTableEntryType},
-    },
+    traits::{election::Membership, node_implementation::NodeType, qc::QuorumCertificateScheme},
 };
 
 /// A simple vote that has a signer and commitment to the data voted on.
@@ -27,14 +25,14 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
     type Commitment: Voteable;
 
     /// Get the signature of the vote sender
-    fn get_signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
+    fn get_signature(&self) -> TYPES::Signature;
     /// Gets the data which was voted on by this vote
     fn get_data(&self) -> &Self::Commitment;
     /// Gets the Data commitment of the vote
     fn get_data_commitment(&self) -> Commitment<Self::Commitment>;
 
     /// Gets the public signature key of the votes creator/sender
-    fn get_signing_key(&self) -> TYPES::SignatureKey;
+    fn get_signing_key(&self) -> TYPES::PublicKey;
 }
 
 /// Any type that is associated with a view
@@ -59,7 +57,7 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     fn create_signed_certificate(
         vote_commitment: Commitment<Self::Voteable>,
         data: Self::Voteable,
-        sig: <TYPES::SignatureKey as SignatureKey>::QCType,
+        sig: TYPES::QC,
         view: TYPES::Time,
     ) -> Self;
 
@@ -81,13 +79,9 @@ pub struct VoteAccumulator<
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
 > {
     /// Map of all signatures accumlated so far
-    pub vote_outcomes: VoteMap2<
-        Commitment<VOTE::Commitment>,
-        TYPES::SignatureKey,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    >,
+    pub vote_outcomes: VoteMap2<Commitment<VOTE::Commitment>, TYPES::PublicKey, TYPES::Signature>,
     /// A list of valid signatures for certificate aggregation
-    pub sig_lists: Vec<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType>,
+    pub sig_lists: Vec<TYPES::Signature>,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     pub signers: BitVec,
     /// Phantom data to specify the types this accumulator is for
@@ -106,7 +100,18 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
         let key = vote.get_signing_key();
 
         let vote_commitment = vote.get_data_commitment();
-        if !key.validate(&vote.get_signature(), vote_commitment.as_ref()) {
+        // if !key.validate(&vote.get_signature(), vote_commitment.as_ref()) {
+        let sig_pp =
+            <TYPES::QCSignatureScheme as SignatureScheme>::param_gen::<ChaCha20Rng>(None).unwrap();
+        let msg: &[u8] = vote_commitment.as_ref();
+        if <TYPES::QCSignatureScheme as SignatureScheme>::verify(
+            &sig_pp,
+            &key,
+            msg,
+            &vote.get_signature(),
+        )
+        .is_err()
+        {
             error!("Invalid vote! Vote Data {:?}", vote.get_data());
             return Either::Left(self);
         }
@@ -120,8 +125,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             .position(|x| *x == stake_table_entry.clone())
             .unwrap();
 
-        let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            vote.get_signature();
+        let original_signature = vote.get_signature();
 
         let (total_stake_casted, total_vote_map) = self
             .vote_outcomes
@@ -146,17 +150,22 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
-            let real_qc_pp: <<TYPES as NodeType>::SignatureKey as SignatureKey>::QCParams =
-                <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
-                    stake_table,
-                    U256::from(CERT::threshold(membership)),
-                );
+            let real_qc_pp = <TYPES::QCScheme as QuorumCertificateScheme<
+                TYPES::QCSignatureScheme,
+            >>::setup::<ChaCha20Rng>(
+                membership.get_committee_qc_stake_table(),
+                U256::from(CERT::threshold(membership)),
+                None,
+            )
+            .expect("Parameter generation shouldn't fail")
+            .0;
 
-            let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
-                &real_qc_pp,
-                self.signers.as_bitslice(),
-                &self.sig_lists[..],
-            );
+            let real_qc_sig = <TYPES::QCScheme as QuorumCertificateScheme<
+                TYPES::QCSignatureScheme,
+            >>::assemble(
+                &real_qc_pp, self.signers.as_bitslice(), &self.sig_lists[..]
+            )
+            .expect("Failed to assemble a QC");
 
             let cert = CERT::create_signed_certificate(
                 vote.get_data_commitment(),

@@ -16,7 +16,6 @@ use hotshot_types::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::ViewSyncFinalizeData,
-    traits::signature_key::SignatureKey,
 };
 use hotshot_types::{
     simple_vote::{
@@ -85,9 +84,9 @@ pub struct ViewSyncTaskState<
     /// Membership for teh quorum
     pub membership: Arc<TYPES::Membership>,
     /// This Nodes Public Key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Our Private Key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
     /// HotShot consensus API
     pub api: A,
     /// Our node id; for logging
@@ -160,9 +159,9 @@ pub struct ViewSyncReplicaTaskState<
     /// Membership for teh quorum
     pub membership: Arc<TYPES::Membership>,
     /// This Nodes Public Key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Our Private Key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
     /// HotShot consensus API
     pub api: A,
     /// Event stream to publish events to

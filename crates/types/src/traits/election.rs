@@ -3,10 +3,9 @@
 // Needed to avoid the non-biding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
 
+use crate::stake_table::StakeTableEntry;
+
 use super::node_implementation::NodeType;
-
-use crate::traits::signature_key::SignatureKey;
-
 use snafu::Snafu;
 use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
@@ -43,30 +42,25 @@ pub trait Membership<TYPES: NodeType>:
     /// create an election
     /// TODO may want to move this to a testableelection trait
     fn create_election(
-        entries: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
+        entries: Vec<StakeTableEntry<TYPES::PublicKey>>,
         config: TYPES::ElectionConfigType,
     ) -> Self;
 
     /// Clone the public key and corresponding stake table for current elected committee
-    fn get_committee_qc_stake_table(
-        &self,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    fn get_committee_qc_stake_table(&self) -> Vec<StakeTableEntry<TYPES::PublicKey>>;
 
     /// The leader of the committee for view `view_number`.
-    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::PublicKey;
 
     /// The members of the committee for view `view_number`.
-    fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+    fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::PublicKey>;
 
     /// Check if a key has stake
-    fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool;
+    fn has_stake(&self, pub_key: &TYPES::PublicKey) -> bool;
 
     /// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
-    fn get_stake(
-        &self,
-        pub_key: &TYPES::SignatureKey,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    fn get_stake(&self, pub_key: &TYPES::PublicKey) -> Option<StakeTableEntry<TYPES::PublicKey>>;
 
     /// Returns the number of total nodes in the committee
     fn total_nodes(&self) -> usize;

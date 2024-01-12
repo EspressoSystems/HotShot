@@ -3,11 +3,13 @@
 use std::{fmt::Debug, hash::Hash};
 
 use commit::{Commitment, Committable};
+use jf_primitives::{errors::PrimitivesError, signatures::SignatureScheme};
+use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     data::{Leaf, VidCommitment},
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
+    traits::node_implementation::NodeType,
     vote::{HasViewNumber, Vote},
 };
 
@@ -86,10 +88,7 @@ mod sealed {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     /// The signature share associated with this vote
-    pub signature: (
-        TYPES::SignatureKey,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ),
+    pub signature: (TYPES::PublicKey, TYPES::Signature),
     /// The leaf commitment being voted on.
     pub data: DATA,
     /// The view this vote was cast for
@@ -105,11 +104,11 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleV
 impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
     type Commitment = DATA;
 
-    fn get_signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
+    fn get_signing_key(&self) -> TYPES::PublicKey {
         self.signature.0.clone()
     }
 
-    fn get_signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+    fn get_signature(&self) -> TYPES::Signature {
         self.signature.1.clone()
     }
 
@@ -129,17 +128,20 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
     pub fn create_signed_vote(
         data: DATA,
         view: TYPES::Time,
-        pub_key: &TYPES::SignatureKey,
-        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
-        match TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
-            Ok(signature) => Ok(Self {
-                signature: (pub_key.clone(), signature),
-                data,
-                view_number: view,
-            }),
-            Err(e) => Err(e),
-        }
+        pub_key: &TYPES::PublicKey,
+        private_key: &TYPES::PrivateKey,
+    ) -> Result<Self, PrimitivesError> {
+        let sig_pp =
+            <TYPES::QCSignatureScheme as SignatureScheme>::param_gen::<ChaCha20Rng>(None).unwrap();
+        let commit = data.commit();
+        let msg: &[u8] = commit.as_ref();
+        let sig =
+            TYPES::QCSignatureScheme::sign(&sig_pp, &private_key, msg, &mut rand::thread_rng())?;
+        Ok(Self {
+            signature: (pub_key.clone(), sig),
+            data,
+            view_number: view,
+        })
     }
 }
 

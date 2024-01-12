@@ -15,7 +15,6 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
     },
 };
 use hotshot_types::{
@@ -54,9 +53,9 @@ pub struct VIDTaskState<
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
     /// This Nodes Public Key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Our Private Key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
     /// The view and ID of the current vote collection task, if there is one.
     pub vote_collector: Option<(TYPES::Time, usize, usize)>,
 

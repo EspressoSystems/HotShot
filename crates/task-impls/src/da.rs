@@ -22,7 +22,6 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
         state::ConsensusTime,
     },
     utils::ViewInner,
@@ -77,10 +76,10 @@ pub struct DATaskState<
     pub event_stream: ChannelStream<HotShotEvent<TYPES>>,
 
     /// This Nodes public key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
 
     /// This Nodes private key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
 
     /// This state's ID
     pub id: u64,
@@ -279,7 +278,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // sign the encoded transactions as opposed to the VID commitment
                 let Ok(signature) =
-                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
+                    TYPES::PublicKey::sign(&self.private_key, &encoded_transactions_hash)
                 else {
                     error!("Failed to sign block payload!");
                     return None;

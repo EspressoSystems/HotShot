@@ -19,7 +19,6 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
         BlockPayload,
     },
 };
@@ -72,9 +71,9 @@ pub struct TransactionTaskState<
     pub event_stream: ChannelStream<HotShotEvent<TYPES>>,
 
     /// This Nodes Public Key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Our Private Key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
     /// This state's ID
     pub id: u64,
 }

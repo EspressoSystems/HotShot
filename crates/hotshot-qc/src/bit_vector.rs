@@ -13,12 +13,12 @@ use bitvec::prelude::*;
 use ethereum_types::U256;
 use generic_array::GenericArray;
 use hotshot_types::traits::{
-    qc::QuorumCertificate,
+    qc::QuorumCertificateScheme,
     stake_table::{SnapshotVersion, StakeTableScheme},
 };
 use jf_primitives::{
     errors::{PrimitivesError, PrimitivesError::ParameterError},
-    signatures::AggregateableSignatureSchemes,
+    signatures::{AggregateableSignatureSchemes, SignatureScheme},
 };
 use serde::{Deserialize, Serialize};
 use typenum::U32;
@@ -30,7 +30,7 @@ pub struct BitVectorQC<A: AggregateableSignatureSchemes, ST: StakeTableScheme>(
 );
 
 /// Public parameters of [`BitVectorQC`]
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct QCParams<A: AggregateableSignatureSchemes, ST: StakeTableScheme> {
     /// the stake table (snapshot) this QC is verified against
     pub stake_table: ST,
@@ -40,7 +40,7 @@ pub struct QCParams<A: AggregateableSignatureSchemes, ST: StakeTableScheme> {
     pub agg_sig_pp: A::PublicParameter,
 }
 
-impl<A, ST> QuorumCertificate<A> for BitVectorQC<A, ST>
+impl<A, ST> QuorumCertificateScheme<A, ST> for BitVectorQC<A, ST>
 where
     A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a> + PartialEq,
     ST: StakeTableScheme<Key = A::VerificationKey, Amount = U256>
@@ -56,6 +56,20 @@ where
     type QC = (A::Signature, BitVec);
     type MessageLength = U32;
     type QuorumSize = U256;
+
+    fn setup<R: CryptoRng + RngCore>(
+        stake_table: ST,
+        threshold: Self::QuorumSize,
+        prng: Option<&mut R>,
+    ) -> Result<(Self::QCProverParams, Self::QCVerifierParams), PrimitivesError> {
+        let agg_sig_pp = <A as SignatureScheme>::param_gen(prng)?;
+        let prover_param = QCParams {
+            stake_table,
+            threshold,
+            agg_sig_pp,
+        };
+        Ok((prover_param, prover_param.clone()))
+    }
 
     fn sign<R: CryptoRng + RngCore>(
         agg_sig_pp: &A::PublicParameter,

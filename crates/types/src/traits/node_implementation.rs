@@ -7,6 +7,7 @@ use super::{
     block_contents::{BlockHeader, Transaction},
     election::ElectionConfig,
     network::{CommunicationChannel, TestableNetworkingImplementation},
+    qc::QuorumCertificateScheme,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
@@ -15,13 +16,15 @@ use crate::{
     data::{Leaf, TestableLeaf},
     message::ProcessedSequencingMessage,
     traits::{
-        election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
-        storage::Storage, BlockPayload,
+        election::Membership, network::TestableChannelImplementation, storage::Storage,
+        BlockPayload,
     },
 };
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
+use ethereum_types::U256;
+use jf_primitives::signatures::AggregateableSignatureSchemes;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -88,7 +91,7 @@ pub struct ChannelMaps<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ChannelMaps<TYPES> {
-    /// Create channels starting from a given view.
+    /// Create channels starti nng from a given view.
     pub fn new(start_view: TYPES::Time) -> Self {
         Self {
             proposal_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),
@@ -287,8 +290,58 @@ pub trait NodeType:
     ///
     /// This should be the same block that `StateType::BlockPayload` is using.
     type BlockPayload: BlockPayload<Transaction = Self::Transaction>;
-    /// The signature key that this hotshot setup is using.
-    type SignatureKey: SignatureKey;
+    /// The public key that's used to verify a signature
+    type PublicKey: Default
+        + Ord
+        + PartialOrd
+        + Eq
+        + PartialEq
+        + Hash
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// The private key that a node uses to sign
+    type PrivateKey: Clone + Debug + Send + Sync + Drop + Serialize + for<'a> Deserialize<'a>;
+    /// Signature type
+    type Signature: Ord
+        + PartialOrd
+        + Eq
+        + PartialEq
+        + Hash
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// QC Type
+    type QC: Ord
+        + PartialOrd
+        + Eq
+        + PartialEq
+        + Hash
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// The aggregatable signature scheme used in QCScheme
+    type QCSignatureScheme: AggregateableSignatureSchemes<
+        SigningKey = Self::PrivateKey,
+        VerificationKey = Self::PublicKey,
+        Signature = Self::Signature,
+        MessageUnit = u8,
+    >;
+    /// The quorum certificate scheme
+    type QCScheme: QuorumCertificateScheme<
+        Self::QCSignatureScheme,
+        QuorumSize = U256,
+        QC = Self::QC,
+    >;
     /// The transaction type that this hotshot setup is using.
     ///
     /// This should be equal to `BlockPayload::Transaction`

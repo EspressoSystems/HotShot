@@ -6,7 +6,6 @@ use async_lock::RwLock;
 use clap::Args;
 use futures::FutureExt;
 
-use hotshot_types::traits::signature_key::SignatureKey;
 use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use std::{collections::HashMap, io, path::PathBuf};
 use tide_disco::{
@@ -82,7 +81,7 @@ struct WebServerState<KEY> {
     _prng: StdRng,
 }
 
-impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
+impl<KEY: 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
             proposals: HashMap::new(),
@@ -175,7 +174,7 @@ pub trait WebServerDataSource<KEY> {
     fn get_vid_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
 }
 
-impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
+impl<KEY> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)> {
         self.proposals.get(&view_number).cloned()
     }
@@ -677,7 +676,6 @@ fn define_api<State, KEY>(options: &Options) -> Result<Api<State, Error>, ApiErr
 where
     State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + WebServerDataSource<KEY>,
-    KEY: SignatureKey,
 {
     let mut api = match &options.api_path {
         Some(path) => Api::<State, Error>::from_file(path)?,
@@ -858,7 +856,7 @@ where
     Ok(api)
 }
 
-pub async fn run_web_server<KEY: SignatureKey + 'static>(
+pub async fn run_web_server<KEY: 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
     url: Url,
 ) -> io::Result<()> {

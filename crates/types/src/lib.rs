@@ -10,16 +10,22 @@
 #![allow(clippy::module_name_repetitions)]
 
 use displaydoc::Display;
+use jf_primitives::signatures::{AggregateableSignatureSchemes, SignatureScheme};
+use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use stake_table::StakeTableEntry;
 use std::{num::NonZeroUsize, time::Duration};
-use traits::{election::ElectionConfig, signature_key::SignatureKey};
+use traits::election::ElectionConfig;
 pub mod consensus;
 pub mod data;
 pub mod error;
 pub mod event;
 pub mod light_client;
 pub mod message;
+// pub mod signature_key;
 pub mod simple_certificate;
 pub mod simple_vote;
+pub mod stake_table;
 pub mod traits;
 pub mod utils;
 pub mod vote;
@@ -40,23 +46,34 @@ pub enum ExecutionType {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
 #[serde(bound(deserialize = ""))]
 /// config for validator, including public key, private key, stake value
-pub struct ValidatorConfig<KEY: SignatureKey> {
+pub struct ValidatorConfig<A: AggregateableSignatureSchemes> {
     /// The validator's public key and stake value
-    pub public_key: KEY,
+    pub public_key: <A as SignatureScheme>::VerificationKey,
     /// The validator's private key, should be in the mempool, not public
-    pub private_key: KEY::PrivateKey,
+    pub private_key: <A as SignatureScheme>::SigningKey,
     /// The validator's stake
     pub stake_value: u64,
     /// the validator's key pairs for state signing/verification
     pub state_key_pair: light_client::StateKeyPair,
 }
 
-impl<KEY: SignatureKey> ValidatorConfig<KEY> {
+impl<A: AggregateableSignatureSchemes> ValidatorConfig<A> {
     /// generate validator config from input seed, index and stake value
     #[must_use]
     pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64, stake_value: u64) -> Self {
-        let (public_key, private_key) = KEY::generated_from_seed_indexed(seed, index);
-        let state_key_pairs = light_client::StateKeyPair::generate_from_seed_indexed(seed, index);
+        // Getting new seed
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+
+        let pp = <A as SignatureScheme>::param_gen::<ChaCha20Rng>(None)
+            .expect("Signature public parameter generations shouldn't fail.");
+        let (private_key, public_key) =
+            <A as SignatureScheme>::key_gen(&pp, &mut ChaCha20Rng::from_seed(seed))
+                .expect("Signature key pairs generation shouldn't fail.");
+        let state_key_pairs =
+            light_client::StateKeyPair::generate(&mut ChaCha20Rng::from_seed(seed));
         Self {
             public_key,
             private_key,
@@ -66,7 +83,7 @@ impl<KEY: SignatureKey> ValidatorConfig<KEY> {
     }
 }
 
-impl<KEY: SignatureKey> Default for ValidatorConfig<KEY> {
+impl<A: AggregateableSignatureSchemes> Default for ValidatorConfig<A> {
     fn default() -> Self {
         Self::generated_from_seed_indexed([0u8; 32], 0, 1)
     }
@@ -75,7 +92,7 @@ impl<KEY: SignatureKey> Default for ValidatorConfig<KEY> {
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
-pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
+pub struct HotShotConfig<A: AggregateableSignatureSchemes, ELECTIONCONFIG: ElectionConfig> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
@@ -85,9 +102,9 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
-    pub known_nodes_with_stake: Vec<KEY::StakeTableEntry>,
+    pub known_nodes_with_stake: Vec<StakeTableEntry<<A as SignatureScheme>::VerificationKey>>,
     /// My own validator config, including my public key, private key, stake value, serving as private parameter
-    pub my_own_validator_config: ValidatorConfig<KEY>,
+    pub my_own_validator_config: ValidatorConfig<A>,
     /// List of DA committee nodes for static DA committe
     pub da_committee_size: usize,
     /// Base duration for next-view timeout, in milliseconds

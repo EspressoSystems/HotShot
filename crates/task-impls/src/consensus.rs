@@ -29,13 +29,13 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
         state::ConsensusTime,
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+use rand_chacha::ChaCha20Rng;
 use tracing::warn;
 
 use crate::vote::HandleVoteEvent;
@@ -74,9 +74,9 @@ pub struct ConsensusTaskState<
     A: ConsensusApi<TYPES, I> + 'static,
 > {
     /// Our public key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Our Private Key
-    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    pub private_key: TYPES::PrivateKey,
     /// The global task registry
     pub registry: GlobalRegistry,
     /// Reference to consensus. The replica will require a write lock on this.
@@ -565,7 +565,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let leaf_commitment = leaf.commit();
 
                 // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-                if !view_leader_key.validate(&proposal.signature, leaf_commitment.as_ref()) {
+                use jf_primitives::signatures::SignatureScheme;
+                let sig_pp =
+                    <TYPES::QCSignatureScheme as SignatureScheme>::param_gen::<ChaCha20Rng>(None)
+                        .unwrap();
+                if <TYPES::QCSignatureScheme as SignatureScheme>::verify().is_err() {
                     error!(?proposal.signature, "Could not verify proposal.");
                     return;
                 }

@@ -5,7 +5,7 @@ use ethereum_types::U256;
 use hotshot_qc::bit_vector_old::{
     BitVectorQC, QCParams as JFQCParams, StakeTableEntry as JFStakeTableEntry,
 };
-use hotshot_types::traits::qc::QuorumCertificate;
+use hotshot_types::traits::qc::QuorumCertificateScheme;
 use jf_primitives::errors::PrimitivesError;
 use jf_primitives::signatures::{
     bls_over_bn254::{BLSOverBN254CurveSignatureScheme, VerKey},

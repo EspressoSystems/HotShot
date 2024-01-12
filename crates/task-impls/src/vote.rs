@@ -36,7 +36,7 @@ pub struct VoteCollectionTaskState<
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
 > {
     /// Public key for this node.
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
 
     /// Membership for voting
     pub membership: Arc<TYPES::Membership>,
@@ -62,10 +62,10 @@ pub trait AggregatableVote<
 >
 {
     /// return the leader for this votes
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey;
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey;
 
     /// return the Hotshot event for the completion of this CERT
-    fn make_cert_event(certificate: CERT, key: &TYPES::SignatureKey) -> HotShotEvent<TYPES>;
+    fn make_cert_event(certificate: CERT, key: &TYPES::PublicKey) -> HotShotEvent<TYPES>;
 }
 
 impl<
@@ -157,7 +157,7 @@ where
 /// Info needed to create a vote accumulator task
 pub struct AccumulatorInfo<TYPES: NodeType> {
     /// This nodes Pub Key
-    pub public_key: TYPES::SignatureKey,
+    pub public_key: TYPES::PublicKey,
     /// Membership we are accumulation votes for
     pub membership: Arc<TYPES::Membership>,
     /// View of the votes we are collecting
@@ -254,12 +254,12 @@ type ViewSyncFinalizeVoteState<TYPES> = VoteCollectionTaskState<
 impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>
     for QuorumVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_view_number() + 1)
     }
     fn make_cert_event(
         certificate: QuorumCertificate<TYPES>,
-        _key: &TYPES::SignatureKey,
+        _key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::QCFormed(Left(certificate))
     }
@@ -268,12 +268,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertifica
 impl<TYPES: NodeType> AggregatableVote<TYPES, DAVote<TYPES>, DACertificate<TYPES>>
     for DAVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_view_number())
     }
     fn make_cert_event(
         certificate: DACertificate<TYPES>,
-        key: &TYPES::SignatureKey,
+        key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::DACSend(certificate, key.clone())
     }
@@ -282,12 +282,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DAVote<TYPES>, DACertificate<TYPES
 impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>
     for TimeoutVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_view_number() + 1)
     }
     fn make_cert_event(
         certificate: TimeoutCertificate<TYPES>,
-        _key: &TYPES::SignatureKey,
+        _key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::QCFormed(Right(certificate))
     }
@@ -297,12 +297,12 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
     for ViewSyncCommitVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_data().round + self.get_data().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncCommitCertificate2<TYPES>,
-        key: &TYPES::SignatureKey,
+        key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::ViewSyncCommitCertificate2Send(certificate, key.clone())
     }
@@ -312,12 +312,12 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
     for ViewSyncPreCommitVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_data().round + self.get_data().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncPreCommitCertificate2<TYPES>,
-        key: &TYPES::SignatureKey,
+        key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, key.clone())
     }
@@ -327,12 +327,12 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::PublicKey {
         membership.get_leader(self.get_data().round + self.get_data().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncFinalizeCertificate2<TYPES>,
-        key: &TYPES::SignatureKey,
+        key: &TYPES::PublicKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, key.clone())
     }

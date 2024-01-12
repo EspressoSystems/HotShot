@@ -11,7 +11,7 @@ use libp2p_networking::network::NetworkNodeHandleError;
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
-use super::{node_implementation::NodeType, signature_key::SignatureKey};
+use super::node_implementation::NodeType;
 use crate::{
     data::ViewNumber,
     message::{Message, MessagePurpose},
@@ -139,7 +139,7 @@ pub enum NetworkError {
 #[derive(Clone, Debug)]
 // Storing view number as a u64 to avoid the need TYPES generic
 /// Events to poll or cancel consensus processes.
-pub enum ConsensusIntentEvent<K: SignatureKey> {
+pub enum ConsensusIntentEvent<K> {
     /// Poll for votes for a particular view
     PollForVotes(u64),
     /// Poll for a proposal for a particular view
@@ -178,7 +178,7 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     CancelPollForLatestViewSyncProposal,
 }
 
-impl<K: SignatureKey> ConsensusIntentEvent<K> {
+impl<K> ConsensusIntentEvent<K> {
     /// Get the view number of the event.
     #[must_use]
     pub fn view_number(&self) -> u64 {
@@ -261,7 +261,7 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
     async fn direct_message(
         &self,
         message: Message<TYPES>,
-        recipient: TYPES::SignatureKey,
+        recipient: TYPES::PublicKey,
     ) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -280,14 +280,14 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
     async fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
-        _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+        _pk: TYPES::PublicKey,
+    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::PublicKey)>>> {
         Ok(())
     }
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
+    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::PublicKey>) {}
 }
 
 /// represents a networking implmentration
@@ -295,7 +295,7 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 #[async_trait]
-pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
+pub trait ConnectedNetwork<M: NetworkMsg, K: Send + Sync + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
@@ -377,7 +377,7 @@ pub trait TestableChannelImplementation<TYPES: NodeType>: CommunicationChannel<T
 
 /// Changes that can occur in the network
 #[derive(Debug)]
-pub enum NetworkChange<P: SignatureKey> {
+pub enum NetworkChange<P> {
     /// A node is connected
     NodeConnected(P),
 

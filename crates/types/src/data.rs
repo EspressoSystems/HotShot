@@ -10,7 +10,6 @@ use crate::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::NodeType,
-        signature_key::SignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         BlockPayload, State,
@@ -137,7 +136,7 @@ pub struct VidDisperse<TYPES: NodeType> {
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
-    pub shares: BTreeMap<TYPES::SignatureKey, <VidScheme as VidSchemeTrait>::Share>,
+    pub shares: BTreeMap<TYPES::PublicKey, <VidScheme as VidSchemeTrait>::Share>,
     /// VID common data sent to all storage nodes
     pub common: <VidScheme as VidSchemeTrait>::Common,
 }
@@ -202,7 +201,7 @@ pub struct QuorumProposal<TYPES: NodeType> {
     pub timeout_certificate: Option<TimeoutCertificate<TYPES>>,
 
     /// the propser id
-    pub proposer_id: TYPES::SignatureKey,
+    pub proposer_id: TYPES::PublicKey,
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DAProposal<TYPES> {
@@ -310,7 +309,7 @@ pub struct Leaf<TYPES: NodeType> {
     pub rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
 
     /// the proposer id of the leaf
-    pub proposer_id: TYPES::SignatureKey,
+    pub proposer_id: TYPES::PublicKey,
 }
 
 impl<TYPES: NodeType> PartialEq for Leaf<TYPES> {
@@ -357,7 +356,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_header,
             block_payload: Some(block_payload),
             rejected: Vec::new(),
-            proposer_id: <<TYPES as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
+            proposer_id: TYPES::PublicKey::default(),
         }
     }
 
@@ -431,7 +430,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         self.rejected.clone()
     }
     /// Identity of the network participant who proposed this leaf.
-    pub fn get_proposer_id(&self) -> TYPES::SignatureKey {
+    pub fn get_proposer_id(&self) -> TYPES::PublicKey {
         self.proposer_id.clone()
     }
     /// Create a leaf from information stored about a view.
@@ -482,23 +481,15 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 /// Serialization for the QC assembled signature
 /// # Panics
 /// if serialization fails
-pub fn serialize_signature2<TYPES: NodeType>(
-    signatures: &<TYPES::SignatureKey as SignatureKey>::QCType,
-) -> Vec<u8> {
+pub fn serialize_signature2<TYPES: NodeType>(signatures: &TYPES::QC) -> Vec<u8> {
     let mut signatures_bytes = vec![];
     signatures_bytes.extend("Yes".as_bytes());
 
-    let (sig, proof) = TYPES::SignatureKey::get_sig_proof(signatures);
-    let proof_bytes = bincode_opts()
-        .serialize(&proof.as_bitslice())
+    let qc_bytes = bincode_opts()
+        .serialize(&signatures)
         .expect("This serialization shouldn't be able to fail");
-    signatures_bytes.extend("bitvec proof".as_bytes());
-    signatures_bytes.extend(proof_bytes.as_slice());
-    let sig_bytes = bincode_opts()
-        .serialize(&sig)
-        .expect("This serialization shouldn't be able to fail");
-    signatures_bytes.extend("aggregated signature".as_bytes());
-    signatures_bytes.extend(sig_bytes.as_slice());
+    signatures_bytes.extend("qc".as_bytes());
+    signatures_bytes.extend(qc_bytes.as_slice());
     signatures_bytes
 }
 

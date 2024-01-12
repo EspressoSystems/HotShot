@@ -5,7 +5,6 @@ use crate::{
     event::Event,
     traits::{
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
         storage::StorageError,
     },
 };
@@ -34,10 +33,10 @@ pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sy
     fn min_transactions(&self) -> usize;
 
     /// Get a reference to the public key.
-    fn public_key(&self) -> &TYPES::SignatureKey;
+    fn public_key(&self) -> &TYPES::PublicKey;
 
     /// Get a reference to the private key.
-    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
+    fn private_key(&self) -> &TYPES::PrivateKey;
 
     /// Notify the system of an event within `hotshot-consensus`.
     async fn send_event(&self, event: Event<TYPES>);

@@ -36,7 +36,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 }
 
 #[derive(Default, Clone)]
-struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
+struct OrchestratorState<KEY, ELECTION: ElectionConfig> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
     /// The network configuration
@@ -50,9 +50,7 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     client: Option<surf_disco::Client<ClientError>>,
 }
 
-impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
-    OrchestratorState<KEY, ELECTION>
-{
+impl<KEY: 'static, ELECTION: ElectionConfig + 'static> OrchestratorState<KEY, ELECTION> {
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         let mut web_client = None;
         if network_config.web_server_config.is_some() {
@@ -69,7 +67,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     }
 }
 
-pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
+pub trait OrchestratorApi<KEY, ELECTION: ElectionConfig> {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError>;
     fn post_getconfig(
         &mut self,

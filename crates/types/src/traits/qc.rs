@@ -1,7 +1,10 @@
 //! The quorum certificate (QC) trait is a certificate of a sufficient quorum of distinct
 //! parties voted for a message or statement.
 
+use crate::stake_table::StakeTableEntry;
 use ark_std::{
+    fmt::Debug,
+    hash::Hash,
     rand::{CryptoRng, RngCore},
     vec::Vec,
 };
@@ -11,7 +14,9 @@ use jf_primitives::{errors::PrimitivesError, signatures::AggregateableSignatureS
 use serde::{Deserialize, Serialize};
 
 /// Trait for validating a QC built from different signatures on the same message
-pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a>>
+pub trait QuorumCertificateScheme<
+    A: AggregateableSignatureSchemes + Serialize + for<'a> Deserialize<'a>,
+>
 {
     /// Public parameters for generating the QC
     /// E.g: snark proving/verifying keys, list of (or pointer to) public keys stored in the smart contract.
@@ -25,10 +30,32 @@ pub trait QuorumCertificate<A: AggregateableSignatureSchemes + Serialize + for<'
     type MessageLength: ArrayLength<A::MessageUnit>;
 
     /// Type of the actual quorum certificate object
-    type QC;
+    type QC: Debug
+        + Clone
+        + Eq
+        + PartialEq
+        + Hash
+        + Send
+        + Sync
+        + Serialize
+        + for<'a> Deserialize<'a>;
 
     /// Type of the quorum size (e.g. number of votes or accumulated weight of signatures)
     type QuorumSize;
+
+    /// Generate public parameters
+    /// * `stake_table` - the stake table input
+    /// * `threshold` - minimum total weight for the quorum
+    /// * `prng` - used for underlying signature scheme
+    ///
+    /// # Errors
+    ///
+    /// Should return error if it fails.
+    fn setup<R: CryptoRng + RngCore>(
+        stake_entries: Vec<StakeTableEntry<A::VerificationKey>>,
+        threshold: Self::QuorumSize,
+        prng: Option<&mut R>,
+    ) -> Result<(Self::QCProverParams, Self::QCVerifierParams), PrimitivesError>;
 
     /// Produces a partial signature on a message with a single user signing key
     /// NOTE: the original message (vote) should be prefixed with the hash of the stake table.
