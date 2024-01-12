@@ -397,6 +397,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        transaction_size: usize,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -417,7 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             metrics,
         )
         .await?;
-        let handle = hotshot.clone().run_tasks().await;
+        let handle = hotshot.clone().run_tasks(transaction_size).await;
         let internal_event_stream = hotshot.inner.internal_event_stream.clone();
 
         Ok((handle, internal_event_stream))
@@ -533,7 +534,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
-    pub async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
+    pub async fn run_tasks(self, transaction_size:usize) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
         let registry = task_runner.registry.clone();
@@ -613,7 +614,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let task_runner =
             add_vid_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
         let task_runner =
-            add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+            add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone(), transaction_size).await;
         let task_runner =
             add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
         async_spawn(async move {

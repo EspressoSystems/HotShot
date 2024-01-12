@@ -181,7 +181,6 @@ impl BlockHeader for TestBlockHeader {
 
     fn new(
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
         parent_header: &Self,
     ) -> Self {
         Self {

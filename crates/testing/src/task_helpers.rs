@@ -96,6 +96,7 @@ pub async fn build_system_handle(
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        0
     )
     .await
     .expect("Could not init hotshot")
@@ -137,7 +138,7 @@ async fn build_quorum_proposal_and_signature(
             .quorum_membership
             .total_nodes(),
     );
-    let block_header = TestBlockHeader::new(payload_commitment, (), &parent_leaf.block_header);
+    let block_header = TestBlockHeader::new(payload_commitment, &parent_leaf.block_header);
     let leaf = Leaf {
         view_number: ViewNumber::new(view),
         justify_qc: consensus.high_qc.clone(),

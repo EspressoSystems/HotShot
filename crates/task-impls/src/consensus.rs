@@ -58,9 +58,12 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     /// Vid Commitment
     pub commitment: VidCommitment,
     /// Metadata for the block payload
-    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
+    // pub metadata: <PAYLOAD as BlockPayload>::Metadata,
     /// Flag for if this data represents the genesis block
     pub is_genesis: bool,
+
+    /// phantom data
+    pub pd: PhantomData<PAYLOAD>,
 }
 
 /// Alias for Optional type for Vote Collectors
@@ -1060,12 +1063,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, view) => {
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: payload_commitment,
-                    metadata,
                     is_genesis: false,
+                    pd: PhantomData,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1164,7 +1167,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 parent_commitment: parent_leaf.commit(),
                 block_header: TYPES::BlockHeader::new(
                     commit_and_metadata.commitment,
-                    commit_and_metadata.metadata.clone(),
                     &parent_header,
                 ),
                 block_payload: None,

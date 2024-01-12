@@ -77,6 +77,9 @@ pub struct TransactionTaskState<
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This state's ID
     pub id: u64,
+
+    // tx size
+    pub transaction_size: usize,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -209,33 +212,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 drop(consensus);
 
-                // TODO (Keyao) Determine whether to allow empty blocks.
-                // <https://github.com/EspressoSystems/HotShot/issues/1822>
-                let txns = self.wait_for_transactions(parent_leaf).await?;
-                let (payload, metadata) =
-                    match <TYPES::BlockPayload as BlockPayload>::from_transactions(txns) {
-                        Ok((payload, metadata)) => (payload, metadata),
-                        Err(e) => {
-                            error!("Failed to build the block payload: {:?}.", e);
-                            return None;
-                        }
-                    };
-
                 // encode the transactions
-                let encoded_transactions = match payload.encode() {
-                    Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
-                    Err(e) => {
-                        error!("Failed to encode the block payload: {:?}.", e);
-                        return None;
-                    }
-                };
+                let encoded_transactions = vec![0; self.transaction_size];
 
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
                 self.event_stream
                     .publish(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
-                        metadata,
                         block_view,
                     ))
                     .await;

@@ -102,7 +102,7 @@ impl SpinningTaskDescription {
                                                         "Node {} spinning up late",
                                                         idx
                                                     );
-                                                    let handle = node.run_tasks().await;
+                                                    let handle = node.run_tasks(0).await;
                                                     handle.hotshot.start_consensus().await;
                                                 }
                                             }

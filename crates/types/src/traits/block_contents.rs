@@ -100,7 +100,6 @@ pub trait BlockHeader:
     /// Build a header with the payload commitment, metadata, and parent header.
     fn new(
         payload_commitment: VidCommitment,
-        metadata: <Self::Payload as BlockPayload>::Metadata,
         parent_header: &Self,
     ) -> Self;
 

@@ -207,7 +207,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         inner: handle.hotshot.inner.clone(),
     };
     let registry = task_runner.registry.clone();
-    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
+    let (payload, _metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
     // Impossible for `unwrap` to fail on the genesis payload.
     let payload_commitment = vid_commitment(
         &payload.encode().unwrap().collect(),
@@ -226,8 +226,8 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         cur_view: TYPES::Time::new(0),
         payload_commitment_and_metadata: Some(CommitmentAndMetadata {
             commitment: payload_commitment,
-            metadata,
             is_genesis: true,
+            pd: PhantomData,
         }),
         api: c_api.clone(),
         _pd: PhantomData,
@@ -409,6 +409,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
     handle: SystemContextHandle<TYPES, I>,
+    transaction_size: usize,
 ) -> TaskRunner {
     // build the transactions task
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -428,6 +429,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
         private_key: c_api.private_key().clone(),
         event_stream: event_stream.clone(),
         id: handle.hotshot.inner.id,
+        transaction_size,
     };
     let transactions_event_handler = HandleEvent(Arc::new(
         move |event, mut state: TransactionTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>>| {

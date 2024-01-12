@@ -77,7 +77,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event: HotShotEvent<TYPES>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, view_number) => {
                 // get the number of quorum committee members to be used for VID calculation
                 let num_quorum_committee = self.membership.total_nodes();
 
@@ -97,7 +97,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 self.event_stream
                     .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,
-                        metadata,
                         view_number,
                     ))
                     .await;
@@ -172,7 +171,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         matches!(
             event,
             HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::TransactionsSequenced(_, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )

@@ -90,13 +90,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     TransactionsSequenced(
         Vec<u8>,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),
     /// Event when the transactions task has a block formed

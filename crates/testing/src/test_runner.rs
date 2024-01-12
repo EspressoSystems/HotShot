@@ -206,7 +206,7 @@ where
                 self.nodes.push(Node {
                     node_id,
                     networks,
-                    handle: hotshot.run_tasks().await,
+                    handle: hotshot.run_tasks(0).await,
                 });
             }
             results.push(node_id);

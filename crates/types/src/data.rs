@@ -116,7 +116,7 @@ pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Vec<u8>,
     /// Metadata of the block to be applied.
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    // pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }

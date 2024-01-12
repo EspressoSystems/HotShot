@@ -42,7 +42,6 @@ use hotshot_types::{
         node_implementation::NodeType,
         state::{ConsensusTime, TestableBlock, TestableState},
     },
-    HotShotConfig,
 };
 use libp2p_identity::{
     ed25519::{self, SecretKey},
@@ -52,8 +51,6 @@ use libp2p_networking::{
     network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType},
     reexport::Multiaddr,
 };
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::{collections::BTreeSet, sync::Arc};
@@ -138,17 +135,6 @@ pub async fn run_orchestrator<
         TYPES::ElectionConfigType,
     >(run_config, url)
     .await;
-}
-
-/// Helper function to calculate the nuymber of transactions to send per node per round
-fn calculate_num_tx_per_round(
-    node_index: u64,
-    total_num_nodes: usize,
-    transactions_per_round: usize,
-) -> usize {
-    transactions_per_round / total_num_nodes
-        + ((total_num_nodes - 1 - node_index as usize) < (transactions_per_round % total_num_nodes))
-            as usize
 }
 
 async fn webserver_network_from_config<TYPES: NodeType>(
@@ -351,7 +337,10 @@ pub trait RunDA<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
+    async fn initialize_state_and_hotshot(
+        &self,
+        transaction_size: usize,
+    ) -> SystemContextHandle<TYPES, NODE> {
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis()
             .expect("Couldn't generate genesis block");
 
@@ -408,6 +397,7 @@ pub trait RunDA<
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            transaction_size,
         )
         .await
         .expect("Could not init hotshot")
@@ -415,12 +405,7 @@ pub trait RunDA<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    async fn run_hotshot(
-        &self,
-        mut context: SystemContextHandle<TYPES, NODE>,
-        transactions: &mut Vec<TestTransaction>,
-        transactions_to_send_per_round: u64,
-    ) {
+    async fn run_hotshot(&self, mut context: SystemContextHandle<TYPES, NODE>) {
         let NetworkConfig {
             rounds,
             node_index,
@@ -469,12 +454,12 @@ pub trait RunDA<
                                 }
 
                                 // send transactions
-                                for _ in 0..transactions_to_send_per_round {
-                                    let tx = transactions.remove(0);
+                                // for _ in 0..transactions_to_send_per_round {
+                                //     let tx = transactions.remove(0);
 
-                                    _ = context.submit_transaction(tx).await.unwrap();
-                                    total_transactions_sent += 1;
-                                }
+                                //     _ = context.submit_transaction(tx).await.unwrap();
+                                //     total_transactions_sent += 1;
+                                // }
                             }
 
                             if let Some(size) = block_size {
@@ -990,38 +975,32 @@ pub async fn main_entry_point<
 
     error!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
-    let hotshot = run.initialize_state_and_hotshot().await;
 
     // pre-generate transactions
-    let NetworkConfig {
-        transaction_size,
-        rounds,
-        transactions_per_round,
-        node_index,
-        config: HotShotConfig { total_nodes, .. },
-        ..
-    } = run_config;
+    let transaction_size = run_config.transaction_size;
 
-    let mut txn_rng = StdRng::seed_from_u64(node_index);
-    let transactions_to_send_per_round =
-        calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
-    let mut transactions = Vec::new();
+    let hotshot = run.initialize_state_and_hotshot(transaction_size).await;
 
-    for round in 0..rounds {
-        for _ in 0..transactions_to_send_per_round {
-            let mut txn = <TYPES::StateType>::create_random_transaction(
-                None,
-                &mut txn_rng,
-                transaction_size as u64,
-            );
+    // let mut txn_rng = StdRng::seed_from_u64(node_index);
+    // let transactions_to_send_per_round =
+    //     calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
+    // let mut transactions = Vec::new();
 
-            // prepend destined view number to transaction
-            let view_execute_number: u64 = round as u64 + 4;
-            txn.0[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
+    // for round in 0..rounds {
+    //     for _ in 0..transactions_to_send_per_round {
+    //         let mut txn = <TYPES::StateType>::create_random_transaction(
+    //             None,
+    //             &mut txn_rng,
+    //             transaction_size as u64,
+    //         );
 
-            transactions.push(txn);
-        }
-    }
+    //         // prepend destined view number to transaction
+    //         let view_execute_number: u64 = round as u64 + 4;
+    //         txn.0[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
+
+    //         transactions.push(txn);
+    //     }
+    // }
 
     if let NetworkConfigSource::Orchestrator = source {
         error!("Waiting for the start command from orchestrator");
@@ -1031,12 +1010,7 @@ pub async fn main_entry_point<
     }
 
     error!("Starting HotShot");
-    run.run_hotshot(
-        hotshot,
-        &mut transactions,
-        transactions_to_send_per_round as u64,
-    )
-    .await;
+    run.run_hotshot(hotshot).await;
 }
 
 pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
