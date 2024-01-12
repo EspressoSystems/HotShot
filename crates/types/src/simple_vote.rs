@@ -60,6 +60,18 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
     /// The view number we are trying to sync on
     pub round: TYPES::Time,
 }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a Upgrade vote.
+pub struct UpgradeData<TYPES: NodeType> {
+    /// The new protocol version that we would like to upgrade to.
+    pub version: u64,
+    /// A hash of the protocol specification (to serve as a unique identifier of the specific protocol version under discussion)
+    pub hash: Vec<u8>,
+    /// The view we wish to schedule the upgrade for
+    pub view: TYPES::Time,
+}
+
+
 
 /// Marker trait for data or commitments that can be voted on.
 /// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
@@ -166,12 +178,20 @@ impl Committable for DAData {
             .finalize()
     }
 }
+
 impl Committable for VIDData {
     fn commit(&self) -> Commitment<Self> {
         commit::RawCommitmentBuilder::new("VID Vote")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
+}
+
+impl<TYPES: NodeType> Committable for UpgradeData<TYPES> {
+  fn commit(&self) -> Commitment<Self> {
+    let builder = commit::RawCommitmentBuilder::new("Upgrade Vote");
+    builder.u64(*self.view).var_size_bytes(self.hash.as_slice()).u64(self.version).finalize()
+  }
 }
 
 /// This implements commit for all the types which contain a view and relay public key.

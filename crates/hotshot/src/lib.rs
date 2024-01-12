@@ -34,6 +34,7 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 use async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
     async_primitives::broadcast::BroadcastSender,
@@ -340,6 +341,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 .da_network
                 .broadcast_message(
                     Message {
+                        version: PROGRAM_PROTOCOL_VERSION,
                         sender: api.inner.public_key.clone(),
                         kind: MessageKind::from(message),
                     },
@@ -448,7 +450,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 .networks
                 .quorum_network
                 .broadcast_message(
-                    Message { sender: pk, kind },
+                    Message { 
+                      version: PROGRAM_PROTOCOL_VERSION,
+                      sender: pk,
+                      kind, },
                     // TODO this is morally wrong
                     &inner.memberships.quorum_membership.clone(),
                 )
@@ -478,6 +483,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .quorum_network
             .direct_message(
                 Message {
+                    version: PROGRAM_PROTOCOL_VERSION,
                     sender: self.inner.public_key.clone(),
                     kind: kind.into(),
                 },

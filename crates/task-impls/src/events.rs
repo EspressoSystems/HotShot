@@ -6,7 +6,7 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncCommitCertificate2,
-        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2, UpgradeCertificate
     },
     simple_vote::{
         DAVote, QuorumVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
@@ -111,4 +111,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
     VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
+    /// Upgrade certificate has been received from the network.
+    UpgradeCertificateRecv(UpgradeCertificate<TYPES>),
 }

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
+use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 use hotshot::traits::election::static_committee::{GeneralStaticCommittee, StaticElectionConfig};
 use hotshot::traits::implementations::{
     MasterMap, MemoryCommChannel, MemoryNetwork, MemoryStorage, NetworkingMetricsValue,
@@ -109,6 +110,7 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
         rng.fill_bytes(&mut bytes);
 
         let message = Message {
+            version: PROGRAM_PROTOCOL_VERSION,
             sender: pk,
             kind: MessageKind::Data(DataMessage::SubmitTransaction(
                 TestTransaction(bytes.to_vec()),

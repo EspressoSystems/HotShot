@@ -6,7 +6,7 @@
 use crate::data::QuorumProposal;
 use crate::simple_certificate::{
     DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-    ViewSyncPreCommitCertificate2,
+    ViewSyncPreCommitCertificate2, UpgradeCertificate
 };
 use crate::simple_vote::{
     DAVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitVote,
@@ -32,6 +32,9 @@ use std::{fmt::Debug, marker::PhantomData};
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct Message<TYPES: NodeType> {
+    /// The version number of the protocol use for this message
+    pub version: u64,
+
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
@@ -78,6 +81,8 @@ pub enum MessagePurpose {
     Data,
     /// VID disperse, like [`Proposal`].
     VidDisperse,
+    /// Message with an upgrade proposal.
+    Upgrade,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -184,6 +189,7 @@ impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
             GeneralConsensusMessage::ViewSyncPreCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => unimplemented!(),
+            GeneralConsensusMessage::UpgradeCertificate(_) => unimplemented!(),
         }
     }
 }
@@ -295,6 +301,9 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a Timeout vote
     TimeoutVote(TimeoutVote<TYPES>),
 
+    /// Message with an upgrade proposal
+    UpgradeCertificate(UpgradeCertificate<TYPES>),
+
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
@@ -364,6 +373,9 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) => {
                         message.get_view_number()
                     }
+                    GeneralConsensusMessage::UpgradeCertificate(message) => {
+                        message.get_view_number()
+                    }
                 }
             }
             Right(committee_message) => {
@@ -405,6 +417,8 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 | GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => {
                     MessagePurpose::ViewSyncProposal
                 }
+
+                GeneralConsensusMessage::UpgradeCertificate(_) => MessagePurpose::Upgrade,
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,

@@ -22,6 +22,7 @@ use snafu::Snafu;
 use std::sync::Arc;
 use tracing::error;
 use tracing::instrument;
+use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 
 /// the type of network task
 #[derive(Clone, Copy, Debug)]
@@ -84,6 +85,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
 
                             GeneralConsensusMessage::TimeoutVote(message) => {
                                 HotShotEvent::TimeoutVoteRecv(message)
+                            }
+                            GeneralConsensusMessage::UpgradeCertificate(message) => {
+                                HotShotEvent::UpgradeCertificateRecv(message)
                             }
                             GeneralConsensusMessage::InternalTrigger(_) => {
                                 error!("Got unexpected message type in network task!");
@@ -281,6 +285,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
         };
 
         let message = Message {
+            version: PROGRAM_PROTOCOL_VERSION,
             sender,
             kind: message_kind,
         };
