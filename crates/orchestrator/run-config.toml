@@ -1,6 +1,6 @@
 rounds = 100
 transactions_per_round = 1
-transaction_size = 1749
+transaction_size = 10000
 node_index = 0
 seed = [
     0,
@@ -40,7 +40,7 @@ start_delay_seconds = 0
 push_cdn_address = "127.0.0.1:9000"
 
 [config]
-total_nodes = 10
+total_nodes = 20
 committee_nodes = 5
 max_transactions = 100
 min_transactions = 0
