@@ -106,8 +106,27 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
 
-                let privkey: BLSPrivKey = unsafe { std::mem::transmute_copy(&privkey) };
-                let pubkey: BLSPubKey = unsafe { std::mem::transmute_copy(&pubkey) };
+                let privkey: BLSPrivKey =
+                    if TypeId::of::<<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey>() == TypeId::of::<BLSPrivKey>() {
+                        unsafe { std::mem::transmute_copy(&privkey) }
+                    } else {
+                        panic!(
+                            "Cannot convert from {:?} to {:?}",
+                            TypeId::of::<TYPES::SignatureKey>(),
+                            TypeId::of::<BLSPrivKey>()
+                        );
+                    };
+
+                let pubkey: BLSPubKey =
+                    if TypeId::of::<TYPES::SignatureKey>() == TypeId::of::<BLSPubKey>() {
+                        unsafe { std::mem::transmute_copy(&pubkey) }
+                    } else {
+                        panic!(
+                            "Cannot convert from {:?} to {:?}",
+                            TypeId::of::<TYPES::SignatureKey>(),
+                            TypeId::of::<BLSPubKey>()
+                        );
+                    };
 
                 // TODO: this is garbage
                 let topic = if is_da { Topic::DA } else { Topic::Global };

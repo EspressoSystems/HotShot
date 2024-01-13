@@ -51,6 +51,7 @@ use libp2p_networking::{
     network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType},
     reexport::Multiaddr,
 };
+use std::any::TypeId;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::{collections::BTreeSet, sync::Arc};
@@ -289,8 +290,25 @@ async fn pushcdn_network_from_config<TYPES: NodeType>(
         }
     };
 
-    let privkey: BLSPrivKey = unsafe { std::mem::transmute_copy(&privkey) };
-    let pubkey: BLSPubKey = unsafe { std::mem::transmute_copy(&pubkey) };
+    let privkey: BLSPrivKey = if TypeId::of::<<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey>() == TypeId::of::<BLSPrivKey>() {
+        unsafe { std::mem::transmute_copy(&privkey) }
+    } else {
+        panic!(
+            "Cannot convert from {:?} to {:?}",
+            TypeId::of::<TYPES::SignatureKey>(),
+            TypeId::of::<BLSPrivKey>()
+        );
+    };
+
+    let pubkey: BLSPubKey = if TypeId::of::<TYPES::SignatureKey>() == TypeId::of::<BLSPubKey>() {
+        unsafe { std::mem::transmute_copy(&pubkey) }
+    } else {
+        panic!(
+            "Cannot convert from {:?} to {:?}",
+            TypeId::of::<TYPES::SignatureKey>(),
+            TypeId::of::<BLSPubKey>()
+        );
+    };
 
     let client = Client::new(Config {
         broker_address: config.push_cdn_address.unwrap(),

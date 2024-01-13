@@ -9,7 +9,7 @@ ARG TARGETARCH
 COPY ./target/release/examples/validator-pushcdn /usr/local/bin/validator-pushcdn
 
 # logging
-ENV RUST_LOG="warn"
+ENV RUST_LOG="error"
 
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
