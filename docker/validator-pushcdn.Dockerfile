@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG TARGETARCH
 
-COPY ./target/$TARGETARCH/debug/examples/validator-pushcdn /usr/local/bin/validator-pushcdn
+COPY ./target/release/examples/validator-pushcdn /usr/local/bin/validator-pushcdn
 
 # logging
 ENV RUST_LOG="warn"
