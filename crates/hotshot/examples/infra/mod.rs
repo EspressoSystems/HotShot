@@ -410,11 +410,11 @@ pub trait RunDA<
             rounds,
             node_index,
             start_delay_seconds,
+            transaction_size,
             ..
         } = self.get_config();
 
         let mut total_transactions_committed = 0;
-        let mut total_transactions_sent = 0;
 
         error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
@@ -491,7 +491,14 @@ pub trait RunDA<
 
         // Output run results
         let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        let throughput = total_transactions_committed as f64 * transaction_size as f64
+            / total_time_elapsed.as_secs_f64()
+            * 0.001 as f64
+            * 0.001 as f64;
+
+        if throughput > 0.0 {
+            error!("[{node_index}]: Throughput: {throughput}MBps");
+        }
     }
 
     /// Returns the da network for this run

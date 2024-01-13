@@ -22,7 +22,7 @@ flamegraph *ARGS:
   cargo flamegraph {{ARGS}}
 
 example *ARGS:
-  cargo run --profile=release-lto --example {{ARGS}}
+  cargo run --profile=release --example {{ARGS}}
 
 test:
   echo Testing
