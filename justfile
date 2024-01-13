@@ -18,6 +18,9 @@ run_ci: lint build test
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
+flamegraph *ARGS:
+  cargo flamegraph {{ARGS}}
+
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
