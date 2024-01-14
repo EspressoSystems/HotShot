@@ -383,7 +383,7 @@
         <span class="prelude-val">Ok</span>(TestTransaction::encode(<span class="self">self</span>.transactions.clone())<span class="question-mark">?</span>.into_iter())
     }
 
-    <span class="kw">fn </span>transaction_commitments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
+    <span class="kw">fn </span>transaction_commitments(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
         <span class="self">self</span>.transactions
             .iter()
             .map(commit::Committable::commit)

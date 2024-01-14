@@ -1260,6 +1260,8 @@
 <a href="#1260" id="1260">1260</a>
 <a href="#1261" id="1261">1261</a>
 <a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1926,8 +1928,10 @@
                                 }
 
                                 leaf_views.push(leaf.clone());
-                                <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = leaf.block_payload {
-                                    <span class="kw">for </span>txn <span class="kw">in </span>payload.transaction_commitments() {
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
+                                    <span class="kw">for </span>txn <span class="kw">in </span>payload
+                                        .transaction_commitments(leaf.get_block_header().metadata())
+                                    {
                                         included_txns.insert(txn);
                                     }
                                 }

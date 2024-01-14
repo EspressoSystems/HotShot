@@ -716,6 +716,12 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -778,7 +784,7 @@
     traits::{
         consensus_api::ConsensusApi,
         network::{CommunicationChannel, NetworkError},
-        node_implementation::{ChannelMaps, NodeType, SendToTasks},
+        node_implementation::{NodeType, SendToTasks},
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
@@ -796,6 +802,10 @@
 };
 <span class="kw">use </span>tasks::add_vid_task;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_types::traits::node_implementation::ChannelMaps;
+
 <span class="comment">// -- Rexports
 // External
 </span><span class="doccomment">/// Reexport rand crate
@@ -880,6 +890,7 @@
 
     <span class="doccomment">/// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
     /// latter of which is only applicable for sequencing consensus.
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span>channel_maps: (ChannelMaps&lt;TYPES&gt;, <span class="prelude-ty">Option</span>&lt;ChannelMaps&lt;TYPES&gt;&gt;),
 
     <span class="comment">// global_registry: GlobalRegistry,
@@ -974,7 +985,8 @@
 
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
             id: nonce,
-            channel_maps: I::new_channel_maps(start_view),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+            </span>channel_maps: I::new_channel_maps(start_view),
             consensus,
             public_key,
             private_key,
