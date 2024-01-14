@@ -32,8 +32,10 @@ use std::{fmt::Debug, marker::PhantomData};
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct Message<TYPES: NodeType> {
-    /// The version number of the protocol use for this message
-    pub version: u64,
+    /// The major version number of the protocol in use for this message
+    pub major_version: u32,
+    /// The minor version number of the protocol in use for this message
+    pub minor_version: u32,
 
     /// The sender of this message
     pub sender: TYPES::SignatureKey,

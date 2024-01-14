@@ -63,15 +63,24 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
 pub struct UpgradeData<TYPES: NodeType> {
-    /// The new protocol version that we would like to upgrade to.
-    pub version: u64,
-    /// A hash of the protocol specification (to serve as a unique identifier of the specific protocol version under discussion)
-    pub hash: Vec<u8>,
-    /// The view we wish to schedule the upgrade for
-    pub view: TYPES::Time,
+    /// The old major version that we are upgrading from.
+    pub old_major_version: u32,
+    /// The old minor version that we are upgrading from.
+    pub old_minor_version: u32,
+    /// The new major version that we are upgrading to.
+    pub new_major_version: u32,
+    /// The new minor version that we are upgrading to.
+    pub new_minor_version: u32,
+    /// A unique identifier for the specific protocol being voted on.
+    /// This is to enable differentiation in the case that
+    /// multiple upgrades to the same version number are considered simultaneously.
+    /// It is recommended to produce this by hashing the specification.
+    pub new_version_hash: Vec<u8>,
+    /// The last block for which the old version will be in effect.
+    pub old_version_last_block: TYPES::Time,
+    /// The first block for which the new version will be in effect.
+    pub new_version_first_block: TYPES::Time,
 }
-
-
 
 /// Marker trait for data or commitments that can be voted on.
 /// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
@@ -188,10 +197,20 @@ impl Committable for VIDData {
 }
 
 impl<TYPES: NodeType> Committable for UpgradeData<TYPES> {
-  fn commit(&self) -> Commitment<Self> {
-    let builder = commit::RawCommitmentBuilder::new("Upgrade Vote");
-    builder.u64(*self.view).var_size_bytes(self.hash.as_slice()).u64(self.version).finalize()
-  }
+    fn commit(&self) -> Commitment<Self> {
+        let builder = commit::RawCommitmentBuilder::new("Upgrade Vote");
+        builder
+            .u64(*self.new_version_first_block)
+            .u64(*self.old_version_last_block)
+            .var_size_bytes(self.new_version_hash.as_slice())
+            // TODO: Change these from .fixed_size_bytes() to .u32() after
+            // https://github.com/EspressoSystems/commit/pull/45 has been merged.
+            .fixed_size_bytes(&self.new_minor_version.to_le_bytes())
+            .fixed_size_bytes(&self.new_major_version.to_le_bytes())
+            .fixed_size_bytes(&self.old_minor_version.to_le_bytes())
+            .fixed_size_bytes(&self.old_major_version.to_le_bytes())
+            .finalize()
+    }
 }
 
 /// This implements commit for all the types which contain a view and relay public key.

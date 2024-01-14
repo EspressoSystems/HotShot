@@ -22,7 +22,7 @@ use snafu::Snafu;
 use std::sync::Arc;
 use tracing::error;
 use tracing::instrument;
-use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
+use hotshot_constants::{PROGRAM_MAJOR_VERSION, PROGRAM_MINOR_VERSION};
 
 /// the type of network task
 #[derive(Clone, Copy, Debug)]
@@ -285,7 +285,8 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
         };
 
         let message = Message {
-            version: PROGRAM_PROTOCOL_VERSION,
+            major_version: PROGRAM_MAJOR_VERSION,
+            minor_version: PROGRAM_MINOR_VERSION,
             sender,
             kind: message_kind,
         };

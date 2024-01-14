@@ -16,4 +16,5 @@ pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 
 /// the protocol version number in effect
-pub const PROGRAM_PROTOCOL_VERSION: u64 = 0;
+pub const PROGRAM_MAJOR_VERSION: u32 = 0;
+pub const PROGRAM_MINOR_VERSION: u32 = 1;
