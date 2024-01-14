@@ -5,12 +5,12 @@ use bincode;
 use commit::Committable;
 use either::Left;
 
-use hotshot_signature_key::bn254::{BLSPrivKey, BLSPubKey};
 
 use hotshot_testing::node_types::TestTypes;
 
 use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
+    signature_key::BLSPubKey,
     simple_certificate::SimpleCertificate,
     simple_vote::ViewSyncCommitData,
     traits::{signature_key::SignatureKey, state::ConsensusTime},
@@ -20,7 +20,7 @@ use hotshot_types::{
 // Checks that the current program protocol version
 // correctly appears at the start of a serialized messaged.
 fn version_number_at_start_of_serialization() {
-    let sender = BLSPubKey::from_private(&BLSPrivKey::generate_from_seed([0u8; 32]));
+    let sender = BLSPubKey::generated_from_seed_indexed([0u8; 32], 0).0;
     let view_number = ConsensusTime::new(17);
     // The version we set for the message
     let major_version = 37;
