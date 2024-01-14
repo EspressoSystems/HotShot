@@ -202,6 +202,7 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
@@ -326,9 +327,10 @@
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) =&gt; {
-                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-                    TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>vid_disperse.payload_commitment)
-                <span class="kw">else </span>{
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                    vid_disperse.payload_commitment.as_ref().as_ref(),
+                ) <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">&quot;VID: failed to sign dispersal payload&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };

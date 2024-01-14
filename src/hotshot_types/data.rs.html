@@ -547,7 +547,6 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1054,7 +1053,6 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; commit::Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>payload_commitment_bytes: [u8; <span class="number">32</span>] = <span class="self">self</span>.get_payload_commitment().into();
         <span class="kw">let </span>signatures_bytes = <span class="kw">if </span><span class="self">self</span>.justify_qc.is_genesis {
             <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
             bytes.extend(<span class="string">&quot;genesis&quot;</span>.as_bytes());
@@ -1069,7 +1067,7 @@
             .u64_field(<span class="string">&quot;block number&quot;</span>, <span class="self">self</span>.get_height())
             .field(<span class="string">&quot;parent Leaf commitment&quot;</span>, <span class="self">self</span>.parent_commitment)
             .constant_str(<span class="string">&quot;block payload commitment&quot;</span>)
-            .fixed_size_bytes(<span class="kw-2">&amp;</span>payload_commitment_bytes)
+            .fixed_size_bytes(<span class="self">self</span>.get_payload_commitment().as_ref().as_ref())
             .constant_str(<span class="string">&quot;justify_qc view number&quot;</span>)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.justify_qc.view_number)
             .field(
