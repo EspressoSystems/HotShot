@@ -5,8 +5,8 @@
 
 use crate::data::QuorumProposal;
 use crate::simple_certificate::{
-    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-    ViewSyncPreCommitCertificate2, UpgradeCertificate
+    DACertificate, UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+    ViewSyncPreCommitCertificate2,
 };
 use crate::simple_vote::{
     DAVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitVote,

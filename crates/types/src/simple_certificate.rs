@@ -12,8 +12,8 @@ use ethereum_types::U256;
 use crate::{
     data::Leaf,
     simple_vote::{
-        DAData, QuorumData, TimeoutData, ViewSyncCommitData, ViewSyncFinalizeData,
-        ViewSyncPreCommitData, Voteable, UpgradeData,
+        DAData, QuorumData, TimeoutData, UpgradeData, ViewSyncCommitData, ViewSyncFinalizeData,
+        ViewSyncPreCommitData, Voteable,
     },
     traits::{
         election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
