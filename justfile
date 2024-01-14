@@ -7,24 +7,24 @@ original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_examp
 
 run_ci: lint build test
 
-configure_async_executor executor:
-  @echo setting executor to {{executor}}
-  @export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="{{executor}}" --cfg async_channel_impl="{{executor}}" {{original_rustdocflags}}'
-  @export RUSTFLAGS='--cfg async_executor_impl="{{executor}}" --cfg async_channel_impl="{{executor}}" {{original_rustflags}}'
+async := "async_std"
 
-@with_tokio *ARGS: (configure_async_executor "tokio")
-  {{ARGS}}
+# Run arbitrary cargo commands, with e.g.
+#     just async=async-std cargo check
+# or
+#     just async=tokio cargo test -p unit_tests
 
-@with_async_std *ARGS: (configure_async_executor "async-std")
-  export RUST_MIN_STACK=4194304
-  {{ARGS}}
+@cargo *ARGS:
+  echo setting async executor to {{async}}
+  export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="{{async}}" --cfg async_channel_impl="{{async}}" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="{{async}}" --cfg async_channel_impl="{{async}}" {{original_rustflags}}' && cargo {{ARGS}}
 
-@tokio target *ARGS: (configure_async_executor "tokio")
-  just {{target}} {{ARGS}}
+@tokio target *ARGS:
+  echo setting executor to tokio
+  export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
-@async_std target *ARGS: (configure_async_executor "async-std")
-  export RUST_MIN_STACK=4194304
-  just {{target}} {{ARGS}}
+@async_std target *ARGS:
+  echo setting executor to async-std
+  export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
