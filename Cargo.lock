@@ -1075,6 +1075,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq",
+ "digest 0.10.7",
 ]
 
 [[package]]
@@ -7231,7 +7232,6 @@ dependencies = [
  "commit",
  "either",
  "hotshot-constants",
- "hotshot-signature-key",
  "hotshot-testing",
  "hotshot-types",
  "serde",

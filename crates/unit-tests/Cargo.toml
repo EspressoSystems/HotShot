@@ -13,7 +13,6 @@ either = { version = "1.8" }
 serde = { version = "1.0.194", features = ["derive"] }
 
 hotshot-constants = { path = "../constants" }
-hotshot-signature-key = { path = "../hotshot-signature-key" }
 hotshot-testing = { path = "../testing" }
 hotshot-types = { path = "../types" }
 
