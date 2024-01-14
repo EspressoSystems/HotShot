@@ -1,7 +1,6 @@
 #[cfg(test)]
 use std::marker::PhantomData;
 
-use bincode;
 use commit::Committable;
 use either::Left;
 
@@ -34,7 +33,7 @@ fn version_number_at_start_of_serialization() {
     let simple_certificate = SimpleCertificate {
         data: data.clone(),
         vote_commitment: data.commit(),
-        view_number: view_number,
+        view_number,
         signatures: None,
         is_genesis: false,
         _pd: PhantomData,
