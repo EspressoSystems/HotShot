@@ -2829,6 +2829,7 @@ dependencies = [
  "either",
  "futures",
  "hotshot",
+ "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
