@@ -4,6 +4,7 @@ use crate::{
 };
 use async_lock::RwLock;
 
+use futures::join;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -13,6 +14,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
+    event::{Event, EventType},
     message::Proposal,
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
@@ -140,6 +142,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Could not verify proposal.");
                     return None;
                 }
+
+                // Proposal is fresh and valid, notify the application layer
+                self.api
+                    .send_event(Event {
+                        view_number: self.cur_view,
+                        event: EventType::DAProposal {
+                            proposal: proposal.clone(),
+                            sender: sender.clone(),
+                        },
+                    })
+                    .await;
 
                 if !self.da_membership.has_stake(&self.public_key) {
                     debug!(
@@ -299,12 +312,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     _pd: PhantomData,
                 };
 
-                self.event_stream
-                    .publish(HotShotEvent::DAProposalSend(
-                        message.clone(),
-                        self.public_key.clone(),
-                    ))
-                    .await;
+                join! {
+                    self.event_stream
+                        .publish(HotShotEvent::DAProposalSend(
+                            message.clone(),
+                            self.public_key.clone(),
+                        )),
+                    self.api.send_event(Event {
+                        view_number: self.cur_view,
+                        event: EventType::DAProposal {
+                            proposal: message,
+                            sender: self.public_key.clone()
+                        },
+                    }),
+                };
             }
 
             HotShotEvent::Timeout(view) => {
