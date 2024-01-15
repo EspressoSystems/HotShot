@@ -232,6 +232,9 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -383,7 +386,10 @@
         <span class="prelude-val">Ok</span>(TestTransaction::encode(<span class="self">self</span>.transactions.clone())<span class="question-mark">?</span>.into_iter())
     }
 
-    <span class="kw">fn </span>transaction_commitments(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
+    <span class="kw">fn </span>transaction_commitments(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata,
+    ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
         <span class="self">self</span>.transactions
             .iter()
             .map(commit::Committable::commit)

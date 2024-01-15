@@ -120,6 +120,9 @@
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -192,7 +195,10 @@
     </span><span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Encode&lt;<span class="lifetime">&#39;_</span>&gt;, <span class="self">Self</span>::Error&gt;;
 
     <span class="doccomment">/// List of transaction commitments.
-    </span><span class="kw">fn </span>transaction_commitments(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt;;
+    </span><span class="kw">fn </span>transaction_commitments(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata,
+    ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt;;
 }
 
 <span class="doccomment">/// Compute the VID payload commitment.

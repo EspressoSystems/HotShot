@@ -128,8 +128,6 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs for the hotshot signature keys
 
 </span><span class="kw">use crate</span>::{
@@ -256,9 +254,7 @@
     }
 
     <span class="kw">fn </span>genesis_proposer_pk() -&gt; <span class="self">Self </span>{
-        <span class="kw">use </span>rand::rngs::mock::StepRng;
-        <span class="kw">let </span><span class="kw-2">mut </span>my_rng = StepRng::new(<span class="number">42</span>, <span class="number">1337</span>);
-        <span class="kw">let </span>kp = KeyPair::generate(<span class="kw-2">&amp;mut </span>my_rng);
+        <span class="kw">let </span>kp = KeyPair::generate(<span class="kw-2">&amp;mut </span>ChaCha20Rng::from_seed([<span class="number">0u8</span>; <span class="number">32</span>]));
         kp.ver_key()
     }
 }
