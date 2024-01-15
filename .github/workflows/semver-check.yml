@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         async_runtimes:
-          - async-std
+          - async_std
           - tokio
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +32,12 @@ jobs:
         with:
           path: baseline
           ref: ${{ inputs.baseline }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
@@ -51,13 +57,5 @@ jobs:
       - name: Run cargo-semver-checks
         run: |
           cd current
-          export RUSTFLAGS='--cfg async_executor_impl="${{matrix.async_runtimes}}" --cfg async_channel_impl="${{matrix.async_runtimes}}"'
-          export RUSTDOCFLAGS="${RUSTFLAGS}"
-          # Checking each crate manually, because cargo-semver-checks
-          # exits early if it fails to check one of the crates
-          while IFS= read -r crate; do
-            cargo semver-checks \
-              --package "${crate}" \
-              --baseline-root ../baseline || true
-          done < <(cargo workspaces list)
+          just ${{matrix.async_runtimes}} semver --baseline-root ../baseline
 
