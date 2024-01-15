@@ -282,7 +282,7 @@ impl TestData {
                     type BlockHeader = <#demo_state as hotshot_types::traits::State>::BlockHeader;
                     type SignatureKey = #signature_key_type;
                     type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockPayload as hotshot_types::traits::BlockPayload>::Transaction;
-                    type ValidatedState = #demo_state;
+                    type StateType = #demo_state;
                     type VoteTokenType = hotshot::traits::election::static_committee::StaticVoteToken<Self::SignatureKey>;
                     type ElectionConfigType = hotshot::traits::election::static_committee::StaticElectionConfig;
                 }
