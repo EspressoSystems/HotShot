@@ -204,11 +204,10 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u64(*self.new_version_first_block)
             .u64(*self.old_version_last_block)
             .var_size_bytes(self.new_version_hash.as_slice())
-            // TODO: Change these from .fixed_size_bytes() to .u16() after updating EspressoSystems/commit
-            .fixed_size_bytes(&self.new_minor_version.to_le_bytes())
-            .fixed_size_bytes(&self.new_major_version.to_le_bytes())
-            .fixed_size_bytes(&self.old_minor_version.to_le_bytes())
-            .fixed_size_bytes(&self.old_major_version.to_le_bytes())
+            .u16(self.new_minor_version)
+            .u16(self.new_major_version)
+            .u16(self.old_minor_version)
+            .u16(self.old_major_version)
             .finalize()
     }
 }

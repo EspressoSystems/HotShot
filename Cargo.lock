@@ -1075,7 +1075,6 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq",
- "digest 0.10.7",
 ]
 
 [[package]]
@@ -1312,7 +1311,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "commit"
 version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit#fa1d0cb00bda1cc06c239aaf3a692014489d88c8"
+source = "git+https://github.com/EspressoSystems/commit#dd9f16e084d45e9ea52459c776f5fdcb6b000889"
 dependencies = [
  "arbitrary",
  "ark-serialize",
@@ -2825,6 +2824,7 @@ version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
  "async-std",
+ "bincode",
  "commit",
  "either",
  "futures",
@@ -7223,20 +7223,6 @@ name = "unicode-xid"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
-
-[[package]]
-name = "unit-tests"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "blake3",
- "commit",
- "either",
- "hotshot-constants",
- "hotshot-testing",
- "hotshot-types",
- "serde",
-]
 
 [[package]]
 name = "universal-hash"
